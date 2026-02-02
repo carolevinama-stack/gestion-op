@@ -141,6 +141,7 @@ export default function App() {
   // Navigation
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [historiqueParams, setHistoriqueParams] = useState({ sourceId: null, exerciceId: null });
+  const [activeBudgetSource, setActiveBudgetSource] = useState(null); // Source active pour le budget
   
   // Data state
   const [projet, setProjet] = useState(null);
@@ -1273,7 +1274,10 @@ export default function App() {
 
   // ==================== PAGE BUDGET ====================
   const PageBudget = () => {
-    const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
+    // Utiliser la source globale ou la première source par défaut
+    const activeSource = activeBudgetSource || sources[0]?.id || null;
+    const setActiveSource = (sourceId) => setActiveBudgetSource(sourceId);
+    
     const [showAnterieur, setShowAnterieur] = useState(false);
     const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
     const [showModal, setShowModal] = useState(false);
@@ -1989,12 +1993,19 @@ export default function App() {
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                 <button onClick={() => setShowRevisionModal(false)} style={styles.buttonSecondary}>Annuler</button>
                 <button 
-                  onClick={createRevision} 
+                  onClick={() => {
+                    if (!motifRevision.trim()) {
+                      alert('Le motif de la révision est obligatoire');
+                      return;
+                    }
+                    createRevision();
+                  }} 
                   disabled={saving || !motifRevision.trim()}
                   style={{ 
                     ...styles.button, 
                     background: currentSourceObj?.couleur || '#0f4c3a',
-                    opacity: saving || !motifRevision.trim() ? 0.6 : 1
+                    opacity: saving || !motifRevision.trim() ? 0.6 : 1,
+                    cursor: saving || !motifRevision.trim() ? 'not-allowed' : 'pointer'
                   }}
                 >
                   {saving ? 'Création...' : '✓ Créer la révision'}
