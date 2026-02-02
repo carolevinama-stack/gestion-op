@@ -1520,334 +1520,6 @@ export default function App() {
       exportToCSV(csv, filename);
     };
 
-    // Export de l'historique des versions (format lignes x versions)
-    const exportHistorique = () => {
-      if (allBudgetsForSourceExercice.length === 0) return;
-
-      const now = new Date().toLocaleDateString('fr-FR');
-      const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
-      
-      let csv = `HISTORIQUE DES VERSIONS BUDGETAIRES - ${currentSourceObj?.nom || ''}\n`;
-      csv += `Exercice: ${currentExerciceObj?.annee || ''}\n`;
-      csv += `Date d'export: ${now}\n\n`;
-      
-      // En-tête : dates
-      csv += `DATE;`;
-      sortedBudgets.forEach(budget => {
-        csv += `${budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'};`;
-      });
-      csv += `\n`;
-
-      // En-tête : versions
-      csv += `LIGNE;`;
-      sortedBudgets.forEach((budget, index) => {
-        if (index === 0) {
-          csv += `Budget Initial;`;
-        } else {
-          csv += `V${budget.version} (variation);`;
-        }
-      });
-      csv += `DOTATION FINALE\n`;
-
-      // Collecter toutes les lignes uniques
-      const allLignes = new Map();
-      sortedBudgets.forEach(budget => {
-        (budget.lignes || []).forEach(ligne => {
-          if (!allLignes.has(ligne.code)) {
-            allLignes.set(ligne.code, ligne.libelle);
-          }
-        });
-      });
-
-      // Trier les lignes par code
-      const lignesCodes = Array.from(allLignes.keys()).sort();
-
-      // Données par ligne
-      lignesCodes.forEach(code => {
-        csv += `${code} - ${allLignes.get(code)};`;
-        
-        sortedBudgets.forEach((budget, index) => {
-          const ligne = (budget.lignes || []).find(l => l.code === code);
-          const dotation = ligne?.dotation || 0;
-          
-          if (index === 0) {
-            csv += `${dotation};`;
-          } else {
-            const prevBudget = sortedBudgets[index - 1];
-            const prevLigne = (prevBudget.lignes || []).find(l => l.code === code);
-            const prevDotation = prevLigne?.dotation || 0;
-            const variation = dotation - prevDotation;
-            if (variation === 0) {
-              csv += `-;`;
-            } else {
-              csv += `${variation > 0 ? '+' : ''}${variation};`;
-            }
-          }
-        });
-        
-        // Dotation finale
-        const lastBudget = sortedBudgets[sortedBudgets.length - 1];
-        const lastLigne = (lastBudget.lignes || []).find(l => l.code === code);
-        csv += `${lastLigne?.dotation || 0}\n`;
-      });
-
-      // Ligne TOTAL
-      csv += `TOTAL;`;
-      sortedBudgets.forEach((budget, index) => {
-        const total = (budget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
-        
-        if (index === 0) {
-          csv += `${total};`;
-        } else {
-          const prevBudget = sortedBudgets[index - 1];
-          const prevTotal = (prevBudget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
-          const variation = total - prevTotal;
-          if (variation === 0) {
-            csv += `-;`;
-          } else {
-            csv += `${variation > 0 ? '+' : ''}${variation};`;
-          }
-        }
-      });
-      csv += `${getTotaux(latestVersion).dotation}\n`;
-
-      const filename = `Historique_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}.csv`;
-      exportToCSV(csv, filename);
-    };
-
-    // Si historique affiché, masquer le reste
-    if (showHistorique) {
-      return (
-        <div>
-          {/* En-tête */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <div>
-              <button onClick={() => setShowHistorique(false)} style={{ ...styles.buttonSecondary, padding: '8px 16px', marginBottom: 12 }}>
-                ← Retour au budget
-              </button>
-              <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>📜 Historique des versions</h1>
-              <p style={{ color: '#6c757d', marginTop: 8 }}>
-                {currentSourceObj?.nom} - Exercice {currentExerciceObj?.annee}
-              </p>
-            </div>
-            <button onClick={exportHistorique} style={{ ...styles.button, background: '#1565c0' }}>
-              📥 Exporter Excel
-            </button>
-          </div>
-
-          {/* Infos versions */}
-          <div style={{ ...styles.card, padding: 16, marginBottom: 20 }}>
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-              {(() => {
-                const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
-                return sortedBudgets.map((budget) => (
-                  <div key={budget.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ 
-                      width: 12, 
-                      height: 12, 
-                      borderRadius: '50%', 
-                      background: budget.id === latestVersion?.id ? '#4caf50' : currentSourceObj?.couleur || '#0f4c3a' 
-                    }}></div>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>
-                        {budget.version === 1 ? 'Budget Initial' : `Révision ${budget.version - 1}`}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#6c757d' }}>
-                        {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
-                        {budget.motifRevision && ` - ${budget.motifRevision}`}
-                      </div>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          </div>
-
-          {/* Tableau principal : Lignes x Versions */}
-          <div style={styles.card}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={styles.table}>
-                <thead>
-                  {/* Ligne des dates */}
-                  <tr style={{ background: '#f8f9fa' }}>
-                    <th style={{ ...styles.th, borderBottom: 'none' }}>DATE</th>
-                    {(() => {
-                      const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
-                      return sortedBudgets.map(budget => (
-                        <th key={budget.id} style={{ ...styles.th, textAlign: 'right', borderBottom: 'none' }}>
-                          {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
-                        </th>
-                      ));
-                    })()}
-                    <th style={{ ...styles.th, textAlign: 'right', borderBottom: 'none', background: '#e8f5e9' }}></th>
-                  </tr>
-                  {/* Ligne des versions */}
-                  <tr>
-                    <th style={{ ...styles.th, minWidth: 150 }}>LIGNE</th>
-                    {(() => {
-                      const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
-                      return sortedBudgets.map((budget, index) => (
-                        <th key={budget.id} style={{ 
-                          ...styles.th, 
-                          textAlign: 'right', 
-                          minWidth: 120,
-                          background: budget.id === latestVersion?.id ? '#e8f5e9' : '#f8f9fa'
-                        }}>
-                          {budget.version === 1 ? 'Budget Initial' : `V${budget.version}`}
-                          {index > 0 && <div style={{ fontSize: 9, fontWeight: 400, color: '#6c757d' }}>(variation)</div>}
-                        </th>
-                      ));
-                    })()}
-                    <th style={{ ...styles.th, textAlign: 'right', minWidth: 140, background: currentSourceObj?.couleur || '#0f4c3a', color: 'white' }}>
-                      DOTATION FINALE
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
-                    
-                    // Collecter toutes les lignes uniques de toutes les versions
-                    const allLignes = new Map();
-                    sortedBudgets.forEach(budget => {
-                      (budget.lignes || []).forEach(ligne => {
-                        if (!allLignes.has(ligne.code)) {
-                          allLignes.set(ligne.code, ligne.libelle);
-                        }
-                      });
-                    });
-
-                    // Trier les lignes par code
-                    const lignesCodes = Array.from(allLignes.keys()).sort();
-
-                    return lignesCodes.map(code => {
-                      // Obtenir la dotation de chaque version pour cette ligne
-                      const dotationsParVersion = sortedBudgets.map((budget, index) => {
-                        const ligne = (budget.lignes || []).find(l => l.code === code);
-                        const dotation = ligne?.dotation || 0;
-                        
-                        // Calculer la variation par rapport à la version précédente
-                        let variation = null;
-                        if (index > 0) {
-                          const prevBudget = sortedBudgets[index - 1];
-                          const prevLigne = (prevBudget.lignes || []).find(l => l.code === code);
-                          const prevDotation = prevLigne?.dotation || 0;
-                          variation = dotation - prevDotation;
-                        }
-                        
-                        return { dotation, variation, isLatest: budget.id === latestVersion?.id };
-                      });
-
-                      // Dotation finale (dernière version)
-                      const dotationFinale = dotationsParVersion[dotationsParVersion.length - 1]?.dotation || 0;
-
-                      return (
-                        <tr key={code}>
-                          <td style={styles.td}>
-                            <code style={{ background: '#f5f5f5', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
-                              {code}
-                            </code>
-                            <div style={{ fontSize: 11, color: '#6c757d', marginTop: 2 }}>{allLignes.get(code)}</div>
-                          </td>
-                          {dotationsParVersion.map((item, index) => (
-                            <td key={index} style={{ 
-                              ...styles.td, 
-                              textAlign: 'right', 
-                              fontFamily: 'monospace',
-                              background: item.isLatest ? '#f1f8e9' : 'transparent'
-                            }}>
-                              {index === 0 ? (
-                                // Budget initial : afficher le montant
-                                <span style={{ fontWeight: 500 }}>{formatMontant(item.dotation)}</span>
-                              ) : (
-                                // Révisions : afficher la variation
-                                item.variation === 0 ? (
-                                  <span style={{ color: '#bdbdbd' }}>-</span>
-                                ) : (
-                                  <span style={{ 
-                                    color: item.variation > 0 ? '#2e7d32' : '#c62828',
-                                    fontWeight: 600
-                                  }}>
-                                    {item.variation > 0 ? '+' : ''}{formatMontant(item.variation)}
-                                  </span>
-                                )
-                              )}
-                            </td>
-                          ))}
-                          <td style={{ 
-                            ...styles.td, 
-                            textAlign: 'right', 
-                            fontFamily: 'monospace', 
-                            fontWeight: 700,
-                            background: '#e8f5e9',
-                            color: currentSourceObj?.couleur || '#0f4c3a'
-                          }}>
-                            {formatMontant(dotationFinale)}
-                          </td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: '#f8f9fa', fontWeight: 700 }}>
-                    <td style={{ ...styles.td, fontWeight: 700, fontSize: 13 }}>TOTAL</td>
-                    {(() => {
-                      const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
-                      
-                      return sortedBudgets.map((budget, index) => {
-                        const totalDotation = (budget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
-                        
-                        let variation = null;
-                        if (index > 0) {
-                          const prevBudget = sortedBudgets[index - 1];
-                          const prevTotal = (prevBudget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
-                          variation = totalDotation - prevTotal;
-                        }
-
-                        return (
-                          <td key={budget.id} style={{ 
-                            ...styles.td, 
-                            textAlign: 'right', 
-                            fontFamily: 'monospace', 
-                            fontWeight: 700,
-                            background: budget.id === latestVersion?.id ? '#e8f5e9' : '#f8f9fa'
-                          }}>
-                            {index === 0 ? (
-                              formatMontant(totalDotation)
-                            ) : (
-                              variation === 0 ? (
-                                <span style={{ color: '#bdbdbd' }}>-</span>
-                              ) : (
-                                <span style={{ color: variation > 0 ? '#2e7d32' : '#c62828' }}>
-                                  {variation > 0 ? '+' : ''}{formatMontant(variation)}
-                                </span>
-                              )
-                            )}
-                          </td>
-                        );
-                      });
-                    })()}
-                    <td style={{ 
-                      ...styles.td, 
-                      textAlign: 'right', 
-                      fontFamily: 'monospace', 
-                      fontWeight: 700,
-                      fontSize: 16,
-                      background: currentSourceObj?.couleur || '#0f4c3a',
-                      color: 'white'
-                    }}>
-                      {formatMontant(getTotaux(latestVersion).dotation)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>💰 Budget</h1>
@@ -2335,6 +2007,342 @@ export default function App() {
     );
   };
 
+  // ==================== PAGE HISTORIQUE BUDGET ====================
+  const PageHistoriqueBudget = () => {
+    const { sourceId, exerciceId } = historiqueParams;
+    
+    const currentSourceObj = sources.find(s => s.id === sourceId);
+    const currentExerciceObj = exercices.find(e => e.id === exerciceId);
+    
+    // Obtenir tous les budgets pour cette source/exercice
+    const allBudgetsForSourceExercice = budgets
+      .filter(b => b.sourceId === sourceId && b.exerciceId === exerciceId)
+      .sort((a, b) => (a.version || 1) - (b.version || 1)); // Trier par version croissante
+    
+    const latestVersion = allBudgetsForSourceExercice[allBudgetsForSourceExercice.length - 1];
+
+    // Calculer les totaux d'un budget
+    const getTotaux = (budget) => {
+      if (!budget || !budget.lignes) return { dotation: 0 };
+      return {
+        dotation: budget.lignes.reduce((sum, l) => sum + (l.dotation || 0), 0)
+      };
+    };
+
+    // Label de version
+    const getVersionLabel = (budget) => {
+      if (!budget) return '';
+      const v = budget.version || 1;
+      if (v === 1) return 'Budget Initial';
+      return `V${v}`;
+    };
+
+    // Export de l'historique
+    const exportHistorique = () => {
+      if (allBudgetsForSourceExercice.length === 0) return;
+
+      const now = new Date().toLocaleDateString('fr-FR');
+      let csv = `HISTORIQUE DES VERSIONS BUDGETAIRES - ${currentSourceObj?.nom || ''}\n`;
+      csv += `Exercice: ${currentExerciceObj?.annee || ''}\n`;
+      csv += `Date d'export: ${now}\n\n`;
+      
+      // En-tête avec dates
+      csv += `DATE;`;
+      allBudgetsForSourceExercice.forEach(budget => {
+        csv += `${budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'};`;
+      });
+      csv += `\n`;
+
+      // En-tête avec versions
+      csv += `LIGNE;`;
+      allBudgetsForSourceExercice.forEach((budget, index) => {
+        csv += `${getVersionLabel(budget)}${index > 0 ? ' (variation)' : ''};`;
+      });
+      csv += `DOTATION FINALE\n`;
+
+      // Collecter toutes les lignes
+      const allLignes = new Map();
+      allBudgetsForSourceExercice.forEach(budget => {
+        (budget.lignes || []).forEach(ligne => {
+          if (!allLignes.has(ligne.code)) {
+            allLignes.set(ligne.code, ligne.libelle);
+          }
+        });
+      });
+
+      // Lignes de données
+      Array.from(allLignes.keys()).sort().forEach(code => {
+        csv += `${code};`;
+        
+        let prevDotation = 0;
+        allBudgetsForSourceExercice.forEach((budget, index) => {
+          const ligne = (budget.lignes || []).find(l => l.code === code);
+          const dotation = ligne?.dotation || 0;
+          
+          if (index === 0) {
+            csv += `${dotation};`;
+          } else {
+            const variation = dotation - prevDotation;
+            csv += `${variation === 0 ? '' : (variation > 0 ? '+' : '') + variation};`;
+          }
+          prevDotation = dotation;
+        });
+        
+        // Dotation finale
+        const lastBudget = allBudgetsForSourceExercice[allBudgetsForSourceExercice.length - 1];
+        const lastLigne = (lastBudget?.lignes || []).find(l => l.code === code);
+        csv += `${lastLigne?.dotation || 0}\n`;
+      });
+
+      // Ligne total
+      csv += `TOTAL;`;
+      let prevTotal = 0;
+      allBudgetsForSourceExercice.forEach((budget, index) => {
+        const total = (budget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
+        if (index === 0) {
+          csv += `${total};`;
+        } else {
+          const variation = total - prevTotal;
+          csv += `${variation === 0 ? '' : (variation > 0 ? '+' : '') + variation};`;
+        }
+        prevTotal = total;
+      });
+      csv += `${getTotaux(latestVersion).dotation}\n`;
+
+      const filename = `Historique_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}.csv`;
+      exportToCSV(csv, filename);
+    };
+
+    if (!sourceId || !exerciceId) {
+      return (
+        <div>
+          <button onClick={() => setCurrentPage('budget')} style={{ ...styles.buttonSecondary, marginBottom: 20 }}>
+            ← Retour au budget
+          </button>
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <p style={{ color: '#6c757d' }}>Aucune donnée à afficher</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        {/* En-tête */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+          <div>
+            <button onClick={() => setCurrentPage('budget')} style={{ ...styles.buttonSecondary, padding: '8px 16px', marginBottom: 12 }}>
+              ← Retour au budget
+            </button>
+            <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>📜 Historique des versions</h1>
+            <p style={{ color: '#6c757d', marginTop: 8 }}>
+              <span style={{ 
+                display: 'inline-block', 
+                width: 12, 
+                height: 12, 
+                borderRadius: '50%', 
+                background: currentSourceObj?.couleur || '#0f4c3a',
+                marginRight: 8
+              }}></span>
+              {currentSourceObj?.nom} - Exercice {currentExerciceObj?.annee}
+            </p>
+          </div>
+          <button onClick={exportHistorique} style={{ ...styles.button, background: '#1565c0' }}>
+            📥 Exporter Excel
+          </button>
+        </div>
+
+        {/* Légende des versions */}
+        <div style={{ ...styles.card, padding: 16, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            {allBudgetsForSourceExercice.map((budget) => (
+              <div key={budget.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ 
+                  width: 12, 
+                  height: 12, 
+                  borderRadius: '50%', 
+                  background: budget.id === latestVersion?.id ? '#4caf50' : currentSourceObj?.couleur || '#0f4c3a' 
+                }}></div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>
+                    {getVersionLabel(budget)}
+                    {budget.id === latestVersion?.id && <span style={{ color: '#4caf50', marginLeft: 4 }}>(actif)</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#6c757d' }}>
+                    {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
+                    {budget.motifRevision && ` - ${budget.motifRevision}`}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tableau principal */}
+        <div style={styles.card}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={styles.table}>
+              <thead>
+                {/* Ligne des dates */}
+                <tr style={{ background: '#f8f9fa' }}>
+                  <th style={{ ...styles.th, borderBottom: 'none', minWidth: 150 }}>DATE</th>
+                  {allBudgetsForSourceExercice.map(budget => (
+                    <th key={budget.id} style={{ ...styles.th, textAlign: 'right', borderBottom: 'none', minWidth: 120 }}>
+                      {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
+                    </th>
+                  ))}
+                  <th style={{ ...styles.th, textAlign: 'right', borderBottom: 'none', minWidth: 140, background: '#e8f5e9' }}></th>
+                </tr>
+                {/* Ligne des versions */}
+                <tr>
+                  <th style={{ ...styles.th, minWidth: 150 }}>LIGNE</th>
+                  {allBudgetsForSourceExercice.map((budget, index) => (
+                    <th key={budget.id} style={{ 
+                      ...styles.th, 
+                      textAlign: 'right', 
+                      minWidth: 120,
+                      background: budget.id === latestVersion?.id ? '#e8f5e9' : '#f8f9fa'
+                    }}>
+                      {getVersionLabel(budget)}
+                      {index > 0 && <div style={{ fontSize: 9, fontWeight: 400, color: '#6c757d' }}>(variation)</div>}
+                    </th>
+                  ))}
+                  <th style={{ ...styles.th, textAlign: 'right', minWidth: 140, background: currentSourceObj?.couleur || '#0f4c3a', color: 'white' }}>
+                    DOTATION FINALE
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  // Collecter toutes les lignes
+                  const allLignes = new Map();
+                  allBudgetsForSourceExercice.forEach(budget => {
+                    (budget.lignes || []).forEach(ligne => {
+                      if (!allLignes.has(ligne.code)) {
+                        allLignes.set(ligne.code, ligne.libelle);
+                      }
+                    });
+                  });
+
+                  return Array.from(allLignes.keys()).sort().map(code => {
+                    // Calculer les valeurs pour chaque version
+                    const valuesPerVersion = allBudgetsForSourceExercice.map((budget, index) => {
+                      const ligne = (budget.lignes || []).find(l => l.code === code);
+                      const dotation = ligne?.dotation || 0;
+                      
+                      let variation = null;
+                      if (index > 0) {
+                        const prevBudget = allBudgetsForSourceExercice[index - 1];
+                        const prevLigne = (prevBudget.lignes || []).find(l => l.code === code);
+                        variation = dotation - (prevLigne?.dotation || 0);
+                      }
+                      
+                      return { dotation, variation, isLatest: budget.id === latestVersion?.id };
+                    });
+
+                    const dotationFinale = valuesPerVersion[valuesPerVersion.length - 1]?.dotation || 0;
+
+                    return (
+                      <tr key={code}>
+                        <td style={styles.td}>
+                          <code style={{ background: '#f5f5f5', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 }}>
+                            {code}
+                          </code>
+                          <div style={{ fontSize: 11, color: '#6c757d', marginTop: 2 }}>{allLignes.get(code)}</div>
+                        </td>
+                        {valuesPerVersion.map((item, index) => (
+                          <td key={index} style={{ 
+                            ...styles.td, 
+                            textAlign: 'right', 
+                            fontFamily: 'monospace',
+                            background: item.isLatest ? '#f1f8e9' : 'transparent'
+                          }}>
+                            {index === 0 ? (
+                              <span style={{ fontWeight: 500 }}>{formatMontant(item.dotation)}</span>
+                            ) : (
+                              item.variation === 0 ? (
+                                <span style={{ color: '#bdbdbd' }}>-</span>
+                              ) : (
+                                <span style={{ 
+                                  color: item.variation > 0 ? '#2e7d32' : '#c62828',
+                                  fontWeight: 600
+                                }}>
+                                  {item.variation > 0 ? '+' : ''}{formatMontant(item.variation)}
+                                </span>
+                              )
+                            )}
+                          </td>
+                        ))}
+                        <td style={{ 
+                          ...styles.td, 
+                          textAlign: 'right', 
+                          fontFamily: 'monospace', 
+                          fontWeight: 700,
+                          background: '#e8f5e9',
+                          color: currentSourceObj?.couleur || '#0f4c3a'
+                        }}>
+                          {formatMontant(dotationFinale)}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: '#f8f9fa' }}>
+                  <td style={{ ...styles.td, fontWeight: 700 }}>TOTAL</td>
+                  {allBudgetsForSourceExercice.map((budget, index) => {
+                    const totalDotation = (budget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
+                    
+                    let variation = null;
+                    if (index > 0) {
+                      const prevBudget = allBudgetsForSourceExercice[index - 1];
+                      const prevTotal = (prevBudget.lignes || []).reduce((sum, l) => sum + (l.dotation || 0), 0);
+                      variation = totalDotation - prevTotal;
+                    }
+
+                    return (
+                      <td key={budget.id} style={{ 
+                        ...styles.td, 
+                        textAlign: 'right', 
+                        fontFamily: 'monospace', 
+                        fontWeight: 700,
+                        background: budget.id === latestVersion?.id ? '#e8f5e9' : '#f8f9fa'
+                      }}>
+                        {index === 0 ? (
+                          formatMontant(totalDotation)
+                        ) : (
+                          variation === 0 ? (
+                            <span style={{ color: '#bdbdbd' }}>-</span>
+                          ) : (
+                            <span style={{ color: variation > 0 ? '#2e7d32' : '#c62828' }}>
+                              {variation > 0 ? '+' : ''}{formatMontant(variation)}
+                            </span>
+                          )
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td style={{ 
+                    ...styles.td, 
+                    textAlign: 'right', 
+                    fontFamily: 'monospace', 
+                    fontWeight: 700,
+                    fontSize: 16,
+                    background: currentSourceObj?.couleur || '#0f4c3a',
+                    color: 'white'
+                  }}>
+                    {formatMontant(getTotaux(latestVersion).dotation)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ==================== PAGES EN CONSTRUCTION ====================
   const PageEnConstruction = ({ title, icon }) => (
     <div>
@@ -2371,6 +2379,7 @@ export default function App() {
         {currentPage === 'parametres' && <PageParametres />}
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
         {currentPage === 'budget' && <PageBudget />}
+        {currentPage === 'historique' && <PageHistoriqueBudget />}
         {currentPage === 'ops' && <PageEnConstruction title="Liste des OP" icon="📋" />}
         {currentPage === 'nouvelOp' && <PageEnConstruction title="Nouvel OP" icon="➕" />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
