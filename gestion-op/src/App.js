@@ -2544,39 +2544,59 @@ export default function App() {
     const [form, setForm] = useState({
       type: 'PROVISOIRE',
       beneficiaireId: '',
-      ligneBudgetaire: '',
+      modeReglement: 'VIREMENT',
       objet: '',
+      piecesJustificatives: '',
       montant: '',
+      ligneBudgetaire: '',
+      montantTVA: '',
+      tvaRecuperable: false,
+      opProvisoireNumero: '',
       opProvisoireId: ''
     });
     const [saving, setSaving] = useState(false);
-    const [searchBen, setSearchBen] = useState('');
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
+    const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
     
     // Budget actif pour la source et l'exercice actif
     const currentBudget = budgets
       .filter(b => b.sourceId === activeSource && b.exerciceId === exerciceActif?.id)
       .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
 
-    // Calculer le disponible pour une ligne
-    const getDisponible = (ligneCode) => {
-      if (!currentBudget) return 0;
-      const ligne = currentBudget.lignes?.find(l => l.code === ligneCode);
-      if (!ligne) return 0;
-      
-      const engagements = ops
+    // Ligne budgétaire sélectionnée
+    const selectedLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
+
+    // Calculs budgétaires
+    const getDotation = () => selectedLigne?.dotation || 0;
+    
+    const getEngagementsAnterieurs = () => {
+      if (!form.ligneBudgetaire) return 0;
+      return ops
         .filter(op => 
           op.sourceId === activeSource && 
           op.exerciceId === exerciceActif?.id &&
-          op.ligneBudgetaire === ligneCode &&
+          op.ligneBudgetaire === form.ligneBudgetaire &&
           ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
           !['REJETE', 'ANNULE'].includes(op.statut)
         )
         .reduce((sum, op) => sum + (op.montant || 0), 0);
-      
-      return (ligne.dotation || 0) - engagements;
     };
+
+    const getEngagementActuel = () => {
+      const montant = parseFloat(form.montant) || 0;
+      // Pour Annulation : libère le budget (négatif)
+      if (form.type === 'ANNULATION') return -montant;
+      // Pour Définitif : remplace le provisoire, donc pas d'impact supplémentaire si même montant
+      if (form.type === 'DEFINITIF' && form.opProvisoireId) {
+        const opProv = ops.find(o => o.id === form.opProvisoireId);
+        return montant - (opProv?.montant || 0);
+      }
+      return montant;
+    };
+
+    const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
+    const getDisponible = () => getDotation() - getEngagementsCumules();
 
     // OP Provisoires disponibles pour Annulation/Définitif
     const opProvisoiresDisponibles = ops.filter(op => 
@@ -2584,7 +2604,6 @@ export default function App() {
       op.exerciceId === exerciceActif?.id &&
       op.type === 'PROVISOIRE' &&
       !['REJETE', 'ANNULE'].includes(op.statut) &&
-      // Vérifier qu'il n'est pas déjà lié à un Définitif ou Annulation
       !ops.find(o => o.opProvisoireId === op.id && ['DEFINITIF', 'ANNULATION'].includes(o.type))
     );
 
@@ -2600,30 +2619,42 @@ export default function App() {
       return `${prefix}-${annee}-${String(nextNum).padStart(4, '0')}`;
     };
 
-    // Bénéficiaires filtrés
-    const filteredBeneficiaires = beneficiaires.filter(b =>
-      b.nom?.toLowerCase().includes(searchBen.toLowerCase()) ||
-      b.ncc?.toLowerCase().includes(searchBen.toLowerCase())
-    );
-
-    // OP Provisoire sélectionné
-    const opProvisoireSelected = form.opProvisoireId 
-      ? ops.find(op => op.id === form.opProvisoireId)
-      : null;
-
-    // Quand on sélectionne un OP Provisoire, pré-remplir les champs
+    // Quand on sélectionne un OP Provisoire
     const handleSelectOpProvisoire = (opId) => {
+      if (!opId) {
+        setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' });
+        return;
+      }
       const op = ops.find(o => o.id === opId);
       if (op) {
         setForm({
           ...form,
           opProvisoireId: opId,
+          opProvisoireNumero: op.numero,
           beneficiaireId: op.beneficiaireId,
           ligneBudgetaire: op.ligneBudgetaire,
           objet: op.objet,
-          montant: form.type === 'ANNULATION' ? op.montant : form.montant
+          montant: form.type === 'ANNULATION' ? String(op.montant) : form.montant,
+          modeReglement: op.modeReglement || 'VIREMENT'
         });
       }
+    };
+
+    // Effacer le formulaire
+    const handleClear = () => {
+      setForm({
+        type: 'PROVISOIRE',
+        beneficiaireId: '',
+        modeReglement: 'VIREMENT',
+        objet: '',
+        piecesJustificatives: '',
+        montant: '',
+        ligneBudgetaire: '',
+        montantTVA: '',
+        tvaRecuperable: false,
+        opProvisoireNumero: '',
+        opProvisoireId: ''
+      });
     };
 
     // Validation et sauvegarde
@@ -2635,6 +2666,10 @@ export default function App() {
       }
       if (!exerciceActif) {
         alert('Aucun exercice actif. Veuillez en définir un dans les Paramètres.');
+        return;
+      }
+      if (!form.type) {
+        alert('Veuillez sélectionner le type d\'OP');
         return;
       }
       if (!form.beneficiaireId) {
@@ -2653,25 +2688,15 @@ export default function App() {
         alert('Veuillez saisir un montant valide');
         return;
       }
-      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId) {
-        alert(`Veuillez sélectionner l'OP Provisoire à ${form.type === 'ANNULATION' ? 'annuler' : 'régulariser'}`);
+      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId && !form.opProvisoireNumero.trim()) {
+        alert(`Veuillez renseigner le N° d'OP Provisoire à ${form.type === 'ANNULATION' ? 'annuler' : 'régulariser'}`);
         return;
       }
 
-      // Vérification budget (sauf pour Annulation qui libère du budget)
-      const montant = parseFloat(form.montant);
-      if (form.type !== 'ANNULATION') {
-        const disponible = getDisponible(form.ligneBudgetaire);
-        // Pour Définitif, on remplace le Provisoire donc pas de dépassement supplémentaire
-        const montantAVerifier = form.type === 'DEFINITIF' && opProvisoireSelected 
-          ? montant - (opProvisoireSelected.montant || 0)
-          : montant;
-        
-        if (montantAVerifier > disponible && form.type !== 'DEFINITIF') {
-          if (!window.confirm(`⚠️ Attention : Le montant (${formatMontant(montant)}) dépasse le disponible (${formatMontant(disponible)}).\n\nVoulez-vous continuer ?`)) {
-            return;
-          }
-        }
+      // Vérification disponible (bloquant si < 0 sauf pour Annulation)
+      if (form.type !== 'ANNULATION' && getDisponible() < 0) {
+        alert(`❌ Impossible de créer cet OP.\n\nLe disponible budgétaire serait négatif (${formatMontant(getDisponible())} FCFA).\n\nVeuillez réduire le montant ou augmenter la dotation.`);
+        return;
       }
 
       setSaving(true);
@@ -2683,11 +2708,17 @@ export default function App() {
           sourceId: activeSource,
           exerciceId: exerciceActif.id,
           beneficiaireId: form.beneficiaireId,
+          modeReglement: form.modeReglement,
           ligneBudgetaire: form.ligneBudgetaire,
           objet: form.objet.trim(),
-          montant: montant,
+          piecesJustificatives: form.piecesJustificatives.trim(),
+          montant: parseFloat(form.montant),
+          montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
+          tvaRecuperable: form.tvaRecuperable,
           statut: 'CREE',
           opProvisoireId: form.opProvisoireId || null,
+          opProvisoireNumero: form.opProvisoireNumero || null,
+          dateCreation: new Date().toISOString().split('T')[0],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -2695,20 +2726,8 @@ export default function App() {
         const docRef = await addDoc(collection(db, 'ops'), opData);
         setOps([...ops, { id: docRef.id, ...opData }]);
 
-        // Réinitialiser le formulaire
-        setForm({
-          type: 'PROVISOIRE',
-          beneficiaireId: '',
-          ligneBudgetaire: '',
-          objet: '',
-          montant: '',
-          opProvisoireId: ''
-        });
-        setSearchBen('');
-
         alert(`✅ OP ${numero} créé avec succès !`);
-        
-        // Aller à la liste des OP
+        handleClear();
         setCurrentPage('ops');
       } catch (error) {
         console.error('Erreur:', error);
@@ -2717,275 +2736,337 @@ export default function App() {
       setSaving(false);
     };
 
-    // Types d'OP avec descriptions
     const typesOP = [
-      { value: 'PROVISOIRE', label: '📋 Provisoire', desc: 'Engagement prévisionnel (bloque le budget)', color: '#ff9800' },
-      { value: 'DIRECT', label: '⚡ Direct', desc: 'OP complet en une seule étape', color: '#2196f3' },
-      { value: 'DEFINITIF', label: '✅ Définitif', desc: 'Régularise un OP Provisoire', color: '#4caf50' },
-      { value: 'ANNULATION', label: '❌ Annulation', desc: 'Annule un OP Provisoire (libère le budget)', color: '#f44336' }
+      { value: 'PROVISOIRE', label: 'Provisoire' },
+      { value: 'DIRECT', label: 'Direct' },
+      { value: 'DEFINITIF', label: 'Définitif' },
+      { value: 'ANNULATION', label: 'Annulation' }
     ];
-
-    const selectedType = typesOP.find(t => t.value === form.type);
 
     return (
       <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>➕ Nouvel Ordre de Paiement</h1>
-        
-        {/* Onglets Sources */}
-        <div style={styles.sourceTabs}>
-          {sources.map(source => (
-            <div
-              key={source.id}
-              onClick={() => setActiveSource(source.id)}
-              style={activeSource === source.id 
-                ? { ...styles.sourceTabActive, background: source.couleur || '#0f4c3a', borderColor: source.couleur || '#0f4c3a' }
-                : styles.sourceTab
-              }
-            >
-              {source.sigle || source.nom}
-            </div>
-          ))}
+        {/* En-tête */}
+        <div style={{ 
+          background: currentSourceObj?.couleur || '#0f4c3a', 
+          color: 'white', 
+          padding: '20px 24px', 
+          borderRadius: '10px 10px 0 0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
+            FORMULAIRE OP {currentSourceObj?.sigle || ''}
+          </h1>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {sources.map(source => (
+              <button
+                key={source.id}
+                onClick={() => setActiveSource(source.id)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: activeSource === source.id ? 'white' : 'rgba(255,255,255,0.2)',
+                  color: activeSource === source.id ? (source.couleur || '#0f4c3a') : 'white',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                {source.sigle || source.nom}
+              </button>
+            ))}
+          </div>
         </div>
 
         {!exerciceActif ? (
-          <div style={{ ...styles.card, textAlign: 'center', padding: 40 }}>
+          <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', textAlign: 'center', padding: 40 }}>
             <div style={{ fontSize: 50, marginBottom: 16 }}>⚠️</div>
             <p style={{ color: '#e65100', fontWeight: 600 }}>Aucun exercice actif</p>
             <p style={{ color: '#6c757d' }}>Veuillez définir un exercice actif dans les <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Paramètres</span></p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 20 }}>
-            {/* Formulaire principal */}
-            <div>
-              {/* Type d'OP */}
-              <div style={styles.card}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>TYPE D'OP</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                  {typesOP.map(type => (
-                    <div
-                      key={type.value}
-                      onClick={() => setForm({ ...form, type: type.value, opProvisoireId: '', montant: '' })}
-                      style={{
-                        padding: 16,
-                        borderRadius: 10,
-                        border: form.type === type.value ? `3px solid ${type.color}` : '2px solid #e9ecef',
-                        background: form.type === type.value ? `${type.color}10` : 'white',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{type.label}</div>
-                      <div style={{ fontSize: 12, color: '#6c757d' }}>{type.desc}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sélection OP Provisoire (pour Annulation/Définitif) */}
-              {['ANNULATION', 'DEFINITIF'].includes(form.type) && (
-                <div style={{ ...styles.card, borderLeft: `4px solid ${selectedType?.color}` }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>
-                    OP PROVISOIRE À {form.type === 'ANNULATION' ? 'ANNULER' : 'RÉGULARISER'}
-                  </h3>
-                  {opProvisoiresDisponibles.length === 0 ? (
-                    <p style={{ color: '#f44336', textAlign: 'center', padding: 20 }}>
-                      Aucun OP Provisoire disponible pour cette source
-                    </p>
-                  ) : (
-                    <select
-                      value={form.opProvisoireId}
-                      onChange={(e) => handleSelectOpProvisoire(e.target.value)}
-                      style={{ ...styles.input, marginBottom: 0 }}
-                    >
-                      <option value="">-- Sélectionner un OP Provisoire --</option>
-                      {opProvisoiresDisponibles.map(op => {
-                        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                        return (
-                          <option key={op.id} value={op.id}>
-                            {op.numero} - {ben?.nom || 'N/A'} - {formatMontant(op.montant)} FCFA
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
-                  {opProvisoireSelected && (
-                    <div style={{ marginTop: 12, padding: 12, background: '#f8f9fa', borderRadius: 8, fontSize: 13 }}>
-                      <div><strong>Objet :</strong> {opProvisoireSelected.objet}</div>
-                      <div><strong>Montant :</strong> {formatMontant(opProvisoireSelected.montant)} FCFA</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Bénéficiaire */}
-              <div style={styles.card}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>BÉNÉFICIAIRE</h3>
-                <input
-                  type="text"
-                  placeholder="🔍 Rechercher un bénéficiaire..."
-                  value={searchBen}
-                  onChange={(e) => setSearchBen(e.target.value)}
-                  style={{ ...styles.input, marginBottom: 12 }}
-                />
-                <select
-                  value={form.beneficiaireId}
-                  onChange={(e) => setForm({ ...form, beneficiaireId: e.target.value })}
-                  style={{ ...styles.input, marginBottom: 0 }}
-                  disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
-                >
-                  <option value="">-- Sélectionner --</option>
-                  {filteredBeneficiaires.map(ben => (
-                    <option key={ben.id} value={ben.id}>{ben.nom} {ben.ncc ? `(${ben.ncc})` : ''}</option>
-                  ))}
-                </select>
-                {beneficiaires.length === 0 && (
-                  <p style={{ fontSize: 12, color: '#f44336', marginTop: 8 }}>
-                    Aucun bénéficiaire. <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('beneficiaires')}>En ajouter</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Ligne budgétaire */}
-              <div style={styles.card}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>IMPUTATION BUDGÉTAIRE</h3>
-                <select
-                  value={form.ligneBudgetaire}
-                  onChange={(e) => setForm({ ...form, ligneBudgetaire: e.target.value })}
-                  style={{ ...styles.input, marginBottom: 0 }}
-                  disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
-                >
-                  <option value="">-- Sélectionner une ligne --</option>
-                  {currentBudget?.lignes?.map(ligne => {
-                    const dispo = getDisponible(ligne.code);
-                    return (
-                      <option key={ligne.code} value={ligne.code}>
-                        {ligne.code} - {ligne.libelle} (Dispo: {formatMontant(dispo)})
-                      </option>
-                    );
-                  })}
-                </select>
-                {!currentBudget && (
-                  <p style={{ fontSize: 12, color: '#f44336', marginTop: 8 }}>
-                    Aucun budget pour cette source. <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('budget')}>Créer le budget</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Objet et Montant */}
-              <div style={styles.card}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>DÉTAILS</h3>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Objet de la dépense *</label>
-                  <textarea
-                    value={form.objet}
-                    onChange={(e) => setForm({ ...form, objet: e.target.value })}
-                    placeholder="Ex: Acquisition de matériel informatique"
-                    style={{ ...styles.input, minHeight: 80, resize: 'vertical', marginBottom: 0 }}
+          <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
+            <div style={{ padding: 24 }}>
+              {/* Ligne 1 : N°OP, Type, Bouton Effacer */}
+              <div style={{ display: 'grid', gridTemplateColumns: '200px 200px 1fr auto', gap: 20, marginBottom: 20, alignItems: 'end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N° OP</label>
+                  <input 
+                    type="text" 
+                    value={genererNumero()} 
+                    readOnly 
+                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace' }} 
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant (FCFA) *</label>
-                  <input
-                    type="number"
-                    value={form.montant}
-                    onChange={(e) => setForm({ ...form, montant: e.target.value })}
-                    placeholder="0"
-                    style={{ ...styles.input, fontFamily: 'monospace', fontSize: 18, textAlign: 'right', marginBottom: 0 }}
-                    disabled={form.type === 'ANNULATION' && form.opProvisoireId}
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>TYPE D'OP *</label>
+                  <select 
+                    value={form.type} 
+                    onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '' })}
+                    style={{ ...styles.input, marginBottom: 0 }}
+                  >
+                    {typesOP.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div></div>
+                <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
+                  EFFACER
+                </button>
+              </div>
+
+              {/* Ligne 2 : Bénéficiaire, NCC */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 20, marginBottom: 20 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE *</label>
+                  <select 
+                    value={form.beneficiaireId} 
+                    onChange={(e) => setForm({ ...form, beneficiaireId: e.target.value })}
+                    style={{ ...styles.input, marginBottom: 0 }}
+                    disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                  >
+                    <option value="">-- Sélectionner un bénéficiaire --</option>
+                    {beneficiaires.map(b => <option key={b.id} value={b.id}>{b.nom}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N°CC</label>
+                  <input 
+                    type="text" 
+                    value={selectedBeneficiaire?.ncc || ''} 
+                    readOnly 
+                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa' }} 
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Panneau récapitulatif */}
-            <div>
-              <div style={{ ...styles.card, position: 'sticky', top: 20, borderTop: `4px solid ${selectedType?.color || '#0f4c3a'}` }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 20, color: '#6c757d' }}>RÉCAPITULATIF</h3>
-                
-                {/* Numéro */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>NUMÉRO</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: currentSourceObj?.couleur || '#0f4c3a', fontFamily: 'monospace' }}>
-                    {genererNumero()}
+              {/* Ligne 3 : Mode de règlement */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
+                <div style={{ display: 'flex', gap: 30 }}>
+                  {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => (
+                    <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input 
+                        type="radio" 
+                        name="modeReglement" 
+                        checked={form.modeReglement === mode}
+                        onChange={() => setForm({ ...form, modeReglement: mode })}
+                        style={{ width: 18, height: 18 }}
+                      />
+                      <span style={{ fontSize: 14 }}>{mode}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ligne 4 : Références bancaires */}
+              {form.modeReglement === 'VIREMENT' && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RÉFÉRENCES BANCAIRES (RIB)</label>
+                  <input 
+                    type="text" 
+                    value={selectedBeneficiaire?.rib || ''} 
+                    readOnly 
+                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }} 
+                  />
+                </div>
+              )}
+
+              {/* Ligne 5 : Objet de la dépense */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE *</label>
+                <textarea 
+                  value={form.objet} 
+                  onChange={(e) => setForm({ ...form, objet: e.target.value })}
+                  style={{ ...styles.input, marginBottom: 0, minHeight: 80, resize: 'vertical', background: '#fff0f0' }} 
+                  placeholder="Décrire l'objet de la dépense..."
+                />
+              </div>
+
+              {/* Ligne 6 : Pièces justificatives */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
+                <textarea 
+                  value={form.piecesJustificatives} 
+                  onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })}
+                  style={{ ...styles.input, marginBottom: 0, minHeight: 60, resize: 'vertical', background: '#fff0f0' }} 
+                  placeholder="Lister les pièces jointes..."
+                />
+              </div>
+
+              {/* Ligne 7 : Montant et Ligne budgétaire */}
+              <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: 20, marginBottom: 20 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) *</label>
+                  <input 
+                    type="number" 
+                    value={form.montant} 
+                    onChange={(e) => setForm({ ...form, montant: e.target.value })}
+                    style={{ ...styles.input, marginBottom: 0, background: '#fff0f0', fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} 
+                    placeholder="0"
+                    disabled={form.type === 'ANNULATION' && form.opProvisoireId}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE *</label>
+                  <select 
+                    value={form.ligneBudgetaire} 
+                    onChange={(e) => setForm({ ...form, ligneBudgetaire: e.target.value })}
+                    style={{ ...styles.input, marginBottom: 0, background: '#fff0f0' }}
+                    disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {currentBudget?.lignes?.map(l => (
+                      <option key={l.code} value={l.code}>{l.code} - {l.libelle}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Ligne 8 : Infos budgétaires + Date + TVA */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+                {/* Colonne gauche : Infos budget */}
+                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Dotation budgétaire</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getDotation())}</span>
+                    
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements antérieurs</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getEngagementsAnterieurs())}</span>
+                    
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagement actuel</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : '#e65100' }}>
+                      {getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}
+                    </span>
+                    
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements cumulés</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getEngagementsCumules())}</span>
+                    
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Disponible budgétaire</span>
+                    <span style={{ 
+                      fontSize: 14, 
+                      fontFamily: 'monospace', 
+                      textAlign: 'right', 
+                      fontWeight: 700,
+                      color: getDisponible() >= 0 ? '#2e7d32' : '#c62828'
+                    }}>
+                      {formatMontant(getDisponible())}
+                    </span>
                   </div>
-                </div>
-
-                {/* Type */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>TYPE</div>
-                  <span style={{ ...styles.badge, background: `${selectedType?.color}20`, color: selectedType?.color }}>
-                    {selectedType?.label}
-                  </span>
-                </div>
-
-                {/* Source */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>SOURCE</div>
-                  <div style={{ fontWeight: 600 }}>{currentSourceObj?.nom || '-'}</div>
-                </div>
-
-                {/* Exercice */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>EXERCICE</div>
-                  <div style={{ fontWeight: 600 }}>{exerciceActif?.annee || '-'}</div>
-                </div>
-
-                {/* Bénéficiaire */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>BÉNÉFICIAIRE</div>
-                  <div style={{ fontWeight: 500 }}>
-                    {form.beneficiaireId ? beneficiaires.find(b => b.id === form.beneficiaireId)?.nom : '-'}
-                  </div>
-                </div>
-
-                {/* Ligne */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>LIGNE BUDGÉTAIRE</div>
-                  <div style={{ fontWeight: 500 }}>
-                    {form.ligneBudgetaire ? (
-                      <>
-                        <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>{form.ligneBudgetaire}</code>
-                        <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
-                          Disponible: <strong style={{ color: getDisponible(form.ligneBudgetaire) >= 0 ? '#2e7d32' : '#c62828' }}>
-                            {formatMontant(getDisponible(form.ligneBudgetaire))}
-                          </strong>
-                        </div>
-                      </>
-                    ) : '-'}
-                  </div>
-                </div>
-
-                {/* Montant */}
-                <div style={{ marginBottom: 24, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>MONTANT</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: currentSourceObj?.couleur || '#0f4c3a', fontFamily: 'monospace' }}>
-                    {form.montant ? formatMontant(parseFloat(form.montant)) : '0'} <span style={{ fontSize: 14 }}>FCFA</span>
-                  </div>
-                  {form.ligneBudgetaire && form.montant && form.type !== 'ANNULATION' && (
-                    <div style={{ fontSize: 12, marginTop: 8 }}>
-                      {parseFloat(form.montant) > getDisponible(form.ligneBudgetaire) ? (
-                        <span style={{ color: '#c62828' }}>⚠️ Dépasse le disponible</span>
-                      ) : (
-                        <span style={{ color: '#2e7d32' }}>✓ Budget suffisant</span>
-                      )}
+                  {getDisponible() < 0 && form.type !== 'ANNULATION' && (
+                    <div style={{ marginTop: 12, padding: 8, background: '#ffebee', borderRadius: 4, color: '#c62828', fontSize: 12, fontWeight: 600 }}>
+                      ⚠️ Budget insuffisant - OP non validable
                     </div>
                   )}
                 </div>
 
-                {/* Bouton Créer */}
+                {/* Colonne droite : Date + TVA */}
+                <div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>DATE</label>
+                    <input 
+                      type="date" 
+                      value={new Date().toISOString().split('T')[0]} 
+                      readOnly
+                      style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa' }} 
+                    />
+                  </div>
+
+                  {/* TVA pour OP Direct ou Définitif */}
+                  {['DIRECT', 'DEFINITIF'].includes(form.type) && (
+                    <>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>TVA RÉCUPÉRABLE</label>
+                        <div style={{ display: 'flex', gap: 20 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input 
+                              type="radio" 
+                              checked={form.tvaRecuperable === true}
+                              onChange={() => setForm({ ...form, tvaRecuperable: true })}
+                            />
+                            <span>OUI</span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                            <input 
+                              type="radio" 
+                              checked={form.tvaRecuperable === false}
+                              onChange={() => setForm({ ...form, tvaRecuperable: false })}
+                            />
+                            <span>NON</span>
+                          </label>
+                        </div>
+                      </div>
+                      {form.tvaRecuperable && (
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT TVA</label>
+                          <input 
+                            type="number" 
+                            value={form.montantTVA} 
+                            onChange={(e) => setForm({ ...form, montantTVA: e.target.value })}
+                            style={{ ...styles.input, marginBottom: 0, fontFamily: 'monospace', textAlign: 'right' }} 
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Ligne 9 : N° OP Provisoire (pour Annulation/Définitif) */}
+              {['ANNULATION', 'DEFINITIF'].includes(form.type) && (
+                <div style={{ marginBottom: 20, padding: 16, background: form.type === 'ANNULATION' ? '#ffebee' : '#e8f5e9', borderRadius: 8 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>
+                    N° OP PROVISOIRE À {form.type === 'ANNULATION' ? 'ANNULER' : 'RÉGULARISER'} *
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, marginBottom: 4, color: '#6c757d' }}>Saisie manuelle</label>
+                      <input 
+                        type="text" 
+                        value={form.opProvisoireNumero} 
+                        onChange={(e) => setForm({ ...form, opProvisoireNumero: e.target.value, opProvisoireId: '' })}
+                        style={{ ...styles.input, marginBottom: 0 }} 
+                        placeholder="Ex: ETAT-2025-0012"
+                      />
+                    </div>
+                    <div style={{ padding: '0 8px', color: '#6c757d', fontSize: 12 }}>ou</div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, marginBottom: 4, color: '#6c757d' }}>Sélectionner un OP existant</label>
+                      <select 
+                        value={form.opProvisoireId} 
+                        onChange={(e) => handleSelectOpProvisoire(e.target.value)}
+                        style={{ ...styles.input, marginBottom: 0 }}
+                      >
+                        <option value="">-- OP Provisoires disponibles --</option>
+                        {opProvisoiresDisponibles.map(op => {
+                          const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                          return (
+                            <option key={op.id} value={op.id}>
+                              {op.numero} - {ben?.nom || 'N/A'} - {formatMontant(op.montant)} F
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bouton Enregistrer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
                 <button
                   onClick={handleSave}
-                  disabled={saving}
+                  disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
                   style={{
                     ...styles.button,
-                    width: '100%',
-                    padding: 16,
+                    padding: '14px 40px',
                     fontSize: 16,
-                    background: selectedType?.color || '#0f4c3a',
-                    opacity: saving ? 0.6 : 1
+                    background: (getDisponible() < 0 && form.type !== 'ANNULATION') ? '#bdbdbd' : (currentSourceObj?.couleur || '#0f4c3a'),
+                    cursor: (saving || (getDisponible() < 0 && form.type !== 'ANNULATION')) ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {saving ? 'Création en cours...' : '✓ Créer l\'OP'}
+                  {saving ? 'Enregistrement...' : 'ENREGISTRER'}
                 </button>
               </div>
             </div>
