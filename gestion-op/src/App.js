@@ -26,7 +26,7 @@ const styles = {
   sidebar: { width: 260, background: 'linear-gradient(180deg, #0a3528 0%, #0f4c3a 100%)', color: 'white', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed' },
   main: { marginLeft: 260, flex: 1, padding: 26 },
   card: { background: 'white', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  input: { width: '100%', padding: '12px 14px', border: '2px solid #e9ecef', borderRadius: 8, fontSize: 14, marginBottom: 16 },
+  input: { width: '100%', padding: '12px 14px', border: '2px solid #e9ecef', borderRadius: 8, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' },
   button: { padding: '12px 24px', background: '#0f4c3a', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 },
   buttonSecondary: { padding: '12px 24px', background: '#e9ecef', color: '#333', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
   table: { width: '100%', borderCollapse: 'collapse' },
@@ -35,6 +35,12 @@ const styles = {
   badge: { padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500 },
   modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 },
   modalContent: { background: 'white', borderRadius: 14, width: '90%', maxWidth: 600, maxHeight: '90vh', overflow: 'auto' },
+  tabs: { display: 'flex', gap: 0, borderBottom: '2px solid #e9ecef', marginBottom: 24 },
+  tab: { padding: '12px 24px', cursor: 'pointer', borderBottom: '2px solid transparent', marginBottom: -2, fontSize: 14, fontWeight: 500, color: '#6c757d' },
+  tabActive: { padding: '12px 24px', cursor: 'pointer', borderBottom: '2px solid #0f4c3a', marginBottom: -2, fontSize: 14, fontWeight: 600, color: '#0f4c3a' },
+  sourceTabs: { display: 'flex', gap: 8, marginBottom: 20 },
+  sourceTab: { padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, border: '2px solid #e9ecef', background: 'white' },
+  sourceTabActive: { padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, border: '2px solid', color: 'white' },
 };
 
 // ==================== UTILITAIRES ====================
@@ -131,10 +137,6 @@ export default function App() {
   const [budgets, setBudgets] = useState([]);
   const [ops, setOps] = useState([]);
   
-  // Selected state
-  const [sourceActive, setSourceActive] = useState(null);
-  const [exerciceActif, setExerciceActif] = useState(null);
-  
   // Loading
   const [loading, setLoading] = useState(true);
 
@@ -189,18 +191,11 @@ export default function App() {
         const sourcesSnap = await getDocs(collection(db, 'sources'));
         const sourcesData = sourcesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         setSources(sourcesData);
-        if (sourcesData.length > 0 && !sourceActive) {
-          setSourceActive(sourcesData[0].id);
-        }
 
         // Charger les exercices
         const exercicesSnap = await getDocs(query(collection(db, 'exercices'), orderBy('annee', 'desc')));
         const exercicesData = exercicesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         setExercices(exercicesData);
-        if (exercicesData.length > 0 && !exerciceActif) {
-          const actif = exercicesData.find(e => e.actif) || exercicesData[0];
-          setExerciceActif(actif.id);
-        }
 
         // Charger les lignes budgétaires
         const lignesSnap = await getDocs(collection(db, 'lignesBudgetaires'));
@@ -209,6 +204,14 @@ export default function App() {
         // Charger les bénéficiaires
         const benSnap = await getDocs(query(collection(db, 'beneficiaires'), orderBy('nom')));
         setBeneficiaires(benSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        // Charger les budgets
+        const budgetsSnap = await getDocs(collection(db, 'budgets'));
+        setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        // Charger les OPs
+        const opsSnap = await getDocs(query(collection(db, 'ops'), orderBy('numero', 'desc')));
+        setOps(opsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       } catch (error) {
         console.error('Erreur chargement données:', error);
@@ -219,36 +222,8 @@ export default function App() {
     loadData();
   }, [user]);
 
-  // Charger les budgets et OP quand source/exercice change
-  useEffect(() => {
-    if (!user || !sourceActive || !exerciceActif) return;
-
-    // Écouter les budgets
-    const budgetsQuery = query(
-      collection(db, 'budgets'),
-      where('sourceId', '==', sourceActive),
-      where('exerciceId', '==', exerciceActif)
-    );
-    const unsubBudgets = onSnapshot(budgetsQuery, (snap) => {
-      setBudgets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // Écouter les OP
-    const opsQuery = query(
-      collection(db, 'ops'),
-      where('sourceId', '==', sourceActive),
-      where('exerciceId', '==', exerciceActif),
-      orderBy('numero', 'desc')
-    );
-    const unsubOps = onSnapshot(opsQuery, (snap) => {
-      setOps(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => {
-      unsubBudgets();
-      unsubOps();
-    };
-  }, [user, sourceActive, exerciceActif]);
+  // Obtenir l'exercice actif
+  const exerciceActif = exercices.find(e => e.actif);
 
   // ==================== RENDER ====================
   if (authLoading) {
@@ -280,53 +255,33 @@ export default function App() {
       </div>
       
       <nav style={{ flex: 1, padding: '14px 0', overflowY: 'auto' }}>
-        <div style={{ padding: '6px 18px', fontSize: 10, opacity: 0.5, marginTop: 10 }}>TABLEAU DE BORD</div>
-        <NavItem id="dashboard" icon="📊" label="Vue d'ensemble" />
+        <NavItem id="dashboard" icon="📊" label="Tableau de bord" />
         
-        <div style={{ padding: '6px 18px', fontSize: 10, opacity: 0.5, marginTop: 16 }}>OPÉRATIONS</div>
+        <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>OPÉRATIONS</div>
         <NavItem id="ops" icon="📋" label="Liste des OP" />
         <NavItem id="nouvelOp" icon="➕" label="Nouvel OP" />
         <NavItem id="suivi" icon="🔄" label="Suivi Circuit" />
         
-        <div style={{ padding: '6px 18px', fontSize: 10, opacity: 0.5, marginTop: 16 }}>GESTION</div>
+        <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>GESTION</div>
         <NavItem id="budget" icon="💰" label="Budget" />
         <NavItem id="beneficiaires" icon="👥" label="Bénéficiaires" />
         
-        <div style={{ padding: '6px 18px', fontSize: 10, opacity: 0.5, marginTop: 16 }}>PARAMÈTRES</div>
-        <NavItem id="paramProjet" icon="⚙️" label="Projet" />
-        <NavItem id="paramSources" icon="🏦" label="Sources" />
-        <NavItem id="paramExercices" icon="📅" label="Exercices" />
-        <NavItem id="paramLignes" icon="📝" label="Lignes budgétaires" />
+        <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>CONFIGURATION</div>
+        <NavItem id="parametres" icon="⚙️" label="Paramètres" />
       </nav>
       
-      {/* Sélection Source et Exercice */}
-      <div style={{ padding: 14, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>SOURCE</div>
-          <select 
-            value={sourceActive || ''} 
-            onChange={(e) => setSourceActive(e.target.value)}
-            style={{ width: '100%', padding: 8, borderRadius: 6, border: 'none', fontSize: 13 }}
-          >
-            {sources.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-          </select>
+      {/* Exercice actif */}
+      {exerciceActif && (
+        <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)' }}>
+          <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>EXERCICE ACTIF</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#f0b429' }}>{exerciceActif.annee}</div>
         </div>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 6 }}>EXERCICE</div>
-          <select 
-            value={exerciceActif || ''} 
-            onChange={(e) => setExerciceActif(e.target.value)}
-            style={{ width: '100%', padding: 8, borderRadius: 6, border: 'none', fontSize: 13 }}
-          >
-            {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
-          </select>
-        </div>
-      </div>
+      )}
       
       {/* User */}
       <div style={{ padding: 14, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>{user.email}</div>
+          <div style={{ fontSize: 12, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>{user.email}</div>
           <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>
             Déconnexion
           </button>
@@ -342,56 +297,127 @@ export default function App() {
         display: 'flex', 
         alignItems: 'center', 
         gap: 12, 
-        padding: '11px 18px', 
+        padding: '12px 18px', 
         cursor: 'pointer', 
         borderLeft: currentPage === id ? '3px solid #f0b429' : '3px solid transparent', 
         background: currentPage === id ? 'rgba(255,255,255,0.15)' : 'transparent',
         transition: 'all 0.2s'
       }}
     >
-      <span>{icon}</span>
+      <span style={{ fontSize: 18 }}>{icon}</span>
       <span style={{ fontSize: 14 }}>{label}</span>
     </div>
   );
 
-  // ==================== PAGES ====================
-  
-  // Dashboard
+  // ==================== COMPOSANT ONGLETS SOURCES ====================
+  const SourceTabs = ({ activeSource, onChangeSource }) => (
+    <div style={styles.sourceTabs}>
+      {sources.map(source => (
+        <div
+          key={source.id}
+          onClick={() => onChangeSource(source.id)}
+          style={activeSource === source.id 
+            ? { ...styles.sourceTabActive, background: source.couleur || '#0f4c3a', borderColor: source.couleur || '#0f4c3a' }
+            : styles.sourceTab
+          }
+        >
+          {source.sigle || source.nom}
+        </div>
+      ))}
+      {sources.length === 0 && (
+        <div style={{ color: '#6c757d', fontSize: 14 }}>
+          Aucune source configurée. <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Ajouter une source</span>
+        </div>
+      )}
+    </div>
+  );
+
+  // ==================== PAGE DASHBOARD ====================
   const PageDashboard = () => {
-    const sourceObj = sources.find(s => s.id === sourceActive);
-    const exerciceObj = exercices.find(e => e.id === exerciceActif);
+    const [showDetailSource, setShowDetailSource] = useState(null);
     
-    const totalDotation = budgets.reduce((sum, b) => sum + (b.dotation || 0), 0);
-    const opsValides = ops.filter(op => ['DIRECT', 'DEFINITIF'].includes(op.type) && op.statut !== 'REJETE');
-    const totalEngagement = opsValides.reduce((sum, op) => sum + (op.montant || 0), 0);
+    // Calculer les totaux globaux
+    const exerciceActifId = exerciceActif?.id;
+    const budgetsActifs = budgets.filter(b => b.exerciceId === exerciceActifId);
+    const opsActifs = ops.filter(op => op.exerciceId === exerciceActifId && ['DIRECT', 'DEFINITIF'].includes(op.type) && op.statut !== 'REJETE');
+    
+    const totalDotation = budgetsActifs.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0);
+    const totalEngagement = opsActifs.reduce((sum, op) => sum + (op.montant || 0), 0);
     const totalDisponible = totalDotation - totalEngagement;
     
-    const opsProvisoires = ops.filter(op => op.type === 'PROVISOIRE' && op.statut !== 'REGULARISE');
-    const opsEnCours = ops.filter(op => op.statut === 'TRANSMIS_CF' || op.statut === 'TRANSMIS_AC');
+    const opsProvisoires = ops.filter(op => op.exerciceId === exerciceActifId && op.type === 'PROVISOIRE' && op.statut !== 'REGULARISE');
+    const opsEnCours = ops.filter(op => op.exerciceId === exerciceActifId && ['TRANSMIS_CF', 'TRANSMIS_AC', 'DIFFERE'].includes(op.statut));
+
+    // Détail par source
+    const getSourceStats = (sourceId) => {
+      const sourceBudgets = budgetsActifs.filter(b => b.sourceId === sourceId);
+      const sourceOps = opsActifs.filter(op => op.sourceId === sourceId);
+      const dotation = sourceBudgets.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0);
+      const engagement = sourceOps.reduce((sum, op) => sum + (op.montant || 0), 0);
+      return { dotation, engagement, disponible: dotation - engagement, nbOps: sourceOps.length };
+    };
 
     return (
       <div>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>📊 Tableau de bord</h1>
           <p style={{ color: '#6c757d' }}>
-            <span style={{ background: sourceObj?.couleur || '#0f4c3a', color: 'white', padding: '4px 12px', borderRadius: 20, fontSize: 12, marginRight: 8 }}>{sourceObj?.nom || 'Source'}</span>
-            Exercice {exerciceObj?.annee || ''}
+            Exercice {exerciceActif?.annee || 'Non défini'} - Vue d'ensemble
           </p>
         </div>
 
-        {/* Stats */}
+        {/* Stats globales */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
           {[
-            { icon: '💰', label: 'Dotation', value: formatMontant(totalDotation), color: '#0f4c3a' },
+            { icon: '💰', label: 'Dotation totale', value: formatMontant(totalDotation), color: '#0f4c3a' },
             { icon: '📝', label: 'Engagements', value: formatMontant(totalEngagement), color: '#f0b429' },
             { icon: '✅', label: 'Disponible', value: formatMontant(totalDisponible), color: '#06d6a0' },
-            { icon: '📋', label: 'Nombre OP', value: ops.length, color: '#1565c0' },
+            { icon: '📋', label: 'Total OP', value: opsActifs.length, color: '#1565c0' },
           ].map((s, i) => (
             <div key={i} style={styles.card}>
               <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 8 }}>{s.icon} {s.label}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: 'monospace' }}>{s.value}</div>
             </div>
           ))}
+        </div>
+
+        {/* Détail par source */}
+        <div style={styles.card}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>📊 Situation par source de financement</h3>
+          {sources.length === 0 ? (
+            <p style={{ color: '#6c757d' }}>Aucune source configurée</p>
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>SOURCE</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>DOTATION</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>ENGAGEMENTS</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>DISPONIBLE</th>
+                  <th style={{ ...styles.th, textAlign: 'center' }}>NB OP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sources.map(source => {
+                  const stats = getSourceStats(source.id);
+                  return (
+                    <tr key={source.id}>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 12, height: 12, borderRadius: 3, background: source.couleur || '#0f4c3a' }}></div>
+                          <strong>{source.nom}</strong>
+                        </div>
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(stats.dotation)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#f0b429' }}>{formatMontant(stats.engagement)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: stats.disponible >= 0 ? '#06d6a0' : '#dc3545', fontWeight: 600 }}>{formatMontant(stats.disponible)}</td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}><span style={{ ...styles.badge, background: '#e3f2fd', color: '#1565c0' }}>{stats.nbOps}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Alertes */}
@@ -404,7 +430,7 @@ export default function App() {
               <div style={{ maxHeight: 200, overflowY: 'auto' }}>
                 {opsProvisoires.slice(0, 5).map(op => (
                   <div key={op.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f3f4', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>N°{op.numero} - {beneficiaires.find(b => b.id === op.beneficiaireId)?.nom}</span>
+                    <span>N°{op.numero} - {beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'Inconnu'}</span>
                     <span style={{ fontFamily: 'monospace', color: '#f0b429' }}>{formatMontant(op.montant)}</span>
                   </div>
                 ))}
@@ -418,14 +444,17 @@ export default function App() {
               <p style={{ color: '#6c757d', fontSize: 14 }}>Aucun OP en cours de traitement</p>
             ) : (
               <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-                {opsEnCours.slice(0, 5).map(op => (
-                  <div key={op.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f3f4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>N°{op.numero}</span>
-                    <span style={{ ...styles.badge, background: op.statut === 'TRANSMIS_CF' ? '#fff3e0' : '#e3f2fd', color: op.statut === 'TRANSMIS_CF' ? '#e65100' : '#1565c0' }}>
-                      {op.statut === 'TRANSMIS_CF' ? 'Chez CF' : 'Chez AC'}
-                    </span>
-                  </div>
-                ))}
+                {opsEnCours.slice(0, 5).map(op => {
+                  const statutLabels = { 'TRANSMIS_CF': 'Chez CF', 'TRANSMIS_AC': 'Chez AC', 'DIFFERE': 'Différé' };
+                  return (
+                    <div key={op.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f3f4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>N°{op.numero}</span>
+                      <span style={{ ...styles.badge, background: op.statut === 'DIFFERE' ? '#fff3e0' : '#e3f2fd', color: op.statut === 'DIFFERE' ? '#e65100' : '#1565c0' }}>
+                        {statutLabels[op.statut] || op.statut}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -434,8 +463,43 @@ export default function App() {
     );
   };
 
-  // Page Paramètres Projet
-  const PageParamProjet = () => {
+  // ==================== PAGE PARAMÈTRES UNIFIÉE ====================
+  const PageParametres = () => {
+    const [activeTab, setActiveTab] = useState('projet');
+
+    return (
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>⚙️ Paramètres</h1>
+        
+        {/* Onglets */}
+        <div style={styles.tabs}>
+          {[
+            { id: 'projet', label: '🏛️ Projet' },
+            { id: 'sources', label: '🏦 Sources' },
+            { id: 'exercices', label: '📅 Exercices' },
+            { id: 'lignes', label: '📝 Lignes budgétaires' },
+          ].map(tab => (
+            <div 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={activeTab === tab.id ? styles.tabActive : styles.tab}
+            >
+              {tab.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Contenu des onglets */}
+        {activeTab === 'projet' && <TabProjet />}
+        {activeTab === 'sources' && <TabSources />}
+        {activeTab === 'exercices' && <TabExercices />}
+        {activeTab === 'lignes' && <TabLignes />}
+      </div>
+    );
+  };
+
+  // Tab Projet
+  const TabProjet = () => {
     const [form, setForm] = useState(projet || {
       pays: 'République de Côte d\'Ivoire',
       devise: 'Union – Discipline – Travail',
@@ -451,6 +515,10 @@ export default function App() {
     });
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+      if (projet) setForm(projet);
+    }, [projet]);
 
     const handleSave = async () => {
       setSaving(true);
@@ -468,10 +536,8 @@ export default function App() {
 
     return (
       <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>⚙️ Paramètres du Projet</h1>
-        
         <div style={styles.card}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>🏛️ Informations générales</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>Informations générales</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
@@ -498,7 +564,7 @@ export default function App() {
         </div>
 
         <div style={styles.card}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>📝 Configuration technique</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>Configuration technique</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
             <div>
@@ -506,7 +572,7 @@ export default function App() {
               <input value={form.codeImputation || ''} onChange={e => setForm({...form, codeImputation: e.target.value})} style={styles.input} placeholder="Ex: 345 90042200006 90 11409374" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nb caractères ligne budgétaire</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nb caractères ligne</label>
               <select value={form.nbCaracteresLigne || 4} onChange={e => setForm({...form, nbCaracteresLigne: parseInt(e.target.value)})} style={styles.input}>
                 <option value={4}>4 caractères</option>
                 <option value={6}>6 caractères</option>
@@ -516,7 +582,7 @@ export default function App() {
         </div>
 
         <div style={styles.card}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>👤 Responsable / Signataire</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>Responsable / Signataire</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
@@ -531,7 +597,7 @@ export default function App() {
         </div>
 
         <div style={styles.card}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>🖨️ Configuration impressions</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #e9ecef' }}>Configuration impressions</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
@@ -555,8 +621,8 @@ export default function App() {
     );
   };
 
-  // Page Paramètres Sources
-  const PageParamSources = () => {
+  // Tab Sources
+  const TabSources = () => {
     const [showModal, setShowModal] = useState(false);
     const [editSource, setEditSource] = useState(null);
     const [form, setForm] = useState({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#0f4c3a' });
@@ -574,6 +640,10 @@ export default function App() {
     };
 
     const handleSave = async () => {
+      if (!form.nom || !form.sigle) {
+        alert('Le nom et le sigle sont obligatoires');
+        return;
+      }
       try {
         if (editSource) {
           await updateDoc(doc(db, 'sources', editSource.id), form);
@@ -602,14 +672,14 @@ export default function App() {
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>🏦 Sources de Financement</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <p style={{ color: '#6c757d', margin: 0 }}>{sources.length} source(s) configurée(s)</p>
           <button onClick={openNew} style={styles.button}>➕ Nouvelle source</button>
         </div>
 
         <div style={styles.card}>
           {sources.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucune source de financement. Cliquez sur "Nouvelle source" pour commencer.</p>
+            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucune source de financement</p>
           ) : (
             <table style={styles.table}>
               <thead>
@@ -665,7 +735,7 @@ export default function App() {
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Description (pour les documents)</label>
-                  <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} style={{ ...styles.input, minHeight: 80 }} placeholder="Ex: Financement Groupe Banque Mondiale : Projet N° TF0B8829-CI, Crédit IDA N° 7187-CI" />
+                  <textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} style={{ ...styles.input, minHeight: 80, resize: 'vertical' }} placeholder="Ex: Financement Groupe Banque Mondiale : Projet N° TF0B8829-CI" />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Couleur</label>
@@ -683,8 +753,8 @@ export default function App() {
     );
   };
 
-  // Page Paramètres Exercices
-  const PageParamExercices = () => {
+  // Tab Exercices
+  const TabExercices = () => {
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState({ annee: new Date().getFullYear(), actif: true });
 
@@ -698,8 +768,7 @@ export default function App() {
         }
         const docRef = await addDoc(collection(db, 'exercices'), form);
         const newExercices = exercices.map(e => form.actif ? { ...e, actif: false } : e);
-        setExercices([{ id: docRef.id, ...form }, ...newExercices]);
-        if (form.actif) setExerciceActif(docRef.id);
+        setExercices([{ id: docRef.id, ...form }, ...newExercices].sort((a, b) => b.annee - a.annee));
         setShowModal(false);
       } catch (error) {
         console.error('Erreur:', error);
@@ -713,7 +782,6 @@ export default function App() {
           await updateDoc(doc(db, 'exercices', ex.id), { actif: ex.id === exercice.id });
         }
         setExercices(exercices.map(e => ({ ...e, actif: e.id === exercice.id })));
-        setExerciceActif(exercice.id);
       } catch (error) {
         console.error('Erreur:', error);
       }
@@ -721,14 +789,14 @@ export default function App() {
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>📅 Exercices</h1>
-          <button onClick={() => setShowModal(true)} style={styles.button}>➕ Nouvel exercice</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <p style={{ color: '#6c757d', margin: 0 }}>{exercices.length} exercice(s)</p>
+          <button onClick={() => { setForm({ annee: new Date().getFullYear() + 1, actif: false }); setShowModal(true); }} style={styles.button}>➕ Nouvel exercice</button>
         </div>
 
         <div style={styles.card}>
           {exercices.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucun exercice. Cliquez sur "Nouvel exercice" pour commencer.</p>
+            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucun exercice</p>
           ) : (
             <table style={styles.table}>
               <thead>
@@ -786,8 +854,8 @@ export default function App() {
     );
   };
 
-  // Page Paramètres Lignes Budgétaires
-  const PageParamLignes = () => {
+  // Tab Lignes budgétaires
+  const TabLignes = () => {
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState({ code: '', libelle: '' });
 
@@ -798,7 +866,7 @@ export default function App() {
       }
       try {
         const docRef = await addDoc(collection(db, 'lignesBudgetaires'), form);
-        setLignesBudgetaires([...lignesBudgetaires, { id: docRef.id, ...form }]);
+        setLignesBudgetaires([...lignesBudgetaires, { id: docRef.id, ...form }].sort((a, b) => a.code.localeCompare(b.code)));
         setForm({ code: '', libelle: '' });
         setShowModal(false);
       } catch (error) {
@@ -819,14 +887,14 @@ export default function App() {
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>📝 Lignes Budgétaires</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <p style={{ color: '#6c757d', margin: 0 }}>{lignesBudgetaires.length} ligne(s) budgétaire(s)</p>
           <button onClick={() => setShowModal(true)} style={styles.button}>➕ Nouvelle ligne</button>
         </div>
 
         <div style={styles.card}>
           {lignesBudgetaires.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucune ligne budgétaire.</p>
+            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucune ligne budgétaire</p>
           ) : (
             <table style={styles.table}>
               <thead>
@@ -880,7 +948,7 @@ export default function App() {
     );
   };
 
-  // Page Bénéficiaires
+  // ==================== PAGE BÉNÉFICIAIRES ====================
   const PageBeneficiaires = () => {
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
@@ -915,7 +983,7 @@ export default function App() {
           setBeneficiaires(beneficiaires.map(b => b.id === editBen.id ? { ...b, ...form } : b));
         } else {
           const docRef = await addDoc(collection(db, 'beneficiaires'), { ...form, nom: form.nom.toUpperCase() });
-          setBeneficiaires([...beneficiaires, { id: docRef.id, ...form, nom: form.nom.toUpperCase() }]);
+          setBeneficiaires([...beneficiaires, { id: docRef.id, ...form, nom: form.nom.toUpperCase() }].sort((a, b) => a.nom.localeCompare(b.nom)));
         }
         setShowModal(false);
       } catch (error) {
@@ -1015,12 +1083,16 @@ export default function App() {
     );
   };
 
-  // Page en construction
-  const PageEnConstruction = ({ title }) => (
-    <div style={{ textAlign: 'center', padding: 60 }}>
-      <div style={{ fontSize: 60, marginBottom: 20 }}>🚧</div>
-      <h2>{title}</h2>
-      <p style={{ color: '#6c757d' }}>Ce module est en cours de développement</p>
+  // ==================== PAGES EN CONSTRUCTION ====================
+  const PageEnConstruction = ({ title, icon }) => (
+    <div>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>{icon} {title}</h1>
+      <SourceTabs activeSource={sources[0]?.id} onChangeSource={() => {}} />
+      <div style={{ ...styles.card, textAlign: 'center', padding: 60 }}>
+        <div style={{ fontSize: 60, marginBottom: 20 }}>🚧</div>
+        <h2 style={{ color: '#6c757d' }}>Module en cours de développement</h2>
+        <p style={{ color: '#adb5bd' }}>Cette fonctionnalité sera disponible prochainement</p>
+      </div>
     </div>
   );
 
@@ -1044,15 +1116,12 @@ export default function App() {
       <Sidebar />
       <main style={styles.main}>
         {currentPage === 'dashboard' && <PageDashboard />}
-        {currentPage === 'paramProjet' && <PageParamProjet />}
-        {currentPage === 'paramSources' && <PageParamSources />}
-        {currentPage === 'paramExercices' && <PageParamExercices />}
-        {currentPage === 'paramLignes' && <PageParamLignes />}
+        {currentPage === 'parametres' && <PageParametres />}
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
-        {currentPage === 'budget' && <PageEnConstruction title="💰 Gestion du Budget" />}
-        {currentPage === 'ops' && <PageEnConstruction title="📋 Liste des OP" />}
-        {currentPage === 'nouvelOp' && <PageEnConstruction title="➕ Nouvel OP" />}
-        {currentPage === 'suivi' && <PageEnConstruction title="🔄 Suivi Circuit" />}
+        {currentPage === 'budget' && <PageEnConstruction title="Budget" icon="💰" />}
+        {currentPage === 'ops' && <PageEnConstruction title="Liste des OP" icon="📋" />}
+        {currentPage === 'nouvelOp' && <PageEnConstruction title="Nouvel OP" icon="➕" />}
+        {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
       </main>
     </div>
   );
