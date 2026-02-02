@@ -854,14 +854,22 @@ export default function App() {
     );
   };
 
-  // Tab Lignes budgétaires
+  // Tab Lignes budgétaires (Bibliothèque de référence)
   const TabLignes = () => {
     const [showModal, setShowModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [form, setForm] = useState({ code: '', libelle: '' });
+    const [importData, setImportData] = useState([]);
+    const [importing, setImporting] = useState(false);
 
     const handleSave = async () => {
       if (!form.code || !form.libelle) {
         alert('Veuillez remplir tous les champs');
+        return;
+      }
+      // Vérifier si le code existe déjà
+      if (lignesBudgetaires.find(l => l.code === form.code)) {
+        alert('Ce code existe déjà dans la bibliothèque');
         return;
       }
       try {
@@ -876,7 +884,13 @@ export default function App() {
     };
 
     const handleDelete = async (ligne) => {
-      if (!window.confirm(`Supprimer la ligne "${ligne.code}" ?`)) return;
+      // Vérifier si la ligne est utilisée dans un budget
+      const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
+      if (isUsed) {
+        alert(`Impossible de supprimer cette ligne.\n\nElle est utilisée dans un ou plusieurs budgets.`);
+        return;
+      }
+      if (!window.confirm(`Supprimer la ligne "${ligne.code} - ${ligne.libelle}" de la bibliothèque ?`)) return;
       try {
         await deleteDoc(doc(db, 'lignesBudgetaires', ligne.id));
         setLignesBudgetaires(lignesBudgetaires.filter(l => l.id !== ligne.id));
@@ -885,16 +899,93 @@ export default function App() {
       }
     };
 
+    // Parser le fichier CSV/Excel
+    const handleFileUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        const parsed = [];
+        
+        // Détecter le séparateur (virgule ou point-virgule)
+        const separator = lines[0].includes(';') ? ';' : ',';
+        
+        // Ignorer la première ligne si c'est un en-tête
+        const startIndex = lines[0].toLowerCase().includes('code') || lines[0].toLowerCase().includes('ligne') ? 1 : 0;
+        
+        for (let i = startIndex; i < lines.length; i++) {
+          const cols = lines[i].split(separator).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          if (cols.length >= 2 && cols[0] && cols[1]) {
+            // Vérifier si le code n'existe pas déjà
+            if (!lignesBudgetaires.find(l => l.code === cols[0]) && !parsed.find(p => p.code === cols[0])) {
+              parsed.push({ code: cols[0], libelle: cols[1] });
+            }
+          }
+        }
+        
+        setImportData(parsed);
+      };
+      reader.readAsText(file);
+    };
+
+    const handleImport = async () => {
+      if (importData.length === 0) {
+        alert('Aucune ligne à importer');
+        return;
+      }
+      
+      setImporting(true);
+      try {
+        const newLignes = [];
+        for (const ligne of importData) {
+          const docRef = await addDoc(collection(db, 'lignesBudgetaires'), ligne);
+          newLignes.push({ id: docRef.id, ...ligne });
+        }
+        setLignesBudgetaires([...lignesBudgetaires, ...newLignes].sort((a, b) => a.code.localeCompare(b.code)));
+        setShowImportModal(false);
+        setImportData([]);
+        alert(`${newLignes.length} ligne(s) importée(s) avec succès !`);
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de l\'importation');
+      }
+      setImporting(false);
+    };
+
     return (
       <div>
+        <div style={{ ...styles.card, background: '#e8f5e9', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>📚</span>
+            <div>
+              <strong style={{ color: '#2e7d32' }}>Bibliothèque de référence</strong>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
+                Ces lignes servent de référence pour créer vos budgets. Importez votre nomenclature une fois, puis réutilisez-la.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <p style={{ color: '#6c757d', margin: 0 }}>{lignesBudgetaires.length} ligne(s) budgétaire(s)</p>
-          <button onClick={() => setShowModal(true)} style={styles.button}>➕ Nouvelle ligne</button>
+          <p style={{ color: '#6c757d', margin: 0 }}>{lignesBudgetaires.length} ligne(s) dans la bibliothèque</p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={() => setShowImportModal(true)} style={{ ...styles.buttonSecondary, background: '#e3f2fd', color: '#1565c0' }}>
+              📥 Importer CSV/Excel
+            </button>
+            <button onClick={() => setShowModal(true)} style={styles.button}>➕ Nouvelle ligne</button>
+          </div>
         </div>
 
         <div style={styles.card}>
           {lignesBudgetaires.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#6c757d', padding: 40 }}>Aucune ligne budgétaire</p>
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 50, marginBottom: 16 }}>📋</div>
+              <p style={{ color: '#6c757d', marginBottom: 16 }}>Aucune ligne budgétaire dans la bibliothèque</p>
+              <p style={{ color: '#adb5bd', fontSize: 13 }}>Importez un fichier CSV ou ajoutez des lignes manuellement</p>
+            </div>
           ) : (
             <table style={styles.table}>
               <thead>
@@ -905,20 +996,30 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {lignesBudgetaires.map(ligne => (
-                  <tr key={ligne.id}>
-                    <td style={styles.td}><code style={{ background: '#e8f5e9', color: '#2e7d32', padding: '4px 12px', borderRadius: 6, fontWeight: 600 }}>{ligne.code}</code></td>
-                    <td style={styles.td}>{ligne.libelle}</td>
-                    <td style={{ ...styles.td, textAlign: 'center' }}>
-                      <button onClick={() => handleDelete(ligne)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#c62828' }}>🗑️</button>
-                    </td>
-                  </tr>
-                ))}
+                {lignesBudgetaires.map(ligne => {
+                  const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
+                  return (
+                    <tr key={ligne.id}>
+                      <td style={styles.td}>
+                        <code style={{ background: '#e8f5e9', color: '#2e7d32', padding: '4px 12px', borderRadius: 6, fontWeight: 600 }}>{ligne.code}</code>
+                      </td>
+                      <td style={styles.td}>{ligne.libelle}</td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>
+                        {isUsed ? (
+                          <span style={{ ...styles.badge, background: '#f5f5f5', color: '#9e9e9e' }}>Utilisée</span>
+                        ) : (
+                          <button onClick={() => handleDelete(ligne)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#c62828' }}>🗑️</button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
 
+        {/* Modal Nouvelle ligne */}
         {showModal && (
           <div style={styles.modal}>
             <div style={{ ...styles.modalContent, maxWidth: 500 }}>
@@ -940,6 +1041,79 @@ export default function App() {
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                 <button onClick={() => setShowModal(false)} style={styles.buttonSecondary}>Annuler</button>
                 <button onClick={handleSave} style={styles.button}>✓ Ajouter</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Import */}
+        {showImportModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#1565c0', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📥 Importer la nomenclature</h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ background: '#e3f2fd', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                  <strong style={{ color: '#1565c0' }}>Format attendu :</strong>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, color: '#555' }}>
+                    Fichier CSV avec 2 colonnes : <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Code</code> et <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Libellé</code>
+                    <br />Séparateur : virgule (,) ou point-virgule (;)
+                  </p>
+                  <p style={{ margin: '8px 0 0', fontSize: 12, color: '#777' }}>
+                    Exemple : <code>6221;Personnel temporaire</code>
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Sélectionner un fichier CSV</label>
+                  <input 
+                    type="file" 
+                    accept=".csv,.txt"
+                    onChange={handleFileUpload}
+                    style={{ padding: 10, border: '2px dashed #e9ecef', borderRadius: 8, width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                {importData.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <strong style={{ color: '#2e7d32' }}>✓ {importData.length} ligne(s) prête(s) à importer</strong>
+                    </div>
+                    <div style={{ maxHeight: 250, overflowY: 'auto', border: '1px solid #e9ecef', borderRadius: 8 }}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...styles.th, position: 'sticky', top: 0 }}>CODE</th>
+                            <th style={{ ...styles.th, position: 'sticky', top: 0 }}>LIBELLÉ</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importData.map((ligne, i) => (
+                            <tr key={i}>
+                              <td style={styles.td}><code style={{ background: '#e8f5e9', color: '#2e7d32', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>{ligne.code}</code></td>
+                              <td style={{ ...styles.td, fontSize: 13 }}>{ligne.libelle}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>Annuler</button>
+                <button 
+                  onClick={handleImport} 
+                  disabled={importing || importData.length === 0}
+                  style={{ 
+                    ...styles.button, 
+                    background: '#1565c0',
+                    opacity: importing || importData.length === 0 ? 0.6 : 1 
+                  }}
+                >
+                  {importing ? 'Importation...' : `✓ Importer ${importData.length} ligne(s)`}
+                </button>
               </div>
             </div>
           </div>
@@ -1089,15 +1263,35 @@ export default function App() {
     const [showAnterieur, setShowAnterieur] = useState(false);
     const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
     const [showModal, setShowModal] = useState(false);
-    const [editMode, setEditMode] = useState(false);
+    const [showHistorique, setShowHistorique] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showRevisionModal, setShowRevisionModal] = useState(false);
+    const [selectedLigne, setSelectedLigne] = useState('');
     const [budgetLignes, setBudgetLignes] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [password, setPassword] = useState('');
+    const [motifRevision, setMotifRevision] = useState('');
+    const [selectedVersion, setSelectedVersion] = useState(null);
+
+    const PASSWORD_CORRECTION = 'admin';
 
     // Obtenir le budget actuel pour la source et l'exercice sélectionnés
     const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
-    const currentBudget = budgets.find(b => b.sourceId === activeSource && b.exerciceId === currentExerciceId);
     const currentExerciceObj = exercices.find(e => e.id === currentExerciceId);
     const currentSourceObj = sources.find(s => s.id === activeSource);
+
+    // Obtenir tous les budgets pour cette source/exercice (toutes versions)
+    const allBudgetsForSourceExercice = budgets
+      .filter(b => b.sourceId === activeSource && b.exerciceId === currentExerciceId)
+      .sort((a, b) => (b.version || 1) - (a.version || 1));
+
+    // Budget actif = dernière version
+    const currentBudget = selectedVersion 
+      ? allBudgetsForSourceExercice.find(b => b.id === selectedVersion)
+      : allBudgetsForSourceExercice[0];
+    
+    const latestVersion = allBudgetsForSourceExercice[0];
+    const isLatestVersion = !selectedVersion || selectedVersion === latestVersion?.id;
 
     // Calculer les engagements par ligne (depuis les OP)
     const getEngagementLigne = (ligneCode) => {
@@ -1113,24 +1307,84 @@ export default function App() {
         .reduce((sum, op) => sum + (op.montant || 0), 0);
     };
 
-    // Préparer les lignes pour l'édition
-    const openEditModal = () => {
-      if (currentBudget && currentBudget.lignes) {
-        setBudgetLignes(currentBudget.lignes.map(l => ({ ...l })));
-      } else {
-        setBudgetLignes([]);
-      }
-      setEditMode(!!currentBudget);
+    // Ouvrir modal création (budget initial)
+    const openCreateModal = () => {
+      setBudgetLignes([]);
+      setSelectedLigne('');
       setShowModal(true);
     };
 
-    // Ajouter une ligne au budget
-    const addLigne = (ligne) => {
+    // Ouvrir modal correction (avec mot de passe)
+    const openCorrectionModal = () => {
+      setPassword('');
+      setShowPasswordModal(true);
+    };
+
+    // Vérifier mot de passe et ouvrir édition
+    const verifyPasswordAndEdit = () => {
+      if (password === PASSWORD_CORRECTION) {
+        setShowPasswordModal(false);
+        setBudgetLignes(currentBudget.lignes.map(l => ({ ...l })));
+        setSelectedLigne('');
+        setShowModal(true);
+      } else {
+        alert('Mot de passe incorrect');
+      }
+    };
+
+    // Ouvrir modal nouvelle révision
+    const openRevisionModal = () => {
+      setMotifRevision('');
+      setShowRevisionModal(true);
+    };
+
+    // Créer une nouvelle révision
+    const createRevision = async () => {
+      if (!motifRevision.trim()) {
+        alert('Veuillez indiquer le motif de la révision');
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const newVersion = (latestVersion?.version || 1) + 1;
+        const revisionData = {
+          sourceId: activeSource,
+          exerciceId: currentExerciceId,
+          version: newVersion,
+          lignes: latestVersion.lignes.map(l => ({ ...l })),
+          motifRevision: motifRevision.trim(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        const docRef = await addDoc(collection(db, 'budgets'), revisionData);
+        setBudgets([...budgets, { id: docRef.id, ...revisionData }]);
+        setShowRevisionModal(false);
+        
+        // Ouvrir l'édition de la nouvelle version
+        setBudgetLignes(revisionData.lignes);
+        setSelectedLigne('');
+        setSelectedVersion(docRef.id);
+        setShowModal(true);
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la création de la révision');
+      }
+      setSaving(false);
+    };
+
+    // Ajouter une ligne au budget (depuis le select)
+    const addLigne = () => {
+      if (!selectedLigne) return;
+      const ligne = lignesBudgetaires.find(l => l.code === selectedLigne);
+      if (!ligne) return;
       if (budgetLignes.find(l => l.code === ligne.code)) {
         alert('Cette ligne existe déjà dans le budget');
         return;
       }
       setBudgetLignes([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }]);
+      setSelectedLigne('');
     };
 
     // Supprimer une ligne du budget
@@ -1149,7 +1403,7 @@ export default function App() {
       const newDotation = parseInt(dotation) || 0;
       
       if (newDotation < engagement) {
-        alert(`Attention: La dotation (${formatMontant(newDotation)}) est inférieure aux engagements (${formatMontant(engagement)}).\n\nCela créera un disponible négatif.`);
+        alert(`⚠️ Attention\n\nLa dotation (${formatMontant(newDotation)}) est inférieure aux engagements (${formatMontant(engagement)}).\n\nCela créera un disponible négatif.`);
       }
       
       setBudgetLignes(budgetLignes.map(l => 
@@ -1173,18 +1427,20 @@ export default function App() {
           updatedAt: new Date().toISOString()
         };
 
-        if (currentBudget) {
-          // Mise à jour
+        if (currentBudget && isLatestVersion) {
+          // Mise à jour (correction)
           await updateDoc(doc(db, 'budgets', currentBudget.id), budgetData);
           setBudgets(budgets.map(b => b.id === currentBudget.id ? { ...b, ...budgetData } : b));
-        } else {
-          // Création
+        } else if (!currentBudget) {
+          // Création budget initial
+          budgetData.version = 1;
           budgetData.createdAt = new Date().toISOString();
           const docRef = await addDoc(collection(db, 'budgets'), budgetData);
           setBudgets([...budgets, { id: docRef.id, ...budgetData }]);
         }
 
         setShowModal(false);
+        setSelectedVersion(null);
       } catch (error) {
         console.error('Erreur:', error);
         alert('Erreur lors de la sauvegarde');
@@ -1193,13 +1449,13 @@ export default function App() {
     };
 
     // Calculer les totaux
-    const getTotaux = () => {
-      if (!currentBudget || !currentBudget.lignes) return { dotation: 0, engagement: 0, disponible: 0 };
+    const getTotaux = (budget) => {
+      if (!budget || !budget.lignes) return { dotation: 0, engagement: 0, disponible: 0 };
       
       let totalDotation = 0;
       let totalEngagement = 0;
 
-      currentBudget.lignes.forEach(ligne => {
+      budget.lignes.forEach(ligne => {
         totalDotation += ligne.dotation || 0;
         totalEngagement += getEngagementLigne(ligne.code);
       });
@@ -1211,12 +1467,20 @@ export default function App() {
       };
     };
 
-    const totaux = getTotaux();
+    const totaux = getTotaux(currentBudget);
 
-    // Lignes disponibles (non encore dans le budget)
+    // Lignes disponibles (de la bibliothèque, non encore dans le budget)
     const lignesDisponibles = lignesBudgetaires.filter(l => 
       !budgetLignes.find(bl => bl.code === l.code)
     );
+
+    // Label de version
+    const getVersionLabel = (budget) => {
+      if (!budget) return '';
+      const v = budget.version || 1;
+      if (v === 1) return 'Budget Initial (v1)';
+      return `Révision ${v - 1} (v${v})`;
+    };
 
     return (
       <div>
@@ -1232,7 +1496,7 @@ export default function App() {
             sources.map(source => (
               <div
                 key={source.id}
-                onClick={() => setActiveSource(source.id)}
+                onClick={() => { setActiveSource(source.id); setSelectedVersion(null); }}
                 style={activeSource === source.id 
                   ? { ...styles.sourceTabActive, background: source.couleur || '#0f4c3a', borderColor: source.couleur || '#0f4c3a' }
                   : styles.sourceTab
@@ -1246,44 +1510,86 @@ export default function App() {
 
         {sources.length > 0 && activeSource && (
           <>
-            {/* Sélection exercice */}
-            <div style={{ ...styles.card, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div>
-                  <span style={{ fontSize: 13, color: '#6c757d' }}>Exercice : </span>
-                  <strong style={{ fontSize: 18, color: '#0f4c3a' }}>{currentExerciceObj?.annee || 'Non défini'}</strong>
-                  {!showAnterieur && exerciceActif && <span style={{ ...styles.badge, background: '#e8f5e9', color: '#2e7d32', marginLeft: 8 }}>Actif</span>}
-                </div>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                  <input 
-                    type="checkbox" 
-                    checked={showAnterieur} 
-                    onChange={(e) => {
-                      setShowAnterieur(e.target.checked);
-                      if (!e.target.checked) setSelectedExercice(exerciceActif?.id);
-                    }}
-                  />
-                  Consulter exercices antérieurs
-                </label>
+            {/* Sélection exercice + Version */}
+            <div style={{ ...styles.card, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                  <div>
+                    <span style={{ fontSize: 13, color: '#6c757d' }}>Exercice : </span>
+                    <strong style={{ fontSize: 18, color: '#0f4c3a' }}>{currentExerciceObj?.annee || 'Non défini'}</strong>
+                    {!showAnterieur && exerciceActif && <span style={{ ...styles.badge, background: '#e8f5e9', color: '#2e7d32', marginLeft: 8 }}>Actif</span>}
+                  </div>
+                  
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={showAnterieur} 
+                      onChange={(e) => {
+                        setShowAnterieur(e.target.checked);
+                        if (!e.target.checked) setSelectedExercice(exerciceActif?.id);
+                        setSelectedVersion(null);
+                      }}
+                    />
+                    Consulter exercices antérieurs
+                  </label>
 
-                {showAnterieur && (
-                  <select 
-                    value={selectedExercice || ''} 
-                    onChange={(e) => setSelectedExercice(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: 6, border: '2px solid #e9ecef', fontSize: 14 }}
-                  >
-                    {exercices.map(ex => (
-                      <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>
-                    ))}
-                  </select>
+                  {showAnterieur && (
+                    <select 
+                      value={selectedExercice || ''} 
+                      onChange={(e) => { setSelectedExercice(e.target.value); setSelectedVersion(null); }}
+                      style={{ padding: '8px 12px', borderRadius: 6, border: '2px solid #e9ecef', fontSize: 14 }}
+                    >
+                      {exercices.map(ex => (
+                        <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Boutons actions */}
+                {!showAnterieur && exerciceActif && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {!currentBudget ? (
+                      <button onClick={openCreateModal} style={styles.button}>
+                        ➕ Créer le budget initial
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={openCorrectionModal} style={{ ...styles.buttonSecondary, background: '#fff3e0', color: '#e65100' }}>
+                          🔐 Correction
+                        </button>
+                        <button onClick={openRevisionModal} style={styles.button}>
+                          📝 Nouvelle révision
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {!showAnterieur && exerciceActif && (
-                <button onClick={openEditModal} style={styles.button}>
-                  {currentBudget ? '✏️ Modifier le budget' : '➕ Créer le budget'}
-                </button>
+              {/* Affichage version actuelle */}
+              {currentBudget && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e9ecef', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ ...styles.badge, background: currentSourceObj?.couleur || '#0f4c3a', color: 'white', fontSize: 13 }}>
+                      {getVersionLabel(currentBudget)}
+                    </span>
+                    {!isLatestVersion && (
+                      <span style={{ ...styles.badge, background: '#ffebee', color: '#c62828' }}>🔒 Version archivée</span>
+                    )}
+                    {currentBudget.motifRevision && (
+                      <span style={{ fontSize: 13, color: '#6c757d', fontStyle: 'italic' }}>
+                        "{currentBudget.motifRevision}"
+                      </span>
+                    )}
+                  </div>
+                  
+                  {allBudgetsForSourceExercice.length > 1 && (
+                    <button onClick={() => setShowHistorique(true)} style={{ ...styles.buttonSecondary, padding: '6px 12px', fontSize: 12 }}>
+                      📜 Historique ({allBudgetsForSourceExercice.length} versions)
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1319,9 +1625,14 @@ export default function App() {
                 <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
                   <div style={{ fontSize: 50, marginBottom: 16 }}>📊</div>
                   <p>Aucun budget défini pour cette source et cet exercice</p>
-                  {!showAnterieur && exerciceActif && (
-                    <button onClick={openEditModal} style={{ ...styles.button, marginTop: 16 }}>
-                      ➕ Créer le budget
+                  {lignesBudgetaires.length === 0 && (
+                    <p style={{ fontSize: 13, color: '#adb5bd', marginTop: 8 }}>
+                      ⚠️ Vous devez d'abord importer vos lignes budgétaires dans les <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Paramètres</span>
+                    </p>
+                  )}
+                  {!showAnterieur && exerciceActif && lignesBudgetaires.length > 0 && (
+                    <button onClick={openCreateModal} style={{ ...styles.button, marginTop: 16 }}>
+                      ➕ Créer le budget initial
                     </button>
                   )}
                 </div>
@@ -1416,39 +1727,46 @@ export default function App() {
             <div style={{ ...styles.modalContent, maxWidth: 800 }}>
               <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: currentSourceObj?.couleur || '#0f4c3a', color: 'white' }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>
-                  {editMode ? '✏️ Modifier' : '➕ Créer'} le budget - {currentSourceObj?.nom} ({currentExerciceObj?.annee})
+                  {currentBudget ? `✏️ Modifier - ${getVersionLabel(currentBudget)}` : '➕ Créer le budget initial'} - {currentSourceObj?.nom} ({currentExerciceObj?.annee})
                 </h2>
               </div>
               
               <div style={{ padding: 24 }}>
-                {/* Ajouter une ligne */}
+                {/* Ajouter une ligne via Select */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-                    Ajouter une ligne budgétaire
+                    ➕ Ajouter une ligne depuis la bibliothèque
                   </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {lignesDisponibles.length === 0 ? (
-                      <span style={{ color: '#6c757d', fontSize: 13 }}>Toutes les lignes ont été ajoutées</span>
-                    ) : (
-                      lignesDisponibles.map(ligne => (
-                        <button
-                          key={ligne.id}
-                          onClick={() => addLigne(ligne)}
-                          style={{ 
-                            padding: '6px 12px', 
-                            background: '#e8f5e9', 
-                            color: '#2e7d32', 
-                            border: '1px solid #c8e6c9', 
-                            borderRadius: 6, 
-                            cursor: 'pointer', 
-                            fontSize: 12 
-                          }}
-                        >
-                          + {ligne.code} - {ligne.libelle}
-                        </button>
-                      ))
-                    )}
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <select
+                      value={selectedLigne}
+                      onChange={(e) => setSelectedLigne(e.target.value)}
+                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '2px solid #e9ecef', fontSize: 14 }}
+                    >
+                      <option value="">-- Sélectionner une ligne --</option>
+                      {lignesDisponibles.map(ligne => (
+                        <option key={ligne.id} value={ligne.code}>
+                          {ligne.code} - {ligne.libelle}
+                        </option>
+                      ))}
+                    </select>
+                    <button 
+                      onClick={addLigne} 
+                      disabled={!selectedLigne}
+                      style={{ 
+                        ...styles.button, 
+                        opacity: selectedLigne ? 1 : 0.5,
+                        cursor: selectedLigne ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      ➕ Ajouter
+                    </button>
                   </div>
+                  {lignesBudgetaires.length === 0 && (
+                    <p style={{ fontSize: 12, color: '#c62828', marginTop: 8 }}>
+                      ⚠️ Aucune ligne dans la bibliothèque. <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setShowModal(false); setCurrentPage('parametres'); }}>Importer des lignes</span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Lignes du budget */}
@@ -1459,7 +1777,7 @@ export default function App() {
                   
                   {budgetLignes.length === 0 ? (
                     <div style={{ padding: 24, background: '#f8f9fa', borderRadius: 8, textAlign: 'center', color: '#6c757d' }}>
-                      Aucune ligne ajoutée. Cliquez sur une ligne ci-dessus pour l'ajouter.
+                      Aucune ligne ajoutée. Sélectionnez une ligne dans la liste ci-dessus.
                     </div>
                   ) : (
                     <div style={{ background: '#f8f9fa', borderRadius: 8, overflow: 'hidden' }}>
@@ -1497,7 +1815,8 @@ export default function App() {
                                       borderRadius: 6, 
                                       fontFamily: 'monospace',
                                       textAlign: 'right',
-                                      fontSize: 14
+                                      fontSize: 14,
+                                      boxSizing: 'border-box'
                                     }}
                                   />
                                 </td>
@@ -1544,7 +1863,7 @@ export default function App() {
               </div>
 
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button onClick={() => setShowModal(false)} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={() => { setShowModal(false); setSelectedVersion(null); }} style={styles.buttonSecondary}>Annuler</button>
                 <button 
                   onClick={handleSave} 
                   disabled={saving || budgetLignes.length === 0}
@@ -1555,8 +1874,142 @@ export default function App() {
                     cursor: saving || budgetLignes.length === 0 ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {saving ? 'Enregistrement...' : '✓ Enregistrer le budget'}
+                  {saving ? 'Enregistrement...' : '✓ Enregistrer'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Mot de passe */}
+        {showPasswordModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 400 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#e65100', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>🔐 Correction du budget</h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <p style={{ marginBottom: 16, color: '#555' }}>
+                  Vous allez modifier le budget actuel. Cette action nécessite un mot de passe administrateur.
+                </p>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Mot de passe</label>
+                  <input 
+                    type="password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && verifyPasswordAndEdit()}
+                    placeholder="Entrez le mot de passe"
+                    style={styles.input}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => setShowPasswordModal(false)} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={verifyPasswordAndEdit} style={{ ...styles.button, background: '#e65100' }}>✓ Valider</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Nouvelle révision */}
+        {showRevisionModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 500 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: currentSourceObj?.couleur || '#0f4c3a', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📝 Créer une nouvelle révision</h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ background: '#fff3e0', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                  <strong style={{ color: '#e65100' }}>⚠️ Information importante</strong>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, color: '#555' }}>
+                    Une nouvelle révision (v{(latestVersion?.version || 1) + 1}) sera créée. 
+                    La version actuelle ({getVersionLabel(latestVersion)}) sera archivée et ne pourra plus être modifiée.
+                  </p>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Motif de la révision *</label>
+                  <textarea 
+                    value={motifRevision} 
+                    onChange={(e) => setMotifRevision(e.target.value)}
+                    placeholder="Ex: Augmentation suite avenant, Report exercice N-1, etc."
+                    style={{ ...styles.input, minHeight: 80, resize: 'vertical' }}
+                  />
+                </div>
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => setShowRevisionModal(false)} style={styles.buttonSecondary}>Annuler</button>
+                <button 
+                  onClick={createRevision} 
+                  disabled={saving || !motifRevision.trim()}
+                  style={{ 
+                    ...styles.button, 
+                    background: currentSourceObj?.couleur || '#0f4c3a',
+                    opacity: saving || !motifRevision.trim() ? 0.6 : 1
+                  }}
+                >
+                  {saving ? 'Création...' : '✓ Créer la révision'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Historique */}
+        {showHistorique && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 600 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📜 Historique des versions - {currentSourceObj?.nom} ({currentExerciceObj?.annee})</h2>
+              </div>
+              <div style={{ padding: 24, maxHeight: 400, overflowY: 'auto' }}>
+                {allBudgetsForSourceExercice.map((budget, index) => {
+                  const budgetTotaux = getTotaux(budget);
+                  const isActive = index === 0;
+                  return (
+                    <div 
+                      key={budget.id}
+                      style={{ 
+                        padding: 16, 
+                        background: isActive ? '#e8f5e9' : '#f8f9fa', 
+                        borderRadius: 8, 
+                        marginBottom: 12,
+                        border: isActive ? '2px solid #4caf50' : '1px solid #e9ecef'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <strong>{getVersionLabel(budget)}</strong>
+                          {isActive && <span style={{ ...styles.badge, background: '#4caf50', color: 'white', fontSize: 10 }}>ACTIF</span>}
+                          {!isActive && <span style={{ ...styles.badge, background: '#ffebee', color: '#c62828', fontSize: 10 }}>🔒 Archivé</span>}
+                        </div>
+                        <span style={{ fontSize: 12, color: '#6c757d' }}>
+                          {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
+                        </span>
+                      </div>
+                      {budget.motifRevision && (
+                        <p style={{ fontSize: 13, color: '#555', fontStyle: 'italic', margin: '8px 0' }}>
+                          "{budget.motifRevision}"
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                        <span>Dotation: <strong style={{ fontFamily: 'monospace' }}>{formatMontant(budgetTotaux.dotation)}</strong></span>
+                        <span>|</span>
+                        <span>Lignes: <strong>{budget.lignes?.length || 0}</strong></span>
+                      </div>
+                      <button 
+                        onClick={() => { setSelectedVersion(budget.id); setShowHistorique(false); }}
+                        style={{ ...styles.buttonSecondary, padding: '6px 12px', fontSize: 12, marginTop: 12 }}
+                      >
+                        👁️ Voir cette version
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowHistorique(false)} style={styles.buttonSecondary}>Fermer</button>
               </div>
             </div>
           </div>
