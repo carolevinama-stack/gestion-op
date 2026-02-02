@@ -1172,8 +1172,11 @@ export default function App() {
   const PageBeneficiaires = () => {
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
     const [editBen, setEditBen] = useState(null);
     const [form, setForm] = useState({ nom: '', ncc: '', rib: '' });
+    const [importData, setImportData] = useState([]);
+    const [importing, setImporting] = useState(false);
 
     const filtered = beneficiaires.filter(b => 
       b.nom?.toLowerCase().includes(search.toLowerCase()) ||
@@ -1190,6 +1193,74 @@ export default function App() {
       setForm(ben);
       setEditBen(ben);
       setShowModal(true);
+    };
+
+    // Import CSV/Excel
+    const handleFileUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        // Détecter le séparateur (virgule, point-virgule, ou tabulation)
+        const firstLine = lines[0] || '';
+        let separator = ';';
+        if (firstLine.includes('\t')) separator = '\t';
+        else if (firstLine.split(',').length > firstLine.split(';').length) separator = ',';
+
+        const parsed = [];
+        lines.forEach((line, index) => {
+          const cols = line.split(separator).map(c => c.trim().replace(/^["']|["']$/g, ''));
+          
+          // Ignorer l'en-tête si présent
+          if (index === 0) {
+            const firstCol = cols[0]?.toLowerCase();
+            if (firstCol === 'nom' || firstCol === 'name' || firstCol === 'beneficiaire' || firstCol === 'raison sociale') {
+              return;
+            }
+          }
+
+          if (cols[0]) {
+            const nom = cols[0].toUpperCase();
+            // Vérifier si le nom existe déjà
+            const exists = beneficiaires.find(b => b.nom === nom);
+            if (!exists) {
+              parsed.push({
+                nom: nom,
+                ncc: cols[1] || '',
+                rib: cols[2] || ''
+              });
+            }
+          }
+        });
+
+        setImportData(parsed);
+      };
+      reader.readAsText(file);
+    };
+
+    const handleImport = async () => {
+      if (importData.length === 0) return;
+      
+      setImporting(true);
+      try {
+        const newBeneficiaires = [];
+        for (const ben of importData) {
+          const docRef = await addDoc(collection(db, 'beneficiaires'), ben);
+          newBeneficiaires.push({ id: docRef.id, ...ben });
+        }
+        setBeneficiaires([...beneficiaires, ...newBeneficiaires].sort((a, b) => a.nom.localeCompare(b.nom)));
+        setShowImportModal(false);
+        setImportData([]);
+        alert(`${newBeneficiaires.length} bénéficiaire(s) importé(s) avec succès`);
+      } catch (error) {
+        console.error('Erreur import:', error);
+        alert('Erreur lors de l\'import');
+      }
+      setImporting(false);
     };
 
     const handleSave = async () => {
@@ -1226,7 +1297,12 @@ export default function App() {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700 }}>👥 Bénéficiaires</h1>
-          <button onClick={openNew} style={styles.button}>➕ Nouveau</button>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={() => setShowImportModal(true)} style={{ ...styles.buttonSecondary, background: '#e3f2fd', color: '#1565c0' }}>
+              📥 Importer CSV
+            </button>
+            <button onClick={openNew} style={styles.button}>➕ Nouveau</button>
+          </div>
         </div>
 
         <div style={{ ...styles.card, padding: 16, marginBottom: 20 }}>
@@ -1295,6 +1371,83 @@ export default function App() {
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                 <button onClick={() => setShowModal(false)} style={styles.buttonSecondary}>Annuler</button>
                 <button onClick={handleSave} style={styles.button}>✓ Enregistrer</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Import Bénéficiaires */}
+        {showImportModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#1565c0', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📥 Importer des bénéficiaires</h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ background: '#e3f2fd', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                  <strong style={{ color: '#1565c0' }}>📋 Format attendu (CSV/Excel)</strong>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, color: '#555' }}>
+                    3 colonnes : <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Nom ; NCC ; RIB</code><br/>
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Séparateur accepté : virgule, point-virgule ou tabulation. Les doublons seront ignorés.</span>
+                  </p>
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Fichier à importer</label>
+                  <input 
+                    type="file" 
+                    accept=".csv,.txt,.xls,.xlsx"
+                    onChange={handleFileUpload}
+                    style={{ width: '100%', padding: 12, border: '2px dashed #1565c0', borderRadius: 8, cursor: 'pointer' }}
+                  />
+                </div>
+
+                {importData.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <strong style={{ color: '#2e7d32' }}>✓ {importData.length} bénéficiaire(s) à importer</strong>
+                    </div>
+                    <div style={{ maxHeight: 250, overflowY: 'auto', border: '1px solid #e9ecef', borderRadius: 8 }}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...styles.th, fontSize: 11 }}>NOM</th>
+                            <th style={{ ...styles.th, fontSize: 11 }}>NCC</th>
+                            <th style={{ ...styles.th, fontSize: 11 }}>RIB</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importData.slice(0, 50).map((ben, i) => (
+                            <tr key={i}>
+                              <td style={{ ...styles.td, fontSize: 12 }}>{ben.nom}</td>
+                              <td style={{ ...styles.td, fontSize: 12 }}>{ben.ncc || '-'}</td>
+                              <td style={{ ...styles.td, fontSize: 12, fontFamily: 'monospace' }}>{ben.rib || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {importData.length > 50 && (
+                        <div style={{ padding: 12, textAlign: 'center', color: '#6c757d', fontSize: 12 }}>
+                          ... et {importData.length - 50} autre(s)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>Annuler</button>
+                <button 
+                  onClick={handleImport} 
+                  disabled={importing || importData.length === 0}
+                  style={{ 
+                    ...styles.button, 
+                    background: '#1565c0',
+                    opacity: importing || importData.length === 0 ? 0.6 : 1 
+                  }}
+                >
+                  {importing ? 'Import en cours...' : `✓ Importer ${importData.length} bénéficiaire(s)`}
+                </button>
               </div>
             </div>
           </div>
