@@ -1083,6 +1083,488 @@ export default function App() {
     );
   };
 
+  // ==================== PAGE BUDGET ====================
+  const PageBudget = () => {
+    const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
+    const [showAnterieur, setShowAnterieur] = useState(false);
+    const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
+    const [showModal, setShowModal] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [budgetLignes, setBudgetLignes] = useState([]);
+    const [saving, setSaving] = useState(false);
+
+    // Obtenir le budget actuel pour la source et l'exercice sélectionnés
+    const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
+    const currentBudget = budgets.find(b => b.sourceId === activeSource && b.exerciceId === currentExerciceId);
+    const currentExerciceObj = exercices.find(e => e.id === currentExerciceId);
+    const currentSourceObj = sources.find(s => s.id === activeSource);
+
+    // Calculer les engagements par ligne (depuis les OP)
+    const getEngagementLigne = (ligneCode) => {
+      return ops
+        .filter(op => 
+          op.sourceId === activeSource && 
+          op.exerciceId === currentExerciceId &&
+          op.ligneBudgetaire === ligneCode &&
+          ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
+          op.statut !== 'REJETE' &&
+          op.statut !== 'ANNULE'
+        )
+        .reduce((sum, op) => sum + (op.montant || 0), 0);
+    };
+
+    // Préparer les lignes pour l'édition
+    const openEditModal = () => {
+      if (currentBudget && currentBudget.lignes) {
+        setBudgetLignes(currentBudget.lignes.map(l => ({ ...l })));
+      } else {
+        setBudgetLignes([]);
+      }
+      setEditMode(!!currentBudget);
+      setShowModal(true);
+    };
+
+    // Ajouter une ligne au budget
+    const addLigne = (ligne) => {
+      if (budgetLignes.find(l => l.code === ligne.code)) {
+        alert('Cette ligne existe déjà dans le budget');
+        return;
+      }
+      setBudgetLignes([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }]);
+    };
+
+    // Supprimer une ligne du budget
+    const removeLigne = (code) => {
+      const engagement = getEngagementLigne(code);
+      if (engagement > 0) {
+        alert(`Impossible de supprimer cette ligne.\n\nElle a des engagements de ${formatMontant(engagement)} FCFA.\n\nVous devez d'abord supprimer ou modifier les OP imputés sur cette ligne.`);
+        return;
+      }
+      setBudgetLignes(budgetLignes.filter(l => l.code !== code));
+    };
+
+    // Modifier la dotation d'une ligne
+    const updateDotation = (code, dotation) => {
+      const engagement = getEngagementLigne(code);
+      const newDotation = parseInt(dotation) || 0;
+      
+      if (newDotation < engagement) {
+        alert(`Attention: La dotation (${formatMontant(newDotation)}) est inférieure aux engagements (${formatMontant(engagement)}).\n\nCela créera un disponible négatif.`);
+      }
+      
+      setBudgetLignes(budgetLignes.map(l => 
+        l.code === code ? { ...l, dotation: newDotation } : l
+      ));
+    };
+
+    // Sauvegarder le budget
+    const handleSave = async () => {
+      if (budgetLignes.length === 0) {
+        alert('Veuillez ajouter au moins une ligne budgétaire');
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const budgetData = {
+          sourceId: activeSource,
+          exerciceId: currentExerciceId,
+          lignes: budgetLignes,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (currentBudget) {
+          // Mise à jour
+          await updateDoc(doc(db, 'budgets', currentBudget.id), budgetData);
+          setBudgets(budgets.map(b => b.id === currentBudget.id ? { ...b, ...budgetData } : b));
+        } else {
+          // Création
+          budgetData.createdAt = new Date().toISOString();
+          const docRef = await addDoc(collection(db, 'budgets'), budgetData);
+          setBudgets([...budgets, { id: docRef.id, ...budgetData }]);
+        }
+
+        setShowModal(false);
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la sauvegarde');
+      }
+      setSaving(false);
+    };
+
+    // Calculer les totaux
+    const getTotaux = () => {
+      if (!currentBudget || !currentBudget.lignes) return { dotation: 0, engagement: 0, disponible: 0 };
+      
+      let totalDotation = 0;
+      let totalEngagement = 0;
+
+      currentBudget.lignes.forEach(ligne => {
+        totalDotation += ligne.dotation || 0;
+        totalEngagement += getEngagementLigne(ligne.code);
+      });
+
+      return {
+        dotation: totalDotation,
+        engagement: totalEngagement,
+        disponible: totalDotation - totalEngagement
+      };
+    };
+
+    const totaux = getTotaux();
+
+    // Lignes disponibles (non encore dans le budget)
+    const lignesDisponibles = lignesBudgetaires.filter(l => 
+      !budgetLignes.find(bl => bl.code === l.code)
+    );
+
+    return (
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>💰 Budget</h1>
+        
+        {/* Onglets Sources */}
+        <div style={styles.sourceTabs}>
+          {sources.length === 0 ? (
+            <div style={{ color: '#6c757d', fontSize: 14 }}>
+              Aucune source configurée. <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Configurer les sources</span>
+            </div>
+          ) : (
+            sources.map(source => (
+              <div
+                key={source.id}
+                onClick={() => setActiveSource(source.id)}
+                style={activeSource === source.id 
+                  ? { ...styles.sourceTabActive, background: source.couleur || '#0f4c3a', borderColor: source.couleur || '#0f4c3a' }
+                  : styles.sourceTab
+                }
+              >
+                {source.sigle || source.nom}
+              </div>
+            ))
+          )}
+        </div>
+
+        {sources.length > 0 && activeSource && (
+          <>
+            {/* Sélection exercice */}
+            <div style={{ ...styles.card, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div>
+                  <span style={{ fontSize: 13, color: '#6c757d' }}>Exercice : </span>
+                  <strong style={{ fontSize: 18, color: '#0f4c3a' }}>{currentExerciceObj?.annee || 'Non défini'}</strong>
+                  {!showAnterieur && exerciceActif && <span style={{ ...styles.badge, background: '#e8f5e9', color: '#2e7d32', marginLeft: 8 }}>Actif</span>}
+                </div>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showAnterieur} 
+                    onChange={(e) => {
+                      setShowAnterieur(e.target.checked);
+                      if (!e.target.checked) setSelectedExercice(exerciceActif?.id);
+                    }}
+                  />
+                  Consulter exercices antérieurs
+                </label>
+
+                {showAnterieur && (
+                  <select 
+                    value={selectedExercice || ''} 
+                    onChange={(e) => setSelectedExercice(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: 6, border: '2px solid #e9ecef', fontSize: 14 }}
+                  >
+                    {exercices.map(ex => (
+                      <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {!showAnterieur && exerciceActif && (
+                <button onClick={openEditModal} style={styles.button}>
+                  {currentBudget ? '✏️ Modifier le budget' : '➕ Créer le budget'}
+                </button>
+              )}
+            </div>
+
+            {/* Stats rapides */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
+              <div style={styles.card}>
+                <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>💰 Dotation totale</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: currentSourceObj?.couleur || '#0f4c3a', fontFamily: 'monospace' }}>
+                  {formatMontant(totaux.dotation)}
+                </div>
+              </div>
+              <div style={styles.card}>
+                <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>📝 Engagements</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#f0b429', fontFamily: 'monospace' }}>
+                  {formatMontant(totaux.engagement)}
+                </div>
+              </div>
+              <div style={styles.card}>
+                <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>✅ Disponible</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: totaux.disponible >= 0 ? '#06d6a0' : '#dc3545', fontFamily: 'monospace' }}>
+                  {formatMontant(totaux.disponible)}
+                </div>
+              </div>
+            </div>
+
+            {/* Tableau du budget */}
+            <div style={styles.card}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+                Lignes budgétaires - {currentSourceObj?.nom} ({currentExerciceObj?.annee})
+              </h3>
+
+              {!currentBudget || !currentBudget.lignes || currentBudget.lignes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
+                  <div style={{ fontSize: 50, marginBottom: 16 }}>📊</div>
+                  <p>Aucun budget défini pour cette source et cet exercice</p>
+                  {!showAnterieur && exerciceActif && (
+                    <button onClick={openEditModal} style={{ ...styles.button, marginTop: 16 }}>
+                      ➕ Créer le budget
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>CODE</th>
+                      <th style={styles.th}>LIBELLÉ</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>DOTATION</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>ENGAGEMENTS</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>DISPONIBLE</th>
+                      <th style={{ ...styles.th, textAlign: 'center' }}>TAUX</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentBudget.lignes.map(ligne => {
+                      const engagement = getEngagementLigne(ligne.code);
+                      const disponible = (ligne.dotation || 0) - engagement;
+                      const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : 0;
+                      
+                      return (
+                        <tr key={ligne.code}>
+                          <td style={styles.td}>
+                            <code style={{ background: currentSourceObj?.couleur || '#0f4c3a', color: 'white', padding: '4px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>
+                              {ligne.code}
+                            </code>
+                          </td>
+                          <td style={styles.td}>{ligne.libelle}</td>
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
+                            {formatMontant(ligne.dotation)}
+                          </td>
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#f0b429' }}>
+                            {formatMontant(engagement)}
+                          </td>
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: disponible >= 0 ? '#06d6a0' : '#dc3545' }}>
+                            {formatMontant(disponible)}
+                          </td>
+                          <td style={{ ...styles.td, textAlign: 'center' }}>
+                            <div style={{ 
+                              background: taux >= 100 ? '#ffebee' : taux >= 80 ? '#fff3e0' : '#e8f5e9',
+                              color: taux >= 100 ? '#c62828' : taux >= 80 ? '#e65100' : '#2e7d32',
+                              padding: '4px 10px',
+                              borderRadius: 12,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              display: 'inline-block'
+                            }}>
+                              {taux}%
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#f8f9fa', fontWeight: 600 }}>
+                      <td colSpan={2} style={{ ...styles.td, fontWeight: 700 }}>TOTAL</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>
+                        {formatMontant(totaux.dotation)}
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#f0b429', fontWeight: 700 }}>
+                        {formatMontant(totaux.engagement)}
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: totaux.disponible >= 0 ? '#06d6a0' : '#dc3545', fontWeight: 700 }}>
+                        {formatMontant(totaux.disponible)}
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <div style={{ 
+                          background: '#e3f2fd',
+                          color: '#1565c0',
+                          padding: '4px 10px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          display: 'inline-block'
+                        }}>
+                          {totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : 0}%
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Modal Création/Modification Budget */}
+        {showModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 800 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: currentSourceObj?.couleur || '#0f4c3a', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>
+                  {editMode ? '✏️ Modifier' : '➕ Créer'} le budget - {currentSourceObj?.nom} ({currentExerciceObj?.annee})
+                </h2>
+              </div>
+              
+              <div style={{ padding: 24 }}>
+                {/* Ajouter une ligne */}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Ajouter une ligne budgétaire
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {lignesDisponibles.length === 0 ? (
+                      <span style={{ color: '#6c757d', fontSize: 13 }}>Toutes les lignes ont été ajoutées</span>
+                    ) : (
+                      lignesDisponibles.map(ligne => (
+                        <button
+                          key={ligne.id}
+                          onClick={() => addLigne(ligne)}
+                          style={{ 
+                            padding: '6px 12px', 
+                            background: '#e8f5e9', 
+                            color: '#2e7d32', 
+                            border: '1px solid #c8e6c9', 
+                            borderRadius: 6, 
+                            cursor: 'pointer', 
+                            fontSize: 12 
+                          }}
+                        >
+                          + {ligne.code} - {ligne.libelle}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Lignes du budget */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                    Lignes du budget ({budgetLignes.length})
+                  </label>
+                  
+                  {budgetLignes.length === 0 ? (
+                    <div style={{ padding: 24, background: '#f8f9fa', borderRadius: 8, textAlign: 'center', color: '#6c757d' }}>
+                      Aucune ligne ajoutée. Cliquez sur une ligne ci-dessus pour l'ajouter.
+                    </div>
+                  ) : (
+                    <div style={{ background: '#f8f9fa', borderRadius: 8, overflow: 'hidden' }}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...styles.th, width: 100 }}>CODE</th>
+                            <th style={styles.th}>LIBELLÉ</th>
+                            <th style={{ ...styles.th, width: 180 }}>DOTATION (FCFA)</th>
+                            <th style={{ ...styles.th, width: 120, textAlign: 'right' }}>ENGAGÉ</th>
+                            <th style={{ ...styles.th, width: 60 }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {budgetLignes.map(ligne => {
+                            const engagement = getEngagementLigne(ligne.code);
+                            return (
+                              <tr key={ligne.code}>
+                                <td style={styles.td}>
+                                  <code style={{ background: currentSourceObj?.couleur || '#0f4c3a', color: 'white', padding: '3px 8px', borderRadius: 4, fontSize: 11 }}>
+                                    {ligne.code}
+                                  </code>
+                                </td>
+                                <td style={{ ...styles.td, fontSize: 13 }}>{ligne.libelle}</td>
+                                <td style={styles.td}>
+                                  <input
+                                    type="number"
+                                    value={ligne.dotation || ''}
+                                    onChange={(e) => updateDotation(ligne.code, e.target.value)}
+                                    placeholder="0"
+                                    style={{ 
+                                      width: '100%', 
+                                      padding: '8px 10px', 
+                                      border: '2px solid #e9ecef', 
+                                      borderRadius: 6, 
+                                      fontFamily: 'monospace',
+                                      textAlign: 'right',
+                                      fontSize: 14
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: engagement > 0 ? '#f0b429' : '#adb5bd', fontSize: 13 }}>
+                                  {formatMontant(engagement)}
+                                </td>
+                                <td style={{ ...styles.td, textAlign: 'center' }}>
+                                  <button
+                                    onClick={() => removeLigne(ligne.code)}
+                                    title={engagement > 0 ? 'Impossible de supprimer (engagements existants)' : 'Supprimer'}
+                                    style={{ 
+                                      padding: '4px 8px', 
+                                      background: engagement > 0 ? '#f5f5f5' : '#ffebee', 
+                                      color: engagement > 0 ? '#bdbdbd' : '#c62828', 
+                                      border: 'none', 
+                                      borderRadius: 4, 
+                                      cursor: engagement > 0 ? 'not-allowed' : 'pointer',
+                                      fontSize: 14
+                                    }}
+                                  >
+                                    🗑️
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ background: '#e9ecef' }}>
+                            <td colSpan={2} style={{ ...styles.td, fontWeight: 700 }}>TOTAL</td>
+                            <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700, textAlign: 'right', paddingRight: 16 }}>
+                              {formatMontant(budgetLignes.reduce((sum, l) => sum + (l.dotation || 0), 0))}
+                            </td>
+                            <td style={{ ...styles.td, fontFamily: 'monospace', color: '#f0b429', textAlign: 'right' }}>
+                              {formatMontant(budgetLignes.reduce((sum, l) => sum + getEngagementLigne(l.code), 0))}
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => setShowModal(false)} style={styles.buttonSecondary}>Annuler</button>
+                <button 
+                  onClick={handleSave} 
+                  disabled={saving || budgetLignes.length === 0}
+                  style={{ 
+                    ...styles.button, 
+                    background: currentSourceObj?.couleur || '#0f4c3a',
+                    opacity: saving || budgetLignes.length === 0 ? 0.6 : 1,
+                    cursor: saving || budgetLignes.length === 0 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {saving ? 'Enregistrement...' : '✓ Enregistrer le budget'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ==================== PAGES EN CONSTRUCTION ====================
   const PageEnConstruction = ({ title, icon }) => (
     <div>
@@ -1118,7 +1600,7 @@ export default function App() {
         {currentPage === 'dashboard' && <PageDashboard />}
         {currentPage === 'parametres' && <PageParametres />}
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
-        {currentPage === 'budget' && <PageEnConstruction title="Budget" icon="💰" />}
+        {currentPage === 'budget' && <PageBudget />}
         {currentPage === 'ops' && <PageEnConstruction title="Liste des OP" icon="📋" />}
         {currentPage === 'nouvelOp' && <PageEnConstruction title="Nouvel OP" icon="➕" />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
