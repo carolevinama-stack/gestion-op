@@ -2722,14 +2722,15 @@ export default function App() {
 
     // Générer le prochain numéro
     const genererNumero = () => {
-      const prefix = currentSourceObj?.sigle || 'OP';
+      const sigleProjet = projet?.sigle || 'PROJET';
+      const sigleSource = currentSourceObj?.sigle || 'OP';
       const annee = exerciceActif?.annee || new Date().getFullYear();
       const opsSource = ops.filter(op => 
         op.sourceId === activeSource && 
         op.exerciceId === exerciceActif?.id
       );
       const nextNum = opsSource.length + 1;
-      return `${prefix}-${annee}-${String(nextNum).padStart(4, '0')}`;
+      return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
     };
 
     // Quand on sélectionne un OP Provisoire
