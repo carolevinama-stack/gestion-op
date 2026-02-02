@@ -2086,13 +2086,12 @@ export default function App() {
                           label: `${ligne.code} - ${ligne.libelle}`,
                           searchFields: [ligne.code, ligne.libelle]
                         }))}
-                        value={selectedLigne ? {
-                          value: selectedLigne,
-                          label: (() => {
-                            const l = lignesDisponibles.find(x => x.code === selectedLigne);
-                            return l ? `${l.code} - ${l.libelle}` : '';
-                          })()
-                        } : null}
+                        value={selectedLigne ? 
+                          lignesDisponibles.filter(x => x.code === selectedLigne).map(l => ({
+                            value: l.code,
+                            label: `${l.code} - ${l.libelle}`
+                          }))[0] || null
+                        : null}
                         onChange={(option) => setSelectedLigne(option?.value || '')}
                         placeholder="🔍 Rechercher par code ou libellé..."
                         noOptionsMessage="Aucune ligne disponible"
@@ -3036,13 +3035,12 @@ export default function App() {
                       label: `${l.code} - ${l.libelle}`,
                       searchFields: [l.code, l.libelle]
                     }))}
-                    value={form.ligneBudgetaire ? {
-                      value: form.ligneBudgetaire,
-                      label: (() => {
-                        const l = currentBudget?.lignes?.find(x => x.code === form.ligneBudgetaire);
-                        return l ? `${l.code} - ${l.libelle}` : '';
-                      })()
-                    } : null}
+                    value={form.ligneBudgetaire ? 
+                      (currentBudget?.lignes || []).filter(x => x.code === form.ligneBudgetaire).map(l => ({
+                        value: l.code,
+                        label: `${l.code} - ${l.libelle}`
+                      }))[0] || null
+                    : null}
                     onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })}
                     placeholder="🔍 Rechercher par code ou libellé..."
                     isDisabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
@@ -3171,14 +3169,15 @@ export default function App() {
                             searchFields: [op.numero, ben?.nom || '', String(op.montant), op.objet || '']
                           };
                         })}
-                        value={form.opProvisoireId ? {
-                          value: form.opProvisoireId,
-                          label: (() => {
-                            const op = opProvisoiresDisponibles.find(o => o.id === form.opProvisoireId);
-                            const ben = beneficiaires.find(b => b.id === op?.beneficiaireId);
-                            return op ? `${op.numero} - ${ben?.nom || 'N/A'} - ${formatMontant(op.montant)} F` : '';
-                          })()
-                        } : null}
+                        value={form.opProvisoireId ? 
+                          opProvisoiresDisponibles.filter(o => o.id === form.opProvisoireId).map(op => {
+                            const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                            return {
+                              value: op.id,
+                              label: `${op.numero} - ${ben?.nom || 'N/A'} - ${formatMontant(op.montant)} F`
+                            };
+                          })[0] || null
+                        : null}
                         onChange={(option) => handleSelectOpProvisoire(option?.value || '')}
                         placeholder="🔍 Rechercher par N°, bénéficiaire..."
                         noOptionsMessage="Aucun OP Provisoire disponible"
