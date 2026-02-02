@@ -138,10 +138,37 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   
-  // Navigation
-  const [currentPage, setCurrentPage] = useState('dashboard');
-  const [historiqueParams, setHistoriqueParams] = useState({ sourceId: null, exerciceId: null });
-  const [activeBudgetSource, setActiveBudgetSource] = useState(null); // Source active pour le budget
+  // Navigation - avec persistance localStorage
+  const [currentPage, setCurrentPageState] = useState(() => {
+    const saved = localStorage.getItem('gestion-op-currentPage');
+    return saved || 'dashboard';
+  });
+  const [historiqueParams, setHistoriqueParamsState] = useState(() => {
+    const saved = localStorage.getItem('gestion-op-historiqueParams');
+    return saved ? JSON.parse(saved) : { sourceId: null, exerciceId: null };
+  });
+  const [activeBudgetSource, setActiveBudgetSourceState] = useState(() => {
+    const saved = localStorage.getItem('gestion-op-activeBudgetSource');
+    return saved || null;
+  });
+
+  // Wrappers pour sauvegarder dans localStorage
+  const setCurrentPage = (page) => {
+    setCurrentPageState(page);
+    localStorage.setItem('gestion-op-currentPage', page);
+  };
+  const setHistoriqueParams = (params) => {
+    setHistoriqueParamsState(params);
+    localStorage.setItem('gestion-op-historiqueParams', JSON.stringify(params));
+  };
+  const setActiveBudgetSource = (sourceId) => {
+    setActiveBudgetSourceState(sourceId);
+    if (sourceId) {
+      localStorage.setItem('gestion-op-activeBudgetSource', sourceId);
+    } else {
+      localStorage.removeItem('gestion-op-activeBudgetSource');
+    }
+  };
   
   // Data state
   const [projet, setProjet] = useState(null);
@@ -183,7 +210,11 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setCurrentPage('dashboard');
+      // Nettoyer le localStorage de navigation
+      localStorage.removeItem('gestion-op-currentPage');
+      localStorage.removeItem('gestion-op-historiqueParams');
+      localStorage.removeItem('gestion-op-activeBudgetSource');
+      setCurrentPageState('dashboard');
     } catch (error) {
       console.error('Erreur de déconnexion:', error);
     }
