@@ -2538,6 +2538,463 @@ export default function App() {
     );
   };
 
+  // ==================== PAGE NOUVEL OP ====================
+  const PageNouvelOp = () => {
+    const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
+    const [form, setForm] = useState({
+      type: 'PROVISOIRE',
+      beneficiaireId: '',
+      ligneBudgetaire: '',
+      objet: '',
+      montant: '',
+      opProvisoireId: ''
+    });
+    const [saving, setSaving] = useState(false);
+    const [searchBen, setSearchBen] = useState('');
+
+    const currentSourceObj = sources.find(s => s.id === activeSource);
+    
+    // Budget actif pour la source et l'exercice actif
+    const currentBudget = budgets
+      .filter(b => b.sourceId === activeSource && b.exerciceId === exerciceActif?.id)
+      .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+
+    // Calculer le disponible pour une ligne
+    const getDisponible = (ligneCode) => {
+      if (!currentBudget) return 0;
+      const ligne = currentBudget.lignes?.find(l => l.code === ligneCode);
+      if (!ligne) return 0;
+      
+      const engagements = ops
+        .filter(op => 
+          op.sourceId === activeSource && 
+          op.exerciceId === exerciceActif?.id &&
+          op.ligneBudgetaire === ligneCode &&
+          ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
+          !['REJETE', 'ANNULE'].includes(op.statut)
+        )
+        .reduce((sum, op) => sum + (op.montant || 0), 0);
+      
+      return (ligne.dotation || 0) - engagements;
+    };
+
+    // OP Provisoires disponibles pour Annulation/Définitif
+    const opProvisoiresDisponibles = ops.filter(op => 
+      op.sourceId === activeSource &&
+      op.exerciceId === exerciceActif?.id &&
+      op.type === 'PROVISOIRE' &&
+      !['REJETE', 'ANNULE'].includes(op.statut) &&
+      // Vérifier qu'il n'est pas déjà lié à un Définitif ou Annulation
+      !ops.find(o => o.opProvisoireId === op.id && ['DEFINITIF', 'ANNULATION'].includes(o.type))
+    );
+
+    // Générer le prochain numéro
+    const genererNumero = () => {
+      const prefix = currentSourceObj?.sigle || 'OP';
+      const annee = exerciceActif?.annee || new Date().getFullYear();
+      const opsSource = ops.filter(op => 
+        op.sourceId === activeSource && 
+        op.exerciceId === exerciceActif?.id
+      );
+      const nextNum = opsSource.length + 1;
+      return `${prefix}-${annee}-${String(nextNum).padStart(4, '0')}`;
+    };
+
+    // Bénéficiaires filtrés
+    const filteredBeneficiaires = beneficiaires.filter(b =>
+      b.nom?.toLowerCase().includes(searchBen.toLowerCase()) ||
+      b.ncc?.toLowerCase().includes(searchBen.toLowerCase())
+    );
+
+    // OP Provisoire sélectionné
+    const opProvisoireSelected = form.opProvisoireId 
+      ? ops.find(op => op.id === form.opProvisoireId)
+      : null;
+
+    // Quand on sélectionne un OP Provisoire, pré-remplir les champs
+    const handleSelectOpProvisoire = (opId) => {
+      const op = ops.find(o => o.id === opId);
+      if (op) {
+        setForm({
+          ...form,
+          opProvisoireId: opId,
+          beneficiaireId: op.beneficiaireId,
+          ligneBudgetaire: op.ligneBudgetaire,
+          objet: op.objet,
+          montant: form.type === 'ANNULATION' ? op.montant : form.montant
+        });
+      }
+    };
+
+    // Validation et sauvegarde
+    const handleSave = async () => {
+      // Validations
+      if (!activeSource) {
+        alert('Veuillez sélectionner une source de financement');
+        return;
+      }
+      if (!exerciceActif) {
+        alert('Aucun exercice actif. Veuillez en définir un dans les Paramètres.');
+        return;
+      }
+      if (!form.beneficiaireId) {
+        alert('Veuillez sélectionner un bénéficiaire');
+        return;
+      }
+      if (!form.ligneBudgetaire) {
+        alert('Veuillez sélectionner une ligne budgétaire');
+        return;
+      }
+      if (!form.objet.trim()) {
+        alert('Veuillez saisir l\'objet de la dépense');
+        return;
+      }
+      if (!form.montant || parseFloat(form.montant) <= 0) {
+        alert('Veuillez saisir un montant valide');
+        return;
+      }
+      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId) {
+        alert(`Veuillez sélectionner l'OP Provisoire à ${form.type === 'ANNULATION' ? 'annuler' : 'régulariser'}`);
+        return;
+      }
+
+      // Vérification budget (sauf pour Annulation qui libère du budget)
+      const montant = parseFloat(form.montant);
+      if (form.type !== 'ANNULATION') {
+        const disponible = getDisponible(form.ligneBudgetaire);
+        // Pour Définitif, on remplace le Provisoire donc pas de dépassement supplémentaire
+        const montantAVerifier = form.type === 'DEFINITIF' && opProvisoireSelected 
+          ? montant - (opProvisoireSelected.montant || 0)
+          : montant;
+        
+        if (montantAVerifier > disponible && form.type !== 'DEFINITIF') {
+          if (!window.confirm(`⚠️ Attention : Le montant (${formatMontant(montant)}) dépasse le disponible (${formatMontant(disponible)}).\n\nVoulez-vous continuer ?`)) {
+            return;
+          }
+        }
+      }
+
+      setSaving(true);
+      try {
+        const numero = genererNumero();
+        const opData = {
+          numero,
+          type: form.type,
+          sourceId: activeSource,
+          exerciceId: exerciceActif.id,
+          beneficiaireId: form.beneficiaireId,
+          ligneBudgetaire: form.ligneBudgetaire,
+          objet: form.objet.trim(),
+          montant: montant,
+          statut: 'CREE',
+          opProvisoireId: form.opProvisoireId || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        const docRef = await addDoc(collection(db, 'ops'), opData);
+        setOps([...ops, { id: docRef.id, ...opData }]);
+
+        // Réinitialiser le formulaire
+        setForm({
+          type: 'PROVISOIRE',
+          beneficiaireId: '',
+          ligneBudgetaire: '',
+          objet: '',
+          montant: '',
+          opProvisoireId: ''
+        });
+        setSearchBen('');
+
+        alert(`✅ OP ${numero} créé avec succès !`);
+        
+        // Aller à la liste des OP
+        setCurrentPage('ops');
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la création de l\'OP');
+      }
+      setSaving(false);
+    };
+
+    // Types d'OP avec descriptions
+    const typesOP = [
+      { value: 'PROVISOIRE', label: '📋 Provisoire', desc: 'Engagement prévisionnel (bloque le budget)', color: '#ff9800' },
+      { value: 'DIRECT', label: '⚡ Direct', desc: 'OP complet en une seule étape', color: '#2196f3' },
+      { value: 'DEFINITIF', label: '✅ Définitif', desc: 'Régularise un OP Provisoire', color: '#4caf50' },
+      { value: 'ANNULATION', label: '❌ Annulation', desc: 'Annule un OP Provisoire (libère le budget)', color: '#f44336' }
+    ];
+
+    const selectedType = typesOP.find(t => t.value === form.type);
+
+    return (
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>➕ Nouvel Ordre de Paiement</h1>
+        
+        {/* Onglets Sources */}
+        <div style={styles.sourceTabs}>
+          {sources.map(source => (
+            <div
+              key={source.id}
+              onClick={() => setActiveSource(source.id)}
+              style={activeSource === source.id 
+                ? { ...styles.sourceTabActive, background: source.couleur || '#0f4c3a', borderColor: source.couleur || '#0f4c3a' }
+                : styles.sourceTab
+              }
+            >
+              {source.sigle || source.nom}
+            </div>
+          ))}
+        </div>
+
+        {!exerciceActif ? (
+          <div style={{ ...styles.card, textAlign: 'center', padding: 40 }}>
+            <div style={{ fontSize: 50, marginBottom: 16 }}>⚠️</div>
+            <p style={{ color: '#e65100', fontWeight: 600 }}>Aucun exercice actif</p>
+            <p style={{ color: '#6c757d' }}>Veuillez définir un exercice actif dans les <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Paramètres</span></p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 20 }}>
+            {/* Formulaire principal */}
+            <div>
+              {/* Type d'OP */}
+              <div style={styles.card}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>TYPE D'OP</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                  {typesOP.map(type => (
+                    <div
+                      key={type.value}
+                      onClick={() => setForm({ ...form, type: type.value, opProvisoireId: '', montant: '' })}
+                      style={{
+                        padding: 16,
+                        borderRadius: 10,
+                        border: form.type === type.value ? `3px solid ${type.color}` : '2px solid #e9ecef',
+                        background: form.type === type.value ? `${type.color}10` : 'white',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{type.label}</div>
+                      <div style={{ fontSize: 12, color: '#6c757d' }}>{type.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sélection OP Provisoire (pour Annulation/Définitif) */}
+              {['ANNULATION', 'DEFINITIF'].includes(form.type) && (
+                <div style={{ ...styles.card, borderLeft: `4px solid ${selectedType?.color}` }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>
+                    OP PROVISOIRE À {form.type === 'ANNULATION' ? 'ANNULER' : 'RÉGULARISER'}
+                  </h3>
+                  {opProvisoiresDisponibles.length === 0 ? (
+                    <p style={{ color: '#f44336', textAlign: 'center', padding: 20 }}>
+                      Aucun OP Provisoire disponible pour cette source
+                    </p>
+                  ) : (
+                    <select
+                      value={form.opProvisoireId}
+                      onChange={(e) => handleSelectOpProvisoire(e.target.value)}
+                      style={{ ...styles.input, marginBottom: 0 }}
+                    >
+                      <option value="">-- Sélectionner un OP Provisoire --</option>
+                      {opProvisoiresDisponibles.map(op => {
+                        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                        return (
+                          <option key={op.id} value={op.id}>
+                            {op.numero} - {ben?.nom || 'N/A'} - {formatMontant(op.montant)} FCFA
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                  {opProvisoireSelected && (
+                    <div style={{ marginTop: 12, padding: 12, background: '#f8f9fa', borderRadius: 8, fontSize: 13 }}>
+                      <div><strong>Objet :</strong> {opProvisoireSelected.objet}</div>
+                      <div><strong>Montant :</strong> {formatMontant(opProvisoireSelected.montant)} FCFA</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bénéficiaire */}
+              <div style={styles.card}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>BÉNÉFICIAIRE</h3>
+                <input
+                  type="text"
+                  placeholder="🔍 Rechercher un bénéficiaire..."
+                  value={searchBen}
+                  onChange={(e) => setSearchBen(e.target.value)}
+                  style={{ ...styles.input, marginBottom: 12 }}
+                />
+                <select
+                  value={form.beneficiaireId}
+                  onChange={(e) => setForm({ ...form, beneficiaireId: e.target.value })}
+                  style={{ ...styles.input, marginBottom: 0 }}
+                  disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {filteredBeneficiaires.map(ben => (
+                    <option key={ben.id} value={ben.id}>{ben.nom} {ben.ncc ? `(${ben.ncc})` : ''}</option>
+                  ))}
+                </select>
+                {beneficiaires.length === 0 && (
+                  <p style={{ fontSize: 12, color: '#f44336', marginTop: 8 }}>
+                    Aucun bénéficiaire. <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('beneficiaires')}>En ajouter</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Ligne budgétaire */}
+              <div style={styles.card}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>IMPUTATION BUDGÉTAIRE</h3>
+                <select
+                  value={form.ligneBudgetaire}
+                  onChange={(e) => setForm({ ...form, ligneBudgetaire: e.target.value })}
+                  style={{ ...styles.input, marginBottom: 0 }}
+                  disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                >
+                  <option value="">-- Sélectionner une ligne --</option>
+                  {currentBudget?.lignes?.map(ligne => {
+                    const dispo = getDisponible(ligne.code);
+                    return (
+                      <option key={ligne.code} value={ligne.code}>
+                        {ligne.code} - {ligne.libelle} (Dispo: {formatMontant(dispo)})
+                      </option>
+                    );
+                  })}
+                </select>
+                {!currentBudget && (
+                  <p style={{ fontSize: 12, color: '#f44336', marginTop: 8 }}>
+                    Aucun budget pour cette source. <span style={{ color: '#0f4c3a', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('budget')}>Créer le budget</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Objet et Montant */}
+              <div style={styles.card}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: '#6c757d' }}>DÉTAILS</h3>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Objet de la dépense *</label>
+                  <textarea
+                    value={form.objet}
+                    onChange={(e) => setForm({ ...form, objet: e.target.value })}
+                    placeholder="Ex: Acquisition de matériel informatique"
+                    style={{ ...styles.input, minHeight: 80, resize: 'vertical', marginBottom: 0 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant (FCFA) *</label>
+                  <input
+                    type="number"
+                    value={form.montant}
+                    onChange={(e) => setForm({ ...form, montant: e.target.value })}
+                    placeholder="0"
+                    style={{ ...styles.input, fontFamily: 'monospace', fontSize: 18, textAlign: 'right', marginBottom: 0 }}
+                    disabled={form.type === 'ANNULATION' && form.opProvisoireId}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Panneau récapitulatif */}
+            <div>
+              <div style={{ ...styles.card, position: 'sticky', top: 20, borderTop: `4px solid ${selectedType?.color || '#0f4c3a'}` }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 20, color: '#6c757d' }}>RÉCAPITULATIF</h3>
+                
+                {/* Numéro */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>NUMÉRO</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: currentSourceObj?.couleur || '#0f4c3a', fontFamily: 'monospace' }}>
+                    {genererNumero()}
+                  </div>
+                </div>
+
+                {/* Type */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>TYPE</div>
+                  <span style={{ ...styles.badge, background: `${selectedType?.color}20`, color: selectedType?.color }}>
+                    {selectedType?.label}
+                  </span>
+                </div>
+
+                {/* Source */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>SOURCE</div>
+                  <div style={{ fontWeight: 600 }}>{currentSourceObj?.nom || '-'}</div>
+                </div>
+
+                {/* Exercice */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>EXERCICE</div>
+                  <div style={{ fontWeight: 600 }}>{exerciceActif?.annee || '-'}</div>
+                </div>
+
+                {/* Bénéficiaire */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>BÉNÉFICIAIRE</div>
+                  <div style={{ fontWeight: 500 }}>
+                    {form.beneficiaireId ? beneficiaires.find(b => b.id === form.beneficiaireId)?.nom : '-'}
+                  </div>
+                </div>
+
+                {/* Ligne */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>LIGNE BUDGÉTAIRE</div>
+                  <div style={{ fontWeight: 500 }}>
+                    {form.ligneBudgetaire ? (
+                      <>
+                        <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>{form.ligneBudgetaire}</code>
+                        <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
+                          Disponible: <strong style={{ color: getDisponible(form.ligneBudgetaire) >= 0 ? '#2e7d32' : '#c62828' }}>
+                            {formatMontant(getDisponible(form.ligneBudgetaire))}
+                          </strong>
+                        </div>
+                      </>
+                    ) : '-'}
+                  </div>
+                </div>
+
+                {/* Montant */}
+                <div style={{ marginBottom: 24, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>MONTANT</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: currentSourceObj?.couleur || '#0f4c3a', fontFamily: 'monospace' }}>
+                    {form.montant ? formatMontant(parseFloat(form.montant)) : '0'} <span style={{ fontSize: 14 }}>FCFA</span>
+                  </div>
+                  {form.ligneBudgetaire && form.montant && form.type !== 'ANNULATION' && (
+                    <div style={{ fontSize: 12, marginTop: 8 }}>
+                      {parseFloat(form.montant) > getDisponible(form.ligneBudgetaire) ? (
+                        <span style={{ color: '#c62828' }}>⚠️ Dépasse le disponible</span>
+                      ) : (
+                        <span style={{ color: '#2e7d32' }}>✓ Budget suffisant</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bouton Créer */}
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    ...styles.button,
+                    width: '100%',
+                    padding: 16,
+                    fontSize: 16,
+                    background: selectedType?.color || '#0f4c3a',
+                    opacity: saving ? 0.6 : 1
+                  }}
+                >
+                  {saving ? 'Création en cours...' : '✓ Créer l\'OP'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ==================== PAGES EN CONSTRUCTION ====================
   const PageEnConstruction = ({ title, icon }) => (
     <div>
@@ -2576,7 +3033,7 @@ export default function App() {
         {currentPage === 'budget' && <PageBudget />}
         {currentPage === 'historique' && <PageHistoriqueBudget />}
         {currentPage === 'ops' && <PageEnConstruction title="Liste des OP" icon="📋" />}
-        {currentPage === 'nouvelOp' && <PageEnConstruction title="Nouvel OP" icon="➕" />}
+        {currentPage === 'nouvelOp' && <PageNouvelOp />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
       </main>
     </div>
