@@ -52,6 +52,19 @@ const formatDate = (date) => {
   return d.toLocaleDateString('fr-FR');
 };
 
+// Export CSV (compatible Excel)
+const exportToCSV = (data, filename) => {
+  // Ajouter BOM pour UTF-8 (Excel)
+  const BOM = '\uFEFF';
+  const csvContent = BOM + data;
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+
 // ==================== PAGE DE CONNEXION ====================
 const LoginPage = ({ onLogin, error }) => {
   const [email, setEmail] = useState('');
@@ -1482,6 +1495,65 @@ export default function App() {
       return `Révision ${v - 1} (v${v})`;
     };
 
+    // Export du suivi budgétaire
+    const exportSuiviBudgetaire = () => {
+      if (!currentBudget || !currentBudget.lignes) return;
+
+      const now = new Date().toLocaleDateString('fr-FR');
+      let csv = `SUIVI BUDGETAIRE - ${currentSourceObj?.nom || ''}\n`;
+      csv += `Exercice: ${currentExerciceObj?.annee || ''}\n`;
+      csv += `Version: ${getVersionLabel(currentBudget)}\n`;
+      csv += `Date d'export: ${now}\n\n`;
+      
+      csv += `Code;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
+      
+      currentBudget.lignes.forEach(ligne => {
+        const engagement = getEngagementLigne(ligne.code);
+        const disponible = (ligne.dotation || 0) - engagement;
+        const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : '0';
+        csv += `${ligne.code};${ligne.libelle};${ligne.dotation || 0};${engagement};${disponible};${taux}\n`;
+      });
+      
+      csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
+
+      const filename = `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`;
+      exportToCSV(csv, filename);
+    };
+
+    // Export de l'historique des versions
+    const exportHistorique = () => {
+      if (allBudgetsForSourceExercice.length === 0) return;
+
+      const now = new Date().toLocaleDateString('fr-FR');
+      let csv = `HISTORIQUE DES VERSIONS BUDGETAIRES - ${currentSourceObj?.nom || ''}\n`;
+      csv += `Exercice: ${currentExerciceObj?.annee || ''}\n`;
+      csv += `Date d'export: ${now}\n\n`;
+      
+      csv += `Version;Date;Motif;Dotation;Variation;Statut\n`;
+      
+      // Trier par version croissante pour l'export
+      const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
+      
+      sortedBudgets.forEach((budget, index) => {
+        const budgetTotaux = getTotaux(budget);
+        const prevBudget = index > 0 ? sortedBudgets[index - 1] : null;
+        const prevTotaux = prevBudget ? getTotaux(prevBudget) : null;
+        const variation = prevTotaux ? budgetTotaux.dotation - prevTotaux.dotation : 0;
+        const variationStr = index === 0 ? '-' : (variation >= 0 ? `+${variation}` : `${variation}`);
+        const isActive = budget.id === latestVersion?.id;
+        
+        csv += `${getVersionLabel(budget)};`;
+        csv += `${budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'};`;
+        csv += `${budget.motifRevision || (budget.version === 1 ? 'Budget initial' : '-')};`;
+        csv += `${budgetTotaux.dotation};`;
+        csv += `${variationStr};`;
+        csv += `${isActive ? 'ACTIF' : 'Archivé'}\n`;
+      });
+
+      const filename = `Historique_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}.csv`;
+      exportToCSV(csv, filename);
+    };
+
     return (
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>💰 Budget</h1>
@@ -1617,9 +1689,16 @@ export default function App() {
 
             {/* Tableau du budget */}
             <div style={styles.card}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
-                Lignes budgétaires - {currentSourceObj?.nom} ({currentExerciceObj?.annee})
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                  Lignes budgétaires - {currentSourceObj?.nom} ({currentExerciceObj?.annee})
+                </h3>
+                {currentBudget && currentBudget.lignes && currentBudget.lignes.length > 0 && (
+                  <button onClick={exportSuiviBudgetaire} style={{ ...styles.buttonSecondary, padding: '8px 16px', fontSize: 12, background: '#e3f2fd', color: '#1565c0' }}>
+                    📥 Exporter Excel
+                  </button>
+                )}
+              </div>
 
               {!currentBudget || !currentBudget.lignes || currentBudget.lignes.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
@@ -1956,57 +2035,122 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal Historique */}
+        {/* Modal Historique avec tableau des variations */}
         {showHistorique && (
           <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 600 }}>
-              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
-                <h2 style={{ margin: 0, fontSize: 18 }}>📜 Historique des versions - {currentSourceObj?.nom} ({currentExerciceObj?.annee})</h2>
+            <div style={{ ...styles.modalContent, maxWidth: 900 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: currentSourceObj?.couleur || '#0f4c3a', color: 'white' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: 18 }}>📜 Historique des versions - {currentSourceObj?.nom} ({currentExerciceObj?.annee})</h2>
+                  <button onClick={exportHistorique} style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                    📥 Exporter
+                  </button>
+                </div>
               </div>
-              <div style={{ padding: 24, maxHeight: 400, overflowY: 'auto' }}>
-                {allBudgetsForSourceExercice.map((budget, index) => {
-                  const budgetTotaux = getTotaux(budget);
-                  const isActive = index === 0;
-                  return (
-                    <div 
-                      key={budget.id}
-                      style={{ 
-                        padding: 16, 
-                        background: isActive ? '#e8f5e9' : '#f8f9fa', 
-                        borderRadius: 8, 
-                        marginBottom: 12,
-                        border: isActive ? '2px solid #4caf50' : '1px solid #e9ecef'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <strong>{getVersionLabel(budget)}</strong>
-                          {isActive && <span style={{ ...styles.badge, background: '#4caf50', color: 'white', fontSize: 10 }}>ACTIF</span>}
-                          {!isActive && <span style={{ ...styles.badge, background: '#ffebee', color: '#c62828', fontSize: 10 }}>🔒 Archivé</span>}
-                        </div>
-                        <span style={{ fontSize: 12, color: '#6c757d' }}>
-                          {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
-                        </span>
-                      </div>
-                      {budget.motifRevision && (
-                        <p style={{ fontSize: 13, color: '#555', fontStyle: 'italic', margin: '8px 0' }}>
-                          "{budget.motifRevision}"
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-                        <span>Dotation: <strong style={{ fontFamily: 'monospace' }}>{formatMontant(budgetTotaux.dotation)}</strong></span>
-                        <span>|</span>
-                        <span>Lignes: <strong>{budget.lignes?.length || 0}</strong></span>
-                      </div>
-                      <button 
-                        onClick={() => { setSelectedVersion(budget.id); setShowHistorique(false); }}
-                        style={{ ...styles.buttonSecondary, padding: '6px 12px', fontSize: 12, marginTop: 12 }}
-                      >
-                        👁️ Voir cette version
-                      </button>
-                    </div>
-                  );
-                })}
+              <div style={{ padding: 24 }}>
+                {/* Tableau des versions */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={styles.th}>VERSION</th>
+                        <th style={styles.th}>DATE</th>
+                        <th style={styles.th}>MOTIF</th>
+                        <th style={{ ...styles.th, textAlign: 'right' }}>DOTATION</th>
+                        <th style={{ ...styles.th, textAlign: 'right' }}>VARIATION</th>
+                        <th style={{ ...styles.th, textAlign: 'center' }}>STATUT</th>
+                        <th style={{ ...styles.th, textAlign: 'center' }}>ACTION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        // Trier par version croissante pour le calcul des variations
+                        const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
+                        
+                        return sortedBudgets.map((budget, index) => {
+                          const budgetTotaux = getTotaux(budget);
+                          const prevBudget = index > 0 ? sortedBudgets[index - 1] : null;
+                          const prevTotaux = prevBudget ? getTotaux(prevBudget) : null;
+                          const variation = prevTotaux ? budgetTotaux.dotation - prevTotaux.dotation : 0;
+                          const isActive = budget.id === latestVersion?.id;
+                          
+                          return (
+                            <tr key={budget.id} style={{ background: isActive ? '#e8f5e9' : 'transparent' }}>
+                              <td style={styles.td}>
+                                <strong style={{ color: currentSourceObj?.couleur || '#0f4c3a' }}>
+                                  {getVersionLabel(budget)}
+                                </strong>
+                              </td>
+                              <td style={styles.td}>
+                                {budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('fr-FR') : '-'}
+                              </td>
+                              <td style={{ ...styles.td, maxWidth: 200 }}>
+                                <span style={{ fontSize: 13, color: '#555' }}>
+                                  {budget.motifRevision || (budget.version === 1 ? 'Budget initial' : '-')}
+                                </span>
+                              </td>
+                              <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
+                                {formatMontant(budgetTotaux.dotation)}
+                              </td>
+                              <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>
+                                {index === 0 ? (
+                                  <span style={{ color: '#6c757d' }}>-</span>
+                                ) : (
+                                  <span style={{ 
+                                    color: variation > 0 ? '#2e7d32' : variation < 0 ? '#c62828' : '#6c757d',
+                                    fontWeight: 600
+                                  }}>
+                                    {variation > 0 ? '+' : ''}{formatMontant(variation)}
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ ...styles.td, textAlign: 'center' }}>
+                                {isActive ? (
+                                  <span style={{ ...styles.badge, background: '#4caf50', color: 'white' }}>✓ ACTIF</span>
+                                ) : (
+                                  <span style={{ ...styles.badge, background: '#f5f5f5', color: '#9e9e9e' }}>🔒 Archivé</span>
+                                )}
+                              </td>
+                              <td style={{ ...styles.td, textAlign: 'center' }}>
+                                <button 
+                                  onClick={() => { setSelectedVersion(budget.id); setShowHistorique(false); }}
+                                  style={{ ...styles.buttonSecondary, padding: '6px 10px', fontSize: 11 }}
+                                >
+                                  👁️ Voir
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <td colSpan={3} style={{ ...styles.td, fontWeight: 700 }}>
+                          DOTATION FINALE (Version active)
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 16, color: currentSourceObj?.couleur || '#0f4c3a' }}>
+                          {formatMontant(getTotaux(latestVersion).dotation)}
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
+                          {(() => {
+                            const sortedBudgets = [...allBudgetsForSourceExercice].sort((a, b) => (a.version || 1) - (b.version || 1));
+                            if (sortedBudgets.length < 2) return '-';
+                            const first = getTotaux(sortedBudgets[0]).dotation;
+                            const last = getTotaux(sortedBudgets[sortedBudgets.length - 1]).dotation;
+                            const totalVariation = last - first;
+                            return (
+                              <span style={{ color: totalVariation > 0 ? '#2e7d32' : totalVariation < 0 ? '#c62828' : '#6c757d' }}>
+                                Total: {totalVariation > 0 ? '+' : ''}{formatMontant(totalVariation)}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowHistorique(false)} style={styles.buttonSecondary}>Fermer</button>
