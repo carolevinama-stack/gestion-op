@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
 import { db, auth } from './firebase';
 import { 
   collection, 
@@ -19,6 +20,110 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
+
+// ==================== COMPOSANT AUTOCOMPLETE ====================
+const Autocomplete = ({ 
+  options, 
+  value, 
+  onChange, 
+  placeholder = 'Rechercher...', 
+  isDisabled = false,
+  isClearable = true,
+  noOptionsMessage = 'Aucun résultat',
+  accentColor = '#0f4c3a'
+}) => {
+  // Styles personnalisés pour react-select
+  const customStyles = {
+    control: (base, state) => ({
+      ...base,
+      minHeight: 44,
+      borderRadius: 8,
+      border: state.isFocused ? `2px solid ${accentColor}` : '2px solid #e9ecef',
+      boxShadow: 'none',
+      '&:hover': { borderColor: accentColor },
+      background: isDisabled ? '#f8f9fa' : 'white',
+      cursor: isDisabled ? 'not-allowed' : 'pointer'
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: '2px 12px'
+    }),
+    input: (base) => ({
+      ...base,
+      margin: 0,
+      padding: 0
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: '#adb5bd'
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: '#333'
+    }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: 8,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+      zIndex: 9999,
+      overflow: 'hidden'
+    }),
+    menuList: (base) => ({
+      ...base,
+      padding: 0,
+      maxHeight: 250
+    }),
+    option: (base, state) => ({
+      ...base,
+      padding: '10px 14px',
+      cursor: 'pointer',
+      backgroundColor: state.isSelected ? accentColor : state.isFocused ? `${accentColor}15` : 'white',
+      color: state.isSelected ? 'white' : '#333',
+      '&:active': { backgroundColor: `${accentColor}30` }
+    }),
+    noOptionsMessage: (base) => ({
+      ...base,
+      color: '#6c757d',
+      padding: '16px'
+    }),
+    clearIndicator: (base) => ({
+      ...base,
+      cursor: 'pointer',
+      color: '#adb5bd',
+      '&:hover': { color: '#dc3545' }
+    }),
+    dropdownIndicator: (base) => ({
+      ...base,
+      cursor: 'pointer',
+      color: '#adb5bd',
+      '&:hover': { color: accentColor }
+    })
+  };
+
+  return (
+    <Select
+      options={options}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      isDisabled={isDisabled}
+      isClearable={isClearable}
+      isSearchable={true}
+      noOptionsMessage={() => noOptionsMessage}
+      styles={customStyles}
+      filterOption={(option, inputValue) => {
+        // Recherche intelligente sur label et toutes les propriétés de data
+        if (!inputValue) return true;
+        const search = inputValue.toLowerCase();
+        const label = (option.label || '').toLowerCase();
+        const searchFields = option.data?.searchFields || [];
+        
+        if (label.includes(search)) return true;
+        return searchFields.some(field => field?.toLowerCase().includes(search));
+      }}
+    />
+  );
+};
 
 // ==================== STYLES ====================
 const styles = {
@@ -1968,24 +2073,32 @@ export default function App() {
               </div>
               
               <div style={{ padding: 24 }}>
-                {/* Ajouter une ligne via Select */}
+                {/* Ajouter une ligne via Autocomplete */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
                     ➕ Ajouter une ligne depuis la bibliothèque
                   </label>
                   <div style={{ display: 'flex', gap: 12 }}>
-                    <select
-                      value={selectedLigne}
-                      onChange={(e) => setSelectedLigne(e.target.value)}
-                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '2px solid #e9ecef', fontSize: 14 }}
-                    >
-                      <option value="">-- Sélectionner une ligne --</option>
-                      {lignesDisponibles.map(ligne => (
-                        <option key={ligne.id} value={ligne.code}>
-                          {ligne.code} - {ligne.libelle}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ flex: 1 }}>
+                      <Autocomplete
+                        options={lignesDisponibles.map(ligne => ({
+                          value: ligne.code,
+                          label: `${ligne.code} - ${ligne.libelle}`,
+                          searchFields: [ligne.code, ligne.libelle]
+                        }))}
+                        value={selectedLigne ? {
+                          value: selectedLigne,
+                          label: (() => {
+                            const l = lignesDisponibles.find(x => x.code === selectedLigne);
+                            return l ? `${l.code} - ${l.libelle}` : '';
+                          })()
+                        } : null}
+                        onChange={(option) => setSelectedLigne(option?.value || '')}
+                        placeholder="🔍 Rechercher par code ou libellé..."
+                        noOptionsMessage="Aucune ligne disponible"
+                        accentColor={currentSourceObj?.couleur || '#0f4c3a'}
+                      />
+                    </div>
                     <button 
                       onClick={addLigne} 
                       disabled={!selectedLigne}
@@ -2819,15 +2932,22 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 20, marginBottom: 20 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE *</label>
-                  <select 
-                    value={form.beneficiaireId} 
-                    onChange={(e) => setForm({ ...form, beneficiaireId: e.target.value })}
-                    style={{ ...styles.input, marginBottom: 0 }}
-                    disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
-                  >
-                    <option value="">-- Sélectionner un bénéficiaire --</option>
-                    {beneficiaires.map(b => <option key={b.id} value={b.id}>{b.nom}</option>)}
-                  </select>
+                  <Autocomplete
+                    options={beneficiaires.map(b => ({
+                      value: b.id,
+                      label: b.nom,
+                      searchFields: [b.nom, b.ncc || '', b.rib || '']
+                    }))}
+                    value={form.beneficiaireId ? {
+                      value: form.beneficiaireId,
+                      label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || ''
+                    } : null}
+                    onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '' })}
+                    placeholder="🔍 Rechercher par nom ou NCC..."
+                    isDisabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                    noOptionsMessage="Aucun bénéficiaire trouvé"
+                    accentColor={currentSourceObj?.couleur || '#0f4c3a'}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N°CC</label>
@@ -2909,17 +3029,25 @@ export default function App() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE *</label>
-                  <select 
-                    value={form.ligneBudgetaire} 
-                    onChange={(e) => setForm({ ...form, ligneBudgetaire: e.target.value })}
-                    style={{ ...styles.input, marginBottom: 0, background: '#fff0f0' }}
-                    disabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
-                  >
-                    <option value="">-- Sélectionner --</option>
-                    {currentBudget?.lignes?.map(l => (
-                      <option key={l.code} value={l.code}>{l.code} - {l.libelle}</option>
-                    ))}
-                  </select>
+                  <Autocomplete
+                    options={(currentBudget?.lignes || []).map(l => ({
+                      value: l.code,
+                      label: `${l.code} - ${l.libelle}`,
+                      searchFields: [l.code, l.libelle]
+                    }))}
+                    value={form.ligneBudgetaire ? {
+                      value: form.ligneBudgetaire,
+                      label: (() => {
+                        const l = currentBudget?.lignes?.find(x => x.code === form.ligneBudgetaire);
+                        return l ? `${l.code} - ${l.libelle}` : '';
+                      })()
+                    } : null}
+                    onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })}
+                    placeholder="🔍 Rechercher par code ou libellé..."
+                    isDisabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                    noOptionsMessage="Aucune ligne trouvée"
+                    accentColor={currentSourceObj?.couleur || '#0f4c3a'}
+                  />
                 </div>
               </div>
 
@@ -3033,21 +3161,28 @@ export default function App() {
                     <div style={{ padding: '0 8px', color: '#6c757d', fontSize: 12 }}>ou</div>
                     <div>
                       <label style={{ display: 'block', fontSize: 10, marginBottom: 4, color: '#6c757d' }}>Sélectionner un OP existant</label>
-                      <select 
-                        value={form.opProvisoireId} 
-                        onChange={(e) => handleSelectOpProvisoire(e.target.value)}
-                        style={{ ...styles.input, marginBottom: 0 }}
-                      >
-                        <option value="">-- OP Provisoires disponibles --</option>
-                        {opProvisoiresDisponibles.map(op => {
+                      <Autocomplete
+                        options={opProvisoiresDisponibles.map(op => {
                           const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                          return (
-                            <option key={op.id} value={op.id}>
-                              {op.numero} - {ben?.nom || 'N/A'} - {formatMontant(op.montant)} F
-                            </option>
-                          );
+                          return {
+                            value: op.id,
+                            label: `${op.numero} - ${ben?.nom || 'N/A'} - ${formatMontant(op.montant)} F`,
+                            searchFields: [op.numero, ben?.nom || '', String(op.montant), op.objet || '']
+                          };
                         })}
-                      </select>
+                        value={form.opProvisoireId ? {
+                          value: form.opProvisoireId,
+                          label: (() => {
+                            const op = opProvisoiresDisponibles.find(o => o.id === form.opProvisoireId);
+                            const ben = beneficiaires.find(b => b.id === op?.beneficiaireId);
+                            return op ? `${op.numero} - ${ben?.nom || 'N/A'} - ${formatMontant(op.montant)} F` : '';
+                          })()
+                        } : null}
+                        onChange={(option) => handleSelectOpProvisoire(option?.value || '')}
+                        placeholder="🔍 Rechercher par N°, bénéficiaire..."
+                        noOptionsMessage="Aucun OP Provisoire disponible"
+                        accentColor={form.type === 'ANNULATION' ? '#c62828' : '#2e7d32'}
+                      />
                     </div>
                   </div>
                 </div>
