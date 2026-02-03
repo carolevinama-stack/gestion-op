@@ -1279,7 +1279,8 @@ export default function App() {
     const [showModal, setShowModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [editBen, setEditBen] = useState(null);
-    const [form, setForm] = useState({ nom: '', ncc: '', rib: '' });
+    const [form, setForm] = useState({ nom: '', ncc: '', ribs: [] });
+    const [newRib, setNewRib] = useState({ banque: '', numero: '' });
     const [importData, setImportData] = useState([]);
     const [importing, setImporting] = useState(false);
 
@@ -1288,16 +1289,44 @@ export default function App() {
       b.ncc?.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité avec ancien format)
+    const getRibs = (ben) => {
+      if (ben.ribs && ben.ribs.length > 0) return ben.ribs;
+      if (ben.rib) return [{ banque: '', numero: ben.rib }];
+      return [];
+    };
+
     const openNew = () => {
-      setForm({ nom: '', ncc: '', rib: '' });
+      setForm({ nom: '', ncc: '', ribs: [] });
+      setNewRib({ banque: '', numero: '' });
       setEditBen(null);
       setShowModal(true);
     };
 
     const openEdit = (ben) => {
-      setForm(ben);
+      setForm({ 
+        nom: ben.nom, 
+        ncc: ben.ncc || '', 
+        ribs: getRibs(ben)
+      });
+      setNewRib({ banque: '', numero: '' });
       setEditBen(ben);
       setShowModal(true);
+    };
+
+    // Ajouter un RIB
+    const addRib = () => {
+      if (!newRib.numero.trim()) {
+        alert('Veuillez saisir le numéro RIB');
+        return;
+      }
+      setForm({ ...form, ribs: [...form.ribs, { banque: newRib.banque.trim(), numero: newRib.numero.trim() }] });
+      setNewRib({ banque: '', numero: '' });
+    };
+
+    // Supprimer un RIB
+    const removeRib = (index) => {
+      setForm({ ...form, ribs: form.ribs.filter((_, i) => i !== index) });
     };
 
     // Import CSV/Excel
@@ -1333,10 +1362,12 @@ export default function App() {
             // Vérifier si le nom existe déjà
             const exists = beneficiaires.find(b => b.nom === nom);
             if (!exists) {
+              // Convertir ancien format rib en nouveau format ribs
+              const ribs = cols[2] ? [{ banque: '', numero: cols[2] }] : [];
               parsed.push({
                 nom: nom,
                 ncc: cols[1] || '',
-                rib: cols[2] || ''
+                ribs: ribs
               });
             }
           }
@@ -1374,12 +1405,18 @@ export default function App() {
         return;
       }
       try {
+        const dataToSave = {
+          nom: form.nom.toUpperCase(),
+          ncc: form.ncc || '',
+          ribs: form.ribs || []
+        };
+        
         if (editBen) {
-          await updateDoc(doc(db, 'beneficiaires', editBen.id), form);
-          setBeneficiaires(beneficiaires.map(b => b.id === editBen.id ? { ...b, ...form } : b));
+          await updateDoc(doc(db, 'beneficiaires', editBen.id), dataToSave);
+          setBeneficiaires(beneficiaires.map(b => b.id === editBen.id ? { ...b, ...dataToSave } : b));
         } else {
-          const docRef = await addDoc(collection(db, 'beneficiaires'), { ...form, nom: form.nom.toUpperCase() });
-          setBeneficiaires([...beneficiaires, { id: docRef.id, ...form, nom: form.nom.toUpperCase() }].sort((a, b) => a.nom.localeCompare(b.nom)));
+          const docRef = await addDoc(collection(db, 'beneficiaires'), dataToSave);
+          setBeneficiaires([...beneficiaires, { id: docRef.id, ...dataToSave }].sort((a, b) => a.nom.localeCompare(b.nom)));
         }
         setShowModal(false);
       } catch (error) {
@@ -1430,22 +1467,38 @@ export default function App() {
                 <tr>
                   <th style={styles.th}>NOM</th>
                   <th style={styles.th}>NCC</th>
-                  <th style={styles.th}>RIB</th>
+                  <th style={styles.th}>RIB(s)</th>
                   <th style={{ ...styles.th, textAlign: 'center' }}>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(ben => (
-                  <tr key={ben.id}>
-                    <td style={styles.td}><strong>{ben.nom}</strong></td>
-                    <td style={styles.td}>{ben.ncc || <span style={{ color: '#adb5bd', fontStyle: 'italic' }}>-</span>}</td>
-                    <td style={styles.td}>{ben.rib ? <code style={{ background: '#f5f5f5', padding: '4px 8px', borderRadius: 4, fontSize: 11 }}>{ben.rib}</code> : <span style={{ color: '#adb5bd', fontStyle: 'italic' }}>-</span>}</td>
-                    <td style={{ ...styles.td, textAlign: 'center' }}>
-                      <button onClick={() => openEdit(ben)} style={{ ...styles.buttonSecondary, padding: '6px 12px', marginRight: 8 }}>✏️</button>
-                      <button onClick={() => handleDelete(ben)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#c62828' }}>🗑️</button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(ben => {
+                  const ribs = getRibs(ben);
+                  return (
+                    <tr key={ben.id}>
+                      <td style={styles.td}><strong>{ben.nom}</strong></td>
+                      <td style={styles.td}>{ben.ncc || <span style={{ color: '#adb5bd', fontStyle: 'italic' }}>-</span>}</td>
+                      <td style={styles.td}>
+                        {ribs.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {ribs.map((rib, i) => (
+                              <div key={i} style={{ fontSize: 11 }}>
+                                {rib.banque && <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '2px 6px', borderRadius: 4, marginRight: 6, fontWeight: 600 }}>{rib.banque}</span>}
+                                <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>{rib.numero}</code>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#adb5bd', fontStyle: 'italic' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <button onClick={() => openEdit(ben)} style={{ ...styles.buttonSecondary, padding: '6px 12px', marginRight: 8 }}>✏️</button>
+                        <button onClick={() => handleDelete(ben)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#c62828' }}>🗑️</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -1453,7 +1506,7 @@ export default function App() {
 
         {showModal && (
           <div style={styles.modal}>
-            <div style={styles.modalContent}>
+            <div style={{ ...styles.modalContent, maxWidth: 600 }}>
               <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>{editBen ? '✏️ Modifier' : '➕ Nouveau bénéficiaire'}</h2>
               </div>
@@ -1462,14 +1515,65 @@ export default function App() {
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nom / Raison sociale *</label>
                   <input value={form.nom} onChange={e => setForm({...form, nom: e.target.value})} style={styles.input} placeholder="Ex: SOGEA SATOM" />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>NCC (Compte Contribuable)</label>
-                    <input value={form.ncc || ''} onChange={e => setForm({...form, ncc: e.target.value})} style={styles.input} placeholder="Ex: 1904588 U" />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>RIB</label>
-                    <input value={form.rib || ''} onChange={e => setForm({...form, rib: e.target.value})} style={styles.input} placeholder="Ex: CI005 01012 012345678901 25" />
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>NCC (Compte Contribuable)</label>
+                  <input value={form.ncc || ''} onChange={e => setForm({...form, ncc: e.target.value})} style={styles.input} placeholder="Ex: 1904588 U" />
+                </div>
+                
+                {/* Section RIB */}
+                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Références bancaires (RIB)</label>
+                  
+                  {/* Liste des RIB existants */}
+                  {form.ribs && form.ribs.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      {form.ribs.map((rib, index) => (
+                        <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, background: 'white', padding: 10, borderRadius: 6, border: '1px solid #e9ecef' }}>
+                          {rib.banque && (
+                            <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 10px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
+                              {rib.banque}
+                            </span>
+                          )}
+                          <code style={{ flex: 1, fontSize: 12, color: '#333' }}>{rib.numero}</code>
+                          <button 
+                            type="button"
+                            onClick={() => removeRib(index)} 
+                            style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 12 }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Formulaire ajout nouveau RIB */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: 8, alignItems: 'end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Banque</label>
+                      <input 
+                        value={newRib.banque} 
+                        onChange={e => setNewRib({...newRib, banque: e.target.value})} 
+                        style={{ ...styles.input, marginBottom: 0, padding: '8px 10px' }} 
+                        placeholder="SGBCI" 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Numéro RIB</label>
+                      <input 
+                        value={newRib.numero} 
+                        onChange={e => setNewRib({...newRib, numero: e.target.value})} 
+                        style={{ ...styles.input, marginBottom: 0, padding: '8px 10px', fontFamily: 'monospace' }} 
+                        placeholder="CI005 01012 012345678901 25" 
+                      />
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={addRib} 
+                      style={{ ...styles.button, padding: '8px 16px' }}
+                    >
+                      ➕
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1526,7 +1630,9 @@ export default function App() {
                             <tr key={i}>
                               <td style={{ ...styles.td, fontSize: 12 }}>{ben.nom}</td>
                               <td style={{ ...styles.td, fontSize: 12 }}>{ben.ncc || '-'}</td>
-                              <td style={{ ...styles.td, fontSize: 12, fontFamily: 'monospace' }}>{ben.rib || '-'}</td>
+                              <td style={{ ...styles.td, fontSize: 12, fontFamily: 'monospace' }}>
+                                {ben.ribs && ben.ribs.length > 0 ? ben.ribs[0].numero : '-'}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -2656,6 +2762,7 @@ export default function App() {
     const [form, setForm] = useState({
       type: 'PROVISOIRE',
       beneficiaireId: '',
+      ribIndex: 0,
       modeReglement: 'VIREMENT',
       objet: '',
       piecesJustificatives: '',
@@ -2670,6 +2777,17 @@ export default function App() {
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
     const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
+    
+    // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité)
+    const getBeneficiaireRibs = (ben) => {
+      if (!ben) return [];
+      if (ben.ribs && ben.ribs.length > 0) return ben.ribs;
+      if (ben.rib) return [{ banque: '', numero: ben.rib }];
+      return [];
+    };
+    
+    const beneficiaireRibs = getBeneficiaireRibs(selectedBeneficiaire);
+    const selectedRib = beneficiaireRibs[form.ribIndex] || beneficiaireRibs[0] || null;
     
     // Budget actif pour la source et l'exercice actif
     const currentBudget = budgets
@@ -2758,6 +2876,7 @@ export default function App() {
       setForm({
         type: 'PROVISOIRE',
         beneficiaireId: '',
+        ribIndex: 0,
         modeReglement: 'VIREMENT',
         objet: '',
         piecesJustificatives: '',
@@ -2822,6 +2941,7 @@ export default function App() {
           exerciceId: exerciceActif.id,
           beneficiaireId: form.beneficiaireId,
           modeReglement: form.modeReglement,
+          rib: selectedRib ? selectedRib : null,
           ligneBudgetaire: form.ligneBudgetaire,
           objet: form.objet.trim(),
           piecesJustificatives: form.piecesJustificatives.trim(),
@@ -2950,13 +3070,13 @@ export default function App() {
                     options={beneficiaires.map(b => ({
                       value: b.id,
                       label: b.nom,
-                      searchFields: [b.nom, b.ncc || '', b.rib || '']
+                      searchFields: [b.nom, b.ncc || '', ...(b.ribs || []).map(r => r.numero), ...(b.ribs || []).map(r => r.banque), b.rib || '']
                     }))}
                     value={form.beneficiaireId ? {
                       value: form.beneficiaireId,
                       label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || ''
                     } : null}
-                    onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '' })}
+                    onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })}
                     placeholder="🔍 Rechercher par nom ou NCC..."
                     isDisabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
                     noOptionsMessage="Aucun bénéficiaire trouvé"
@@ -2996,13 +3116,39 @@ export default function App() {
               {/* Ligne 4 : Références bancaires */}
               {form.modeReglement === 'VIREMENT' && (
                 <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RÉFÉRENCES BANCAIRES (RIB)</label>
-                  <input 
-                    type="text" 
-                    value={selectedBeneficiaire?.rib || ''} 
-                    readOnly 
-                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }} 
-                  />
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>
+                    RÉFÉRENCES BANCAIRES (RIB) {beneficiaireRibs.length > 1 && '*'}
+                  </label>
+                  {!selectedBeneficiaire ? (
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', color: '#adb5bd', fontStyle: 'italic' }}>
+                      Sélectionnez d'abord un bénéficiaire
+                    </div>
+                  ) : beneficiaireRibs.length === 0 ? (
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#fff3e0', color: '#e65100' }}>
+                      ⚠️ Aucun RIB enregistré pour ce bénéficiaire
+                    </div>
+                  ) : beneficiaireRibs.length === 1 ? (
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {beneficiaireRibs[0].banque && (
+                        <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '4px 10px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
+                          {beneficiaireRibs[0].banque}
+                        </span>
+                      )}
+                      <span>{beneficiaireRibs[0].numero}</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={form.ribIndex}
+                      onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })}
+                      style={{ ...styles.input, marginBottom: 0 }}
+                    >
+                      {beneficiaireRibs.map((rib, index) => (
+                        <option key={index} value={index}>
+                          {rib.banque ? `${rib.banque} - ` : ''}{rib.numero}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
 
