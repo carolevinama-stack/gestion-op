@@ -3495,6 +3495,980 @@ export default function App() {
     );
   };
 
+  // ==================== PAGE LISTE DES OP ====================
+  const PageListeOP = () => {
+    const [activeSource, setActiveSource] = useState('ALL'); // 'ALL' pour toutes sources
+    const [activeTab, setActiveTab] = useState('TOUS'); // Onglet de suivi actif
+    const [filters, setFilters] = useState({
+      type: '',
+      statut: '',
+      search: '',
+      dateDebut: '',
+      dateFin: ''
+    });
+    const [showDetail, setShowDetail] = useState(null);
+    const [showActionModal, setShowActionModal] = useState(null); // { op, action: 'DIFFERER_CF'|'REJETER_CF'|'VISER_CF'|... }
+    const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
+    const [showPaiementModal, setShowPaiementModal] = useState(null);
+
+    const currentSourceObj = activeSource === 'ALL' ? null : sources.find(s => s.id === activeSource);
+
+    // Couleurs par type
+    const typeColors = {
+      PROVISOIRE: '#ff9800',
+      DIRECT: '#2196f3',
+      DEFINITIF: '#4caf50',
+      ANNULATION: '#f44336'
+    };
+
+    // Couleurs par statut
+    const statutConfig = {
+      CREE: { bg: '#e3f2fd', color: '#1565c0', label: 'Créé', icon: '🔵' },
+      TRANSMIS_CF: { bg: '#fff3e0', color: '#e65100', label: 'Transmis CF', icon: '📤' },
+      DIFFERE_CF: { bg: '#fff8e1', color: '#f9a825', label: 'Différé CF', icon: '⏸️' },
+      VISE_CF: { bg: '#e8f5e9', color: '#2e7d32', label: 'Visé CF', icon: '✅' },
+      REJETE_CF: { bg: '#ffebee', color: '#c62828', label: 'Rejeté CF', icon: '❌' },
+      TRANSMIS_AC: { bg: '#f3e5f5', color: '#7b1fa2', label: 'Transmis AC', icon: '📤' },
+      DIFFERE_AC: { bg: '#fff8e1', color: '#f9a825', label: 'Différé AC', icon: '⏸️' },
+      PAYE_PARTIEL: { bg: '#fff3e0', color: '#ef6c00', label: 'Payé partiel', icon: '💰' },
+      PAYE: { bg: '#e0f2f1', color: '#00695c', label: 'Payé', icon: '💰' },
+      REJETE_AC: { bg: '#ffebee', color: '#c62828', label: 'Rejeté AC', icon: '❌' },
+      ARCHIVE: { bg: '#eceff1', color: '#546e7a', label: 'Archivé', icon: '📦' }
+    };
+
+    // OP de l'exercice actif (toutes sources ou source sélectionnée)
+    const opsExercice = ops.filter(op => {
+      if (op.exerciceId !== exerciceActif?.id) return false;
+      if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
+      return true;
+    });
+
+    // Provisoires à régulariser (sans DEFINITIF ou ANNULATION liés)
+    const provisoiresARegulariser = opsExercice.filter(op => {
+      if (op.type !== 'PROVISOIRE') return false;
+      if (['REJETE_CF', 'REJETE_AC', 'ARCHIVE'].includes(op.statut)) return false;
+      // Vérifier si un DEFINITIF ou ANNULATION existe pour ce provisoire
+      const hasRegularisation = opsExercice.some(o => 
+        (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
+        o.opProvisoireId === op.id
+      );
+      return !hasRegularisation;
+    });
+
+    // Calcul ancienneté en jours
+    const getAnciennete = (dateStr) => {
+      if (!dateStr) return 0;
+      const date = new Date(dateStr);
+      const now = new Date();
+      return Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    };
+
+    // Compteurs par onglet
+    const counts = {
+      TOUS: opsExercice.length,
+      CIRCUIT_CF: opsExercice.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut)).length,
+      CIRCUIT_AC: opsExercice.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut)).length,
+      DIFFERES: opsExercice.filter(op => ['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)).length,
+      A_REGULARISER: provisoiresARegulariser.length
+    };
+
+    // Filtrer selon l'onglet actif
+    const getFilteredByTab = () => {
+      let result = opsExercice;
+      
+      switch (activeTab) {
+        case 'CIRCUIT_CF':
+          result = result.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut));
+          break;
+        case 'CIRCUIT_AC':
+          result = result.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut));
+          break;
+        case 'DIFFERES':
+          result = result.filter(op => ['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut));
+          break;
+        case 'A_REGULARISER':
+          result = provisoiresARegulariser;
+          break;
+        default:
+          break;
+      }
+      
+      return result;
+    };
+
+    // Appliquer les filtres supplémentaires
+    const filteredOps = getFilteredByTab().filter(op => {
+      if (filters.type && op.type !== filters.type) return false;
+      if (filters.statut && op.statut !== filters.statut) return false;
+      if (filters.search) {
+        const search = filters.search.toLowerCase();
+        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+        const source = sources.find(s => s.id === op.sourceId);
+        if (
+          !op.numero?.toLowerCase().includes(search) &&
+          !ben?.nom?.toLowerCase().includes(search) &&
+          !op.objet?.toLowerCase().includes(search) &&
+          !source?.sigle?.toLowerCase().includes(search)
+        ) return false;
+      }
+      if (filters.dateDebut && op.dateCreation < filters.dateDebut) return false;
+      if (filters.dateFin && op.dateCreation > filters.dateFin) return false;
+      return true;
+    }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    // Totaux
+    const totaux = {
+      count: filteredOps.length,
+      montant: filteredOps.reduce((sum, op) => sum + (op.montant || 0), 0),
+      paye: filteredOps.reduce((sum, op) => sum + (op.totalPaye || 0), 0)
+    };
+
+    // === ACTIONS ===
+    
+    // Transmettre au CF
+    const handleTransmettreCF = async (op) => {
+      if (!window.confirm(`Transmettre l'OP ${op.numero} au Contrôleur Financier ?`)) return;
+      try {
+        const updates = { 
+          statut: 'TRANSMIS_CF',
+          dateTransmissionCF: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la transmission');
+      }
+    };
+
+    // Viser CF
+    const handleViserCF = async (op) => {
+      if (!window.confirm(`Viser l'OP ${op.numero} ?`)) return;
+      try {
+        const updates = { 
+          statut: 'VISE_CF',
+          dateVisaCF: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors du visa');
+      }
+    };
+
+    // Transmettre à l'AC
+    const handleTransmettreAC = async (op) => {
+      if (!window.confirm(`Transmettre l'OP ${op.numero} à l'Agent Comptable ?`)) return;
+      try {
+        const updates = { 
+          statut: 'TRANSMIS_AC',
+          dateTransmissionAC: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la transmission');
+      }
+    };
+
+    // Différer (CF ou AC)
+    const handleDifferer = async () => {
+      if (!actionForm.motif.trim()) {
+        alert('Le motif est obligatoire');
+        return;
+      }
+      const op = showActionModal.op;
+      const isCF = showActionModal.action === 'DIFFERER_CF';
+      try {
+        const updates = { 
+          statut: isCF ? 'DIFFERE_CF' : 'DIFFERE_AC',
+          [`dateDiffere${isCF ? 'CF' : 'AC'}`]: actionForm.date,
+          [`motifDiffere${isCF ? 'CF' : 'AC'}`]: actionForm.motif.trim(),
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+        setShowActionModal(null);
+        setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors du différé');
+      }
+    };
+
+    // Rejeter (CF ou AC) - libère le budget
+    const handleRejeter = async () => {
+      if (!actionForm.motif.trim()) {
+        alert('Le motif est obligatoire');
+        return;
+      }
+      const op = showActionModal.op;
+      const isCF = showActionModal.action === 'REJETER_CF';
+      try {
+        const updates = { 
+          statut: isCF ? 'REJETE_CF' : 'REJETE_AC',
+          dateRejet: actionForm.date,
+          motifRejet: actionForm.motif.trim(),
+          rejetePar: isCF ? 'CF' : 'AC',
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+        setShowActionModal(null);
+        setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors du rejet');
+      }
+    };
+
+    // Enregistrer un paiement
+    const handlePaiement = async () => {
+      if (!actionForm.reference.trim()) {
+        alert('La référence est obligatoire');
+        return;
+      }
+      const montantPaye = parseFloat(actionForm.montant);
+      if (!montantPaye || montantPaye <= 0) {
+        alert('Le montant doit être supérieur à 0');
+        return;
+      }
+      
+      const op = showPaiementModal;
+      const totalPayeActuel = op.totalPaye || 0;
+      const resteAPayer = op.montant - totalPayeActuel;
+      
+      if (montantPaye > resteAPayer) {
+        alert(`Le montant ne peut pas dépasser le reste à payer (${formatMontant(resteAPayer)} FCFA)`);
+        return;
+      }
+      
+      try {
+        const nouveauPaiement = {
+          date: actionForm.date,
+          reference: actionForm.reference.trim(),
+          montant: montantPaye,
+          mode: op.modeReglement || 'VIREMENT'
+        };
+        
+        const paiements = [...(op.paiements || []), nouveauPaiement];
+        const nouveauTotalPaye = totalPayeActuel + montantPaye;
+        const nouveauReste = op.montant - nouveauTotalPaye;
+        const nouveauStatut = nouveauReste <= 0 ? 'PAYE' : 'PAYE_PARTIEL';
+        
+        const updates = { 
+          paiements,
+          totalPaye: nouveauTotalPaye,
+          resteAPayer: nouveauReste,
+          statut: nouveauStatut,
+          datePaiement: nouveauStatut === 'PAYE' ? actionForm.date : op.datePaiement,
+          updatedAt: new Date().toISOString()
+        };
+        
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+        setShowPaiementModal(null);
+        setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de l\'enregistrement du paiement');
+      }
+    };
+
+    // Archiver
+    const handleArchiver = async (op) => {
+      if (!window.confirm(`Archiver l'OP ${op.numero} ?`)) return;
+      try {
+        const updates = { 
+          statut: 'ARCHIVE',
+          dateArchivage: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de l\'archivage');
+      }
+    };
+
+    // Supprimer un OP (seulement si CREE)
+    const handleDelete = async (op) => {
+      if (op.statut !== 'CREE') {
+        alert('Seuls les OP au statut "Créé" peuvent être supprimés.');
+        return;
+      }
+      if (!window.confirm(`Supprimer définitivement l'OP ${op.numero} ?`)) return;
+      try {
+        await deleteDoc(doc(db, 'ops', op.id));
+        setOps(ops.filter(o => o.id !== op.id));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la suppression');
+      }
+    };
+
+    // Retransmettre (après différé)
+    const handleRetransmettre = async (op) => {
+      const isCF = op.statut === 'DIFFERE_CF';
+      if (!window.confirm(`Retransmettre l'OP ${op.numero} au ${isCF ? 'CF' : 'AC'} ?`)) return;
+      try {
+        const updates = { 
+          statut: isCF ? 'TRANSMIS_CF' : 'TRANSMIS_AC',
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la retransmission');
+      }
+    };
+
+    // Export Excel
+    const handleExport = () => {
+      const headers = ['Source', 'N° OP', 'Date', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Payé', 'Reste', 'Statut'];
+      const rows = filteredOps.map(op => {
+        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+        const source = sources.find(s => s.id === op.sourceId);
+        return [
+          source?.sigle || '',
+          op.numero,
+          op.dateCreation || '',
+          op.type,
+          ben?.nom || '',
+          op.objet || '',
+          op.ligneBudgetaire || '',
+          op.montant || 0,
+          op.totalPaye || 0,
+          (op.montant || 0) - (op.totalPaye || 0),
+          statutConfig[op.statut]?.label || op.statut
+        ];
+      });
+
+      const csvContent = '\uFEFF' + [headers, ...rows].map(row => 
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')
+      ).join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${exerciceActif?.annee}_${activeTab}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Badges d'action selon le statut
+    const getActions = (op) => {
+      const actions = [];
+      
+      switch (op.statut) {
+        case 'CREE':
+          actions.push({ label: '📤', title: 'Transmettre CF', onClick: () => handleTransmettreCF(op) });
+          actions.push({ label: '🗑️', title: 'Supprimer', onClick: () => handleDelete(op), danger: true });
+          break;
+        case 'TRANSMIS_CF':
+          actions.push({ label: '✅', title: 'Viser', onClick: () => handleViserCF(op) });
+          actions.push({ label: '⏸️', title: 'Différer', onClick: () => setShowActionModal({ op, action: 'DIFFERER_CF' }) });
+          actions.push({ label: '❌', title: 'Rejeter', onClick: () => setShowActionModal({ op, action: 'REJETER_CF' }), danger: true });
+          break;
+        case 'DIFFERE_CF':
+          actions.push({ label: '📤', title: 'Retransmettre', onClick: () => handleRetransmettre(op) });
+          break;
+        case 'VISE_CF':
+          actions.push({ label: '📤', title: 'Transmettre AC', onClick: () => handleTransmettreAC(op) });
+          break;
+        case 'TRANSMIS_AC':
+          actions.push({ label: '💰', title: 'Paiement', onClick: () => { setShowPaiementModal(op); setActionForm({ ...actionForm, montant: String(op.montant - (op.totalPaye || 0)) }); } });
+          actions.push({ label: '⏸️', title: 'Différer', onClick: () => setShowActionModal({ op, action: 'DIFFERER_AC' }) });
+          actions.push({ label: '❌', title: 'Rejeter', onClick: () => setShowActionModal({ op, action: 'REJETER_AC' }), danger: true });
+          break;
+        case 'DIFFERE_AC':
+          actions.push({ label: '📤', title: 'Retransmettre', onClick: () => handleRetransmettre(op) });
+          break;
+        case 'PAYE_PARTIEL':
+          actions.push({ label: '💰', title: 'Paiement', onClick: () => { setShowPaiementModal(op); setActionForm({ ...actionForm, montant: String(op.montant - (op.totalPaye || 0)) }); } });
+          break;
+        case 'PAYE':
+          actions.push({ label: '📦', title: 'Archiver', onClick: () => handleArchiver(op) });
+          break;
+        default:
+          break;
+      }
+      
+      return actions;
+    };
+
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700 }}>📋 Liste des Ordres de Paiement</h1>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={handleExport} style={{ ...styles.buttonSecondary, background: '#e8f5e9', color: '#2e7d32' }}>
+              📥 Export Excel
+            </button>
+            <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>
+              ➕ Nouvel OP
+            </button>
+          </div>
+        </div>
+
+        {/* Onglets de suivi */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {[
+            { key: 'TOUS', label: 'Tous', icon: '📋' },
+            { key: 'CIRCUIT_CF', label: 'Circuit CF', icon: '📤' },
+            { key: 'CIRCUIT_AC', label: 'Circuit AC', icon: '💰' },
+            { key: 'DIFFERES', label: 'Différés', icon: '⏸️' },
+            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding: '10px 16px',
+                borderRadius: 8,
+                border: 'none',
+                background: activeTab === tab.key ? '#0f4c3a' : '#f0f0f0',
+                color: activeTab === tab.key ? 'white' : '#333',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              {tab.icon} {tab.label} <span style={{ 
+                background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#ddd',
+                padding: '2px 8px',
+                borderRadius: 10,
+                fontSize: 11
+              }}>
+                {counts[tab.key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Onglets sources */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e9ecef' }}>
+          <button
+            onClick={() => setActiveSource('ALL')}
+            style={{
+              padding: '12px 20px',
+              border: 'none',
+              borderBottom: activeSource === 'ALL' ? '3px solid #0f4c3a' : '3px solid transparent',
+              background: 'transparent',
+              color: activeSource === 'ALL' ? '#0f4c3a' : '#6c757d',
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginBottom: -2
+            }}
+          >
+            🌐 TOUTES
+          </button>
+          {sources.map(source => (
+            <button
+              key={source.id}
+              onClick={() => setActiveSource(source.id)}
+              style={{
+                padding: '12px 20px',
+                border: 'none',
+                borderBottom: activeSource === source.id ? `3px solid ${source.couleur}` : '3px solid transparent',
+                background: 'transparent',
+                color: activeSource === source.id ? source.couleur : '#6c757d',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginBottom: -2
+              }}
+            >
+              {source.sigle}
+            </button>
+          ))}
+        </div>
+
+        {/* Filtres */}
+        <div style={{ ...styles.card, marginBottom: 20, padding: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 150px 130px 130px', gap: 12, alignItems: 'end' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>RECHERCHE</label>
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                placeholder="🔍 N°, bénéficiaire, objet..."
+                style={{ ...styles.input, marginBottom: 0 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>TYPE</label>
+              <select
+                value={filters.type}
+                onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                style={{ ...styles.input, marginBottom: 0 }}
+              >
+                <option value="">Tous</option>
+                <option value="PROVISOIRE">Provisoire</option>
+                <option value="DIRECT">Direct</option>
+                <option value="DEFINITIF">Définitif</option>
+                <option value="ANNULATION">Annulation</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>STATUT</label>
+              <select
+                value={filters.statut}
+                onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
+                style={{ ...styles.input, marginBottom: 0 }}
+              >
+                <option value="">Tous</option>
+                {Object.entries(statutConfig).map(([key, val]) => (
+                  <option key={key} value={key}>{val.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>DU</label>
+              <input
+                type="date"
+                value={filters.dateDebut}
+                onChange={(e) => setFilters({ ...filters, dateDebut: e.target.value })}
+                style={{ ...styles.input, marginBottom: 0 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>AU</label>
+              <input
+                type="date"
+                value={filters.dateFin}
+                onChange={(e) => setFilters({ ...filters, dateFin: e.target.value })}
+                style={{ ...styles.input, marginBottom: 0 }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Tableau */}
+        <div style={styles.card}>
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#6c757d', fontSize: 14 }}>
+              {totaux.count} OP - Montant : <strong>{formatMontant(totaux.montant)}</strong>
+              {totaux.paye > 0 && <> - Payé : <strong style={{ color: '#2e7d32' }}>{formatMontant(totaux.paye)}</strong></>}
+            </span>
+            {(filters.type || filters.statut || filters.search || filters.dateDebut || filters.dateFin) && (
+              <button 
+                onClick={() => setFilters({ type: '', statut: '', search: '', dateDebut: '', dateFin: '' })}
+                style={{ ...styles.buttonSecondary, padding: '4px 12px', fontSize: 12 }}
+              >
+                ✕ Effacer filtres
+              </button>
+            )}
+          </div>
+
+          {filteredOps.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#6c757d' }}>
+              <div style={{ fontSize: 50, marginBottom: 16 }}>📭</div>
+              <p>Aucun OP trouvé</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    {activeSource === 'ALL' && <th style={{ ...styles.th, width: 70 }}>SOURCE</th>}
+                    <th style={{ ...styles.th, width: 150 }}>N° OP</th>
+                    <th style={{ ...styles.th, width: 85 }}>DATE</th>
+                    <th style={{ ...styles.th, width: 85 }}>TYPE</th>
+                    <th style={styles.th}>BÉNÉFICIAIRE</th>
+                    <th style={styles.th}>OBJET</th>
+                    <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th>
+                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 90, textAlign: 'right' }}>PAYÉ</th>}
+                    {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 90 }}>ANCIENNETÉ</th>}
+                    <th style={{ ...styles.th, width: 100 }}>STATUT</th>
+                    <th style={{ ...styles.th, width: 110, textAlign: 'center' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOps.map(op => {
+                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                    const source = sources.find(s => s.id === op.sourceId);
+                    const statut = statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut };
+                    const actions = getActions(op);
+                    const anciennete = getAnciennete(op.dateCreation);
+                    
+                    return (
+                      <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => setShowDetail(op)}>
+                        {activeSource === 'ALL' && (
+                          <td style={styles.td}>
+                            <span style={{ 
+                              background: source?.couleur || '#666', 
+                              color: 'white', 
+                              padding: '2px 6px', 
+                              borderRadius: 4, 
+                              fontSize: 10, 
+                              fontWeight: 600 
+                            }}>
+                              {source?.sigle || '?'}
+                            </span>
+                          </td>
+                        )}
+                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>
+                          {op.numero}
+                        </td>
+                        <td style={{ ...styles.td, fontSize: 12 }}>{op.dateCreation || '-'}</td>
+                        <td style={styles.td}>
+                          <span style={{
+                            background: `${typeColors[op.type]}20`,
+                            color: typeColors[op.type],
+                            padding: '3px 8px',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>
+                            {op.type}
+                          </span>
+                        </td>
+                        <td style={{ ...styles.td, fontSize: 12 }}>{ben?.nom || 'N/A'}</td>
+                        <td style={{ ...styles.td, fontSize: 12, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {op.objet}
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 12 }}>
+                          {formatMontant(op.montant)}
+                        </td>
+                        {activeTab === 'CIRCUIT_AC' && (
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: op.totalPaye ? '#2e7d32' : '#adb5bd' }}>
+                            {formatMontant(op.totalPaye || 0)}
+                          </td>
+                        )}
+                        {activeTab === 'A_REGULARISER' && (
+                          <td style={styles.td}>
+                            <span style={{
+                              background: anciennete > 30 ? '#ffebee' : anciennete > 15 ? '#fff3e0' : '#e8f5e9',
+                              color: anciennete > 30 ? '#c62828' : anciennete > 15 ? '#e65100' : '#2e7d32',
+                              padding: '3px 8px',
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 600
+                            }}>
+                              {anciennete}j
+                            </span>
+                          </td>
+                        )}
+                        <td style={styles.td}>
+                          <span style={{
+                            background: statut.bg,
+                            color: statut.color,
+                            padding: '3px 8px',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>
+                            {statut.label}
+                          </span>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          {actions.map((action, i) => (
+                            <button
+                              key={i}
+                              onClick={action.onClick}
+                              title={action.title}
+                              style={{ 
+                                background: action.danger ? '#ffebee' : '#f0f0f0', 
+                                color: action.danger ? '#c62828' : '#333', 
+                                border: 'none', 
+                                borderRadius: 4, 
+                                padding: '4px 8px', 
+                                cursor: 'pointer', 
+                                marginRight: 4, 
+                                fontSize: 12 
+                              }}
+                            >
+                              {action.label}
+                            </button>
+                          ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Détail OP */}
+        {showDetail && (
+          <div style={styles.modal} onClick={() => setShowDetail(null)}>
+            <div style={{ ...styles.modalContent, maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: sources.find(s => s.id === showDetail.sourceId)?.couleur || '#0f4c3a', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📋 {showDetail.numero}</h2>
+              </div>
+              <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
+                {(() => {
+                  const ben = beneficiaires.find(b => b.id === showDetail.beneficiaireId);
+                  const statut = statutConfig[showDetail.statut] || { label: showDetail.statut };
+                  const source = sources.find(s => s.id === showDetail.sourceId);
+                  return (
+                    <div style={{ display: 'grid', gap: 16 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                        <div>
+                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>SOURCE</label>
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ background: source?.couleur || '#666', color: 'white', padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
+                              {source?.sigle || '?'}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>TYPE</label>
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ background: `${typeColors[showDetail.type]}20`, color: typeColors[showDetail.type], padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
+                              {showDetail.type}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>STATUT</label>
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ background: statut.bg, color: statut.color, padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
+                              {statut.label}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>BÉNÉFICIAIRE</label>
+                        <div style={{ marginTop: 4, fontWeight: 600 }}>{ben?.nom || 'N/A'}</div>
+                        {ben?.ncc && <div style={{ fontSize: 12, color: '#6c757d' }}>NCC: {ben.ncc}</div>}
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>OBJET</label>
+                        <div style={{ marginTop: 4 }}>{showDetail.objet}</div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <div>
+                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>LIGNE BUDGÉTAIRE</label>
+                          <div style={{ marginTop: 4 }}><code>{showDetail.ligneBudgetaire}</code></div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>MODE RÈGLEMENT</label>
+                          <div style={{ marginTop: 4 }}>{showDetail.modeReglement}</div>
+                        </div>
+                      </div>
+                      <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                          <div>
+                            <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>MONTANT</label>
+                            <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>
+                              {formatMontant(showDetail.montant)}
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>PAYÉ</label>
+                            <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#2e7d32' }}>
+                              {formatMontant(showDetail.totalPaye || 0)}
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>RESTE</label>
+                            <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: (showDetail.montant - (showDetail.totalPaye || 0)) > 0 ? '#e65100' : '#2e7d32' }}>
+                              {formatMontant(showDetail.montant - (showDetail.totalPaye || 0))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Historique des paiements */}
+                      {showDetail.paiements && showDetail.paiements.length > 0 && (
+                        <div>
+                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600, marginBottom: 8, display: 'block' }}>HISTORIQUE DES PAIEMENTS</label>
+                          <table style={{ ...styles.table, fontSize: 12 }}>
+                            <thead>
+                              <tr>
+                                <th style={{ ...styles.th, fontSize: 11 }}>DATE</th>
+                                <th style={{ ...styles.th, fontSize: 11 }}>RÉFÉRENCE</th>
+                                <th style={{ ...styles.th, fontSize: 11, textAlign: 'right' }}>MONTANT</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {showDetail.paiements.map((p, i) => (
+                                <tr key={i}>
+                                  <td style={styles.td}>{p.date}</td>
+                                  <td style={{ ...styles.td, fontFamily: 'monospace' }}>{p.reference}</td>
+                                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(p.montant)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Motif différé */}
+                      {(showDetail.statut === 'DIFFERE_CF' || showDetail.statut === 'DIFFERE_AC') && (
+                        <div style={{ background: '#fff8e1', padding: 16, borderRadius: 8 }}>
+                          <label style={{ fontSize: 11, color: '#f9a825', fontWeight: 600 }}>⏸️ MOTIF DU DIFFÉRÉ</label>
+                          <div style={{ marginTop: 4 }}>{showDetail.motifDiffereCF || showDetail.motifDiffereAC}</div>
+                          <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
+                            Date: {showDetail.dateDiffereCF || showDetail.dateDiffereAC}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Motif rejet */}
+                      {(showDetail.statut === 'REJETE_CF' || showDetail.statut === 'REJETE_AC') && showDetail.motifRejet && (
+                        <div style={{ background: '#ffebee', padding: 16, borderRadius: 8 }}>
+                          <label style={{ fontSize: 11, color: '#c62828', fontWeight: 600 }}>❌ MOTIF DU REJET</label>
+                          <div style={{ marginTop: 4, color: '#c62828' }}>{showDetail.motifRejet}</div>
+                          <div style={{ fontSize: 12, color: '#c62828', marginTop: 4 }}>
+                            Date: {showDetail.dateRejet} - Par: {showDetail.rejetePar}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: 12, color: '#6c757d' }}>
+                        Créé le {showDetail.dateCreation || '-'}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowDetail(null)} style={styles.buttonSecondary}>Fermer</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Différer / Rejeter */}
+        {showActionModal && (
+          <div style={styles.modal}>
+            <div style={styles.modalContent}>
+              <div style={{ 
+                padding: 24, 
+                borderBottom: '1px solid #e9ecef', 
+                background: showActionModal.action.includes('REJETER') ? '#ffebee' : '#fff8e1' 
+              }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: showActionModal.action.includes('REJETER') ? '#c62828' : '#f9a825' }}>
+                  {showActionModal.action.includes('REJETER') ? '❌ Rejeter' : '⏸️ Différer'} l'OP {showActionModal.op.numero}
+                </h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date *</label>
+                  <input 
+                    type="date" 
+                    value={actionForm.date} 
+                    onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Motif *</label>
+                  <textarea 
+                    value={actionForm.motif} 
+                    onChange={(e) => setActionForm({ ...actionForm, motif: e.target.value })}
+                    style={{ ...styles.input, minHeight: 100 }}
+                    placeholder={showActionModal.action.includes('REJETER') ? 'Raison du rejet...' : 'Raison du différé, corrections à apporter...'}
+                  />
+                </div>
+                {showActionModal.action.includes('REJETER') && (
+                  <div style={{ marginTop: 16, padding: 12, background: '#fff3e0', borderRadius: 8, fontSize: 13 }}>
+                    ⚠️ <strong>Attention :</strong> Le rejet libérera le budget engagé par cet OP.
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowActionModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+                <button 
+                  onClick={showActionModal.action.includes('REJETER') ? handleRejeter : handleDifferer} 
+                  style={{ 
+                    ...styles.button, 
+                    background: showActionModal.action.includes('REJETER') ? '#c62828' : '#f9a825' 
+                  }}
+                >
+                  {showActionModal.action.includes('REJETER') ? '❌ Confirmer le rejet' : '⏸️ Confirmer le différé'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Paiement */}
+        {showPaiementModal && (
+          <div style={styles.modal}>
+            <div style={styles.modalContent}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#e0f2f1' }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: '#00695c' }}>💰 Enregistrer un paiement</h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, textAlign: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Montant OP</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace' }}>{formatMontant(showPaiementModal.montant)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Déjà payé</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#2e7d32' }}>{formatMontant(showPaiementModal.totalPaye || 0)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Reste à payer</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#e65100' }}>{formatMontant(showPaiementModal.montant - (showPaiementModal.totalPaye || 0))}</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date du paiement *</label>
+                    <input 
+                      type="date" 
+                      value={actionForm.date} 
+                      onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                      style={styles.input}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Référence *</label>
+                    <input 
+                      type="text" 
+                      value={actionForm.reference} 
+                      onChange={(e) => setActionForm({ ...actionForm, reference: e.target.value })}
+                      style={styles.input}
+                      placeholder="Ex: CHQ-045892, VIR-TRS-7821"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant payé *</label>
+                  <input 
+                    type="number" 
+                    value={actionForm.montant} 
+                    onChange={(e) => setActionForm({ ...actionForm, montant: e.target.value })}
+                    style={{ ...styles.input, fontFamily: 'monospace', fontSize: 18, textAlign: 'right' }}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowPaiementModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={handlePaiement} style={{ ...styles.button, background: '#00695c' }}>
+                  💰 Enregistrer le paiement
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ==================== PAGES EN CONSTRUCTION ====================
   const PageEnConstruction = ({ title, icon }) => (
     <div>
@@ -3532,7 +4506,7 @@ export default function App() {
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
         {currentPage === 'budget' && <PageBudget />}
         {currentPage === 'historique' && <PageHistoriqueBudget />}
-        {currentPage === 'ops' && <PageEnConstruction title="Liste des OP" icon="📋" />}
+        {currentPage === 'ops' && <PageListeOP />}
         {currentPage === 'nouvelOp' && <PageNouvelOp />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
       </main>
