@@ -2774,6 +2774,7 @@ export default function App() {
       opProvisoireId: ''
     });
     const [saving, setSaving] = useState(false);
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
     const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
@@ -2788,6 +2789,37 @@ export default function App() {
     
     const beneficiaireRibs = getBeneficiaireRibs(selectedBeneficiaire);
     const selectedRib = beneficiaireRibs[form.ribIndex] || beneficiaireRibs[0] || null;
+
+    // OP disponibles pour duplication (tous les OP de la même source/exercice)
+    const opsPourDuplication = ops.filter(op => 
+      op.sourceId === activeSource &&
+      op.exerciceId === exerciceActif?.id
+    ).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    // Fonction de duplication (sans montant ni TVA)
+    const handleDuplicate = (opId) => {
+      const op = ops.find(o => o.id === opId);
+      if (!op) return;
+      
+      // Pré-remplir le formulaire avec les données de l'OP sélectionné
+      // Montant et TVA ne sont PAS copiés car ils peuvent varier
+      setForm({
+        type: op.type === 'ANNULATION' ? 'PROVISOIRE' : op.type, // Tous les types sauf Annulation
+        beneficiaireId: op.beneficiaireId || '',
+        ribIndex: 0,
+        modeReglement: op.modeReglement || 'VIREMENT',
+        objet: op.objet || '',
+        piecesJustificatives: op.piecesJustificatives || '',
+        montant: '', // À saisir
+        ligneBudgetaire: op.ligneBudgetaire || '',
+        montantTVA: '', // À saisir
+        tvaRecuperable: op.tvaRecuperable || false,
+        opProvisoireNumero: '',
+        opProvisoireId: ''
+      });
+      
+      setShowDuplicateModal(false);
+    };
     
     // Budget actif pour la source et l'exercice actif
     const currentBudget = budgets
@@ -3014,7 +3046,7 @@ export default function App() {
         ) : (
           <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
             <div style={{ padding: 24 }}>
-              {/* Ligne 1 : N°OP + Bouton Effacer */}
+              {/* Ligne 1 : N°OP + Boutons Dupliquer/Effacer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
                 <div style={{ width: 250 }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N° OP</label>
@@ -3025,9 +3057,17 @@ export default function App() {
                     style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16 }} 
                   />
                 </div>
-                <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
-                  EFFACER
-                </button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button 
+                    onClick={() => setShowDuplicateModal(true)} 
+                    style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
+                  >
+                    📋 Dupliquer un OP
+                  </button>
+                  <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
+                    EFFACER
+                  </button>
+                </div>
               </div>
 
               {/* Ligne 2 : Type d'OP en boutons compacts */}
@@ -3363,6 +3403,90 @@ export default function App() {
                 >
                   {saving ? 'Enregistrement...' : 'ENREGISTRER'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Dupliquer un OP */}
+        {showDuplicateModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff3e0' }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: '#e65100' }}>📋 Dupliquer un OP Provisoire</h2>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
+                  <strong>Ce qui sera copié :</strong> Bénéficiaire, Mode de règlement, Objet, Pièces justificatives, Ligne budgétaire<br/>
+                  <strong style={{ color: '#e65100' }}>Ce qui ne sera PAS copié :</strong> Montant, TVA (à saisir manuellement)
+                </div>
+                
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Rechercher un OP Provisoire</label>
+                  <Autocomplete
+                    options={opsPourDuplication.map(op => {
+                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                      return {
+                        value: op.id,
+                        label: `${op.numero} - ${ben?.nom || 'N/A'}`,
+                        searchFields: [op.numero, ben?.nom || '', op.objet || '']
+                      };
+                    })}
+                    value={null}
+                    onChange={(option) => option && handleDuplicate(option.value)}
+                    placeholder="🔍 Rechercher par N°, bénéficiaire, objet..."
+                    noOptionsMessage="Aucun OP Provisoire trouvé"
+                    accentColor="#e65100"
+                  />
+                </div>
+
+                {opsPourDuplication.length > 0 && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Ou sélectionner dans les derniers OP Provisoires</label>
+                    <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e9ecef', borderRadius: 8 }}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...styles.th, fontSize: 11 }}>N° OP</th>
+                            <th style={{ ...styles.th, fontSize: 11 }}>BÉNÉFICIAIRE</th>
+                            <th style={{ ...styles.th, fontSize: 11 }}>OBJET</th>
+                            <th style={{ ...styles.th, fontSize: 11 }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {opsPourDuplication.slice(0, 10).map(op => {
+                            const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                            return (
+                              <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => handleDuplicate(op.id)}>
+                                <td style={{ ...styles.td, fontSize: 12, fontFamily: 'monospace' }}>{op.numero}</td>
+                                <td style={{ ...styles.td, fontSize: 12 }}>{ben?.nom || 'N/A'}</td>
+                                <td style={{ ...styles.td, fontSize: 11, color: '#6c757d', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
+                                <td style={{ ...styles.td, textAlign: 'center' }}>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDuplicate(op.id); }}
+                                    style={{ ...styles.button, padding: '4px 12px', fontSize: 11, background: '#e65100' }}
+                                  >
+                                    Dupliquer
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {opsPourDuplication.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+                    <p>Aucun OP Provisoire créé pour cette source et cet exercice.</p>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setShowDuplicateModal(false)} style={styles.buttonSecondary}>Fermer</button>
               </div>
             </div>
           </div>
