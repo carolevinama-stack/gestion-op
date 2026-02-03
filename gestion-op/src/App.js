@@ -3807,10 +3807,14 @@ export default function App() {
       dateFin: ''
     });
     const [showDetail, setShowDetail] = useState(null);
-    const [showActionModal, setShowActionModal] = useState(null); // { op, action: 'DIFFERER_CF'|'REJETER_CF'|'VISER_CF'|... }
-    const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
+    const [showActionModal, setShowActionModal] = useState(null); // { op, action: 'DIFFERER_CF'|'REJETER_CF'|... }
+    const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' });
     const [showPaiementModal, setShowPaiementModal] = useState(null);
-    const [showPasswordModal, setShowPasswordModal] = useState(null); // { action: fn, title, description, warning }
+    const [showPasswordModal, setShowPasswordModal] = useState(null);
+    const [showStatutModal, setShowStatutModal] = useState(null); // { op, nouveauStatut } - pour changement manuel de statut
+    const [showEditModal, setShowEditModal] = useState(null); // OP à modifier
+    const [editForm, setEditForm] = useState({});
+    const [showArchiveModal, setShowArchiveModal] = useState(null); // OP à archiver
 
     const currentSourceObj = activeSource === 'ALL' ? null : sources.find(s => s.id === activeSource);
 
@@ -3856,7 +3860,6 @@ export default function App() {
     const provisoiresARegulariser = opsExercice.filter(op => {
       if (op.type !== 'PROVISOIRE') return false;
       if (['REJETE_CF', 'REJETE_AC', 'ARCHIVE'].includes(op.statut)) return false;
-      // Vérifier si un DEFINITIF ou ANNULATION existe pour ce provisoire
       const hasRegularisation = opsExercice.some(o => 
         (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
         o.opProvisoireId === op.id
@@ -3874,11 +3877,12 @@ export default function App() {
 
     // Compteurs par onglet
     const counts = {
-      TOUS: opsExercice.length,
+      TOUS: opsExercice.filter(op => op.statut !== 'ARCHIVE').length,
       CIRCUIT_CF: opsExercice.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut)).length,
       CIRCUIT_AC: opsExercice.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut)).length,
       DIFFERES: opsExercice.filter(op => ['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)).length,
-      A_REGULARISER: provisoiresARegulariser.length
+      A_REGULARISER: provisoiresARegulariser.length,
+      ARCHIVES: opsExercice.filter(op => op.statut === 'ARCHIVE').length
     };
 
     // Filtrer selon l'onglet actif
@@ -3886,6 +3890,9 @@ export default function App() {
       let result = opsExercice;
       
       switch (activeTab) {
+        case 'TOUS':
+          result = result.filter(op => op.statut !== 'ARCHIVE'); // Exclure archives de "Tous"
+          break;
         case 'CIRCUIT_CF':
           result = result.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut));
           break;
@@ -3897,6 +3904,9 @@ export default function App() {
           break;
         case 'A_REGULARISER':
           result = provisoiresARegulariser;
+          break;
+        case 'ARCHIVES':
+          result = result.filter(op => op.statut === 'ARCHIVE');
           break;
         default:
           break;
@@ -4101,17 +4111,26 @@ export default function App() {
       }
     };
 
-    // Archiver
-    const handleArchiver = async (op) => {
-      if (!window.confirm(`Archiver l'OP ${op.numero} ?`)) return;
+    // Archiver - ouvrir le modal
+    const handleArchiver = (op) => {
+      setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], boiteArchive: op.boiteArchive || '' });
+      setShowArchiveModal(op);
+    };
+    
+    // Confirmer l'archivage
+    const handleConfirmArchive = async () => {
+      const op = showArchiveModal;
       try {
         const updates = { 
           statut: 'ARCHIVE',
-          dateArchivage: new Date().toISOString().split('T')[0],
+          dateArchivage: actionForm.date,
+          boiteArchive: actionForm.boiteArchive.trim() || null,
           updatedAt: new Date().toISOString()
         };
         await updateDoc(doc(db, 'ops', op.id), updates);
         setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+        setShowArchiveModal(null);
+        setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' });
       } catch (error) {
         console.error('Erreur:', error);
         alert('Erreur lors de l\'archivage');
@@ -4120,14 +4139,20 @@ export default function App() {
 
     // Supprimer un OP (protégé par mot de passe)
     const handleDeleteWithPassword = (op) => {
-      if (op.statut !== 'CREE') {
-        alert('Seuls les OP au statut "Créé" peuvent être supprimés.');
-        return;
+      let warningMsg = `Cette action est irréversible.`;
+      
+      // Avertissement selon le statut
+      if (!['REJETE_CF', 'REJETE_AC', 'ARCHIVE'].includes(op.statut)) {
+        warningMsg += ` Le budget de ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire} sera libéré.`;
       }
+      if (['TRANSMIS_CF', 'VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE'].includes(op.statut)) {
+        warningMsg += ` ⚠️ Attention : cet OP est déjà en cours de traitement !`;
+      }
+      
       setShowPasswordModal({
         title: 'Supprimer un OP',
-        description: `Supprimer définitivement l'OP ${op.numero} ?`,
-        warningMessage: `Cette action est irréversible. Le budget de ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire} sera libéré.`,
+        description: `Supprimer définitivement l'OP ${op.numero} (${statutConfig[op.statut]?.label || op.statut}) ?`,
+        warningMessage: warningMsg,
         confirmText: '🗑️ Confirmer la suppression',
         confirmColor: '#c62828',
         action: async () => {
@@ -4135,6 +4160,7 @@ export default function App() {
             await deleteDoc(doc(db, 'ops', op.id));
             setOps(ops.filter(o => o.id !== op.id));
             setShowPasswordModal(null);
+            setShowDetail(null); // Fermer le détail si ouvert
           } catch (error) {
             console.error('Erreur:', error);
             alert('Erreur lors de la suppression');
@@ -4157,6 +4183,193 @@ export default function App() {
       } catch (error) {
         console.error('Erreur:', error);
         alert('Erreur lors de la retransmission');
+      }
+    };
+
+    // Ouvrir le modal de changement de statut manuel
+    const handleOpenStatutModal = (op) => {
+      setShowStatutModal({ op });
+      setActionForm({ 
+        motif: '', 
+        date: new Date().toISOString().split('T')[0], 
+        reference: '', 
+        montant: '',
+        nouveauStatut: ''
+      });
+    };
+
+    // Appliquer le changement de statut manuel
+    const handleChangeStatut = async () => {
+      const op = showStatutModal.op;
+      const { nouveauStatut, date, motif } = actionForm;
+      
+      if (!nouveauStatut) {
+        alert('Veuillez sélectionner un statut');
+        return;
+      }
+      
+      // Vérifier si motif obligatoire
+      if (['DIFFERE_CF', 'DIFFERE_AC', 'REJETE_CF', 'REJETE_AC'].includes(nouveauStatut) && !motif.trim()) {
+        alert('Le motif est obligatoire pour ce statut');
+        return;
+      }
+      
+      // Si rejet, demander mot de passe
+      if (['REJETE_CF', 'REJETE_AC'].includes(nouveauStatut)) {
+        setShowPasswordModal({
+          title: `Changer le statut en ${statutConfig[nouveauStatut]?.label}`,
+          description: `L'OP ${op.numero} sera marqué comme rejeté.`,
+          warningMessage: `Le rejet va libérer ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire}.`,
+          confirmText: '✓ Confirmer',
+          confirmColor: '#c62828',
+          action: async () => {
+            await saveStatutChange(op, nouveauStatut, date, motif);
+            setShowPasswordModal(null);
+          }
+        });
+        return;
+      }
+      
+      await saveStatutChange(op, nouveauStatut, date, motif);
+    };
+
+    // Sauvegarder le changement de statut
+    const saveStatutChange = async (op, nouveauStatut, date, motif) => {
+      try {
+        const updates = { 
+          statut: nouveauStatut,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Ajouter les dates spécifiques selon le statut
+        if (nouveauStatut === 'TRANSMIS_CF') updates.dateTransmissionCF = date;
+        if (nouveauStatut === 'VISE_CF') updates.dateVisaCF = date;
+        if (nouveauStatut === 'TRANSMIS_AC') updates.dateTransmissionAC = date;
+        if (nouveauStatut === 'DIFFERE_CF') {
+          updates.dateDiffereCF = date;
+          updates.motifDiffereCF = motif;
+        }
+        if (nouveauStatut === 'DIFFERE_AC') {
+          updates.dateDiffereAC = date;
+          updates.motifDiffereAC = motif;
+        }
+        if (nouveauStatut === 'REJETE_CF' || nouveauStatut === 'REJETE_AC') {
+          updates.dateRejet = date;
+          updates.motifRejet = motif;
+          updates.rejetePar = nouveauStatut === 'REJETE_CF' ? 'CF' : 'AC';
+        }
+        if (nouveauStatut === 'ARCHIVE') updates.dateArchivage = date;
+        
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+        setShowStatutModal(null);
+        setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' });
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors du changement de statut');
+      }
+    };
+
+    // Désarchiver un OP
+    const handleDesarchiver = async (op) => {
+      if (!window.confirm(`Désarchiver l'OP ${op.numero} ? Il retournera au statut "Payé".`)) return;
+      try {
+        const updates = { 
+          statut: 'PAYE',
+          dateArchivage: null,
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors du désarchivage');
+      }
+    };
+
+    // Ouvrir le modal de modification
+    const handleOpenEdit = (op) => {
+      setEditForm({
+        objet: op.objet || '',
+        montant: op.montant || '',
+        ligneBudgetaire: op.ligneBudgetaire || '',
+        modeReglement: op.modeReglement || 'VIREMENT',
+        piecesJustificatives: op.piecesJustificatives || '',
+        dateCreation: op.dateCreation || '',
+        dateTransmissionCF: op.dateTransmissionCF || '',
+        dateVisaCF: op.dateVisaCF || '',
+        dateTransmissionAC: op.dateTransmissionAC || '',
+        datePaiement: op.datePaiement || '',
+        dateArchivage: op.dateArchivage || '',
+        boiteArchive: op.boiteArchive || ''
+      });
+      setShowEditModal(op);
+    };
+
+    // Sauvegarder les modifications
+    const handleSaveEdit = async () => {
+      const op = showEditModal;
+      const montantModifie = parseFloat(editForm.montant) !== op.montant;
+      
+      // Si le montant a changé, demander mot de passe
+      if (montantModifie) {
+        // Vérifier s'il y a des OP postérieurs sur la même ligne
+        const opsPostérieurs = ops.filter(o => 
+          o.sourceId === op.sourceId &&
+          o.exerciceId === op.exerciceId &&
+          o.ligneBudgetaire === editForm.ligneBudgetaire &&
+          o.id !== op.id &&
+          (o.createdAt || '') > (op.createdAt || '')
+        );
+        
+        let warningMsg = `Le montant passe de ${formatMontant(op.montant)} à ${formatMontant(parseFloat(editForm.montant))} FCFA.`;
+        if (opsPostérieurs.length > 0) {
+          warningMsg += ` Attention : ${opsPostérieurs.length} OP postérieur(s) sur cette ligne seront impactés.`;
+        }
+        
+        setShowPasswordModal({
+          title: 'Modifier le montant',
+          description: `Modification de l'OP ${op.numero}`,
+          warningMessage: warningMsg,
+          confirmText: '✓ Confirmer la modification',
+          confirmColor: '#f57f17',
+          action: async () => {
+            await saveEditChanges(op);
+            setShowPasswordModal(null);
+          }
+        });
+        return;
+      }
+      
+      await saveEditChanges(op);
+    };
+
+    // Sauvegarder les modifications
+    const saveEditChanges = async (op) => {
+      try {
+        const updates = {
+          objet: editForm.objet,
+          montant: parseFloat(editForm.montant) || op.montant,
+          ligneBudgetaire: editForm.ligneBudgetaire,
+          modeReglement: editForm.modeReglement,
+          piecesJustificatives: editForm.piecesJustificatives,
+          dateCreation: editForm.dateCreation,
+          dateTransmissionCF: editForm.dateTransmissionCF || null,
+          dateVisaCF: editForm.dateVisaCF || null,
+          dateTransmissionAC: editForm.dateTransmissionAC || null,
+          datePaiement: editForm.datePaiement || null,
+          dateArchivage: editForm.dateArchivage || null,
+          boiteArchive: editForm.boiteArchive || null,
+          updatedAt: new Date().toISOString()
+        };
+        
+        await updateDoc(doc(db, 'ops', op.id), updates);
+        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+        setShowEditModal(null);
+        setEditForm({});
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la modification');
       }
     };
 
@@ -4203,10 +4416,17 @@ export default function App() {
     const getActions = (op) => {
       const actions = [];
       
+      // Bouton Modifier disponible sur tous les OP
+      actions.push({ label: '✏️', title: 'Modifier', onClick: () => handleOpenEdit(op) });
+      
+      // Bouton Changer statut pour renseigner les dates manuellement
+      if (!['ARCHIVE', 'REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
+        actions.push({ label: '🔄', title: 'Changer statut', onClick: () => handleOpenStatutModal(op) });
+      }
+      
       switch (op.statut) {
         case 'CREE':
           actions.push({ label: '📤', title: 'Transmettre CF', onClick: () => handleTransmettreCF(op) });
-          actions.push({ label: '🗑️', title: 'Supprimer', onClick: () => handleDeleteWithPassword(op), danger: true });
           break;
         case 'TRANSMIS_CF':
           actions.push({ label: '✅', title: 'Viser', onClick: () => handleViserCF(op) });
@@ -4229,13 +4449,20 @@ export default function App() {
           break;
         case 'PAYE_PARTIEL':
           actions.push({ label: '💰', title: 'Paiement', onClick: () => { setShowPaiementModal(op); setActionForm({ ...actionForm, montant: String(op.montant - (op.totalPaye || 0)) }); } });
+          actions.push({ label: '📦', title: 'Archiver', onClick: () => handleArchiver(op) });
           break;
         case 'PAYE':
           actions.push({ label: '📦', title: 'Archiver', onClick: () => handleArchiver(op) });
           break;
+        case 'ARCHIVE':
+          actions.push({ label: '📤', title: 'Désarchiver', onClick: () => handleDesarchiver(op) });
+          break;
         default:
           break;
       }
+      
+      // Bouton Supprimer disponible sur tous les OP (protégé par mot de passe)
+      actions.push({ label: '🗑️', title: 'Supprimer', onClick: () => handleDeleteWithPassword(op), danger: true });
       
       return actions;
     };
@@ -4261,7 +4488,8 @@ export default function App() {
             { key: 'CIRCUIT_CF', label: 'Circuit CF', icon: '📤' },
             { key: 'CIRCUIT_AC', label: 'Circuit AC', icon: '💰' },
             { key: 'DIFFERES', label: 'Différés', icon: '⏸️' },
-            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' }
+            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' },
+            { key: 'ARCHIVES', label: 'Archives', icon: '📦' }
           ].map(tab => (
             <button
               key={tab.key}
@@ -4270,7 +4498,7 @@ export default function App() {
                 padding: '10px 16px',
                 borderRadius: 8,
                 border: 'none',
-                background: activeTab === tab.key ? '#0f4c3a' : '#f0f0f0',
+                background: activeTab === tab.key ? (tab.key === 'ARCHIVES' ? '#546e7a' : '#0f4c3a') : '#f0f0f0',
                 color: activeTab === tab.key ? 'white' : '#333',
                 fontWeight: 600,
                 fontSize: 13,
@@ -4711,7 +4939,7 @@ export default function App() {
                       {/* Dates du circuit */}
                       <div style={{ background: '#fafafa', padding: 16, borderRadius: 8 }}>
                         <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600, marginBottom: 12, display: 'block' }}>📅 SUIVI DU CIRCUIT</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, fontSize: 12, marginBottom: 12 }}>
                           <div>
                             <div style={{ color: '#6c757d', fontSize: 10 }}>Création</div>
                             <div style={{ fontWeight: 500 }}>{showDetail.dateCreation || '-'}</div>
@@ -4724,12 +4952,30 @@ export default function App() {
                             <div style={{ color: '#6c757d', fontSize: 10 }}>Visa CF</div>
                             <div style={{ fontWeight: 500, color: showDetail.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>{showDetail.dateVisaCF || '-'}</div>
                           </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, fontSize: 12 }}>
                           <div>
                             <div style={{ color: '#6c757d', fontSize: 10 }}>Trans. AC</div>
                             <div style={{ fontWeight: 500, color: showDetail.dateTransmissionAC ? '#333' : '#adb5bd' }}>{showDetail.dateTransmissionAC || '-'}</div>
                           </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 10 }}>Paiement</div>
+                            <div style={{ fontWeight: 500, color: showDetail.datePaiement ? '#00695c' : '#adb5bd' }}>{showDetail.datePaiement || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 10 }}>Archivage</div>
+                            <div style={{ fontWeight: 500, color: showDetail.dateArchivage ? '#546e7a' : '#adb5bd' }}>{showDetail.dateArchivage || '-'}</div>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Boîte d'archive */}
+                      {showDetail.boiteArchive && (
+                        <div style={{ background: '#eceff1', padding: 16, borderRadius: 8 }}>
+                          <label style={{ fontSize: 11, color: '#546e7a', fontWeight: 600 }}>📦 BOÎTE D'ARCHIVE</label>
+                          <div style={{ marginTop: 4, fontWeight: 600, fontSize: 14 }}>{showDetail.boiteArchive}</div>
+                        </div>
+                      )}
                       
                       {/* Historique des paiements */}
                       {showDetail.paiements && showDetail.paiements.length > 0 && (
@@ -4785,7 +5031,21 @@ export default function App() {
                   );
                 })()}
               </div>
-              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button 
+                    onClick={() => { handleOpenEdit(showDetail); setShowDetail(null); }} 
+                    style={{ ...styles.buttonSecondary, background: '#fff8e1', color: '#f57f17' }}
+                  >
+                    ✏️ Modifier
+                  </button>
+                  <button 
+                    onClick={() => { handleDeleteWithPassword(showDetail); }} 
+                    style={{ ...styles.buttonSecondary, background: '#ffebee', color: '#c62828' }}
+                  >
+                    🗑️ Supprimer
+                  </button>
+                </div>
                 <button onClick={() => setShowDetail(null)} style={styles.buttonSecondary}>Fermer</button>
               </div>
             </div>
@@ -4903,9 +5163,264 @@ export default function App() {
                 </div>
               </div>
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button onClick={() => { setShowPaiementModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={() => { setShowPaiementModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' }); }} style={styles.buttonSecondary}>Annuler</button>
                 <button onClick={handlePaiement} style={{ ...styles.button, background: '#00695c' }}>
                   💰 Enregistrer le paiement
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Archivage */}
+        {showArchiveModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 450 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#eceff1' }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: '#546e7a' }}>📦 Archiver l'OP</h2>
+                <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showArchiveModal.numero}</div>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date d'archivage *</label>
+                  <input 
+                    type="date" 
+                    value={actionForm.date} 
+                    onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>N° Boîte / Classeur d'archive</label>
+                  <input 
+                    type="text" 
+                    value={actionForm.boiteArchive} 
+                    onChange={(e) => setActionForm({ ...actionForm, boiteArchive: e.target.value })}
+                    style={styles.input}
+                    placeholder="Ex: BOX-2026-001, Classeur IDA-A3..."
+                  />
+                  <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - pour faciliter la recherche physique</span>
+                </div>
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowArchiveModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={handleConfirmArchive} style={{ ...styles.button, background: '#546e7a' }}>
+                  📦 Confirmer l'archivage
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Changement de statut */}
+        {showStatutModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 500 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>🔄 Changer le statut</h2>
+                <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showStatutModal.op.numero}</div>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nouveau statut *</label>
+                  <select
+                    value={actionForm.nouveauStatut || ''}
+                    onChange={(e) => setActionForm({ ...actionForm, nouveauStatut: e.target.value })}
+                    style={styles.input}
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    <option value="TRANSMIS_CF">📤 Transmis CF</option>
+                    <option value="DIFFERE_CF">⏸️ Différé CF</option>
+                    <option value="VISE_CF">✅ Visé CF</option>
+                    <option value="REJETE_CF">❌ Rejeté CF</option>
+                    <option value="TRANSMIS_AC">📤 Transmis AC</option>
+                    <option value="DIFFERE_AC">⏸️ Différé AC</option>
+                    <option value="PAYE_PARTIEL">💰 Payé partiel</option>
+                    <option value="PAYE">💰 Payé</option>
+                    <option value="REJETE_AC">❌ Rejeté AC</option>
+                    <option value="ARCHIVE">📦 Archivé</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date *</label>
+                  <input
+                    type="date"
+                    value={actionForm.date}
+                    onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+                {['DIFFERE_CF', 'DIFFERE_AC', 'REJETE_CF', 'REJETE_AC'].includes(actionForm.nouveauStatut) && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Motif *</label>
+                    <textarea
+                      value={actionForm.motif}
+                      onChange={(e) => setActionForm({ ...actionForm, motif: e.target.value })}
+                      style={{ ...styles.input, minHeight: 80 }}
+                      placeholder="Raison du différé ou rejet..."
+                    />
+                  </div>
+                )}
+                {['REJETE_CF', 'REJETE_AC'].includes(actionForm.nouveauStatut) && (
+                  <div style={{ marginTop: 16, padding: 12, background: '#fff3e0', borderRadius: 8, fontSize: 13 }}>
+                    ⚠️ Le rejet libérera le budget engagé.
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowStatutModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={handleChangeStatut} style={{ ...styles.button, background: '#1565c0' }}>
+                  ✓ Appliquer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Modification OP */}
+        {showEditModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 650 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff8e1' }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: '#f57f17' }}>✏️ Modifier l'OP</h2>
+                <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showEditModal.numero}</div>
+              </div>
+              <div style={{ padding: 24, maxHeight: '60vh', overflowY: 'auto' }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Objet</label>
+                  <textarea
+                    value={editForm.objet || ''}
+                    onChange={(e) => setEditForm({ ...editForm, objet: e.target.value })}
+                    style={{ ...styles.input, minHeight: 60 }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant (FCFA) 🔐</label>
+                    <input
+                      type="number"
+                      value={editForm.montant || ''}
+                      onChange={(e) => setEditForm({ ...editForm, montant: e.target.value })}
+                      style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right' }}
+                    />
+                    <span style={{ fontSize: 10, color: '#f57f17' }}>⚠️ Modification protégée</span>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Ligne budgétaire</label>
+                    <select
+                      value={editForm.ligneBudgetaire || ''}
+                      onChange={(e) => setEditForm({ ...editForm, ligneBudgetaire: e.target.value })}
+                      style={styles.input}
+                    >
+                      <option value="">-- Sélectionner --</option>
+                      {allLignes.map(code => (
+                        <option key={code} value={code}>{code}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Mode de règlement</label>
+                    <select
+                      value={editForm.modeReglement || 'VIREMENT'}
+                      onChange={(e) => setEditForm({ ...editForm, modeReglement: e.target.value })}
+                      style={styles.input}
+                    >
+                      <option value="VIREMENT">Virement</option>
+                      <option value="CHEQUE">Chèque</option>
+                      <option value="ESPECES">Espèces</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date de création</label>
+                    <input
+                      type="date"
+                      value={editForm.dateCreation || ''}
+                      onChange={(e) => setEditForm({ ...editForm, dateCreation: e.target.value })}
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Pièces justificatives</label>
+                  <textarea
+                    value={editForm.piecesJustificatives || ''}
+                    onChange={(e) => setEditForm({ ...editForm, piecesJustificatives: e.target.value })}
+                    style={{ ...styles.input, minHeight: 60 }}
+                  />
+                </div>
+                
+                {/* Dates du circuit */}
+                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>📅 Dates du circuit</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Trans. CF</label>
+                      <input
+                        type="date"
+                        value={editForm.dateTransmissionCF || ''}
+                        onChange={(e) => setEditForm({ ...editForm, dateTransmissionCF: e.target.value })}
+                        style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Visa CF</label>
+                      <input
+                        type="date"
+                        value={editForm.dateVisaCF || ''}
+                        onChange={(e) => setEditForm({ ...editForm, dateVisaCF: e.target.value })}
+                        style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Trans. AC</label>
+                      <input
+                        type="date"
+                        value={editForm.dateTransmissionAC || ''}
+                        onChange={(e) => setEditForm({ ...editForm, dateTransmissionAC: e.target.value })}
+                        style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date paiement</label>
+                      <input
+                        type="date"
+                        value={editForm.datePaiement || ''}
+                        onChange={(e) => setEditForm({ ...editForm, datePaiement: e.target.value })}
+                        style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date archivage</label>
+                      <input
+                        type="date"
+                        value={editForm.dateArchivage || ''}
+                        onChange={(e) => setEditForm({ ...editForm, dateArchivage: e.target.value })}
+                        style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Boîte d'archive */}
+                <div style={{ background: '#eceff1', padding: 16, borderRadius: 8 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>📦 N° Boîte d'archive</label>
+                  <input
+                    type="text"
+                    value={editForm.boiteArchive || ''}
+                    onChange={(e) => setEditForm({ ...editForm, boiteArchive: e.target.value })}
+                    style={{ ...styles.input, marginBottom: 0 }}
+                    placeholder="Ex: BOX-2026-001, Classeur A3..."
+                  />
+                </div>
+              </div>
+              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button onClick={() => { setShowEditModal(null); setEditForm({}); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={handleSaveEdit} style={{ ...styles.button, background: '#f57f17' }}>
+                  ✓ Enregistrer
                 </button>
               </div>
             </div>
