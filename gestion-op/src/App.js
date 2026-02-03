@@ -616,12 +616,18 @@ export default function App() {
   );
 
   // ==================== COMPOSANT MODAL MOT DE PASSE ====================
-  const PasswordModal = ({ show, onClose, onConfirm, title, description, warning }) => {
+  const PasswordModal = ({ show, isOpen, onClose, onConfirm, title, description, warning, warningMessage, confirmText, confirmColor }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [showPwd, setShowPwd] = useState(false);
 
-    if (!show) return null;
+    // Support both 'show' and 'isOpen' props
+    const isVisible = show || isOpen;
+    const warningText = warning || warningMessage;
+    const buttonText = confirmText || '🔓 Confirmer';
+    const buttonColor = confirmColor || '#f57f17';
+
+    if (!isVisible) return null;
 
     const handleConfirm = () => {
       if (!projet?.adminPassword) {
@@ -657,10 +663,10 @@ export default function App() {
               <p style={{ marginBottom: 16, color: '#333' }}>{description}</p>
             )}
             
-            {warning && (
+            {warningText && (
               <div style={{ background: '#ffebee', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
                 <strong style={{ color: '#c62828' }}>⚠️ Attention :</strong>
-                <span style={{ color: '#c62828', marginLeft: 4 }}>{warning}</span>
+                <span style={{ color: '#c62828', marginLeft: 4 }}>{warningText}</span>
               </div>
             )}
             
@@ -704,8 +710,8 @@ export default function App() {
           </div>
           <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <button onClick={handleClose} style={styles.buttonSecondary}>Annuler</button>
-            <button onClick={handleConfirm} style={{ ...styles.button, background: '#f57f17' }}>
-              🔓 Confirmer
+            <button onClick={handleConfirm} style={{ ...styles.button, background: buttonColor }}>
+              {buttonText}
             </button>
           </div>
         </div>
@@ -4428,7 +4434,8 @@ export default function App() {
                     <th style={{ ...styles.th, width: 145 }}>N° OP</th>
                     <th style={{ ...styles.th, width: 80 }}>CRÉATION</th>
                     <th style={{ ...styles.th, width: 75 }}>TYPE</th>
-                    <th style={styles.th}>BÉNÉFICIAIRE</th>
+                    <th style={{ ...styles.th, width: 140 }}>BÉNÉFICIAIRE</th>
+                    <th style={styles.th}>OBJET</th>
                     <th style={{ ...styles.th, width: 70 }}>LIGNE</th>
                     <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
                     {/* Colonnes dynamiques selon l'onglet */}
@@ -4483,6 +4490,9 @@ export default function App() {
                           </span>
                         </td>
                         <td style={{ ...styles.td, fontSize: 11 }}>{ben?.nom || 'N/A'}</td>
+                        <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>
+                          {op.objet || '-'}
+                        </td>
                         <td style={{ ...styles.td, fontSize: 11, fontFamily: 'monospace' }}>{op.ligneBudgetaire || '-'}</td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
                           {formatMontant(op.montant)}
@@ -4568,7 +4578,7 @@ export default function App() {
         {/* Modal Détail OP */}
         {showDetail && (
           <div style={styles.modal} onClick={() => setShowDetail(null)}>
-            <div style={{ ...styles.modalContent, maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
               <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: sources.find(s => s.id === showDetail.sourceId)?.couleur || '#0f4c3a', color: 'white' }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>📋 {showDetail.numero}</h2>
               </div>
@@ -4577,6 +4587,34 @@ export default function App() {
                   const ben = beneficiaires.find(b => b.id === showDetail.beneficiaireId);
                   const statut = statutConfig[showDetail.statut] || { label: showDetail.statut };
                   const source = sources.find(s => s.id === showDetail.sourceId);
+                  
+                  // Calcul des engagements antérieurs sur la même ligne
+                  const currentBudget = budgets.find(b => b.sourceId === showDetail.sourceId && b.exerciceId === showDetail.exerciceId);
+                  const ligne = currentBudget?.lignes?.find(l => l.code === showDetail.ligneBudgetaire);
+                  const dotation = ligne?.dotation || 0;
+                  
+                  const opsAnterieurs = ops.filter(o => 
+                    o.sourceId === showDetail.sourceId &&
+                    o.exerciceId === showDetail.exerciceId &&
+                    o.ligneBudgetaire === showDetail.ligneBudgetaire &&
+                    o.id !== showDetail.id &&
+                    !['REJETE_CF', 'REJETE_AC'].includes(o.statut) &&
+                    (o.createdAt || '') < (showDetail.createdAt || '')
+                  );
+                  
+                  const engagementsAnterieurs = opsAnterieurs.reduce((sum, o) => {
+                    if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') return sum + (o.montant || 0);
+                    if (o.type === 'DEFINITIF') {
+                      const prov = ops.find(p => p.id === o.opProvisoireId);
+                      return sum - (prov?.montant || 0) + (o.montant || 0);
+                    }
+                    if (o.type === 'ANNULATION') {
+                      const prov = ops.find(p => p.id === o.opProvisoireId);
+                      return sum - (prov?.montant || 0);
+                    }
+                    return sum;
+                  }, 0);
+                  
                   return (
                     <div style={{ display: 'grid', gap: 16 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
@@ -4624,6 +4662,29 @@ export default function App() {
                           <div style={{ marginTop: 4 }}>{showDetail.modeReglement}</div>
                         </div>
                       </div>
+                      
+                      {/* Section Budget / Engagements */}
+                      <div style={{ background: '#e3f2fd', padding: 16, borderRadius: 8 }}>
+                        <label style={{ fontSize: 11, color: '#1565c0', fontWeight: 600, marginBottom: 12, display: 'block' }}>📊 SITUATION BUDGÉTAIRE (Ligne {showDetail.ligneBudgetaire})</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 11 }}>Dotation</div>
+                            <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{formatMontant(dotation)}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 11 }}>Engagements antérieurs</div>
+                            <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#e65100' }}>{formatMontant(engagementsAnterieurs)}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 11 }}>Disponible avant cet OP</div>
+                            <div style={{ fontWeight: 600, fontFamily: 'monospace', color: (dotation - engagementsAnterieurs) >= 0 ? '#2e7d32' : '#c62828' }}>
+                              {formatMontant(dotation - engagementsAnterieurs)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Montants de l'OP */}
                       <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                           <div>
@@ -4643,6 +4704,29 @@ export default function App() {
                             <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: (showDetail.montant - (showDetail.totalPaye || 0)) > 0 ? '#e65100' : '#2e7d32' }}>
                               {formatMontant(showDetail.montant - (showDetail.totalPaye || 0))}
                             </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Dates du circuit */}
+                      <div style={{ background: '#fafafa', padding: 16, borderRadius: 8 }}>
+                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600, marginBottom: 12, display: 'block' }}>📅 SUIVI DU CIRCUIT</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, fontSize: 12 }}>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 10 }}>Création</div>
+                            <div style={{ fontWeight: 500 }}>{showDetail.dateCreation || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 10 }}>Trans. CF</div>
+                            <div style={{ fontWeight: 500, color: showDetail.dateTransmissionCF ? '#333' : '#adb5bd' }}>{showDetail.dateTransmissionCF || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 10 }}>Visa CF</div>
+                            <div style={{ fontWeight: 500, color: showDetail.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>{showDetail.dateVisaCF || '-'}</div>
+                          </div>
+                          <div>
+                            <div style={{ color: '#6c757d', fontSize: 10 }}>Trans. AC</div>
+                            <div style={{ fontWeight: 500, color: showDetail.dateTransmissionAC ? '#333' : '#adb5bd' }}>{showDetail.dateTransmissionAC || '-'}</div>
                           </div>
                         </div>
                       </div>
