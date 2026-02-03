@@ -125,6 +125,138 @@ const Autocomplete = ({
   );
 };
 
+// ==================== COMPOSANT MOT DE PASSE ADMIN ====================
+const PasswordModal = ({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  title = "Action protégée",
+  description = "",
+  warningMessage = "",
+  confirmText = "Confirmer",
+  confirmColor = "#0f4c3a",
+  adminPassword,
+  impactDetails = null
+}) => {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleConfirm = () => {
+    if (password !== adminPassword) {
+      setError('Mot de passe incorrect');
+      return;
+    }
+    setPassword('');
+    setError('');
+    onConfirm();
+  };
+
+  const handleClose = () => {
+    setPassword('');
+    setError('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000
+    }}>
+      <div style={{
+        background: 'white', borderRadius: 14, width: '90%', maxWidth: 500,
+        overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
+          <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+            🔐 {title}
+          </h2>
+        </div>
+        <div style={{ padding: 24 }}>
+          {description && (
+            <p style={{ marginTop: 0, marginBottom: 16, color: '#333' }}>{description}</p>
+          )}
+          
+          {impactDetails && (
+            <div style={{ 
+              background: '#fff3e0', padding: 16, borderRadius: 8, marginBottom: 20,
+              border: '1px solid #ffe0b2'
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: '#e65100', display: 'flex', alignItems: 'center', gap: 8 }}>
+                ⚠️ Impact sur les engagements
+              </div>
+              <div style={{ fontSize: 13, color: '#333' }}>{impactDetails}</div>
+            </div>
+          )}
+
+          {warningMessage && (
+            <div style={{ 
+              background: '#ffebee', padding: 16, borderRadius: 8, marginBottom: 20,
+              border: '1px solid #ffcdd2'
+            }}>
+              <div style={{ color: '#c62828', display: 'flex', alignItems: 'center', gap: 8 }}>
+                ⚠️ {warningMessage}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#333' }}>
+              Mot de passe administrateur *
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
+                style={{
+                  width: '100%', padding: '12px 45px 12px 14px', border: error ? '2px solid #c62828' : '2px solid #e9ecef',
+                  borderRadius: 8, fontSize: 14, boxSizing: 'border-box'
+                }}
+                placeholder="Entrez le mot de passe"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 0
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
+            {error && (
+              <div style={{ color: '#c62828', fontSize: 12, marginTop: 6 }}>❌ {error}</div>
+            )}
+          </div>
+        </div>
+        <div style={{ 
+          padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa',
+          display: 'flex', justifyContent: 'flex-end', gap: 12 
+        }}>
+          <button onClick={handleClose} style={{
+            padding: '12px 24px', background: '#e9ecef', color: '#333',
+            border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14
+          }}>
+            Annuler
+          </button>
+          <button onClick={handleConfirm} style={{
+            padding: '12px 24px', background: confirmColor, color: 'white',
+            border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600
+          }}>
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ==================== STYLES ====================
 const styles = {
   container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
@@ -483,6 +615,104 @@ export default function App() {
     </div>
   );
 
+  // ==================== COMPOSANT MODAL MOT DE PASSE ====================
+  const PasswordModal = ({ show, onClose, onConfirm, title, description, warning }) => {
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [showPwd, setShowPwd] = useState(false);
+
+    if (!show) return null;
+
+    const handleConfirm = () => {
+      if (!projet?.adminPassword) {
+        // Pas de mot de passe configuré, on laisse passer
+        onConfirm();
+        setPassword('');
+        return;
+      }
+      
+      if (password === projet.adminPassword) {
+        onConfirm();
+        setPassword('');
+        setError('');
+      } else {
+        setError('Mot de passe incorrect');
+      }
+    };
+
+    const handleClose = () => {
+      setPassword('');
+      setError('');
+      onClose();
+    };
+
+    return (
+      <div style={styles.modal}>
+        <div style={styles.modalContent}>
+          <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff8e1' }}>
+            <h2 style={{ margin: 0, fontSize: 18, color: '#f57f17' }}>🔐 {title || 'Action protégée'}</h2>
+          </div>
+          <div style={{ padding: 24 }}>
+            {description && (
+              <p style={{ marginBottom: 16, color: '#333' }}>{description}</p>
+            )}
+            
+            {warning && (
+              <div style={{ background: '#ffebee', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                <strong style={{ color: '#c62828' }}>⚠️ Attention :</strong>
+                <span style={{ color: '#c62828', marginLeft: 4 }}>{warning}</span>
+              </div>
+            )}
+            
+            {!projet?.adminPassword ? (
+              <div style={{ background: '#fff3e0', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                <strong style={{ color: '#e65100' }}>ℹ️</strong>
+                <span style={{ color: '#e65100', marginLeft: 4 }}>
+                  Aucun mot de passe administrateur configuré. 
+                  <span 
+                    onClick={() => { handleClose(); setCurrentPage('parametres'); }}
+                    style={{ textDecoration: 'underline', cursor: 'pointer', marginLeft: 4 }}
+                  >
+                    Configurer maintenant
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Mot de passe administrateur *</label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type={showPwd ? 'text' : 'password'} 
+                    value={password} 
+                    onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                    onKeyPress={(e) => e.key === 'Enter' && handleConfirm()}
+                    style={{ ...styles.input, paddingRight: 45, borderColor: error ? '#c62828' : undefined }} 
+                    placeholder="Entrez le mot de passe"
+                    autoFocus
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPwd(!showPwd)}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+                  >
+                    {showPwd ? '🙈' : '👁️'}
+                  </button>
+                </div>
+                {error && <span style={{ color: '#c62828', fontSize: 12 }}>❌ {error}</span>}
+              </div>
+            )}
+          </div>
+          <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <button onClick={handleClose} style={styles.buttonSecondary}>Annuler</button>
+            <button onClick={handleConfirm} style={{ ...styles.button, background: '#f57f17' }}>
+              🔓 Confirmer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ==================== PAGE DASHBOARD ====================
   const PageDashboard = () => {
     const [showDetailSource, setShowDetailSource] = useState(null);
@@ -662,16 +892,28 @@ export default function App() {
       coordonnateur: '',
       titreCoordonnateur: '',
       nbExemplairesCF: 4,
-      nbExemplairesAC: 2
+      nbExemplairesAC: 2,
+      adminPassword: ''
     });
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     useEffect(() => {
-      if (projet) setForm(projet);
+      if (projet) {
+        setForm(projet);
+        setConfirmPassword(projet.adminPassword || '');
+      }
     }, [projet]);
 
     const handleSave = async () => {
+      // Vérifier la correspondance des mots de passe si un nouveau est défini
+      if (form.adminPassword && form.adminPassword !== confirmPassword) {
+        alert('❌ Les mots de passe ne correspondent pas');
+        return;
+      }
+      
       setSaving(true);
       try {
         await setDoc(doc(db, 'parametres', 'projet'), form);
@@ -759,6 +1001,57 @@ export default function App() {
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nombre d'exemplaires pour l'AC</label>
               <input type="number" value={form.nbExemplairesAC || 2} onChange={e => setForm({...form, nbExemplairesAC: parseInt(e.target.value)})} style={styles.input} />
             </div>
+          </div>
+        </div>
+
+        <div style={{ ...styles.card, background: '#fff8e1', border: '2px solid #f9a825' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #f9a825', color: '#f57f17' }}>
+            🔐 Sécurité administrative
+          </h3>
+          
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Mot de passe administrateur *</label>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? 'text' : 'password'} 
+                value={form.adminPassword || ''} 
+                onChange={e => setForm({...form, adminPassword: e.target.value})} 
+                style={{ ...styles.input, paddingRight: 45 }} 
+                placeholder="Définir un mot de passe sécurisé" 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Confirmer le mot de passe *</label>
+            <input 
+              type={showPassword ? 'text' : 'password'} 
+              value={confirmPassword} 
+              onChange={e => setConfirmPassword(e.target.value)} 
+              style={styles.input} 
+              placeholder="Confirmer le mot de passe" 
+            />
+            {form.adminPassword && confirmPassword && form.adminPassword !== confirmPassword && (
+              <span style={{ color: '#c62828', fontSize: 12 }}>❌ Les mots de passe ne correspondent pas</span>
+            )}
+            {form.adminPassword && confirmPassword && form.adminPassword === confirmPassword && (
+              <span style={{ color: '#2e7d32', fontSize: 12 }}>✅ Mots de passe identiques</span>
+            )}
+          </div>
+          
+          <div style={{ background: 'white', padding: 12, borderRadius: 8, fontSize: 13, color: '#555' }}>
+            <strong style={{ color: '#f57f17' }}>ℹ️ Ce mot de passe protège les actions sensibles :</strong>
+            <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
+              <li>Modifier / Supprimer / Rejeter un OP</li>
+              <li>Révision budgétaire</li>
+              <li>Modification des paramètres (sources, exercices)</li>
+            </ul>
           </div>
         </div>
 
@@ -3503,6 +3796,7 @@ export default function App() {
       type: '',
       statut: '',
       search: '',
+      ligneBudgetaire: '',
       dateDebut: '',
       dateFin: ''
     });
@@ -3510,8 +3804,17 @@ export default function App() {
     const [showActionModal, setShowActionModal] = useState(null); // { op, action: 'DIFFERER_CF'|'REJETER_CF'|'VISER_CF'|... }
     const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
     const [showPaiementModal, setShowPaiementModal] = useState(null);
+    const [showPasswordModal, setShowPasswordModal] = useState(null); // { action: fn, title, description, warning }
 
     const currentSourceObj = activeSource === 'ALL' ? null : sources.find(s => s.id === activeSource);
+
+    // Toutes les lignes budgétaires disponibles
+    const allLignes = [...new Set(
+      budgets
+        .filter(b => b.exerciceId === exerciceActif?.id)
+        .flatMap(b => b.lignes || [])
+        .map(l => l.code)
+    )].sort();
 
     // Couleurs par type
     const typeColors = {
@@ -3600,6 +3903,7 @@ export default function App() {
     const filteredOps = getFilteredByTab().filter(op => {
       if (filters.type && op.type !== filters.type) return false;
       if (filters.statut && op.statut !== filters.statut) return false;
+      if (filters.ligneBudgetaire && op.ligneBudgetaire !== filters.ligneBudgetaire) return false;
       if (filters.search) {
         const search = filters.search.toLowerCase();
         const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
@@ -3701,30 +4005,41 @@ export default function App() {
       }
     };
 
-    // Rejeter (CF ou AC) - libère le budget
-    const handleRejeter = async () => {
+    // Rejeter (CF ou AC) - libère le budget (protégé par mot de passe)
+    const handleRejeterWithPassword = () => {
       if (!actionForm.motif.trim()) {
         alert('Le motif est obligatoire');
         return;
       }
       const op = showActionModal.op;
       const isCF = showActionModal.action === 'REJETER_CF';
-      try {
-        const updates = { 
-          statut: isCF ? 'REJETE_CF' : 'REJETE_AC',
-          dateRejet: actionForm.date,
-          motifRejet: actionForm.motif.trim(),
-          rejetePar: isCF ? 'CF' : 'AC',
-          updatedAt: new Date().toISOString()
-        };
-        await updateDoc(doc(db, 'ops', op.id), updates);
-        setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
-        setShowActionModal(null);
-        setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
-      } catch (error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors du rejet');
-      }
+      
+      setShowPasswordModal({
+        title: `Rejeter l'OP ${op.numero}`,
+        description: `Rejet par le ${isCF ? 'CF' : 'AC'} avec motif : "${actionForm.motif.trim()}"`,
+        warningMessage: `Le rejet va libérer ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire}.`,
+        confirmText: '❌ Confirmer le rejet',
+        confirmColor: '#c62828',
+        action: async () => {
+          try {
+            const updates = { 
+              statut: isCF ? 'REJETE_CF' : 'REJETE_AC',
+              dateRejet: actionForm.date,
+              motifRejet: actionForm.motif.trim(),
+              rejetePar: isCF ? 'CF' : 'AC',
+              updatedAt: new Date().toISOString()
+            };
+            await updateDoc(doc(db, 'ops', op.id), updates);
+            setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+            setShowActionModal(null);
+            setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
+            setShowPasswordModal(null);
+          } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors du rejet');
+          }
+        }
+      });
     };
 
     // Enregistrer un paiement
@@ -3797,20 +4112,29 @@ export default function App() {
       }
     };
 
-    // Supprimer un OP (seulement si CREE)
-    const handleDelete = async (op) => {
+    // Supprimer un OP (protégé par mot de passe)
+    const handleDeleteWithPassword = (op) => {
       if (op.statut !== 'CREE') {
         alert('Seuls les OP au statut "Créé" peuvent être supprimés.');
         return;
       }
-      if (!window.confirm(`Supprimer définitivement l'OP ${op.numero} ?`)) return;
-      try {
-        await deleteDoc(doc(db, 'ops', op.id));
-        setOps(ops.filter(o => o.id !== op.id));
-      } catch (error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors de la suppression');
-      }
+      setShowPasswordModal({
+        title: 'Supprimer un OP',
+        description: `Supprimer définitivement l'OP ${op.numero} ?`,
+        warningMessage: `Cette action est irréversible. Le budget de ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire} sera libéré.`,
+        confirmText: '🗑️ Confirmer la suppression',
+        confirmColor: '#c62828',
+        action: async () => {
+          try {
+            await deleteDoc(doc(db, 'ops', op.id));
+            setOps(ops.filter(o => o.id !== op.id));
+            setShowPasswordModal(null);
+          } catch (error) {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la suppression');
+          }
+        }
+      });
     };
 
     // Retransmettre (après différé)
@@ -3832,10 +4156,11 @@ export default function App() {
 
     // Export Excel
     const handleExport = () => {
-      const headers = ['Source', 'N° OP', 'Date', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Payé', 'Reste', 'Statut'];
+      const headers = ['Source', 'N° OP', 'Création', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Trans. CF', 'Visa CF', 'Trans. AC', 'Payé', 'Reste', 'Statut', 'Motif Rejet/Différé'];
       const rows = filteredOps.map(op => {
         const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
         const source = sources.find(s => s.id === op.sourceId);
+        const motif = op.motifRejet || op.motifDiffereCF || op.motifDiffereAC || '';
         return [
           source?.sigle || '',
           op.numero,
@@ -3845,9 +4170,13 @@ export default function App() {
           op.objet || '',
           op.ligneBudgetaire || '',
           op.montant || 0,
+          op.dateTransmissionCF || '',
+          op.dateVisaCF || '',
+          op.dateTransmissionAC || '',
           op.totalPaye || 0,
           (op.montant || 0) - (op.totalPaye || 0),
-          statutConfig[op.statut]?.label || op.statut
+          statutConfig[op.statut]?.label || op.statut,
+          motif
         ];
       });
 
@@ -3871,7 +4200,7 @@ export default function App() {
       switch (op.statut) {
         case 'CREE':
           actions.push({ label: '📤', title: 'Transmettre CF', onClick: () => handleTransmettreCF(op) });
-          actions.push({ label: '🗑️', title: 'Supprimer', onClick: () => handleDelete(op), danger: true });
+          actions.push({ label: '🗑️', title: 'Supprimer', onClick: () => handleDeleteWithPassword(op), danger: true });
           break;
         case 'TRANSMIS_CF':
           actions.push({ label: '✅', title: 'Viser', onClick: () => handleViserCF(op) });
@@ -3996,7 +4325,7 @@ export default function App() {
 
         {/* Filtres */}
         <div style={{ ...styles.card, marginBottom: 20, padding: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 150px 130px 130px', gap: 12, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px 150px 110px 110px', gap: 12, alignItems: 'end' }}>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>RECHERCHE</label>
               <input
@@ -4035,6 +4364,19 @@ export default function App() {
               </select>
             </div>
             <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
+              <select
+                value={filters.ligneBudgetaire}
+                onChange={(e) => setFilters({ ...filters, ligneBudgetaire: e.target.value })}
+                style={{ ...styles.input, marginBottom: 0 }}
+              >
+                <option value="">Toutes</option>
+                {allLignes.map(code => (
+                  <option key={code} value={code}>{code}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 4, color: '#6c757d' }}>DU</label>
               <input
                 type="date"
@@ -4062,9 +4404,9 @@ export default function App() {
               {totaux.count} OP - Montant : <strong>{formatMontant(totaux.montant)}</strong>
               {totaux.paye > 0 && <> - Payé : <strong style={{ color: '#2e7d32' }}>{formatMontant(totaux.paye)}</strong></>}
             </span>
-            {(filters.type || filters.statut || filters.search || filters.dateDebut || filters.dateFin) && (
+            {(filters.type || filters.statut || filters.search || filters.ligneBudgetaire || filters.dateDebut || filters.dateFin) && (
               <button 
-                onClick={() => setFilters({ type: '', statut: '', search: '', dateDebut: '', dateFin: '' })}
+                onClick={() => setFilters({ type: '', statut: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '' })}
                 style={{ ...styles.buttonSecondary, padding: '4px 12px', fontSize: 12 }}
               >
                 ✕ Effacer filtres
@@ -4082,17 +4424,22 @@ export default function App() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    {activeSource === 'ALL' && <th style={{ ...styles.th, width: 70 }}>SOURCE</th>}
-                    <th style={{ ...styles.th, width: 150 }}>N° OP</th>
-                    <th style={{ ...styles.th, width: 85 }}>DATE</th>
-                    <th style={{ ...styles.th, width: 85 }}>TYPE</th>
+                    {activeSource === 'ALL' && <th style={{ ...styles.th, width: 60 }}>SOURCE</th>}
+                    <th style={{ ...styles.th, width: 145 }}>N° OP</th>
+                    <th style={{ ...styles.th, width: 80 }}>CRÉATION</th>
+                    <th style={{ ...styles.th, width: 75 }}>TYPE</th>
                     <th style={styles.th}>BÉNÉFICIAIRE</th>
-                    <th style={styles.th}>OBJET</th>
-                    <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th>
-                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 90, textAlign: 'right' }}>PAYÉ</th>}
-                    {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 90 }}>ANCIENNETÉ</th>}
-                    <th style={{ ...styles.th, width: 100 }}>STATUT</th>
-                    <th style={{ ...styles.th, width: 110, textAlign: 'center' }}>ACTIONS</th>
+                    <th style={{ ...styles.th, width: 70 }}>LIGNE</th>
+                    <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
+                    {/* Colonnes dynamiques selon l'onglet */}
+                    {activeTab === 'CIRCUIT_CF' && <th style={{ ...styles.th, width: 80 }}>TRANS. CF</th>}
+                    {activeTab === 'CIRCUIT_CF' && <th style={{ ...styles.th, width: 80 }}>VISA CF</th>}
+                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 80 }}>TRANS. AC</th>}
+                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 85, textAlign: 'right' }}>PAYÉ</th>}
+                    {activeTab === 'DIFFERES' && <th style={{ ...styles.th, width: 80 }}>DATE DIFF.</th>}
+                    {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 80 }}>ANCIENNETÉ</th>}
+                    <th style={{ ...styles.th, width: 95 }}>STATUT</th>
+                    <th style={{ ...styles.th, width: 100, textAlign: 'center' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4119,32 +4466,47 @@ export default function App() {
                             </span>
                           </td>
                         )}
-                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>
+                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>
                           {op.numero}
                         </td>
-                        <td style={{ ...styles.td, fontSize: 12 }}>{op.dateCreation || '-'}</td>
+                        <td style={{ ...styles.td, fontSize: 11 }}>{op.dateCreation || '-'}</td>
                         <td style={styles.td}>
                           <span style={{
                             background: `${typeColors[op.type]}20`,
                             color: typeColors[op.type],
-                            padding: '3px 8px',
+                            padding: '2px 6px',
                             borderRadius: 4,
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: 600
                           }}>
                             {op.type}
                           </span>
                         </td>
-                        <td style={{ ...styles.td, fontSize: 12 }}>{ben?.nom || 'N/A'}</td>
-                        <td style={{ ...styles.td, fontSize: 12, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {op.objet}
-                        </td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 12 }}>
+                        <td style={{ ...styles.td, fontSize: 11 }}>{ben?.nom || 'N/A'}</td>
+                        <td style={{ ...styles.td, fontSize: 11, fontFamily: 'monospace' }}>{op.ligneBudgetaire || '-'}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
                           {formatMontant(op.montant)}
                         </td>
+                        {/* Colonnes dynamiques selon l'onglet */}
+                        {activeTab === 'CIRCUIT_CF' && (
+                          <td style={{ ...styles.td, fontSize: 11 }}>{op.dateTransmissionCF || '-'}</td>
+                        )}
+                        {activeTab === 'CIRCUIT_CF' && (
+                          <td style={{ ...styles.td, fontSize: 11, color: op.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>
+                            {op.dateVisaCF || '-'}
+                          </td>
+                        )}
                         {activeTab === 'CIRCUIT_AC' && (
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: op.totalPaye ? '#2e7d32' : '#adb5bd' }}>
+                          <td style={{ ...styles.td, fontSize: 11 }}>{op.dateTransmissionAC || '-'}</td>
+                        )}
+                        {activeTab === 'CIRCUIT_AC' && (
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: op.totalPaye ? '#2e7d32' : '#adb5bd' }}>
                             {formatMontant(op.totalPaye || 0)}
+                          </td>
+                        )}
+                        {activeTab === 'DIFFERES' && (
+                          <td style={{ ...styles.td, fontSize: 11, color: '#f9a825' }}>
+                            {op.dateDiffereCF || op.dateDiffereAC || '-'}
                           </td>
                         )}
                         {activeTab === 'A_REGULARISER' && (
@@ -4387,7 +4749,7 @@ export default function App() {
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                 <button onClick={() => { setShowActionModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' }); }} style={styles.buttonSecondary}>Annuler</button>
                 <button 
-                  onClick={showActionModal.action.includes('REJETER') ? handleRejeter : handleDifferer} 
+                  onClick={showActionModal.action.includes('REJETER') ? handleRejeterWithPassword : handleDifferer} 
                   style={{ 
                     ...styles.button, 
                     background: showActionModal.action.includes('REJETER') ? '#c62828' : '#f9a825' 
@@ -4464,6 +4826,22 @@ export default function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Modal Mot de passe */}
+        {showPasswordModal && (
+          <PasswordModal
+            isOpen={!!showPasswordModal}
+            onClose={() => setShowPasswordModal(null)}
+            onConfirm={showPasswordModal.action}
+            adminPassword={projet?.adminPassword || ''}
+            title={showPasswordModal.title}
+            description={showPasswordModal.description}
+            warningMessage={showPasswordModal.warningMessage}
+            impactDetails={showPasswordModal.impactDetails}
+            confirmText={showPasswordModal.confirmText}
+            confirmColor={showPasswordModal.confirmColor}
+          />
         )}
       </div>
     );
