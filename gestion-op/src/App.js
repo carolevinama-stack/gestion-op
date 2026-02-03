@@ -2849,13 +2849,6 @@ export default function App() {
       setSaving(false);
     };
 
-    const typesOP = [
-      { value: 'PROVISOIRE', label: 'Provisoire' },
-      { value: 'DIRECT', label: 'Direct' },
-      { value: 'DEFINITIF', label: 'Définitif' },
-      { value: 'ANNULATION', label: 'Annulation' }
-    ];
-
     return (
       <div>
         {/* En-tête */}
@@ -2901,34 +2894,55 @@ export default function App() {
         ) : (
           <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
             <div style={{ padding: 24 }}>
-              {/* Ligne 1 : N°OP, Type, Bouton Effacer */}
-              <div style={{ display: 'grid', gridTemplateColumns: '200px 200px 1fr auto', gap: 20, marginBottom: 20, alignItems: 'end' }}>
-                <div>
+              {/* Ligne 1 : N°OP + Bouton Effacer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
+                <div style={{ width: 250 }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N° OP</label>
                   <input 
                     type="text" 
                     value={genererNumero()} 
                     readOnly 
-                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace' }} 
+                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16 }} 
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>TYPE D'OP *</label>
-                  <select 
-                    value={form.type} 
-                    onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '' })}
-                    style={{ ...styles.input, marginBottom: 0 }}
-                  >
-                    {typesOP.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-                <div></div>
                 <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
                   EFFACER
                 </button>
               </div>
 
-              {/* Ligne 2 : Bénéficiaire, NCC */}
+              {/* Ligne 2 : Type d'OP en boutons compacts */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>TYPE D'OP *</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {[
+                    { value: 'PROVISOIRE', label: 'Provisoire', color: '#ff9800' },
+                    { value: 'DIRECT', label: 'Direct', color: '#2196f3' },
+                    { value: 'DEFINITIF', label: 'Définitif', color: '#4caf50' },
+                    { value: 'ANNULATION', label: 'Annulation', color: '#f44336' }
+                  ].map(type => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, type: type.value, opProvisoireId: '', opProvisoireNumero: '' })}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: form.type === type.value ? type.color : '#f0f0f0',
+                        color: form.type === type.value ? 'white' : '#555',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ligne 3 : Bénéficiaire, NCC */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 20, marginBottom: 20 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE *</label>
