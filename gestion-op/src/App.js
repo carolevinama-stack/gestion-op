@@ -392,6 +392,7 @@ export default function App() {
     const saved = localStorage.getItem('gestion-op-activeBudgetSource');
     return saved || null;
   });
+  const [consultOpId, setConsultOpId] = useState(null); // OP à consulter depuis Liste OP
 
   // Wrappers pour sauvegarder dans localStorage
   const setCurrentPage = (page) => {
@@ -3078,9 +3079,58 @@ export default function App() {
     });
     const [saving, setSaving] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+    const [showConsultModal, setShowConsultModal] = useState(false);
+    const [consultSearch, setConsultSearch] = useState('');
+    const [isConsultMode, setIsConsultMode] = useState(false);
+    const [consultedOp, setConsultedOp] = useState(null); // L'OP en consultation
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
     const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
+
+    // Charger un OP en mode consultation
+    const loadOpForConsult = (op) => {
+      if (!op) return;
+      setConsultedOp(op);
+      setIsConsultMode(true);
+      // Changer la source active
+      if (op.sourceId) setActiveSource(op.sourceId);
+      // Trouver l'index du RIB
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      const ribs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+      const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
+      // Remplir le formulaire
+      setForm({
+        type: op.type || 'PROVISOIRE',
+        beneficiaireId: op.beneficiaireId || '',
+        ribIndex: ribIndex >= 0 ? ribIndex : 0,
+        modeReglement: op.modeReglement || 'VIREMENT',
+        objet: op.objet || '',
+        piecesJustificatives: op.piecesJustificatives || '',
+        montant: String(op.montant || ''),
+        ligneBudgetaire: op.ligneBudgetaire || '',
+        montantTVA: String(op.montantTVA || ''),
+        tvaRecuperable: op.tvaRecuperable || false,
+        opProvisoireNumero: op.opProvisoireNumero || '',
+        opProvisoireId: op.opProvisoireId || ''
+      });
+    };
+
+    // Quitter le mode consultation
+    const exitConsultMode = () => {
+      setIsConsultMode(false);
+      setConsultedOp(null);
+      setConsultOpId(null);
+      handleClear();
+    };
+
+    // Si on vient de Liste OP avec un consultOpId
+    React.useEffect(() => {
+      if (consultOpId) {
+        const op = ops.find(o => o.id === consultOpId);
+        if (op) loadOpForConsult(op);
+        setConsultOpId(null);
+      }
+    }, [consultOpId]);
     
     // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité)
     const getBeneficiaireRibs = (ben) => {
@@ -3349,30 +3399,49 @@ export default function App() {
         ) : (
           <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
             <div style={{ padding: 24 }}>
-              {/* Ligne 1 : N°OP + Boutons Dupliquer/Effacer */}
+              {/* Ligne 1 : N°OP + Boutons Consulter/Dupliquer/Effacer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
                 <div style={{ width: 250 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N° OP</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>{isConsultMode ? 'N° OP (consultation)' : 'N° OP'}</label>
                   <input 
                     type="text" 
-                    value={genererNumero()} 
+                    value={isConsultMode ? (consultedOp?.numero || '') : genererNumero()} 
                     readOnly 
-                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16 }} 
+                    style={{ ...styles.input, marginBottom: 0, background: isConsultMode ? '#e8f5e9' : '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16, border: isConsultMode ? '2px solid #4caf50' : undefined }} 
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button 
-                    onClick={() => setShowDuplicateModal(true)} 
-                    style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
-                  >
-                    📋 Dupliquer un OP
-                  </button>
-                  <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
+                  {isConsultMode ? (
+                    <button 
+                      onClick={exitConsultMode} 
+                      style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#ffebee', color: '#c62828' }}
+                    >
+                      ✕ Quitter consultation
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => { setConsultSearch(''); setShowConsultModal(true); }} 
+                        style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#e3f2fd', color: '#1565c0' }}
+                      >
+                        🔍 Consulter un OP
+                      </button>
+                      <button 
+                        onClick={() => setShowDuplicateModal(true)} 
+                        style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
+                      >
+                        📋 Dupliquer un OP
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => { exitConsultMode(); handleClear(); }} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
                     EFFACER
                   </button>
                 </div>
               </div>
 
+              {/* Wrapper lecture seule en mode consultation */}
+              <div style={isConsultMode ? { pointerEvents: 'none', opacity: 0.85 } : {}}>
               {/* Ligne 2 : Type d'OP en boutons compacts */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>TYPE D'OP *</label>
@@ -3691,23 +3760,32 @@ export default function App() {
                 </div>
               )}
 
-              {/* Boutons Enregistrer et Imprimer */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const selectedRib = beneficiaireRibs[form.ribIndex] || {};
-                    const engagementActuel = parseFloat(form.montant) || 0;
-                    const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
-                    const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
-                    const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
-                    const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
+              </div>{/* Fin wrapper lecture seule */}
+              
+              {/* Boutons selon le mode */}
+              {isConsultMode ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #4caf50' }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <span style={{ padding: '10px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+                      🔍 Mode consultation — {consultedOp?.numero}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selectedRib = beneficiaireRibs[form.ribIndex] || {};
+                        const engagementActuel = parseFloat(form.montant) || 0;
+                        const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
+                        const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
+                        const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
+                        const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
                     
                     const printContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>OP ${genererNumero()}</title>
+  <title>OP ${isConsultMode ? (consultedOp?.numero || '') : genererNumero()}</title>
   <style>
     @page { size: A4; margin: 10mm; }
     @media print {
@@ -3953,7 +4031,7 @@ export default function App() {
   <div class="toolbar">
     <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
     <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
-    <span class="toolbar-title">Aperçu – OP ${genererNumero()}</span>
+    <span class="toolbar-title">Aperçu – OP ${isConsultMode ? (consultedOp?.numero || '') : genererNumero()}</span>
   </div>
   <div class="page-container">
   <div class="inner-frame">
@@ -3979,7 +4057,7 @@ export default function App() {
     
     <div class="op-title-section">
       <div class="op-title">ORDRE DE PAIEMENT</div>
-      <div class="op-numero">N°${genererNumero()}</div>
+      <div class="op-numero">N°${isConsultMode ? (consultedOp?.numero || '') : genererNumero()}</div>
     </div>
     
     <div class="body-content">
@@ -4125,6 +4203,57 @@ export default function App() {
                 >
                   🖨️ Imprimer
                 </button>
+                    <button
+                      onClick={() => {
+                        const opId = consultedOp?.id;
+                        exitConsultMode();
+                        setCurrentPage('ops');
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#f57f17' }}
+                    >
+                      ✏️ Modifier
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Voulez-vous rejeter l'OP ${consultedOp?.numero} ?`)) {
+                          const motif = window.prompt('Motif du rejet :');
+                          if (motif !== null) {
+                            updateDoc(doc(db, 'ops', consultedOp.id), { 
+                              statut: 'REJETE_CF', 
+                              motifRejet: motif,
+                              updatedAt: new Date().toISOString()
+                            });
+                            setOps(ops.map(o => o.id === consultedOp.id ? { ...o, statut: 'REJETE_CF', motifRejet: motif } : o));
+                            alert(`OP ${consultedOp.numero} rejeté.`);
+                            exitConsultMode();
+                          }
+                        }
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#c62828' }}
+                    >
+                      ❌ Rejeter
+                    </button>
+                  </div>
+                </div>
+              ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Réutilise la même logique d'impression que le mode consultation
+                    const selectedRib = beneficiaireRibs[form.ribIndex] || {};
+                    const engagementActuel = parseFloat(form.montant) || 0;
+                    const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
+                    const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
+                    const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
+                    const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
+                    if (!form.beneficiaireId || !form.montant) { alert('Remplissez au minimum le bénéficiaire et le montant pour imprimer.'); return; }
+                    alert('Pour imprimer, enregistrez d\'abord l\'OP puis consultez-le via le bouton 🔍 Consulter un OP.');
+                  }}
+                  style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
+                >
+                  🖨️ Imprimer
+                </button>
                 <button
                   onClick={handleSave}
                   disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
@@ -4138,6 +4267,84 @@ export default function App() {
                 >
                   {saving ? 'Enregistrement...' : 'ENREGISTRER'}
                 </button>
+              </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Consulter un OP */}
+        {showConsultModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+              <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>🔍 Consulter un OP</h2>
+                  <button onClick={() => setShowConsultModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
+                </div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <input
+                  type="text"
+                  placeholder="Rechercher par N° OP, bénéficiaire, objet ou montant..."
+                  value={consultSearch}
+                  onChange={e => setConsultSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: 12, fontSize: 14 }}
+                  autoFocus
+                />
+                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                  {ops
+                    .filter(op => {
+                      if (!consultSearch) return true;
+                      const term = consultSearch.toLowerCase();
+                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                      return (
+                        (op.numero || '').toLowerCase().includes(term) ||
+                        (ben?.nom || '').toLowerCase().includes(term) ||
+                        (op.objet || '').toLowerCase().includes(term) ||
+                        String(op.montant || '').includes(term)
+                      );
+                    })
+                    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+                    .slice(0, 50)
+                    .map(op => {
+                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                      const src = sources.find(s => s.id === op.sourceId);
+                      return (
+                        <div
+                          key={op.id}
+                          onClick={() => { loadOpForConsult(op); setShowConsultModal(false); }}
+                          style={{
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #f0f0f0',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = '#e3f2fd'}
+                          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{op.numero}</div>
+                            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{ben?.nom || 'N/A'} — {op.objet?.substring(0, 60) || ''}{(op.objet || '').length > 60 ? '...' : ''}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: '#0f4c3a' }}>{formatMontant(op.montant)} F</div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                              <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: src?.couleur || '#999', color: '#fff' }}>{src?.sigle || ''}</span>
+                              <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: op.type === 'PROVISOIRE' ? '#ff9800' : op.type === 'DIRECT' ? '#2196f3' : op.type === 'DEFINITIF' ? '#4caf50' : '#f44336', color: '#fff' }}>{op.type}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
+                  {ops.length === 0 && (
+                    <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>Aucun OP créé</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -5344,13 +5551,13 @@ export default function App() {
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            {/* Bouton Modifier/Supprimer */}
+                            {/* Bouton Consulter OP */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleOpenEdit(op); }}
-                              title="Modifier / Supprimer"
+                              onClick={(e) => { e.stopPropagation(); setConsultOpId(op.id); setCurrentPage('nouvelOp'); }}
+                              title="Consulter l'OP"
                               style={{ 
-                                background: '#fff8e1', 
-                                color: '#f57f17', 
+                                background: '#e3f2fd', 
+                                color: '#1565c0', 
                                 border: 'none', 
                                 borderRadius: 6, 
                                 padding: '8px 12px', 
@@ -5358,7 +5565,7 @@ export default function App() {
                                 fontSize: 14
                               }}
                             >
-                              ✏️
+                              🔍
                             </button>
                             {/* Bouton Circuit */}
                             <button
