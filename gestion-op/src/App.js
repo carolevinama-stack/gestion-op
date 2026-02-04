@@ -3710,13 +3710,49 @@ export default function App() {
   <title>OP ${genererNumero()}</title>
   <style>
     @page { size: A4; margin: 10mm; }
+    @media print {
+      .toolbar { display: none !important; }
+      body { background: #fff !important; padding: 0 !important; }
+      .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
       font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
       font-size: 11px; 
       line-height: 1.4;
+      background: #e0e0e0;
+      padding: 0;
+    }
+    .toolbar {
+      background: #1a1a2e;
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .toolbar button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print { background: #2196F3; color: #fff; }
+    .btn-print:hover { background: #1976D2; }
+    .btn-pdf { background: #4CAF50; color: #fff; }
+    .btn-pdf:hover { background: #388E3C; }
+    .toolbar-title { color: #fff; font-size: 14px; margin-left: auto; }
+    .page-container {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 20px auto;
       background: #fff;
       padding: 8mm;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
     .inner-frame {
       border: 2px solid #000;
@@ -3914,6 +3950,12 @@ export default function App() {
   </style>
 </head>
 <body>
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
+    <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
+    <span class="toolbar-title">Aperçu – OP ${genererNumero()}</span>
+  </div>
+  <div class="page-container">
   <div class="inner-frame">
     <div class="header">
       <div class="header-logo">
@@ -4072,9 +4114,10 @@ export default function App() {
       </div>
     </div>
   </div>
+  </div>
 </body>
 </html>`;
-                    const printWindow = window.open('', '_blank', 'width=800,height=600');
+                    const printWindow = window.open('', '_blank', 'width=900,height=700');
                     printWindow.document.write(printContent);
                     printWindow.document.close();
                   }}
@@ -5943,13 +5986,49 @@ export default function App() {
   <title>OP ${showEditModal.numero}</title>
   <style>
     @page { size: A4; margin: 10mm; }
+    @media print {
+      .toolbar { display: none !important; }
+      body { background: #fff !important; padding: 0 !important; }
+      .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
       font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
       font-size: 11px; 
       line-height: 1.4;
+      background: #e0e0e0;
+      padding: 0;
+    }
+    .toolbar {
+      background: #1a1a2e;
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .toolbar button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print { background: #2196F3; color: #fff; }
+    .btn-print:hover { background: #1976D2; }
+    .btn-pdf { background: #4CAF50; color: #fff; }
+    .btn-pdf:hover { background: #388E3C; }
+    .toolbar-title { color: #fff; font-size: 14px; margin-left: auto; }
+    .page-container {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 20px auto;
       background: #fff;
       padding: 8mm;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
     .inner-frame {
       border: 2px solid #000;
@@ -6147,6 +6226,12 @@ export default function App() {
   </style>
 </head>
 <body>
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
+    <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
+    <span class="toolbar-title">Aperçu – OP ${showEditModal.numero}</span>
+  </div>
+  <div class="page-container">
   <div class="inner-frame">
     <div class="header">
       <div class="header-logo">
@@ -6305,9 +6390,10 @@ export default function App() {
       </div>
     </div>
   </div>
+  </div>
 </body>
 </html>`;
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
             printWindow.document.write(printContent);
             printWindow.document.close();
           };
