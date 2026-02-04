@@ -3082,6 +3082,7 @@ export default function App() {
     const [showConsultModal, setShowConsultModal] = useState(false);
     const [consultSearch, setConsultSearch] = useState('');
     const [isConsultMode, setIsConsultMode] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false); // Mode modification d'un OP existant
     const [consultedOp, setConsultedOp] = useState(null); // L'OP en consultation
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
@@ -3118,6 +3119,7 @@ export default function App() {
     // Quitter le mode consultation
     const exitConsultMode = () => {
       setIsConsultMode(false);
+      setIsEditMode(false);
       setConsultedOp(null);
       setConsultOpId(null);
       handleClear();
@@ -3402,21 +3404,21 @@ export default function App() {
               {/* Ligne 1 : N°OP + Boutons Consulter/Dupliquer/Effacer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
                 <div style={{ width: 250 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>{isConsultMode ? 'N° OP (consultation)' : 'N° OP'}</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>{isEditMode ? 'N° OP (modification)' : isConsultMode ? 'N° OP (consultation)' : 'N° OP'}</label>
                   <input 
                     type="text" 
                     value={isConsultMode ? (consultedOp?.numero || '') : genererNumero()} 
                     readOnly 
-                    style={{ ...styles.input, marginBottom: 0, background: isConsultMode ? '#e8f5e9' : '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16, border: isConsultMode ? '2px solid #4caf50' : undefined }} 
+                    style={{ ...styles.input, marginBottom: 0, background: isEditMode ? '#fff3e0' : isConsultMode ? '#e8f5e9' : '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16, border: isEditMode ? '2px solid #f57f17' : isConsultMode ? '2px solid #4caf50' : undefined }} 
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  {isConsultMode ? (
+                  {(isConsultMode || isEditMode) ? (
                     <button 
                       onClick={exitConsultMode} 
                       style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#ffebee', color: '#c62828' }}
                     >
-                      ✕ Quitter consultation
+                      ✕ Quitter {isEditMode ? 'modification' : 'consultation'}
                     </button>
                   ) : (
                     <>
@@ -3441,7 +3443,7 @@ export default function App() {
               </div>
 
               {/* Wrapper lecture seule en mode consultation */}
-              <div style={isConsultMode ? { pointerEvents: 'none', opacity: 0.85 } : {}}>
+              <div style={(isConsultMode && !isEditMode) ? { pointerEvents: 'none', opacity: 0.85 } : {}}>
               {/* Ligne 2 : Type d'OP en boutons compacts */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>TYPE D'OP *</label>
@@ -3763,7 +3765,7 @@ export default function App() {
               </div>{/* Fin wrapper lecture seule */}
               
               {/* Boutons selon le mode */}
-              {isConsultMode ? (
+              {(isConsultMode && !isEditMode) ? (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #4caf50' }}>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <span style={{ padding: '10px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
@@ -4204,11 +4206,7 @@ export default function App() {
                   🖨️ Imprimer
                 </button>
                     <button
-                      onClick={() => {
-                        const opId = consultedOp?.id;
-                        exitConsultMode();
-                        setCurrentPage('ops');
-                      }}
+                      onClick={() => setIsEditMode(true)}
                       style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#f57f17' }}
                     >
                       ✏️ Modifier
@@ -4234,6 +4232,56 @@ export default function App() {
                       ❌ Rejeter
                     </button>
                   </div>
+                </div>
+              ) : isEditMode ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #f57f17' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ padding: '10px 16px', background: '#fff3e0', color: '#e65100', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+                      ✏️ Modification — {consultedOp?.numero}
+                    </span>
+                    <button
+                      onClick={() => setIsEditMode(false)}
+                      style={{ ...styles.buttonSecondary, padding: '10px 16px', fontSize: 12 }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (!consultedOp?.id) return;
+                        const ben = beneficiaires.find(b => b.id === form.beneficiaireId);
+                        const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+                        const selectedRib = benRibs[form.ribIndex || 0];
+                        
+                        const updates = {
+                          type: form.type,
+                          beneficiaireId: form.beneficiaireId,
+                          modeReglement: form.modeReglement,
+                          rib: form.modeReglement === 'VIREMENT' ? (selectedRib?.numero || '') : '',
+                          banque: form.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '',
+                          objet: form.objet,
+                          piecesJustificatives: form.piecesJustificatives,
+                          montant: parseFloat(form.montant) || consultedOp.montant,
+                          ligneBudgetaire: form.ligneBudgetaire,
+                          tvaRecuperable: form.tvaRecuperable || false,
+                          montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
+                          updatedAt: new Date().toISOString()
+                        };
+                        
+                        await updateDoc(doc(db, 'ops', consultedOp.id), updates);
+                        setOps(ops.map(o => o.id === consultedOp.id ? { ...o, ...updates } : o));
+                        setConsultedOp({ ...consultedOp, ...updates });
+                        setIsEditMode(false);
+                        alert(`✅ OP ${consultedOp.numero} modifié avec succès !`);
+                      } catch (error) {
+                        alert('Erreur : ' + error.message);
+                      }
+                    }}
+                    style={{ ...styles.button, padding: '14px 40px', fontSize: 16, background: '#f57f17' }}
+                  >
+                    💾 ENREGISTRER LES MODIFICATIONS
+                  </button>
                 </div>
               ) : (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
