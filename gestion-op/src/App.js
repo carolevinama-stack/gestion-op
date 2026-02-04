@@ -3320,7 +3320,32 @@ export default function App() {
 
       setSaving(true);
       try {
-        const numero = genererNumero();
+        let numero = genererNumero();
+        
+        // Vérification anti-doublon en temps réel dans Firebase
+        const opsSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('numero', '==', numero)
+        ));
+        
+        if (!opsSnap.empty) {
+          // Le numéro est déjà pris — chercher le prochain disponible
+          const sigleProjet = projet?.sigle || 'PROJET';
+          const sigleSource = currentSourceObj?.sigle || 'OP';
+          const annee = exerciceActif?.annee || new Date().getFullYear();
+          
+          // Récupérer tous les OP de cette source/exercice depuis Firebase
+          const allOpsSnap = await getDocs(query(
+            collection(db, 'ops'),
+            where('sourceId', '==', activeSource),
+            where('exerciceId', '==', exerciceActif.id)
+          ));
+          const nextNum = allOpsSnap.size + 1;
+          numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+          
+          alert(`⚠️ Le numéro initialement prévu a déjà été utilisé par un autre utilisateur.\n\nVotre OP prendra le numéro : ${numero}`);
+        }
+        
         const opData = {
           numero,
           type: form.type,
