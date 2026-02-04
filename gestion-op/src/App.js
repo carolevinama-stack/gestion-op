@@ -3699,199 +3699,381 @@ export default function App() {
                     const selectedRib = beneficiaireRibs[form.ribIndex] || {};
                     const engagementActuel = parseFloat(form.montant) || 0;
                     const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
-                    // Déterminer si BAILLEUR ou TRESOR
                     const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
-                    const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR');
+                    const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
+                    const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
                     
-                    const printContent = `
-                      <html>
-                      <head>
-                        <title>OP ${genererNumero()}</title>
-                        <style>
-                          @page { size: A4; margin: 8mm; }
-                          * { box-sizing: border-box; }
-                          body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; padding: 10px; }
-                          table { width: 100%; border-collapse: collapse; }
-                          td, th { border: 1px solid #000; padding: 4px 8px; vertical-align: middle; }
-                          .no-border { border: none !important; }
-                          .center { text-align: center; }
-                          .right { text-align: right; }
-                          .bold { font-weight: bold; }
-                          .italic { font-style: italic; }
-                          .underline { text-decoration: underline; }
-                          .green { color: green; }
-                          .box { display: inline-block; width: 16px; height: 16px; border: 1px solid #000; text-align: center; line-height: 14px; margin-left: 5px; font-weight: bold; }
-                          .header-cell { border: none; vertical-align: top; padding: 5px; }
-                          .montant-cell { font-family: 'Courier New', monospace; text-align: right; }
-                          @media print { 
-                            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                          }
-                        </style>
-                      </head>
-                      <body>
-                        <table>
-                          <!-- EN-TÊTE -->
-                          <tr>
-                            <td class="header-cell" style="width: 15%; text-align: center;">
-                              <img src="${LOGO_PIF2}" style="height: 70px; max-width: 100%;" />
-                            </td>
-                            <td class="header-cell center" style="width: 70%;">
-                              <div class="bold">REPUBLIQUE DE CÔTE D'IVOIRE</div>
-                              <div>------------------------</div>
-                              <div class="italic">MINISTERE DES EAUX ET FORETS</div>
-                              <div>------------------------</div>
-                              <div class="bold">PROJET D'INVESTISSEMENT FORESTIER 2</div>
-                              <div>------------------------</div>
-                            </td>
-                            <td class="header-cell" style="width: 15%; text-align: center;">
-                              <img src="${ARMOIRIE}" style="height: 65px; max-width: 100%;" />
-                              <div style="font-size: 9px; margin-top: 2px;">Union – Discipline – Travail</div>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- TITRE -->
-                          <tr>
-                            <td class="center bold underline" style="padding: 8px; font-size: 14px;">ORDRE DE PAIEMENT</td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- EXERCICE / N° / TYPE -->
-                          <tr>
-                            <td style="width: 33%;">EXERCICE <span class="bold italic">${exerciceActif?.annee || ''}</span></td>
-                            <td style="width: 34%;" class="center bold italic">${genererNumero()}</td>
-                            <td style="width: 33%;" class="right bold green">${form.type}</td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- REFERENCE DU BENEFICIAIRE -->
-                          <tr>
-                            <td>REFERENCE DU BENEFICIAIRE</td>
-                          </tr>
-                          <!-- BENEFICIAIRE -->
-                          <tr>
-                            <td>BENEFICIAIRE : <span class="bold italic">${selectedBeneficiaire?.nom || ''}</span></td>
-                          </tr>
-                          <!-- COMPTE CONTRIBUABLE -->
-                          <tr>
-                            <td>COMPTE CONTRIBUABLE : <span class="bold italic">${selectedBeneficiaire?.ncc || ''}</span></td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- COMPTE DE DISPONIBILITE A DEBITER -->
-                          <tr>
-                            <td style="width: 45%;">COMPTE DE DISPONIBILITE A DEBITER :</td>
-                            <td style="width: 27%;">BAILLEUR <span class="box">${isBailleur ? 'X' : ''}</span></td>
-                            <td style="width: 28%;">TRESOR <span class="box">${isTresor ? 'X' : ''}</span></td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- MODE DE REGLEMENT -->
-                          <tr>
-                            <td style="width: 30%;">MODE DE REGLEMENT :</td>
-                            <td style="width: 23%;">ESPECE <span class="box">${form.modeReglement === 'ESPECES' ? 'X' : ''}</span></td>
-                            <td style="width: 23%;">CHEQUE <span class="box">${form.modeReglement === 'CHEQUE' ? 'X' : ''}</span></td>
-                            <td style="width: 24%;">VIREMENT <span class="box">${form.modeReglement === 'VIREMENT' ? 'X' : ''}</span></td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- REFERENCES BANCAIRES -->
-                          <tr>
-                            <td style="min-height: 25px;">REFERENCES BANCAIRES : <span class="bold italic">${form.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span></td>
-                          </tr>
-                          <!-- OBJET DE LA DEPENSE -->
-                          <tr>
-                            <td style="min-height: 50px; height: 50px;">OBJET DE LA DEPENSE : <span class="bold italic">${form.objet || ''}</span></td>
-                          </tr>
-                          <!-- PIECES JUSTIFICATIVES -->
-                          <tr>
-                            <td style="min-height: 35px; height: 35px;">PIECES JUSTIFICATIVES : <span class="bold italic">${form.piecesJustificatives || ''}</span></td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- MONTANT TOTAL -->
-                          <tr>
-                            <td style="width: 5%;"></td>
-                            <td style="width: 60%;">MONTANT TOTAL :</td>
-                            <td style="width: 35%;" class="montant-cell bold">${formatMontant(Math.abs(engagementActuel))}</td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- IMPUTATION BUDGETAIRE -->
-                          <tr>
-                            <td style="width: 35%;">IMPUTATION BUDGETAIRE :</td>
-                            <td style="width: 65%;" class="center bold italic">${form.ligneBudgetaire || ''}</td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- TABLEAU BUDGETAIRE -->
-                          <tr>
-                            <td style="width: 5%;" class="bold center">A</td>
-                            <td style="width: 60%;">Dotation budgétaire</td>
-                            <td style="width: 35%;" class="montant-cell">${formatMontant(getDotation())}</td>
-                          </tr>
-                          <tr>
-                            <td class="bold center">B</td>
-                            <td>Engagements antérieurs</td>
-                            <td class="montant-cell">${formatMontant(getEngagementsAnterieurs())}</td>
-                          </tr>
-                          <tr>
-                            <td class="bold center">C</td>
-                            <td>Engagement actuel</td>
-                            <td class="montant-cell">${formatMontant(Math.abs(engagementActuel))}</td>
-                          </tr>
-                          <tr>
-                            <td class="bold center">D</td>
-                            <td>Engagements cumulés (B + C)</td>
-                            <td class="montant-cell">${formatMontant(engagementsCumules)}</td>
-                          </tr>
-                          <tr>
-                            <td class="bold center">E</td>
-                            <td>Disponible budgétaire (A - D)</td>
-                            <td class="montant-cell">${formatMontant(getDisponible())}</td>
-                          </tr>
-                        </table>
-
-                        <table style="margin-top: -1px;">
-                          <!-- SIGNATURES -->
-                          <tr>
-                            <td style="width: 33%; text-align: center; vertical-align: top; height: 120px;">
-                              <div class="bold" style="border-bottom: 1px solid #000; padding-bottom: 5px;">VISA<br/>COORDONNATRICE</div>
-                              <div style="height: 50px;"></div>
-                              <div class="bold" style="font-size: 10px;">ABE-KOFFI Thérèse</div>
-                              <div style="font-size: 10px;">Abidjan, le</div>
-                            </td>
-                            <td style="width: 34%; text-align: center; vertical-align: top; height: 120px;">
-                              <div class="bold" style="border-bottom: 1px solid #000; padding-bottom: 5px;">VISA<br/>CONTRÔLEUR FINANCIER</div>
-                              <div style="height: 70px;"></div>
-                              <div style="font-size: 10px;">Abidjan, le</div>
-                            </td>
-                            <td style="width: 33%; text-align: center; vertical-align: top; height: 120px;">
-                              <div class="bold" style="border-bottom: 1px solid #000; padding-bottom: 5px;">VISA AGENT<br/>COMPTABLE</div>
-                              <div style="height: 30px;"></div>
-                              <div style="font-size: 10px;">Abidjan, le</div>
-                              <div style="border: 1px solid #000; display: inline-block; padding: 3px 10px; margin-top: 8px; font-size: 10px;">ACQUIT LIBERATOIRE</div>
-                              <div style="height: 10px;"></div>
-                              <div style="font-size: 10px;">Abidjan, le</div>
-                            </td>
-                          </tr>
-                        </table>
-                      </body>
-                      </html>
-                    `;
-                    const printWindow = window.open('', '_blank');
+                    const printContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>OP ${genererNumero()}</title>
+  <style>
+    @page { size: A4; margin: 10mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
+      font-size: 11px; 
+      line-height: 1.4;
+      background: #fff;
+      padding: 8mm;
+    }
+    .inner-frame {
+      border: 2px solid #000;
+      height: 100%;
+    }
+    .header {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .header-logo {
+      width: 22%;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid #000;
+    }
+    .header-logo img { max-height: 75px; max-width: 100%; }
+    .header-center {
+      width: 56%;
+      padding: 6px;
+      text-align: center;
+      border-right: 1px solid #000;
+    }
+    .header-center .republic { font-weight: bold; font-size: 11px; }
+    .header-center .sep { font-size: 8px; letter-spacing: 0.5px; color: #333; }
+    .header-center .ministry { font-style: italic; font-size: 10px; }
+    .header-center .project { font-weight: bold; font-size: 10px; }
+    .header-right {
+      width: 22%;
+      padding: 8px;
+      font-size: 10px;
+      text-align: right;
+    }
+    .op-title-section {
+      text-align: center;
+      padding: 6px 10px;
+      border-bottom: 1px solid #000;
+    }
+    .op-title { font-weight: bold; text-decoration: underline; font-size: 11px; }
+    .op-numero { font-size: 10px; margin-top: 2px; }
+    .body-content {
+      padding: 12px 15px;
+      border-bottom: 1px solid #000;
+    }
+    .exercice-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .type-red { color: #c00; font-weight: bold; }
+    .field { margin-bottom: 8px; }
+    .field-title { text-decoration: underline; font-size: 10px; margin-bottom: 6px; }
+    .field-value { font-weight: bold; }
+    .field-large {
+      margin: 15px 0;
+      min-height: 45px;
+      line-height: 1.6;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .checkbox-line {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .checkbox-label { min-width: 230px; }
+    .checkbox-options { display: flex; gap: 50px; }
+    .check-item { display: flex; align-items: center; gap: 6px; }
+    .box { 
+      width: 18px; 
+      height: 14px; 
+      border: 1px solid #000; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center;
+      font-size: 10px;
+    }
+    .budget-section { margin-top: 15px; }
+    .budget-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .budget-row .col-left { width: 33.33%; }
+    .budget-row .col-center { width: 33.33%; }
+    .budget-row .col-right { width: 33.33%; }
+    .value-box {
+      border: 1px solid #000;
+      padding: 4px 10px;
+      text-align: right;
+      font-weight: bold;
+      white-space: nowrap;
+      font-size: 10px;
+    }
+    .budget-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .budget-table td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+      font-size: 10px;
+    }
+    .budget-table .col-letter { 
+      width: 4%;
+      text-align: center; 
+      font-weight: bold; 
+    }
+    .budget-table .col-label { width: 29.33%; }
+    .budget-table .col-amount { 
+      width: 33.33%;
+      text-align: right;
+      padding-right: 10px;
+    }
+    .budget-table .col-empty {
+      width: 33.33%;
+      border: none;
+    }
+    .signatures-section {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .sig-box {
+      width: 33.33%;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #000;
+    }
+    .sig-box:last-child { border-right: none; }
+    .sig-header {
+      text-align: center;
+      font-weight: bold;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+      line-height: 1.3;
+    }
+    .sig-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
+    }
+    .sig-name {
+      text-align: right;
+      font-weight: bold;
+      text-decoration: underline;
+      font-size: 9px;
+    }
+    .abidjan-row {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .abidjan-cell {
+      width: 33.33%;
+      padding: 4px 10px;
+      font-size: 9px;
+      border-right: 1px solid #000;
+    }
+    .abidjan-cell:last-child { border-right: none; }
+    .acquit-section { display: flex; }
+    .acquit-empty { 
+      width: 66.66%;
+      border-right: 1px solid #000;
+    }
+    .acquit-box {
+      width: 33.33%;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+    }
+    .acquit-header {
+      text-align: center;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+    }
+    .acquit-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
+    }
+    .acquit-date {
+      font-size: 9px;
+      text-align: left;
+    }
+    @media print { 
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="inner-frame">
+    <div class="header">
+      <div class="header-logo">
+        <img src="${LOGO_PIF2}" alt="PIF2" />
+      </div>
+      <div class="header-center">
+        <div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+        <div class="sep">------------------------</div>
+        <div class="ministry">MINISTERE DES EAUX ET FORETS</div>
+        <div class="sep">------------------------</div>
+        <div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+        <div class="sep">------------------------</div>
+      </div>
+      <div class="header-right">
+        Union – Discipline – Travail
+      </div>
+    </div>
+    
+    <div class="op-title-section">
+      <div class="op-title">ORDRE DE PAIEMENT</div>
+      <div class="op-numero">N°${genererNumero()}</div>
+    </div>
+    
+    <div class="body-content">
+      <div class="exercice-line">
+        <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<strong>${exerciceActif?.annee || ''}</strong></div>
+        <div class="type-red">${form.type}</div>
+      </div>
+      
+      <div class="field">
+        <div class="field-title">REFERENCE DU BENEFICIAIRE</div>
+      </div>
+      
+      <div class="field">
+        BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedBeneficiaire?.nom || ''}</span>
+      </div>
+      
+      <div class="field">
+        COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedBeneficiaire?.ncc || ''}</span>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+        <div class="checkbox-options">
+          <span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span>
+          <span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span>
+        </div>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">MODE DE REGLEMENT :</span>
+        <div class="checkbox-options">
+          <span class="check-item">ESPECE <span class="box">${form.modeReglement === 'ESPECES' ? 'x' : ''}</span></span>
+          <span class="check-item">CHEQUE <span class="box">${form.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span>
+          <span class="check-item">VIREMENT <span class="box">${form.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span>
+        </div>
+      </div>
+      
+      <div class="field">
+        REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${form.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
+      </div>
+      
+      <div class="field-large">
+        OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${form.objet || ''}</span>
+      </div>
+      
+      <div class="field-large">
+        PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${form.piecesJustificatives || ''}</span>
+      </div>
+      
+      <div class="budget-section">
+        <div class="budget-row">
+          <div class="col-left">MONTANT TOTAL :</div>
+          <div class="col-center">
+            <div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <div class="budget-row">
+          <div class="col-left">IMPUTATION BUDGETAIRE :</div>
+          <div class="col-center">
+            <div class="value-box">${codeImputationComplet.trim()}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <table class="budget-table">
+          <tr>
+            <td class="col-letter">A</td>
+            <td class="col-label">Dotation budgétaire</td>
+            <td class="col-amount">${formatMontant(getDotation())}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">B</td>
+            <td class="col-label">Engagements antérieurs</td>
+            <td class="col-amount">${formatMontant(getEngagementsAnterieurs())}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">C</td>
+            <td class="col-label">Engagement actuel</td>
+            <td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">D</td>
+            <td class="col-label">Engagements cumulés (B + C)</td>
+            <td class="col-amount">${formatMontant(engagementsCumules)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">E</td>
+            <td class="col-label">Disponible budgétaire (A - D)</td>
+            <td class="col-amount">${formatMontant(getDisponible())}</td>
+            <td class="col-empty"></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    
+    <div class="signatures-section">
+      <div class="sig-box">
+        <div class="sig-header">VISA<br/>COORDONNATRICE</div>
+        <div class="sig-content">
+          <div class="sig-name">ABE-KOFFI Thérèse</div>
+        </div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div>
+        <div class="sig-content"></div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-header">VISA AGENT<br/>COMPTABLE</div>
+        <div class="sig-content"></div>
+      </div>
+    </div>
+    
+    <div class="abidjan-row">
+      <div class="abidjan-cell">Abidjan, le</div>
+      <div class="abidjan-cell">Abidjan, le</div>
+      <div class="abidjan-cell">Abidjan, le</div>
+    </div>
+    
+    <div class="acquit-section">
+      <div class="acquit-empty"></div>
+      <div class="acquit-box">
+        <div class="acquit-header">ACQUIT LIBERATOIRE</div>
+        <div class="acquit-content">
+          <div class="acquit-date">Abidjan, le</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+                    const printWindow = window.open('', '_blank', 'width=800,height=600');
                     printWindow.document.write(printContent);
                     printWindow.document.close();
-                    printWindow.print();
                   }}
                   style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
                 >
@@ -5747,199 +5929,381 @@ export default function App() {
           const handlePrintOP = () => {
             const exercice = exercices.find(e => e.id === showEditModal.exerciceId);
             const selectedRib = editRibs[editForm.ribIndex || 0] || {};
-            // Déterminer si BAILLEUR ou TRESOR
             const isBailleur = editSource?.sigle?.includes('IDA') || editSource?.sigle?.includes('BAD') || editSource?.sigle?.includes('UE');
-            const isTresor = editSource?.sigle?.includes('BN') || editSource?.sigle?.includes('TRESOR');
+            const isTresor = editSource?.sigle?.includes('BN') || editSource?.sigle?.includes('TRESOR') || editSource?.sigle?.includes('ETAT');
+            const codeImputationComplet = (editSource?.codeImputation || '') + ' ' + (editForm.ligneBudgetaire || '');
             
-            const printContent = `
-              <html>
-              <head>
-                <title>OP ${showEditModal.numero}</title>
-                <style>
-                  @page { size: A4; margin: 8mm; }
-                  * { box-sizing: border-box; }
-                  body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; padding: 10px; }
-                  table { width: 100%; border-collapse: collapse; }
-                  td, th { border: 1px solid #000; padding: 4px 8px; vertical-align: middle; }
-                  .no-border { border: none !important; }
-                  .center { text-align: center; }
-                  .right { text-align: right; }
-                  .bold { font-weight: bold; }
-                  .italic { font-style: italic; }
-                  .underline { text-decoration: underline; }
-                  .green { color: green; }
-                  .box { display: inline-block; width: 16px; height: 16px; border: 1px solid #000; text-align: center; line-height: 14px; margin-left: 5px; font-weight: bold; }
-                  .header-cell { border: none; vertical-align: top; padding: 5px; }
-                  .montant-cell { font-family: 'Courier New', monospace; text-align: right; }
-                  @media print { 
-                    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                  }
-                </style>
-              </head>
-              <body>
-                <table>
-                  <!-- EN-TÊTE -->
-                  <tr>
-                    <td class="header-cell" style="width: 15%; text-align: center;">
-                      <img src="${LOGO_PIF2}" style="height: 70px; max-width: 100%;" />
-                    </td>
-                    <td class="header-cell center" style="width: 70%;">
-                      <div class="bold">REPUBLIQUE DE CÔTE D'IVOIRE</div>
-                      <div>------------------------</div>
-                      <div class="italic">MINISTERE DES EAUX ET FORETS</div>
-                      <div>------------------------</div>
-                      <div class="bold">PROJET D'INVESTISSEMENT FORESTIER 2</div>
-                      <div>------------------------</div>
-                    </td>
-                    <td class="header-cell" style="width: 15%; text-align: center;">
-                      <img src="${ARMOIRIE}" style="height: 65px; max-width: 100%;" />
-                      <div style="font-size: 9px; margin-top: 2px;">Union – Discipline – Travail</div>
-                    </td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- TITRE -->
-                  <tr>
-                    <td class="center bold underline" style="padding: 8px; font-size: 14px;">ORDRE DE PAIEMENT</td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- EXERCICE / N° / TYPE -->
-                  <tr>
-                    <td style="width: 33%;">EXERCICE <span class="bold italic">${exercice?.annee || ''}</span></td>
-                    <td style="width: 34%;" class="center bold italic">${showEditModal.numero}</td>
-                    <td style="width: 33%;" class="right bold green">${editForm.type}</td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- REFERENCE DU BENEFICIAIRE -->
-                  <tr>
-                    <td>REFERENCE DU BENEFICIAIRE</td>
-                  </tr>
-                  <!-- BENEFICIAIRE -->
-                  <tr>
-                    <td>BENEFICIAIRE : <span class="bold italic">${editBeneficiaire?.nom || ''}</span></td>
-                  </tr>
-                  <!-- COMPTE CONTRIBUABLE -->
-                  <tr>
-                    <td>COMPTE CONTRIBUABLE : <span class="bold italic">${editBeneficiaire?.ncc || ''}</span></td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- COMPTE DE DISPONIBILITE A DEBITER -->
-                  <tr>
-                    <td style="width: 45%;">COMPTE DE DISPONIBILITE A DEBITER :</td>
-                    <td style="width: 27%;">BAILLEUR <span class="box">${isBailleur ? 'X' : ''}</span></td>
-                    <td style="width: 28%;">TRESOR <span class="box">${isTresor ? 'X' : ''}</span></td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- MODE DE REGLEMENT -->
-                  <tr>
-                    <td style="width: 30%;">MODE DE REGLEMENT :</td>
-                    <td style="width: 23%;">ESPECE <span class="box">${editForm.modeReglement === 'ESPECES' ? 'X' : ''}</span></td>
-                    <td style="width: 23%;">CHEQUE <span class="box">${editForm.modeReglement === 'CHEQUE' ? 'X' : ''}</span></td>
-                    <td style="width: 24%;">VIREMENT <span class="box">${editForm.modeReglement === 'VIREMENT' ? 'X' : ''}</span></td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- REFERENCES BANCAIRES -->
-                  <tr>
-                    <td style="min-height: 25px;">REFERENCES BANCAIRES : <span class="bold italic">${editForm.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span></td>
-                  </tr>
-                  <!-- OBJET DE LA DEPENSE -->
-                  <tr>
-                    <td style="min-height: 50px; height: 50px;">OBJET DE LA DEPENSE : <span class="bold italic">${editForm.objet || ''}</span></td>
-                  </tr>
-                  <!-- PIECES JUSTIFICATIVES -->
-                  <tr>
-                    <td style="min-height: 35px; height: 35px;">PIECES JUSTIFICATIVES : <span class="bold italic">${editForm.piecesJustificatives || ''}</span></td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- MONTANT TOTAL -->
-                  <tr>
-                    <td style="width: 5%;"></td>
-                    <td style="width: 60%;">MONTANT TOTAL :</td>
-                    <td style="width: 35%;" class="montant-cell bold">${formatMontant(Math.abs(engagementActuel))}</td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- IMPUTATION BUDGETAIRE -->
-                  <tr>
-                    <td style="width: 35%;">IMPUTATION BUDGETAIRE :</td>
-                    <td style="width: 65%;" class="center bold italic">${editForm.ligneBudgetaire || ''}</td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- TABLEAU BUDGETAIRE -->
-                  <tr>
-                    <td style="width: 5%;" class="bold center">A</td>
-                    <td style="width: 60%;">Dotation budgétaire</td>
-                    <td style="width: 35%;" class="montant-cell">${formatMontant(dotation)}</td>
-                  </tr>
-                  <tr>
-                    <td class="bold center">B</td>
-                    <td>Engagements antérieurs</td>
-                    <td class="montant-cell">${formatMontant(engagementsAnterieurs)}</td>
-                  </tr>
-                  <tr>
-                    <td class="bold center">C</td>
-                    <td>Engagement actuel</td>
-                    <td class="montant-cell">${formatMontant(Math.abs(engagementActuel))}</td>
-                  </tr>
-                  <tr>
-                    <td class="bold center">D</td>
-                    <td>Engagements cumulés (B + C)</td>
-                    <td class="montant-cell">${formatMontant(engagementsCumules)}</td>
-                  </tr>
-                  <tr>
-                    <td class="bold center">E</td>
-                    <td>Disponible budgétaire (A - D)</td>
-                    <td class="montant-cell">${formatMontant(disponible)}</td>
-                  </tr>
-                </table>
-
-                <table style="margin-top: -1px;">
-                  <!-- SIGNATURES -->
-                  <tr>
-                    <td style="width: 33%; text-align: center; vertical-align: top; height: 120px;">
-                      <div class="bold" style="border-bottom: 1px solid #000; padding-bottom: 5px;">VISA<br/>COORDONNATRICE</div>
-                      <div style="height: 50px;"></div>
-                      <div class="bold" style="font-size: 10px;">ABE-KOFFI Thérèse</div>
-                      <div style="font-size: 10px;">Abidjan, le</div>
-                    </td>
-                    <td style="width: 34%; text-align: center; vertical-align: top; height: 120px;">
-                      <div class="bold" style="border-bottom: 1px solid #000; padding-bottom: 5px;">VISA<br/>CONTRÔLEUR FINANCIER</div>
-                      <div style="height: 70px;"></div>
-                      <div style="font-size: 10px;">Abidjan, le</div>
-                    </td>
-                    <td style="width: 33%; text-align: center; vertical-align: top; height: 120px;">
-                      <div class="bold" style="border-bottom: 1px solid #000; padding-bottom: 5px;">VISA AGENT<br/>COMPTABLE</div>
-                      <div style="height: 30px;"></div>
-                      <div style="font-size: 10px;">Abidjan, le</div>
-                      <div style="border: 1px solid #000; display: inline-block; padding: 3px 10px; margin-top: 8px; font-size: 10px;">ACQUIT LIBERATOIRE</div>
-                      <div style="height: 10px;"></div>
-                      <div style="font-size: 10px;">Abidjan, le</div>
-                    </td>
-                  </tr>
-                </table>
-              </body>
-              </html>
-            `;
-            const printWindow = window.open('', '_blank');
+            const printContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>OP ${showEditModal.numero}</title>
+  <style>
+    @page { size: A4; margin: 10mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
+      font-size: 11px; 
+      line-height: 1.4;
+      background: #fff;
+      padding: 8mm;
+    }
+    .inner-frame {
+      border: 2px solid #000;
+      height: 100%;
+    }
+    .header {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .header-logo {
+      width: 22%;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid #000;
+    }
+    .header-logo img { max-height: 75px; max-width: 100%; }
+    .header-center {
+      width: 56%;
+      padding: 6px;
+      text-align: center;
+      border-right: 1px solid #000;
+    }
+    .header-center .republic { font-weight: bold; font-size: 11px; }
+    .header-center .sep { font-size: 8px; letter-spacing: 0.5px; color: #333; }
+    .header-center .ministry { font-style: italic; font-size: 10px; }
+    .header-center .project { font-weight: bold; font-size: 10px; }
+    .header-right {
+      width: 22%;
+      padding: 8px;
+      font-size: 10px;
+      text-align: right;
+    }
+    .op-title-section {
+      text-align: center;
+      padding: 6px 10px;
+      border-bottom: 1px solid #000;
+    }
+    .op-title { font-weight: bold; text-decoration: underline; font-size: 11px; }
+    .op-numero { font-size: 10px; margin-top: 2px; }
+    .body-content {
+      padding: 12px 15px;
+      border-bottom: 1px solid #000;
+    }
+    .exercice-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .type-red { color: #c00; font-weight: bold; }
+    .field { margin-bottom: 8px; }
+    .field-title { text-decoration: underline; font-size: 10px; margin-bottom: 6px; }
+    .field-value { font-weight: bold; }
+    .field-large {
+      margin: 15px 0;
+      min-height: 45px;
+      line-height: 1.6;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .checkbox-line {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .checkbox-label { min-width: 230px; }
+    .checkbox-options { display: flex; gap: 50px; }
+    .check-item { display: flex; align-items: center; gap: 6px; }
+    .box { 
+      width: 18px; 
+      height: 14px; 
+      border: 1px solid #000; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center;
+      font-size: 10px;
+    }
+    .budget-section { margin-top: 15px; }
+    .budget-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .budget-row .col-left { width: 33.33%; }
+    .budget-row .col-center { width: 33.33%; }
+    .budget-row .col-right { width: 33.33%; }
+    .value-box {
+      border: 1px solid #000;
+      padding: 4px 10px;
+      text-align: right;
+      font-weight: bold;
+      white-space: nowrap;
+      font-size: 10px;
+    }
+    .budget-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .budget-table td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+      font-size: 10px;
+    }
+    .budget-table .col-letter { 
+      width: 4%;
+      text-align: center; 
+      font-weight: bold; 
+    }
+    .budget-table .col-label { width: 29.33%; }
+    .budget-table .col-amount { 
+      width: 33.33%;
+      text-align: right;
+      padding-right: 10px;
+    }
+    .budget-table .col-empty {
+      width: 33.33%;
+      border: none;
+    }
+    .signatures-section {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .sig-box {
+      width: 33.33%;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #000;
+    }
+    .sig-box:last-child { border-right: none; }
+    .sig-header {
+      text-align: center;
+      font-weight: bold;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+      line-height: 1.3;
+    }
+    .sig-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
+    }
+    .sig-name {
+      text-align: right;
+      font-weight: bold;
+      text-decoration: underline;
+      font-size: 9px;
+    }
+    .abidjan-row {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .abidjan-cell {
+      width: 33.33%;
+      padding: 4px 10px;
+      font-size: 9px;
+      border-right: 1px solid #000;
+    }
+    .abidjan-cell:last-child { border-right: none; }
+    .acquit-section { display: flex; }
+    .acquit-empty { 
+      width: 66.66%;
+      border-right: 1px solid #000;
+    }
+    .acquit-box {
+      width: 33.33%;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+    }
+    .acquit-header {
+      text-align: center;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+    }
+    .acquit-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
+    }
+    .acquit-date {
+      font-size: 9px;
+      text-align: left;
+    }
+    @media print { 
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="inner-frame">
+    <div class="header">
+      <div class="header-logo">
+        <img src="${LOGO_PIF2}" alt="PIF2" />
+      </div>
+      <div class="header-center">
+        <div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+        <div class="sep">------------------------</div>
+        <div class="ministry">MINISTERE DES EAUX ET FORETS</div>
+        <div class="sep">------------------------</div>
+        <div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+        <div class="sep">------------------------</div>
+      </div>
+      <div class="header-right">
+        Union – Discipline – Travail
+      </div>
+    </div>
+    
+    <div class="op-title-section">
+      <div class="op-title">ORDRE DE PAIEMENT</div>
+      <div class="op-numero">N°${showEditModal.numero}</div>
+    </div>
+    
+    <div class="body-content">
+      <div class="exercice-line">
+        <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<strong>${exercice?.annee || ''}</strong></div>
+        <div class="type-red">${editForm.type}</div>
+      </div>
+      
+      <div class="field">
+        <div class="field-title">REFERENCE DU BENEFICIAIRE</div>
+      </div>
+      
+      <div class="field">
+        BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editBeneficiaire?.nom || ''}</span>
+      </div>
+      
+      <div class="field">
+        COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editBeneficiaire?.ncc || ''}</span>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+        <div class="checkbox-options">
+          <span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span>
+          <span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span>
+        </div>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">MODE DE REGLEMENT :</span>
+        <div class="checkbox-options">
+          <span class="check-item">ESPECE <span class="box">${editForm.modeReglement === 'ESPECES' ? 'x' : ''}</span></span>
+          <span class="check-item">CHEQUE <span class="box">${editForm.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span>
+          <span class="check-item">VIREMENT <span class="box">${editForm.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span>
+        </div>
+      </div>
+      
+      <div class="field">
+        REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
+      </div>
+      
+      <div class="field-large">
+        OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.objet || ''}</span>
+      </div>
+      
+      <div class="field-large">
+        PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.piecesJustificatives || ''}</span>
+      </div>
+      
+      <div class="budget-section">
+        <div class="budget-row">
+          <div class="col-left">MONTANT TOTAL :</div>
+          <div class="col-center">
+            <div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <div class="budget-row">
+          <div class="col-left">IMPUTATION BUDGETAIRE :</div>
+          <div class="col-center">
+            <div class="value-box">${codeImputationComplet.trim()}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <table class="budget-table">
+          <tr>
+            <td class="col-letter">A</td>
+            <td class="col-label">Dotation budgétaire</td>
+            <td class="col-amount">${formatMontant(dotation)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">B</td>
+            <td class="col-label">Engagements antérieurs</td>
+            <td class="col-amount">${formatMontant(engagementsAnterieurs)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">C</td>
+            <td class="col-label">Engagement actuel</td>
+            <td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">D</td>
+            <td class="col-label">Engagements cumulés (B + C)</td>
+            <td class="col-amount">${formatMontant(engagementsCumules)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">E</td>
+            <td class="col-label">Disponible budgétaire (A - D)</td>
+            <td class="col-amount">${formatMontant(disponible)}</td>
+            <td class="col-empty"></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    
+    <div class="signatures-section">
+      <div class="sig-box">
+        <div class="sig-header">VISA<br/>COORDONNATRICE</div>
+        <div class="sig-content">
+          <div class="sig-name">ABE-KOFFI Thérèse</div>
+        </div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div>
+        <div class="sig-content"></div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-header">VISA AGENT<br/>COMPTABLE</div>
+        <div class="sig-content"></div>
+      </div>
+    </div>
+    
+    <div class="abidjan-row">
+      <div class="abidjan-cell">Abidjan, le</div>
+      <div class="abidjan-cell">Abidjan, le</div>
+      <div class="abidjan-cell">Abidjan, le</div>
+    </div>
+    
+    <div class="acquit-section">
+      <div class="acquit-empty"></div>
+      <div class="acquit-box">
+        <div class="acquit-header">ACQUIT LIBERATOIRE</div>
+        <div class="acquit-content">
+          <div class="acquit-date">Abidjan, le</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
             printWindow.document.write(printContent);
             printWindow.document.close();
-            printWindow.print();
           };
           
           return (
