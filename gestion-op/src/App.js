@@ -3928,7 +3928,10 @@ export default function App() {
         <div class="sep">------------------------</div>
       </div>
       <div class="header-right">
-        Union – Discipline – Travail
+        <div style="text-align: center;">
+          <img src="${ARMOIRIE}" alt="Armoirie" style="max-height: 50px; max-width: 60px; margin-bottom: 3px;" />
+          <div>Union – Discipline – Travail</div>
+        </div>
       </div>
     </div>
     
@@ -6158,7 +6161,10 @@ export default function App() {
         <div class="sep">------------------------</div>
       </div>
       <div class="header-right">
-        Union – Discipline – Travail
+        <div style="text-align: center;">
+          <img src="${ARMOIRIE}" alt="Armoirie" style="max-height: 50px; max-width: 60px; margin-bottom: 3px;" />
+          <div>Union – Discipline – Travail</div>
+        </div>
       </div>
     </div>
     
