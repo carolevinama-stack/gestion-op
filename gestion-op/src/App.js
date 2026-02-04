@@ -3687,8 +3687,214 @@ export default function App() {
                 </div>
               )}
 
-              {/* Bouton Enregistrer */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
+              {/* Boutons Enregistrer et Imprimer */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const selectedRib = beneficiaireRibs[form.ribIndex] || {};
+                    const ligne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
+                    const engagementActuel = parseFloat(form.montant) || 0;
+                    const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
+                    const printContent = `
+                      <html>
+                      <head>
+                        <title>OP ${genererNumero()}</title>
+                        <style>
+                          @page { size: A4; margin: 10mm; }
+                          body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; padding: 15px; }
+                          .container { border: 2px solid #000; padding: 0; }
+                          .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 15px; border-bottom: 1px solid #000; }
+                          .logo { width: 80px; height: auto; }
+                          .header-center { text-align: center; flex: 1; }
+                          .header-center div { margin: 2px 0; }
+                          .header-right { text-align: right; font-size: 10px; }
+                          .title-row { display: flex; justify-content: center; padding: 8px; border-bottom: 1px solid #000; }
+                          .title { font-weight: bold; text-decoration: underline; font-size: 14px; }
+                          .info-row { display: flex; justify-content: space-between; padding: 6px 15px; border-bottom: 1px solid #000; }
+                          .row { padding: 6px 15px; border-bottom: 1px solid #000; }
+                          .row-label { font-weight: normal; }
+                          .row-value { font-weight: bold; font-style: italic; }
+                          .checkbox-row { display: flex; align-items: center; gap: 30px; }
+                          .checkbox { display: inline-flex; align-items: center; gap: 5px; }
+                          .box { width: 14px; height: 14px; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; }
+                          .montant-row { text-align: center; font-weight: bold; font-size: 13px; }
+                          .budget-table { width: 100%; border-collapse: collapse; }
+                          .budget-table td { padding: 5px 15px; border-bottom: 1px solid #000; }
+                          .budget-table td:first-child { width: 30px; font-weight: bold; }
+                          .budget-table td:last-child { text-align: right; font-family: monospace; }
+                          .signatures { display: flex; border-top: 1px solid #000; }
+                          .sig-box { flex: 1; text-align: center; padding: 10px; min-height: 100px; border-right: 1px solid #000; }
+                          .sig-box:last-child { border-right: none; }
+                          .sig-title { font-weight: bold; font-size: 10px; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 60px; }
+                          .sig-date { margin-top: 5px; font-size: 10px; }
+                          .acquit-box { border: 1px solid #000; display: inline-block; padding: 5px 15px; margin-top: 5px; }
+                          @media print { 
+                            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                            .container { border: 2px solid #000 !important; }
+                          }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="container">
+                          <!-- En-tête -->
+                          <div class="header">
+                            <div style="width: 100px;">
+                              <div style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 9px; font-weight: bold;">
+                                PIF2<br/>
+                                <span style="font-size: 7px;">Projet d'Investissement<br/>Forestier Côte d'Ivoire</span>
+                              </div>
+                            </div>
+                            <div class="header-center">
+                              <div style="font-weight: bold;">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+                              <div>------------------------</div>
+                              <div style="font-style: italic;">MINISTERE DES EAUX ET FORETS</div>
+                              <div>------------------------</div>
+                              <div style="font-weight: bold;">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+                              <div>------------------------</div>
+                            </div>
+                            <div class="header-right">
+                              <div>Union – Discipline – Travail</div>
+                            </div>
+                          </div>
+
+                          <!-- Titre -->
+                          <div class="title-row">
+                            <span class="title">ORDRE DE PAIEMENT</span>
+                          </div>
+
+                          <!-- Exercice / N° / Type -->
+                          <div class="info-row">
+                            <div>EXERCICE <span class="row-value">${exerciceActif?.annee || ''}</span></div>
+                            <div><span class="row-value">N°${genererNumero()}</span></div>
+                            <div style="color: green; font-weight: bold;">${form.type}</div>
+                          </div>
+
+                          <!-- Référence bénéficiaire -->
+                          <div class="row">
+                            <span class="row-label">REFERENCE DU BENEFICIAIRE</span>
+                          </div>
+
+                          <!-- Bénéficiaire -->
+                          <div class="row">
+                            <span class="row-label">BENEFICIAIRE :</span> 
+                            <span class="row-value">${selectedBeneficiaire?.nom || ''}</span>
+                          </div>
+
+                          <!-- Compte contribuable -->
+                          <div class="row">
+                            <span class="row-label">COMPTE CONTRIBUABLE :</span> 
+                            <span class="row-value">${selectedBeneficiaire?.ncc || ''}</span>
+                          </div>
+
+                          <!-- Compte de disponibilité -->
+                          <div class="row">
+                            <span class="row-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+                            <span class="checkbox-row" style="margin-left: 20px;">
+                              <span class="checkbox">BAILLEUR <span class="box">${currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') ? 'X' : ''}</span></span>
+                              <span class="checkbox">TRESOR <span class="box">${currentSourceObj?.sigle?.includes('BN') ? 'X' : ''}</span></span>
+                            </span>
+                          </div>
+
+                          <!-- Mode de règlement -->
+                          <div class="row">
+                            <span class="row-label">MODE DE REGLEMENT :</span>
+                            <span class="checkbox-row" style="margin-left: 20px;">
+                              <span class="checkbox">ESPECE <span class="box">${form.modeReglement === 'ESPECES' ? 'X' : ''}</span></span>
+                              <span class="checkbox">CHEQUE <span class="box">${form.modeReglement === 'CHEQUE' ? 'X' : ''}</span></span>
+                              <span class="checkbox">VIREMENT <span class="box">${form.modeReglement === 'VIREMENT' ? 'X' : ''}</span></span>
+                            </span>
+                          </div>
+
+                          <!-- Références bancaires -->
+                          <div class="row">
+                            <span class="row-label">REFERENCES BANCAIRES :</span>
+                            <span class="row-value" style="margin-left: 10px;">${form.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
+                          </div>
+
+                          <!-- Objet -->
+                          <div class="row" style="min-height: 40px;">
+                            <span class="row-label">OBJET DE LA DEPENSE :</span>
+                            <span class="row-value" style="margin-left: 10px;">${form.objet || ''}</span>
+                          </div>
+
+                          <!-- Pièces justificatives -->
+                          <div class="row" style="min-height: 30px;">
+                            <span class="row-label">PIECES JUSTIFICATIVES :</span>
+                            <span class="row-value" style="margin-left: 10px;">${form.piecesJustificatives || ''}</span>
+                          </div>
+
+                          <!-- Montant -->
+                          <div class="row montant-row">
+                            <span class="row-label">MONTANT TOTAL :</span>
+                            <span style="margin-left: 20px;">${formatMontant(engagementActuel)}</span>
+                          </div>
+
+                          <!-- Imputation budgétaire -->
+                          <div class="row">
+                            <span class="row-label">IMPUTATION BUDGETAIRE :</span>
+                            <span class="row-value" style="margin-left: 10px;">${form.ligneBudgetaire || ''}</span>
+                          </div>
+
+                          <!-- Tableau budgétaire -->
+                          <table class="budget-table">
+                            <tr>
+                              <td>A</td>
+                              <td>Dotation budgétaire</td>
+                              <td>${formatMontant(getDotation())}</td>
+                            </tr>
+                            <tr>
+                              <td>B</td>
+                              <td>Engagements antérieurs</td>
+                              <td>${formatMontant(getEngagementsAnterieurs())}</td>
+                            </tr>
+                            <tr>
+                              <td>C</td>
+                              <td>Engagement actuel</td>
+                              <td>${formatMontant(engagementActuel)}</td>
+                            </tr>
+                            <tr>
+                              <td>D</td>
+                              <td>Engagements cumulés (B + C)</td>
+                              <td>${formatMontant(engagementsCumules)}</td>
+                            </tr>
+                            <tr>
+                              <td>E</td>
+                              <td>Disponible budgétaire (A - D)</td>
+                              <td>${formatMontant(getDisponible())}</td>
+                            </tr>
+                          </table>
+
+                          <!-- Signatures -->
+                          <div class="signatures">
+                            <div class="sig-box">
+                              <div class="sig-title">VISA<br/>COORDONNATRICE</div>
+                              <div class="sig-date">Abidjan, le</div>
+                            </div>
+                            <div class="sig-box">
+                              <div class="sig-title">VISA<br/>CONTRÔLEUR FINANCIER</div>
+                              <div class="sig-date">Abidjan, le</div>
+                            </div>
+                            <div class="sig-box">
+                              <div class="sig-title">VISA AGENT<br/>COMPTABLE</div>
+                              <div class="sig-date">Abidjan, le</div>
+                              <div class="acquit-box">ACQUIT LIBERATOIRE</div>
+                              <div class="sig-date" style="margin-top: 20px;">Abidjan, le</div>
+                            </div>
+                          </div>
+                        </div>
+                      </body>
+                      </html>
+                    `;
+                    const printWindow = window.open('', '_blank');
+                    printWindow.document.write(printContent);
+                    printWindow.document.close();
+                    printWindow.print();
+                  }}
+                  style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
+                >
+                  🖨️ Imprimer
+                </button>
                 <button
                   onClick={handleSave}
                   disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
@@ -5516,13 +5722,245 @@ export default function App() {
           const editRibs = editBeneficiaire?.ribs || (editBeneficiaire?.rib ? [{ numero: editBeneficiaire.rib, banque: '' }] : []);
           const editBudget = budgets.find(b => b.sourceId === showEditModal.sourceId && b.exerciceId === showEditModal.exerciceId);
           const editSource = sources.find(s => s.id === showEditModal.sourceId);
+          const editLigne = editBudget?.lignes?.find(l => l.code === editForm.ligneBudgetaire);
+          
+          // Calculs budgétaires
+          const dotation = editLigne?.dotation || 0;
+          const engagementsAnterieurs = ops
+            .filter(o => 
+              o.sourceId === showEditModal.sourceId &&
+              o.exerciceId === showEditModal.exerciceId &&
+              o.ligneBudgetaire === editForm.ligneBudgetaire &&
+              o.id !== showEditModal.id &&
+              !['REJETE_CF', 'REJETE_AC'].includes(o.statut)
+            )
+            .reduce((sum, o) => sum + (o.montant || 0), 0);
+          const engagementActuel = parseFloat(editForm.montant) || 0;
+          const engagementsCumules = engagementsAnterieurs + engagementActuel;
+          const disponible = dotation - engagementsCumules;
+          
+          // Fonction d'impression - Modèle exact PIF2
+          const handlePrintOP = () => {
+            const exercice = exercices.find(e => e.id === showEditModal.exerciceId);
+            const selectedRib = editRibs[editForm.ribIndex || 0] || {};
+            const printContent = `
+              <html>
+              <head>
+                <title>OP ${showEditModal.numero}</title>
+                <style>
+                  @page { size: A4; margin: 10mm; }
+                  body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; padding: 15px; }
+                  .container { border: 2px solid #000; padding: 0; }
+                  .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 15px; border-bottom: 1px solid #000; }
+                  .logo { width: 80px; height: auto; }
+                  .header-center { text-align: center; flex: 1; }
+                  .header-center div { margin: 2px 0; }
+                  .header-right { text-align: right; font-size: 10px; }
+                  .title-row { display: flex; justify-content: center; padding: 8px; border-bottom: 1px solid #000; }
+                  .title { font-weight: bold; text-decoration: underline; font-size: 14px; }
+                  .info-row { display: flex; justify-content: space-between; padding: 6px 15px; border-bottom: 1px solid #000; }
+                  .row { padding: 6px 15px; border-bottom: 1px solid #000; }
+                  .row-label { font-weight: normal; }
+                  .row-value { font-weight: bold; font-style: italic; }
+                  .checkbox-row { display: flex; align-items: center; gap: 30px; }
+                  .checkbox { display: inline-flex; align-items: center; gap: 5px; }
+                  .box { width: 14px; height: 14px; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; }
+                  .box.checked { }
+                  .montant-row { text-align: center; font-weight: bold; font-size: 13px; }
+                  .budget-table { width: 100%; border-collapse: collapse; }
+                  .budget-table td { padding: 5px 15px; border-bottom: 1px solid #000; }
+                  .budget-table td:first-child { width: 30px; font-weight: bold; }
+                  .budget-table td:last-child { text-align: right; font-family: monospace; }
+                  .signatures { display: flex; border-top: 1px solid #000; }
+                  .sig-box { flex: 1; text-align: center; padding: 10px; min-height: 100px; border-right: 1px solid #000; }
+                  .sig-box:last-child { border-right: none; }
+                  .sig-title { font-weight: bold; font-size: 10px; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 60px; }
+                  .sig-name { font-weight: bold; margin-top: 40px; }
+                  .sig-date { margin-top: 5px; font-size: 10px; }
+                  .acquit { text-align: right; padding: 10px 15px; }
+                  .acquit-box { border: 1px solid #000; display: inline-block; padding: 5px 15px; margin-top: 5px; }
+                  @media print { 
+                    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                    .container { border: 2px solid #000 !important; }
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <!-- En-tête -->
+                  <div class="header">
+                    <div style="width: 100px;">
+                      <div style="border: 1px solid #000; padding: 5px; text-align: center; font-size: 9px; font-weight: bold;">
+                        PIF2<br/>
+                        <span style="font-size: 7px;">Projet d'Investissement<br/>Forestier Côte d'Ivoire</span>
+                      </div>
+                    </div>
+                    <div class="header-center">
+                      <div style="font-weight: bold;">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+                      <div>------------------------</div>
+                      <div style="font-style: italic;">MINISTERE DES EAUX ET FORETS</div>
+                      <div>------------------------</div>
+                      <div style="font-weight: bold;">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+                      <div>------------------------</div>
+                    </div>
+                    <div class="header-right">
+                      <div>Union – Discipline – Travail</div>
+                    </div>
+                  </div>
+
+                  <!-- Titre -->
+                  <div class="title-row">
+                    <span class="title">ORDRE DE PAIEMENT</span>
+                  </div>
+
+                  <!-- Exercice / N° / Type -->
+                  <div class="info-row">
+                    <div>EXERCICE <span class="row-value">${exercice?.annee || ''}</span></div>
+                    <div><span class="row-value">N°${showEditModal.numero}</span></div>
+                    <div style="color: green; font-weight: bold;">${editForm.type}</div>
+                  </div>
+
+                  <!-- Référence bénéficiaire -->
+                  <div class="row">
+                    <span class="row-label">REFERENCE DU BENEFICIAIRE</span>
+                  </div>
+
+                  <!-- Bénéficiaire -->
+                  <div class="row">
+                    <span class="row-label">BENEFICIAIRE :</span> 
+                    <span class="row-value">${editBeneficiaire?.nom || ''}</span>
+                  </div>
+
+                  <!-- Compte contribuable -->
+                  <div class="row">
+                    <span class="row-label">COMPTE CONTRIBUABLE :</span> 
+                    <span class="row-value">${editBeneficiaire?.ncc || ''}</span>
+                  </div>
+
+                  <!-- Compte de disponibilité -->
+                  <div class="row">
+                    <span class="row-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+                    <span class="checkbox-row" style="margin-left: 20px;">
+                      <span class="checkbox">BAILLEUR <span class="box">${editSource?.sigle?.includes('IDA') || editSource?.sigle?.includes('BAD') ? 'X' : ''}</span></span>
+                      <span class="checkbox">TRESOR <span class="box">${editSource?.sigle?.includes('BN') ? 'X' : ''}</span></span>
+                    </span>
+                  </div>
+
+                  <!-- Mode de règlement -->
+                  <div class="row">
+                    <span class="row-label">MODE DE REGLEMENT :</span>
+                    <span class="checkbox-row" style="margin-left: 20px;">
+                      <span class="checkbox">ESPECE <span class="box">${editForm.modeReglement === 'ESPECES' ? 'X' : ''}</span></span>
+                      <span class="checkbox">CHEQUE <span class="box">${editForm.modeReglement === 'CHEQUE' ? 'X' : ''}</span></span>
+                      <span class="checkbox">VIREMENT <span class="box">${editForm.modeReglement === 'VIREMENT' ? 'X' : ''}</span></span>
+                    </span>
+                  </div>
+
+                  <!-- Références bancaires -->
+                  <div class="row">
+                    <span class="row-label">REFERENCES BANCAIRES :</span>
+                    <span class="row-value" style="margin-left: 10px;">${editForm.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
+                  </div>
+
+                  <!-- Objet -->
+                  <div class="row" style="min-height: 40px;">
+                    <span class="row-label">OBJET DE LA DEPENSE :</span>
+                    <span class="row-value" style="margin-left: 10px;">${editForm.objet || ''}</span>
+                  </div>
+
+                  <!-- Pièces justificatives -->
+                  <div class="row" style="min-height: 30px;">
+                    <span class="row-label">PIECES JUSTIFICATIVES :</span>
+                    <span class="row-value" style="margin-left: 10px;">${editForm.piecesJustificatives || ''}</span>
+                  </div>
+
+                  <!-- Montant -->
+                  <div class="row montant-row">
+                    <span class="row-label">MONTANT TOTAL :</span>
+                    <span style="margin-left: 20px;">${formatMontant(engagementActuel)}</span>
+                  </div>
+
+                  <!-- Imputation budgétaire -->
+                  <div class="row">
+                    <span class="row-label">IMPUTATION BUDGETAIRE :</span>
+                    <span class="row-value" style="margin-left: 10px;">${editForm.ligneBudgetaire || ''}</span>
+                  </div>
+
+                  <!-- Tableau budgétaire -->
+                  <table class="budget-table">
+                    <tr>
+                      <td>A</td>
+                      <td>Dotation budgétaire</td>
+                      <td>${formatMontant(dotation)}</td>
+                    </tr>
+                    <tr>
+                      <td>B</td>
+                      <td>Engagements antérieurs</td>
+                      <td>${formatMontant(engagementsAnterieurs)}</td>
+                    </tr>
+                    <tr>
+                      <td>C</td>
+                      <td>Engagement actuel</td>
+                      <td>${formatMontant(engagementActuel)}</td>
+                    </tr>
+                    <tr>
+                      <td>D</td>
+                      <td>Engagements cumulés (B + C)</td>
+                      <td>${formatMontant(engagementsCumules)}</td>
+                    </tr>
+                    <tr>
+                      <td>E</td>
+                      <td>Disponible budgétaire (A - D)</td>
+                      <td>${formatMontant(disponible)}</td>
+                    </tr>
+                  </table>
+
+                  <!-- Signatures -->
+                  <div class="signatures">
+                    <div class="sig-box">
+                      <div class="sig-title">VISA<br/>COORDONNATRICE</div>
+                      <div class="sig-name"></div>
+                      <div class="sig-date">Abidjan, le</div>
+                    </div>
+                    <div class="sig-box">
+                      <div class="sig-title">VISA<br/>CONTRÔLEUR FINANCIER</div>
+                      <div class="sig-name"></div>
+                      <div class="sig-date">Abidjan, le</div>
+                    </div>
+                    <div class="sig-box">
+                      <div class="sig-title">VISA AGENT<br/>COMPTABLE</div>
+                      <div class="sig-name"></div>
+                      <div class="sig-date">Abidjan, le</div>
+                      <div class="acquit-box">ACQUIT LIBERATOIRE</div>
+                      <div class="sig-date" style="margin-top: 20px;">Abidjan, le</div>
+                    </div>
+                  </div>
+                </div>
+              </body>
+              </html>
+            `;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.print();
+          };
           
           return (
           <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
-              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: editSource?.couleur || '#fff8e1' }}>
-                <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>✏️ Modifier l'OP</h2>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
+            <div style={{ ...styles.modalContent, maxWidth: 750 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: editSource?.couleur || '#0f4c3a' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>✏️ Modifier l'OP</h2>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
+                  </div>
+                  <button 
+                    onClick={handlePrintOP}
+                    style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    🖨️ Imprimer
+                  </button>
+                </div>
               </div>
               <div style={{ padding: 24, maxHeight: '65vh', overflowY: 'auto' }}>
                 
@@ -5561,19 +5999,16 @@ export default function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
-                    <Autocomplete
-                      options={beneficiaires.map(b => ({
-                        value: b.id,
-                        label: b.nom,
-                        searchFields: [b.nom, b.ncc || '']
-                      }))}
-                      value={editForm.beneficiaireId ? {
-                        value: editForm.beneficiaireId,
-                        label: beneficiaires.find(b => b.id === editForm.beneficiaireId)?.nom || ''
-                      } : null}
+                    <Select
+                      options={beneficiaires.map(b => ({ value: b.id, label: b.nom }))}
+                      value={editForm.beneficiaireId ? { value: editForm.beneficiaireId, label: editBeneficiaire?.nom || '' } : null}
                       onChange={(option) => setEditForm({ ...editForm, beneficiaireId: option?.value || '', ribIndex: 0 })}
-                      placeholder="🔍 Rechercher..."
-                      accentColor={editSource?.couleur || '#0f4c3a'}
+                      placeholder="🔍 Rechercher un bénéficiaire..."
+                      isClearable
+                      styles={{
+                        control: (base) => ({ ...base, minHeight: 44, borderRadius: 8 }),
+                        menu: (base) => ({ ...base, zIndex: 9999 })
+                      }}
                     />
                   </div>
                   <div>
@@ -5664,28 +6099,60 @@ export default function App() {
                       type="number"
                       value={editForm.montant || ''}
                       onChange={(e) => setEditForm({ ...editForm, montant: e.target.value })}
-                      style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right', marginBottom: 0 }}
+                      style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right', marginBottom: 0, fontSize: 16, fontWeight: 600 }}
                     />
                     <span style={{ fontSize: 10, color: '#f57f17' }}>⚠️ Protégé par mot de passe</span>
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
-                    <Autocomplete
-                      options={(editBudget?.lignes || []).map(l => ({
-                        value: l.code,
-                        label: `${l.code} - ${l.libelle}`,
-                        searchFields: [l.code, l.libelle]
-                      }))}
-                      value={editForm.ligneBudgetaire ? {
-                        value: editForm.ligneBudgetaire,
-                        label: (editBudget?.lignes || []).find(l => l.code === editForm.ligneBudgetaire)?.code || editForm.ligneBudgetaire
-                      } : null}
+                    <Select
+                      options={(editBudget?.lignes || []).map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}` }))}
+                      value={editForm.ligneBudgetaire ? { value: editForm.ligneBudgetaire, label: `${editForm.ligneBudgetaire}${editLigne ? ' - ' + editLigne.libelle : ''}` } : null}
                       onChange={(option) => setEditForm({ ...editForm, ligneBudgetaire: option?.value || '' })}
-                      placeholder="🔍 Rechercher..."
-                      accentColor={editSource?.couleur || '#0f4c3a'}
+                      placeholder="🔍 Rechercher une ligne..."
+                      isClearable
+                      styles={{
+                        control: (base) => ({ ...base, minHeight: 44, borderRadius: 8 }),
+                        menu: (base) => ({ ...base, zIndex: 9999 })
+                      }}
                     />
                   </div>
                 </div>
+
+                {/* Infos budgétaires */}
+                {editForm.ligneBudgetaire && (
+                  <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 8 }}>
+                      <span style={{ fontSize: 12, color: '#6c757d' }}>Dotation budgétaire</span>
+                      <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(dotation)}</span>
+                      
+                      <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements antérieurs</span>
+                      <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsAnterieurs)}</span>
+                      
+                      <span style={{ fontSize: 12, color: '#6c757d' }}>Engagement actuel</span>
+                      <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: '#e65100' }}>+{formatMontant(engagementActuel)}</span>
+                      
+                      <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements cumulés</span>
+                      <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsCumules)}</span>
+                      
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Disponible budgétaire</span>
+                      <span style={{ 
+                        fontSize: 14, 
+                        fontFamily: 'monospace', 
+                        textAlign: 'right', 
+                        fontWeight: 700,
+                        color: disponible >= 0 ? '#2e7d32' : '#c62828'
+                      }}>
+                        {formatMontant(disponible)}
+                      </span>
+                    </div>
+                    {disponible < 0 && editForm.type !== 'ANNULATION' && (
+                      <div style={{ marginTop: 12, padding: 8, background: '#ffebee', borderRadius: 4, color: '#c62828', fontSize: 12, fontWeight: 600 }}>
+                        ⚠️ Budget insuffisant
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Date et TVA */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -5733,7 +6200,7 @@ export default function App() {
                 </button>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button onClick={() => { setShowEditModal(null); setEditForm({}); }} style={styles.buttonSecondary}>Annuler</button>
-                  <button onClick={handleSaveEdit} style={{ ...styles.button, background: editSource?.couleur || '#f57f17' }}>
+                  <button onClick={handleSaveEdit} style={{ ...styles.button, background: editSource?.couleur || '#0f4c3a' }}>
                     ✓ Enregistrer
                   </button>
                 </div>
