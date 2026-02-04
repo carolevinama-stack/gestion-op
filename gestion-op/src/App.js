@@ -3146,8 +3146,7 @@ export default function App() {
 
     const getEngagementActuel = () => {
       const montant = parseFloat(form.montant) || 0;
-      // Pour Annulation : libère le budget (négatif)
-      if (form.type === 'ANNULATION') return -montant;
+      // Le montant est utilisé tel quel (négatif pour annulation, positif pour les autres)
       // Pour Définitif : remplace le provisoire, donc pas d'impact supplémentaire si même montant
       if (form.type === 'DEFINITIF' && form.opProvisoireId) {
         const opProv = ops.find(o => o.id === form.opProvisoireId);
@@ -3196,6 +3195,7 @@ export default function App() {
           beneficiaireId: op.beneficiaireId,
           ligneBudgetaire: op.ligneBudgetaire,
           objet: op.objet,
+          // Pré-remplir le montant uniquement pour ANNULATION
           montant: form.type === 'ANNULATION' ? String(op.montant) : form.montant,
           modeReglement: op.modeReglement || 'VIREMENT'
         });
@@ -3247,8 +3247,8 @@ export default function App() {
         alert('Veuillez saisir l\'objet de la dépense');
         return;
       }
-      if (!form.montant || parseFloat(form.montant) <= 0) {
-        alert('Veuillez saisir un montant valide');
+      if (!form.montant || parseFloat(form.montant) === 0) {
+        alert('Veuillez saisir un montant valide (différent de zéro)');
         return;
       }
       if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId && !form.opProvisoireNumero.trim()) {
@@ -5187,10 +5187,12 @@ export default function App() {
                   const engagementsAnterieurs = opsAnterieurs.reduce((sum, o) => {
                     if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') return sum + (o.montant || 0);
                     if (o.type === 'DEFINITIF') {
+                      // Le définitif remplace le provisoire
                       const prov = ops.find(p => p.id === o.opProvisoireId);
                       return sum - (prov?.montant || 0) + (o.montant || 0);
                     }
                     if (o.type === 'ANNULATION') {
+                      // L'annulation libère le montant du provisoire lié
                       const prov = ops.find(p => p.id === o.opProvisoireId);
                       return sum - (prov?.montant || 0);
                     }
