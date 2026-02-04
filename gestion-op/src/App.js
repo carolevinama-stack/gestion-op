@@ -3798,6 +3798,8 @@ export default function App() {
   const PageListeOP = () => {
     const [activeSource, setActiveSource] = useState('ALL'); // 'ALL' pour toutes sources
     const [activeTab, setActiveTab] = useState('TOUS'); // Onglet de suivi actif
+    const [showAnterieur, setShowAnterieur] = useState(false); // Afficher exercices antérieurs
+    const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
     const [filters, setFilters] = useState({
       type: '',
       statut: '',
@@ -3819,12 +3821,15 @@ export default function App() {
     const [showCircuitModal, setShowCircuitModal] = useState(null); // OP pour modal circuit complet
     const [circuitForm, setCircuitForm] = useState({}); // Formulaire circuit
 
+    // Exercice courant (actif ou sélectionné)
+    const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
+    const currentExercice = exercices.find(e => e.id === currentExerciceId);
     const currentSourceObj = activeSource === 'ALL' ? null : sources.find(s => s.id === activeSource);
 
-    // Toutes les lignes budgétaires disponibles
+    // Toutes les lignes budgétaires disponibles pour l'exercice courant
     const allLignes = [...new Set(
       budgets
-        .filter(b => b.exerciceId === exerciceActif?.id)
+        .filter(b => b.exerciceId === currentExerciceId)
         .flatMap(b => b.lignes || [])
         .map(l => l.code)
     )].sort();
@@ -3854,9 +3859,9 @@ export default function App() {
       ARCHIVE: { bg: '#eceff1', color: '#546e7a', label: 'Archivé', icon: '📦' }
     };
 
-    // OP de l'exercice actif (toutes sources ou source sélectionnée)
+    // OP de l'exercice courant (toutes sources ou source sélectionnée)
     const opsExercice = ops.filter(op => {
-      if (op.exerciceId !== exerciceActif?.id) return false;
+      if (op.exerciceId !== currentExerciceId) return false;
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
       return true;
     });
@@ -4318,13 +4323,27 @@ export default function App() {
 
     // Ouvrir le modal de modification
     const handleOpenEdit = (op) => {
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+      // Trouver l'index du RIB utilisé
+      let ribIdx = 0;
+      if (op.rib && benRibs.length > 1) {
+        const idx = benRibs.findIndex(r => r.numero === op.rib);
+        if (idx >= 0) ribIdx = idx;
+      }
+      
       setEditForm({
+        type: op.type || 'DIRECT',
+        beneficiaireId: op.beneficiaireId || '',
+        ribIndex: ribIdx,
+        modeReglement: op.modeReglement || 'VIREMENT',
         objet: op.objet || '',
+        piecesJustificatives: op.piecesJustificatives || '',
         montant: op.montant || '',
         ligneBudgetaire: op.ligneBudgetaire || '',
-        modeReglement: op.modeReglement || 'VIREMENT',
-        piecesJustificatives: op.piecesJustificatives || '',
-        dateCreation: op.dateCreation || ''
+        dateCreation: op.dateCreation || '',
+        tvaRecuperable: op.tvaRecuperable || false,
+        montantTVA: op.montantTVA || ''
       });
       setShowEditModal(op);
     };
@@ -4333,9 +4352,10 @@ export default function App() {
     const handleSaveEdit = async () => {
       const op = showEditModal;
       const montantModifie = parseFloat(editForm.montant) !== op.montant;
+      const beneficiaireModifie = editForm.beneficiaireId !== op.beneficiaireId;
       
-      // Si le montant a changé, demander mot de passe
-      if (montantModifie) {
+      // Si le montant ou le bénéficiaire a changé, demander mot de passe
+      if (montantModifie || beneficiaireModifie) {
         // Vérifier s'il y a des OP postérieurs sur la même ligne
         const opsPostérieurs = ops.filter(o => 
           o.sourceId === op.sourceId &&
@@ -4345,13 +4365,21 @@ export default function App() {
           (o.createdAt || '') > (op.createdAt || '')
         );
         
-        let warningMsg = `Le montant passe de ${formatMontant(op.montant)} à ${formatMontant(parseFloat(editForm.montant))} FCFA.`;
-        if (opsPostérieurs.length > 0) {
+        let warningMsg = '';
+        if (montantModifie) {
+          warningMsg = `Le montant passe de ${formatMontant(op.montant)} à ${formatMontant(parseFloat(editForm.montant))} FCFA.`;
+        }
+        if (beneficiaireModifie) {
+          const oldBen = beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
+          const newBen = beneficiaires.find(b => b.id === editForm.beneficiaireId)?.nom || 'N/A';
+          warningMsg += (warningMsg ? ' ' : '') + `Bénéficiaire : ${oldBen} → ${newBen}.`;
+        }
+        if (opsPostérieurs.length > 0 && montantModifie) {
           warningMsg += ` Attention : ${opsPostérieurs.length} OP postérieur(s) sur cette ligne seront impactés.`;
         }
         
         setShowPasswordModal({
-          title: 'Modifier le montant',
+          title: 'Confirmer les modifications',
           description: `Modification de l'OP ${op.numero}`,
           warningMessage: warningMsg,
           confirmText: '✓ Confirmer la modification',
@@ -4367,16 +4395,27 @@ export default function App() {
       await saveEditChanges(op);
     };
 
-    // Sauvegarder les modifications de l'OP (sans les dates du circuit)
+    // Sauvegarder les modifications de l'OP
     const saveEditChanges = async (op) => {
       try {
+        // Récupérer le RIB sélectionné
+        const ben = beneficiaires.find(b => b.id === editForm.beneficiaireId);
+        const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+        const selectedRib = benRibs[editForm.ribIndex || 0];
+        
         const updates = {
+          type: editForm.type,
+          beneficiaireId: editForm.beneficiaireId,
+          modeReglement: editForm.modeReglement,
+          rib: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.numero || '') : '',
+          banque: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '',
           objet: editForm.objet,
+          piecesJustificatives: editForm.piecesJustificatives,
           montant: parseFloat(editForm.montant) || op.montant,
           ligneBudgetaire: editForm.ligneBudgetaire,
-          modeReglement: editForm.modeReglement,
-          piecesJustificatives: editForm.piecesJustificatives,
           dateCreation: editForm.dateCreation,
+          tvaRecuperable: editForm.tvaRecuperable || false,
+          montantTVA: editForm.tvaRecuperable ? (parseFloat(editForm.montantTVA) || 0) : 0,
           updatedAt: new Date().toISOString()
         };
         
@@ -4424,7 +4463,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${exerciceActif?.annee}_${activeTab}.csv`;
+      a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${currentExercice?.annee || 'TOUS'}_${activeTab}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     };
@@ -4516,8 +4555,22 @@ export default function App() {
 
     return (
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>📋 Liste des Ordres de Paiement</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>📋 Liste des Ordres de Paiement</h1>
+            {currentExercice && (
+              <span style={{ 
+                background: showAnterieur ? '#fff3e0' : '#e8f5e9', 
+                color: showAnterieur ? '#e65100' : '#2e7d32', 
+                padding: '6px 14px', 
+                borderRadius: 20, 
+                fontWeight: 700,
+                fontSize: 14
+              }}>
+                {currentExercice.annee}
+              </span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={handleExport} style={{ ...styles.buttonSecondary, background: '#e8f5e9', color: '#2e7d32' }}>
               📥 Export Excel
@@ -4526,6 +4579,40 @@ export default function App() {
               ➕ Nouvel OP
             </button>
           </div>
+        </div>
+
+        {/* Sélecteur d'exercice */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, padding: 12, background: '#f8f9fa', borderRadius: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={showAnterieur}
+              onChange={(e) => {
+                setShowAnterieur(e.target.checked);
+                if (!e.target.checked) setSelectedExercice(exerciceActif?.id);
+              }}
+              style={{ width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 500 }}>📅 Afficher exercices antérieurs</span>
+          </label>
+          {showAnterieur && (
+            <select
+              value={selectedExercice || ''}
+              onChange={(e) => setSelectedExercice(e.target.value)}
+              style={{ ...styles.input, marginBottom: 0, width: 150, padding: '8px 12px' }}
+            >
+              {exercices.map(ex => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.annee} {ex.actif ? '(actif)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          {showAnterieur && (
+            <span style={{ fontSize: 12, color: '#6c757d', fontStyle: 'italic' }}>
+              ⚠️ Consultation seule - les modifications ne sont pas recommandées sur les exercices clos
+            </span>
+          )}
         </div>
 
         {/* Onglets de suivi */}
@@ -5424,77 +5511,217 @@ export default function App() {
         )}
 
         {/* Modal Modification OP */}
-        {showEditModal && (
+        {showEditModal && (() => {
+          const editBeneficiaire = beneficiaires.find(b => b.id === editForm.beneficiaireId);
+          const editRibs = editBeneficiaire?.ribs || (editBeneficiaire?.rib ? [{ numero: editBeneficiaire.rib, banque: '' }] : []);
+          const editBudget = budgets.find(b => b.sourceId === showEditModal.sourceId && b.exerciceId === showEditModal.exerciceId);
+          const editSource = sources.find(s => s.id === showEditModal.sourceId);
+          
+          return (
           <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 550 }}>
-              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff8e1' }}>
-                <h2 style={{ margin: 0, fontSize: 18, color: '#f57f17' }}>✏️ Modifier l'OP</h2>
-                <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showEditModal.numero}</div>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: editSource?.couleur || '#fff8e1' }}>
+                <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>✏️ Modifier l'OP</h2>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
               </div>
-              <div style={{ padding: 24, maxHeight: '60vh', overflowY: 'auto' }}>
+              <div style={{ padding: 24, maxHeight: '65vh', overflowY: 'auto' }}>
+                
+                {/* Type d'OP */}
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Objet</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>TYPE D'OP</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[
+                      { value: 'PROVISOIRE', label: 'Provisoire', color: '#ff9800' },
+                      { value: 'DIRECT', label: 'Direct', color: '#2196f3' },
+                      { value: 'DEFINITIF', label: 'Définitif', color: '#4caf50' },
+                      { value: 'ANNULATION', label: 'Annulation', color: '#f44336' }
+                    ].map(type => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, type: type.value })}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 6,
+                          border: 'none',
+                          background: editForm.type === type.value ? type.color : '#f0f0f0',
+                          color: editForm.type === type.value ? 'white' : '#555',
+                          fontWeight: 600,
+                          fontSize: 12,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bénéficiaire */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
+                    <Autocomplete
+                      options={beneficiaires.map(b => ({
+                        value: b.id,
+                        label: b.nom,
+                        searchFields: [b.nom, b.ncc || '']
+                      }))}
+                      value={editForm.beneficiaireId ? {
+                        value: editForm.beneficiaireId,
+                        label: beneficiaires.find(b => b.id === editForm.beneficiaireId)?.nom || ''
+                      } : null}
+                      onChange={(option) => setEditForm({ ...editForm, beneficiaireId: option?.value || '', ribIndex: 0 })}
+                      placeholder="🔍 Rechercher..."
+                      accentColor={editSource?.couleur || '#0f4c3a'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N°CC</label>
+                    <input 
+                      type="text" 
+                      value={editBeneficiaire?.ncc || ''} 
+                      readOnly 
+                      style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', padding: '10px 12px' }} 
+                    />
+                  </div>
+                </div>
+
+                {/* Mode de règlement */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
+                  <div style={{ display: 'flex', gap: 24 }}>
+                    {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => (
+                      <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input 
+                          type="radio" 
+                          checked={editForm.modeReglement === mode}
+                          onChange={() => setEditForm({ ...editForm, modeReglement: mode })}
+                          style={{ width: 16, height: 16 }}
+                        />
+                        <span style={{ fontSize: 13 }}>{mode}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* RIB si virement */}
+                {editForm.modeReglement === 'VIREMENT' && (
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RIB</label>
+                    {!editBeneficiaire ? (
+                      <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', color: '#adb5bd', fontStyle: 'italic' }}>
+                        Sélectionnez un bénéficiaire
+                      </div>
+                    ) : editRibs.length === 0 ? (
+                      <div style={{ ...styles.input, marginBottom: 0, background: '#fff3e0', color: '#e65100' }}>
+                        ⚠️ Aucun RIB enregistré
+                      </div>
+                    ) : editRibs.length === 1 ? (
+                      <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }}>
+                        {editRibs[0].banque && <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '2px 8px', borderRadius: 4, marginRight: 8, fontSize: 11 }}>{editRibs[0].banque}</span>}
+                        {editRibs[0].numero}
+                      </div>
+                    ) : (
+                      <select
+                        value={editForm.ribIndex || 0}
+                        onChange={(e) => setEditForm({ ...editForm, ribIndex: parseInt(e.target.value) })}
+                        style={{ ...styles.input, marginBottom: 0 }}
+                      >
+                        {editRibs.map((rib, i) => (
+                          <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                {/* Objet */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE</label>
                   <textarea
                     value={editForm.objet || ''}
                     onChange={(e) => setEditForm({ ...editForm, objet: e.target.value })}
-                    style={{ ...styles.input, minHeight: 60 }}
+                    style={{ ...styles.input, minHeight: 70, marginBottom: 0 }}
                   />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* Pièces justificatives */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
+                  <textarea
+                    value={editForm.piecesJustificatives || ''}
+                    onChange={(e) => setEditForm({ ...editForm, piecesJustificatives: e.target.value })}
+                    style={{ ...styles.input, minHeight: 50, marginBottom: 0 }}
+                  />
+                </div>
+
+                {/* Montant et Ligne budgétaire */}
+                <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant (FCFA) 🔐</label>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) 🔐</label>
                     <input
                       type="number"
                       value={editForm.montant || ''}
                       onChange={(e) => setEditForm({ ...editForm, montant: e.target.value })}
-                      style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right' }}
+                      style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right', marginBottom: 0 }}
                     />
-                    <span style={{ fontSize: 10, color: '#f57f17' }}>⚠️ Modification protégée par mot de passe</span>
+                    <span style={{ fontSize: 10, color: '#f57f17' }}>⚠️ Protégé par mot de passe</span>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Ligne budgétaire</label>
-                    <select
-                      value={editForm.ligneBudgetaire || ''}
-                      onChange={(e) => setEditForm({ ...editForm, ligneBudgetaire: e.target.value })}
-                      style={styles.input}
-                    >
-                      <option value="">-- Sélectionner --</option>
-                      {allLignes.map(code => (
-                        <option key={code} value={code}>{code}</option>
-                      ))}
-                    </select>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
+                    <Autocomplete
+                      options={(editBudget?.lignes || []).map(l => ({
+                        value: l.code,
+                        label: `${l.code} - ${l.libelle}`,
+                        searchFields: [l.code, l.libelle]
+                      }))}
+                      value={editForm.ligneBudgetaire ? {
+                        value: editForm.ligneBudgetaire,
+                        label: (editBudget?.lignes || []).find(l => l.code === editForm.ligneBudgetaire)?.code || editForm.ligneBudgetaire
+                      } : null}
+                      onChange={(option) => setEditForm({ ...editForm, ligneBudgetaire: option?.value || '' })}
+                      placeholder="🔍 Rechercher..."
+                      accentColor={editSource?.couleur || '#0f4c3a'}
+                    />
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+
+                {/* Date et TVA */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Mode de règlement</label>
-                    <select
-                      value={editForm.modeReglement || 'VIREMENT'}
-                      onChange={(e) => setEditForm({ ...editForm, modeReglement: e.target.value })}
-                      style={styles.input}
-                    >
-                      <option value="VIREMENT">Virement</option>
-                      <option value="CHEQUE">Chèque</option>
-                      <option value="ESPECES">Espèces</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date de création</label>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>DATE DE CRÉATION</label>
                     <input
                       type="date"
                       value={editForm.dateCreation || ''}
                       onChange={(e) => setEditForm({ ...editForm, dateCreation: e.target.value })}
-                      style={styles.input}
+                      style={{ ...styles.input, marginBottom: 0 }}
                     />
                   </div>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Pièces justificatives</label>
-                  <textarea
-                    value={editForm.piecesJustificatives || ''}
-                    onChange={(e) => setEditForm({ ...editForm, piecesJustificatives: e.target.value })}
-                    style={{ ...styles.input, minHeight: 60 }}
-                  />
+                  {['DIRECT', 'DEFINITIF'].includes(editForm.type) && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>TVA RÉCUPÉRABLE</label>
+                      <div style={{ display: 'flex', gap: 16, alignItems: 'center', height: 44 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                          <input type="radio" checked={editForm.tvaRecuperable === true} onChange={() => setEditForm({ ...editForm, tvaRecuperable: true })} />
+                          <span>OUI</span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                          <input type="radio" checked={editForm.tvaRecuperable === false || !editForm.tvaRecuperable} onChange={() => setEditForm({ ...editForm, tvaRecuperable: false })} />
+                          <span>NON</span>
+                        </label>
+                        {editForm.tvaRecuperable && (
+                          <input
+                            type="number"
+                            value={editForm.montantTVA || ''}
+                            onChange={(e) => setEditForm({ ...editForm, montantTVA: e.target.value })}
+                            style={{ ...styles.input, marginBottom: 0, width: 120, fontFamily: 'monospace', textAlign: 'right' }}
+                            placeholder="Montant TVA"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
@@ -5506,14 +5733,15 @@ export default function App() {
                 </button>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button onClick={() => { setShowEditModal(null); setEditForm({}); }} style={styles.buttonSecondary}>Annuler</button>
-                  <button onClick={handleSaveEdit} style={{ ...styles.button, background: '#f57f17' }}>
+                  <button onClick={handleSaveEdit} style={{ ...styles.button, background: editSource?.couleur || '#f57f17' }}>
                     ✓ Enregistrer
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Modal Gestion du Circuit */}
         {showCircuitModal && (
