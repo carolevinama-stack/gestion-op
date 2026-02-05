@@ -3320,30 +3320,31 @@ export default function App() {
 
       setSaving(true);
       try {
-        let numero = genererNumero();
+        const sigleProjet = projet?.sigle || 'PROJET';
+        const sigleSource = currentSourceObj?.sigle || 'OP';
+        const annee = exerciceActif?.annee || new Date().getFullYear();
         
-        // Vérification anti-doublon en temps réel dans Firebase
-        const opsSnap = await getDocs(query(
+        // Récupérer TOUS les OP de cette source/exercice depuis Firebase (pas le state local)
+        const allOpsSnap = await getDocs(query(
           collection(db, 'ops'),
-          where('numero', '==', numero)
+          where('sourceId', '==', activeSource),
+          where('exerciceId', '==', exerciceActif.id)
         ));
+        const allNumerosExistants = allOpsSnap.docs.map(d => d.data().numero);
         
-        if (!opsSnap.empty) {
-          // Le numéro est déjà pris — chercher le prochain disponible
-          const sigleProjet = projet?.sigle || 'PROJET';
-          const sigleSource = currentSourceObj?.sigle || 'OP';
-          const annee = exerciceActif?.annee || new Date().getFullYear();
-          
-          // Récupérer tous les OP de cette source/exercice depuis Firebase
-          const allOpsSnap = await getDocs(query(
-            collection(db, 'ops'),
-            where('sourceId', '==', activeSource),
-            where('exerciceId', '==', exerciceActif.id)
-          ));
-          const nextNum = allOpsSnap.size + 1;
+        // Trouver le prochain numéro VRAIMENT disponible
+        let nextNum = allOpsSnap.size + 1;
+        let numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+        let tentatives = 0;
+        while (allNumerosExistants.includes(numero) && tentatives < 50) {
+          nextNum++;
           numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
-          
-          alert(`⚠️ Le numéro initialement prévu a déjà été utilisé par un autre utilisateur.\n\nVotre OP prendra le numéro : ${numero}`);
+          tentatives++;
+        }
+        
+        const numeroInitial = genererNumero();
+        if (numero !== numeroInitial) {
+          alert(`⚠️ Le numéro ${numeroInitial} a déjà été utilisé par un autre utilisateur.\n\nVotre OP prendra le numéro : ${numero}`);
         }
         
         const opData = {
@@ -3369,6 +3370,31 @@ export default function App() {
         };
 
         const docRef = await addDoc(collection(db, 'ops'), opData);
+        
+        // Re-vérification après écriture : détecter si un doublon a été créé au même instant
+        const doublonSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('numero', '==', numero)
+        ));
+        if (doublonSnap.size > 1) {
+          // Doublon détecté ! Corriger en prenant le numéro suivant
+          const allOpsSnap2 = await getDocs(query(
+            collection(db, 'ops'),
+            where('sourceId', '==', activeSource),
+            where('exerciceId', '==', exerciceActif.id)
+          ));
+          const allNums2 = allOpsSnap2.docs.map(d => d.data().numero);
+          let fixNum = allOpsSnap2.size + 1;
+          let fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+          while (allNums2.includes(fixNumero)) {
+            fixNum++;
+            fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+          }
+          await updateDoc(doc(db, 'ops', docRef.id), { numero: fixNumero, updatedAt: new Date().toISOString() });
+          opData.numero = fixNumero;
+          alert(`⚠️ Doublon détecté et corrigé automatiquement.\n\nNouveau numéro attribué : ${fixNumero}`);
+        }
+        
         setOps([...ops, { id: docRef.id, ...opData }]);
 
         alert(`✅ OP ${numero} créé avec succès !`);
