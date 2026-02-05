@@ -466,6 +466,8 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
+    let unsubOps = null; // Référence au listener temps réel
+
     const loadData = async () => {
       setLoading(true);
       try {
@@ -497,9 +499,12 @@ export default function App() {
         const budgetsSnap = await getDocs(collection(db, 'budgets'));
         setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-        // Charger les OPs
-        const opsSnap = await getDocs(query(collection(db, 'ops'), orderBy('numero', 'desc')));
-        setOps(opsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // Charger les OPs (temps réel avec onSnapshot)
+        // Le listener est stocké pour cleanup
+        const opsQuery = query(collection(db, 'ops'), orderBy('numero', 'desc'));
+        unsubOps = onSnapshot(opsQuery, (snapshot) => {
+          setOps(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
 
       } catch (error) {
         console.error('Erreur chargement données:', error);
@@ -508,6 +513,10 @@ export default function App() {
     };
 
     loadData();
+    
+    return () => {
+      if (unsubOps) unsubOps();
+    };
   }, [user]);
 
   // Obtenir l'exercice actif
@@ -4688,6 +4697,70 @@ export default function App() {
       return true;
     }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
+    // Construire la liste d'affichage avec lignes de rejet dédoublées
+    // Tri chronologique (plus ancien en premier) pour calculer l'ordre et le cumul
+    const filteredOpsChrono = [...filteredOps].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    
+    const buildDisplayOps = () => {
+      const lines = [];
+      // D'abord les OP dans l'ordre chronologique de création
+      filteredOpsChrono.forEach(op => {
+        lines.push({ ...op, isRejetLine: false, displayDate: op.createdAt || op.dateCreation });
+      });
+      // Ajouter les lignes de rejet (montant négatif) pour les OP rejetés
+      filteredOpsChrono.forEach(op => {
+        if (['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
+          lines.push({
+            ...op,
+            isRejetLine: true,
+            displayNumero: (op.numero || '') + ' - REJET',
+            displayMontant: -(op.montant || 0),
+            displayDate: op.updatedAt || op.createdAt || op.dateCreation
+          });
+        }
+      });
+      // Trier par date (création pour les normaux, date de rejet pour les lignes de rejet)
+      lines.sort((a, b) => (a.displayDate || '').localeCompare(b.displayDate || ''));
+      
+      // Calculer ordre, cumul engagé et disponible
+      let cumul = 0;
+      let ordre = 0;
+      // Trouver la dotation pour la ligne budgétaire filtrée (si filtre actif)
+      const getDotationLigne = () => {
+        if (!filters.ligneBudgetaire) return null;
+        let totalDotation = 0;
+        budgets.forEach(b => {
+          if (b.lignes) {
+            const ligne = b.lignes.find(l => l.code === filters.ligneBudgetaire);
+            if (ligne) totalDotation += (ligne.dotation || 0);
+          }
+        });
+        return totalDotation;
+      };
+      const dotation = getDotationLigne();
+      
+      lines.forEach(line => {
+        ordre++;
+        line.ordre = ordre;
+        if (line.isRejetLine) {
+          cumul += line.displayMontant; // négatif
+        } else if (!['REJETE_CF', 'REJETE_AC'].includes(line.statut)) {
+          cumul += (line.montant || 0);
+        }
+        // Si l'OP est rejeté mais c'est la ligne de création, on compte quand même le montant positif
+        // car le rejet sera soustrait dans la ligne REJET
+        if (!line.isRejetLine && ['REJETE_CF', 'REJETE_AC'].includes(line.statut)) {
+          cumul += (line.montant || 0);
+        }
+        line.cumulEngage = cumul;
+        line.disponible = dotation !== null ? dotation - cumul : null;
+      });
+      
+      return lines;
+    };
+    
+    const displayOps = buildDisplayOps();
+
     // Totaux
     const totaux = {
       count: filteredOps.length,
@@ -5534,6 +5607,7 @@ export default function App() {
               <table style={styles.table}>
                 <thead>
                   <tr>
+                    <th style={{ ...styles.th, width: 45 }}>N°</th>
                     {activeSource === 'ALL' && <th style={{ ...styles.th, width: 60 }}>SOURCE</th>}
                     <th style={{ ...styles.th, width: 145 }}>N° OP</th>
                     <th style={{ ...styles.th, width: 80 }}>CRÉATION</th>
@@ -5549,19 +5623,30 @@ export default function App() {
                     {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 85, textAlign: 'right' }}>PAYÉ</th>}
                     {activeTab === 'DIFFERES' && <th style={{ ...styles.th, width: 80 }}>DATE DIFF.</th>}
                     {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 80 }}>ANCIENNETÉ</th>}
+                    <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>CUMUL ENGAGÉ</th>
+                    {filters.ligneBudgetaire && <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>DISPONIBLE</th>}
                     <th style={{ ...styles.th, width: 95 }}>STATUT</th>
                     <th style={{ ...styles.th, width: 100, textAlign: 'center' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOps.map(op => {
+                  {displayOps.map((op, idx) => {
                     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
                     const source = sources.find(s => s.id === op.sourceId);
-                    const statut = statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut };
+                    const isRejet = op.isRejetLine;
+                    const statutObj = isRejet 
+                      ? { bg: '#ffebee', color: '#c62828', label: (op.statut === 'REJETE_AC' ? 'REJETÉ AC' : 'REJETÉ CF') + ' ❌' }
+                      : (statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut });
                     const anciennete = getAnciennete(op.dateCreation);
+                    const rowStyle = isRejet 
+                      ? { cursor: 'pointer', background: '#fff8f8', borderLeft: '3px solid #c62828' } 
+                      : { cursor: 'pointer' };
                     
                     return (
-                      <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => setShowDetail(op)}>
+                      <tr key={isRejet ? op.id + '_rejet' : op.id} style={rowStyle} onClick={() => setShowDetail(op)}>
+                        <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700, fontSize: 12, color: isRejet ? '#c62828' : '#666' }}>
+                          {op.ordre}
+                        </td>
                         {activeSource === 'ALL' && (
                           <td style={styles.td}>
                             <span style={{ 
@@ -5576,11 +5661,14 @@ export default function App() {
                             </span>
                           </td>
                         )}
-                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>
-                          {op.numero}
+                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#c62828' : 'inherit' }}>
+                          {isRejet ? op.displayNumero : op.numero}
                         </td>
-                        <td style={{ ...styles.td, fontSize: 11 }}>{op.dateCreation || '-'}</td>
+                        <td style={{ ...styles.td, fontSize: 11 }}>{isRejet ? (op.updatedAt ? op.updatedAt.split('T')[0] : '-') : (op.dateCreation || '-')}</td>
                         <td style={styles.td}>
+                          {isRejet ? (
+                            <span style={{ background: '#ffebee', color: '#c62828', padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 600 }}>REJET</span>
+                          ) : (
                           <span style={{
                             background: `${typeColors[op.type]}20`,
                             color: typeColors[op.type],
@@ -5591,35 +5679,36 @@ export default function App() {
                           }}>
                             {op.type}
                           </span>
+                          )}
                         </td>
                         <td style={{ ...styles.td, fontSize: 11 }}>{ben?.nom || 'N/A'}</td>
-                        <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>
-                          {op.objet || '-'}
+                        <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={isRejet ? ('Motif: ' + (op.motifRejet || '')) : op.objet}>
+                          {isRejet ? (op.motifRejet ? '↩ ' + op.motifRejet : '↩ Rejet') : (op.objet || '-')}
                         </td>
                         <td style={{ ...styles.td, fontSize: 11, fontFamily: 'monospace' }}>{op.ligneBudgetaire || '-'}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
-                          {formatMontant(op.montant)}
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: isRejet ? '#c62828' : 'inherit' }}>
+                          {isRejet ? '-' + formatMontant(op.montant) : formatMontant(op.montant)}
                         </td>
                         {/* Colonnes dynamiques selon l'onglet */}
                         {activeTab === 'CIRCUIT_CF' && (
-                          <td style={{ ...styles.td, fontSize: 11 }}>{op.dateTransmissionCF || '-'}</td>
+                          <td style={{ ...styles.td, fontSize: 11 }}>{isRejet ? '-' : (op.dateTransmissionCF || '-')}</td>
                         )}
                         {activeTab === 'CIRCUIT_CF' && (
                           <td style={{ ...styles.td, fontSize: 11, color: op.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>
-                            {op.dateVisaCF || '-'}
+                            {isRejet ? '-' : (op.dateVisaCF || '-')}
                           </td>
                         )}
                         {activeTab === 'CIRCUIT_AC' && (
-                          <td style={{ ...styles.td, fontSize: 11 }}>{op.dateTransmissionAC || '-'}</td>
+                          <td style={{ ...styles.td, fontSize: 11 }}>{isRejet ? '-' : (op.dateTransmissionAC || '-')}</td>
                         )}
                         {activeTab === 'CIRCUIT_AC' && (
                           <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: op.totalPaye ? '#2e7d32' : '#adb5bd' }}>
-                            {formatMontant(op.totalPaye || 0)}
+                            {isRejet ? '-' : formatMontant(op.totalPaye || 0)}
                           </td>
                         )}
                         {activeTab === 'DIFFERES' && (
                           <td style={{ ...styles.td, fontSize: 11, color: '#f9a825' }}>
-                            {op.dateDiffereCF || op.dateDiffereAC || '-'}
+                            {isRejet ? '-' : (op.dateDiffereCF || op.dateDiffereAC || '-')}
                           </td>
                         )}
                         {activeTab === 'A_REGULARISER' && (
@@ -5636,19 +5725,28 @@ export default function App() {
                             </span>
                           </td>
                         )}
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
+                          {formatMontant(op.cumulEngage || 0)}
+                        </td>
+                        {filters.ligneBudgetaire && (
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32' }}>
+                            {op.disponible !== null ? formatMontant(op.disponible) : '-'}
+                          </td>
+                        )}
                         <td style={styles.td}>
                           <span style={{
-                            background: statut.bg,
-                            color: statut.color,
+                            background: statutObj.bg,
+                            color: statutObj.color,
                             padding: '3px 8px',
                             borderRadius: 4,
                             fontSize: 10,
                             fontWeight: 600
                           }}>
-                            {statut.label}
+                            {statutObj.label}
                           </span>
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          {!isRejet ? (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                             {/* Bouton Consulter OP */}
                             <button
@@ -5683,6 +5781,9 @@ export default function App() {
                               📋
                             </button>
                           </div>
+                          ) : (
+                            <span style={{ color: '#c62828', fontSize: 11, fontWeight: 600 }}>↩ Désengagement</span>
+                          )}
                         </td>
                       </tr>
                     );
