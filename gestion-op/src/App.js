@@ -564,8 +564,8 @@ export default function App() {
         <NavItem id="dashboard" icon="📊" label="Tableau de bord" />
         
         <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>OPÉRATIONS</div>
-        <NavItem id="ops" icon="📋" label="Liste des OP" />
         <NavItem id="nouvelOp" icon="➕" label="Nouvel OP" />
+        <NavItem id="ops" icon="📋" label="Liste des OP" />
         <NavItem id="bordereaux" icon="📨" label="Bordereaux" />
         <NavItem id="suivi" icon="🔄" label="Suivi Circuit" />
         
@@ -4982,7 +4982,7 @@ export default function App() {
   // ==================== PAGE LISTE DES OP ====================
   const PageListeOP = () => {
     const [activeSource, setActiveSource] = useState('ALL'); // 'ALL' pour toutes sources
-    const [activeTab, setActiveTab] = useState('TOUS'); // Onglet de suivi actif
+    const [activeTab, setActiveTab] = useState('CUMUL_OP'); // Onglet de suivi actif
     const [showAnterieur, setShowAnterieur] = useState(false); // Afficher exercices antérieurs
     const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
     const [filters, setFilters] = useState({
@@ -4998,6 +4998,9 @@ export default function App() {
     const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' });
     const [showPaiementModal, setShowPaiementModal] = useState(null);
     const [showPasswordModal, setShowPasswordModal] = useState(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importData, setImportData] = useState([]);
+    const [importError, setImportError] = useState('');
     const [showStatutModal, setShowStatutModal] = useState(null); // { op, nouveauStatut } - pour changement manuel de statut
     const [showEditModal, setShowEditModal] = useState(null); // OP à modifier
     const [editForm, setEditForm] = useState({});
@@ -5071,13 +5074,18 @@ export default function App() {
     };
 
     // Compteurs par onglet
+    // Provisoires à annuler : OP provisoires sans définitif ni annulation associé
+    const provisoiresAnnuler = opsExercice.filter(op => {
+      if (op.type !== 'PROVISOIRE') return false;
+      const hasDefinitif = opsExercice.some(o => o.opProvisoireId === op.id && o.type === 'DEFINITIF');
+      const hasAnnulation = opsExercice.some(o => o.opProvisoireId === op.id && o.type === 'ANNULATION');
+      return !hasDefinitif && !hasAnnulation && !['REJETE_CF', 'REJETE_AC'].includes(op.statut);
+    });
+    
     const counts = {
-      TOUS: opsExercice.filter(op => op.statut !== 'ARCHIVE').length,
-      CIRCUIT_CF: opsExercice.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'RETOURNE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut)).length,
-      CIRCUIT_AC: opsExercice.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'RETOURNE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut)).length,
-      DIFFERES: opsExercice.filter(op => ['DIFFERE_CF', 'DIFFERE_AC', 'RETOURNE_CF', 'RETOURNE_AC'].includes(op.statut)).length,
-      A_REGULARISER: provisoiresARegulariser.length,
-      ARCHIVES: opsExercice.filter(op => op.statut === 'ARCHIVE').length
+      CUMUL_OP: opsExercice.length,
+      PROV_A_ANNULER: provisoiresAnnuler.length,
+      A_REGULARISER: provisoiresARegulariser.length
     };
 
     // Filtrer selon l'onglet actif
@@ -5085,23 +5093,14 @@ export default function App() {
       let result = opsExercice;
       
       switch (activeTab) {
-        case 'TOUS':
-          result = result.filter(op => op.statut !== 'ARCHIVE'); // Exclure archives de "Tous"
+        case 'CUMUL_OP':
+          // Tous les OP
           break;
-        case 'CIRCUIT_CF':
-          result = result.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'RETOURNE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut));
-          break;
-        case 'CIRCUIT_AC':
-          result = result.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'RETOURNE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut));
-          break;
-        case 'DIFFERES':
-          result = result.filter(op => ['DIFFERE_CF', 'DIFFERE_AC', 'RETOURNE_CF', 'RETOURNE_AC'].includes(op.statut));
+        case 'PROV_A_ANNULER':
+          result = provisoiresAnnuler;
           break;
         case 'A_REGULARISER':
           result = provisoiresARegulariser;
-          break;
-        case 'ARCHIVES':
-          result = result.filter(op => op.statut === 'ARCHIVE');
           break;
         default:
           break;
@@ -5865,14 +5864,11 @@ export default function App() {
         </div>
 
         {/* Onglets de suivi */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           {[
-            { key: 'TOUS', label: 'Tous', icon: '📋' },
-            { key: 'CIRCUIT_CF', label: 'Circuit CF', icon: '📤' },
-            { key: 'CIRCUIT_AC', label: 'Circuit AC', icon: '💰' },
-            { key: 'DIFFERES', label: 'Différés', icon: '⏸️' },
-            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' },
-            { key: 'ARCHIVES', label: 'Archives', icon: '📦' }
+            { key: 'CUMUL_OP', label: 'Cumul OP', icon: '📋' },
+            { key: 'PROV_A_ANNULER', label: 'Provisoires à annuler', icon: '⚠️' },
+            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' }
           ].map(tab => (
             <button
               key={tab.key}
@@ -5881,7 +5877,7 @@ export default function App() {
                 padding: '10px 16px',
                 borderRadius: 8,
                 border: 'none',
-                background: activeTab === tab.key ? (tab.key === 'ARCHIVES' ? '#546e7a' : '#0f4c3a') : '#f0f0f0',
+                background: activeTab === tab.key ? '#0f4c3a' : '#f0f0f0',
                 color: activeTab === tab.key ? 'white' : '#333',
                 fontWeight: 600,
                 fontSize: 13,
@@ -5901,6 +5897,27 @@ export default function App() {
               </span>
             </button>
           ))}
+          
+          {/* Bouton Importer des OP */}
+          <button
+            onClick={() => setShowImportModal(true)}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 8,
+              border: '2px dashed #1565c0',
+              background: '#e3f2fd',
+              color: '#1565c0',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginLeft: 'auto'
+            }}
+          >
+            📥 Importer des OP
+          </button>
         </div>
 
         {/* Onglets sources */}
@@ -6037,25 +6054,19 @@ export default function App() {
               <p>Aucun OP trouvé</p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh' }}>
               <table style={styles.table}>
-                <thead>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
                     <th style={{ ...styles.th, width: 45 }}>N°</th>
                     {activeSource === 'ALL' && <th style={{ ...styles.th, width: 60 }}>SOURCE</th>}
                     <th style={{ ...styles.th, width: 145 }}>N° OP</th>
-                    <th style={{ ...styles.th, width: 80 }}>CRÉATION</th>
                     <th style={{ ...styles.th, width: 75 }}>TYPE</th>
                     <th style={{ ...styles.th, width: 140 }}>BÉNÉFICIAIRE</th>
                     <th style={styles.th}>OBJET</th>
                     <th style={{ ...styles.th, width: 70 }}>LIGNE</th>
+                    <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>DOTATION</th>
                     <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
-                    {/* Colonnes dynamiques selon l'onglet */}
-                    {activeTab === 'CIRCUIT_CF' && <th style={{ ...styles.th, width: 80 }}>TRANS. CF</th>}
-                    {activeTab === 'CIRCUIT_CF' && <th style={{ ...styles.th, width: 80 }}>VISA CF</th>}
-                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 80 }}>TRANS. AC</th>}
-                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 85, textAlign: 'right' }}>PAYÉ</th>}
-                    {activeTab === 'DIFFERES' && <th style={{ ...styles.th, width: 80 }}>DATE DIFF.</th>}
                     {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 80 }}>ANCIENNETÉ</th>}
                     <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>CUMUL ENGAGÉ</th>
                     {filters.ligneBudgetaire && <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>DISPONIBLE</th>}
@@ -6068,17 +6079,24 @@ export default function App() {
                     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
                     const source = sources.find(s => s.id === op.sourceId);
                     const isRejet = op.isRejetLine;
-                    const statutObj = isRejet 
-                      ? { bg: '#ffebee', color: '#c62828', label: (op.statut === 'REJETE_AC' ? 'REJETÉ AC' : 'REJETÉ CF') + ' ❌' }
+                    
+                    // Ne pas afficher les lignes de rejet (désengagement) - demandé par Carole
+                    if (isRejet) return null;
+                    
+                    // Ne pas afficher le statut "Créé" - demandé par Carole
+                    const statutObj = op.statut === 'CREE' 
+                      ? { bg: 'transparent', color: 'transparent', label: '' }
                       : (statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut });
                     const anciennete = getAnciennete(op.dateCreation);
-                    const rowStyle = isRejet 
-                      ? { cursor: 'pointer', background: '#fff8f8', borderLeft: '3px solid #c62828' } 
-                      : { cursor: 'pointer' };
+                    
+                    // Récupérer la dotation de la ligne budgétaire
+                    const currentBudget = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
+                    const ligneBudget = currentBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
+                    const dotationLigne = ligneBudget?.dotation || 0;
                     
                     return (
-                      <tr key={isRejet ? op.id + '_rejet' : op.id} style={rowStyle} onClick={() => setShowDetail(op)}>
-                        <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700, fontSize: 12, color: isRejet ? '#c62828' : '#666' }}>
+                      <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => setShowDetail(op)}>
+                        <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#666' }}>
                           {op.ordre}
                         </td>
                         {activeSource === 'ALL' && (
@@ -6095,14 +6113,10 @@ export default function App() {
                             </span>
                           </td>
                         )}
-                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#c62828' : 'inherit' }}>
-                          {isRejet ? op.displayNumero : op.numero}
+                        <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>
+                          {op.numero}
                         </td>
-                        <td style={{ ...styles.td, fontSize: 11 }}>{isRejet ? (op.updatedAt ? op.updatedAt.split('T')[0] : '-') : (op.dateCreation || '-')}</td>
                         <td style={styles.td}>
-                          {isRejet ? (
-                            <span style={{ background: '#ffebee', color: '#c62828', padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 600 }}>REJET</span>
-                          ) : (
                           <span style={{
                             background: `${typeColors[op.type]}20`,
                             color: typeColors[op.type],
@@ -6113,38 +6127,18 @@ export default function App() {
                           }}>
                             {op.type}
                           </span>
-                          )}
                         </td>
                         <td style={{ ...styles.td, fontSize: 11 }}>{ben?.nom || 'N/A'}</td>
-                        <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={isRejet ? ('Motif: ' + (op.motifRejet || '')) : op.objet}>
-                          {isRejet ? (op.motifRejet ? '↩ ' + op.motifRejet : '↩ Rejet') : (op.objet || '-')}
+                        <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>
+                          {op.objet || '-'}
                         </td>
                         <td style={{ ...styles.td, fontSize: 11, fontFamily: 'monospace' }}>{op.ligneBudgetaire || '-'}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: isRejet ? '#c62828' : 'inherit' }}>
-                          {isRejet ? '-' + formatMontant(op.montant) : formatMontant(op.montant)}
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: '#666' }}>
+                          {formatMontant(dotationLigne)}
                         </td>
-                        {/* Colonnes dynamiques selon l'onglet */}
-                        {activeTab === 'CIRCUIT_CF' && (
-                          <td style={{ ...styles.td, fontSize: 11 }}>{isRejet ? '-' : (op.dateTransmissionCF || '-')}</td>
-                        )}
-                        {activeTab === 'CIRCUIT_CF' && (
-                          <td style={{ ...styles.td, fontSize: 11, color: op.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>
-                            {isRejet ? '-' : (op.dateVisaCF || '-')}
-                          </td>
-                        )}
-                        {activeTab === 'CIRCUIT_AC' && (
-                          <td style={{ ...styles.td, fontSize: 11 }}>{isRejet ? '-' : (op.dateTransmissionAC || '-')}</td>
-                        )}
-                        {activeTab === 'CIRCUIT_AC' && (
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: op.totalPaye ? '#2e7d32' : '#adb5bd' }}>
-                            {isRejet ? '-' : formatMontant(op.totalPaye || 0)}
-                          </td>
-                        )}
-                        {activeTab === 'DIFFERES' && (
-                          <td style={{ ...styles.td, fontSize: 11, color: '#f9a825' }}>
-                            {isRejet ? '-' : (op.dateDiffereCF || op.dateDiffereAC || '-')}
-                          </td>
-                        )}
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
+                          {formatMontant(op.montant)}
+                        </td>
                         {activeTab === 'A_REGULARISER' && (
                           <td style={styles.td}>
                             <span style={{
@@ -6227,6 +6221,194 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Modal Import OP */}
+        {showImportModal && (
+          <div style={styles.modal} onClick={() => { setShowImportModal(false); setImportData([]); setImportError(''); }}>
+            <div style={{ ...styles.modalContent, maxWidth: 900 }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#1565c0', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📥 Importer des OP depuis Excel/CSV</h2>
+              </div>
+              <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
+                <div style={{ marginBottom: 20, padding: 16, background: '#e3f2fd', borderRadius: 8, fontSize: 13 }}>
+                  <strong>📋 Format attendu (colonnes) :</strong><br/>
+                  Type | Bénéficiaire (NCC) | Objet | Ligne Budgétaire | Montant | Date Création
+                </div>
+                
+                <input 
+                  type="file" 
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                      try {
+                        const text = evt.target.result;
+                        const lines = text.split('\n').filter(l => l.trim());
+                        const headers = lines[0].split(/[;,\t]/);
+                        
+                        const data = lines.slice(1).map((line, idx) => {
+                          const cols = line.split(/[;,\t]/);
+                          return {
+                            idx: idx + 1,
+                            type: (cols[0] || '').trim().toUpperCase(),
+                            beneficiaire: (cols[1] || '').trim(),
+                            objet: (cols[2] || '').trim(),
+                            ligneBudgetaire: (cols[3] || '').trim(),
+                            montant: parseFloat((cols[4] || '0').replace(/[^\d.-]/g, '')) || 0,
+                            dateCreation: (cols[5] || new Date().toISOString().split('T')[0]).trim(),
+                            valid: true,
+                            error: ''
+                          };
+                        }).filter(d => d.type || d.beneficiaire || d.montant);
+                        
+                        // Validation
+                        data.forEach(d => {
+                          if (!['PROVISOIRE', 'DIRECT', 'DEFINITIF', 'ANNULATION'].includes(d.type)) {
+                            d.valid = false;
+                            d.error = 'Type invalide';
+                          }
+                          if (!d.beneficiaire) {
+                            d.valid = false;
+                            d.error = 'Bénéficiaire manquant';
+                          }
+                          if (!d.montant || d.montant <= 0) {
+                            d.valid = false;
+                            d.error = 'Montant invalide';
+                          }
+                        });
+                        
+                        setImportData(data);
+                        setImportError('');
+                      } catch (err) {
+                        setImportError('Erreur de lecture du fichier : ' + err.message);
+                        setImportData([]);
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                  style={{ marginBottom: 16 }}
+                />
+                
+                {importError && (
+                  <div style={{ padding: 12, background: '#ffebee', color: '#c62828', borderRadius: 6, marginBottom: 16 }}>
+                    ⚠️ {importError}
+                  </div>
+                )}
+                
+                {importData.length > 0 && (
+                  <>
+                    <div style={{ marginBottom: 12, fontSize: 13 }}>
+                      <strong>{importData.length}</strong> lignes détectées — 
+                      <span style={{ color: '#2e7d32' }}> {importData.filter(d => d.valid).length} valides</span> / 
+                      <span style={{ color: '#c62828' }}> {importData.filter(d => !d.valid).length} erreurs</span>
+                    </div>
+                    
+                    <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...styles.th, width: 40 }}>#</th>
+                            <th style={{ ...styles.th, width: 80 }}>Type</th>
+                            <th style={styles.th}>Bénéficiaire</th>
+                            <th style={styles.th}>Objet</th>
+                            <th style={{ ...styles.th, width: 70 }}>Ligne</th>
+                            <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>Montant</th>
+                            <th style={{ ...styles.th, width: 100 }}>Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importData.map(d => (
+                            <tr key={d.idx} style={{ background: d.valid ? 'transparent' : '#fff8f8' }}>
+                              <td style={styles.td}>{d.idx}</td>
+                              <td style={styles.td}>{d.type}</td>
+                              <td style={styles.td}>{d.beneficiaire}</td>
+                              <td style={{ ...styles.td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.objet}</td>
+                              <td style={styles.td}>{d.ligneBudgetaire}</td>
+                              <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(d.montant)}</td>
+                              <td style={styles.td}>
+                                {d.valid ? (
+                                  <span style={{ color: '#2e7d32', fontSize: 12 }}>✓ OK</span>
+                                ) : (
+                                  <span style={{ color: '#c62828', fontSize: 11 }}>⚠️ {d.error}</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>
+                        Annuler
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          const validOps = importData.filter(d => d.valid);
+                          if (validOps.length === 0) {
+                            alert('Aucun OP valide à importer');
+                            return;
+                          }
+                          
+                          if (!window.confirm(`Importer ${validOps.length} OP ?`)) return;
+                          
+                          try {
+                            for (const d of validOps) {
+                              // Trouver le bénéficiaire par NCC ou nom
+                              const ben = beneficiaires.find(b => 
+                                b.ncc === d.beneficiaire || 
+                                b.nom.toLowerCase().includes(d.beneficiaire.toLowerCase())
+                              );
+                              
+                              // Générer le numéro
+                              const sigleProjet = projet?.sigle || 'PROJET';
+                              const sigleSrc = sources.find(s => s.id === activeSource)?.sigle || 'SRC';
+                              const annee = exerciceActif?.annee || new Date().getFullYear();
+                              const existants = ops.filter(o => o.sourceId === (activeSource === 'ALL' ? sources[0]?.id : activeSource) && o.exerciceId === exerciceActif?.id);
+                              const nextNum = existants.length + 1;
+                              const numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSrc}/${annee}`;
+                              
+                              const opData = {
+                                numero,
+                                type: d.type,
+                                beneficiaireId: ben?.id || null,
+                                beneficiaireNom: ben?.nom || d.beneficiaire,
+                                objet: d.objet,
+                                ligneBudgetaire: d.ligneBudgetaire,
+                                montant: d.montant,
+                                dateCreation: d.dateCreation,
+                                statut: 'CREE',
+                                sourceId: activeSource === 'ALL' ? sources[0]?.id : activeSource,
+                                exerciceId: exerciceActif?.id,
+                                createdAt: new Date().toISOString(),
+                                importedAt: new Date().toISOString()
+                              };
+                              
+                              await addDoc(collection(db, 'ops'), opData);
+                            }
+                            
+                            alert(`✅ ${validOps.length} OP importés avec succès !`);
+                            setShowImportModal(false);
+                            setImportData([]);
+                          } catch (err) {
+                            alert('Erreur import : ' + err.message);
+                          }
+                        }}
+                        disabled={importData.filter(d => d.valid).length === 0}
+                        style={{ ...styles.button, background: importData.filter(d => d.valid).length === 0 ? '#ccc' : '#2e7d32' }}
+                      >
+                        ✓ Importer {importData.filter(d => d.valid).length} OP
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Détail OP */}
         {showDetail && (
