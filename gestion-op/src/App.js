@@ -3146,12 +3146,14 @@ export default function App() {
 
     // Si on vient de Liste OP avec un consultOpId
     React.useEffect(() => {
-      if (consultOpId) {
+      if (consultOpId && ops.length > 0) {
         const op = ops.find(o => o.id === consultOpId);
-        if (op) loadOpForConsult(op);
-        setConsultOpId(null);
+        if (op) {
+          loadOpForConsult(op);
+          setConsultOpId(null);
+        }
       }
-    }, [consultOpId]);
+    }, [consultOpId, ops]);
     
     // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité)
     const getBeneficiaireRibs = (ben) => {
