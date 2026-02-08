@@ -4276,30 +4276,78 @@ export default function App() {
                   🖨️ Imprimer
                 </button>
                     <button
-                      onClick={() => setIsEditMode(true)}
+                      onClick={() => {
+                        const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
+                        if (pwd === (projet?.motDePasseAdmin || 'admin123')) {
+                          setIsEditMode(true);
+                        } else if (pwd !== null) {
+                          alert('❌ Mot de passe incorrect');
+                        }
+                      }}
                       style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#f57f17' }}
                     >
                       ✏️ Modifier
                     </button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Voulez-vous rejeter l'OP ${consultedOp?.numero} ?`)) {
-                          const motif = window.prompt('Motif du rejet :');
-                          if (motif !== null) {
-                            updateDoc(doc(db, 'ops', consultedOp.id), { 
-                              statut: 'REJETE_CF', 
-                              motifRejet: motif,
-                              updatedAt: new Date().toISOString()
-                            });
-                            setOps(ops.map(o => o.id === consultedOp.id ? { ...o, statut: 'REJETE_CF', motifRejet: motif } : o));
-                            alert(`OP ${consultedOp.numero} rejeté.`);
-                            exitConsultMode();
-                          }
+                        const pwd = window.prompt('🔒 Mot de passe requis pour rejeter :');
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+                          if (pwd !== null) alert('❌ Mot de passe incorrect');
+                          return;
+                        }
+                        const motif = window.prompt('Motif du rejet :');
+                        if (motif !== null) {
+                          updateDoc(doc(db, 'ops', consultedOp.id), { 
+                            statut: 'REJETE_CF', 
+                            motifRejet: motif,
+                            updatedAt: new Date().toISOString()
+                          });
+                          setOps(ops.map(o => o.id === consultedOp.id ? { ...o, statut: 'REJETE_CF', motifRejet: motif } : o));
+                          alert(`OP ${consultedOp.numero} rejeté.`);
+                          exitConsultMode();
                         }
                       }}
                       style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#c62828' }}
                     >
                       ❌ Rejeter
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+                          if (pwd !== null) alert('❌ Mot de passe incorrect');
+                          return;
+                        }
+                        
+                        // Vérifier si la suppression impacte des OP suivants
+                        const opsSuivants = ops.filter(o => 
+                          o.sourceId === consultedOp.sourceId &&
+                          o.exerciceId === consultedOp.exerciceId &&
+                          o.ligneBudgetaire === consultedOp.ligneBudgetaire &&
+                          (o.createdAt || '') > (consultedOp.createdAt || '') &&
+                          o.id !== consultedOp.id
+                        );
+                        
+                        let confirmMsg = `Voulez-vous vraiment supprimer l'OP ${consultedOp.numero} ?`;
+                        if (opsSuivants.length > 0) {
+                          const numeros = opsSuivants.slice(0, 5).map(o => o.numero).join(', ');
+                          confirmMsg = `⚠️ ATTENTION : Cette suppression impactera le cumul des engagements des OP suivants sur la même ligne budgétaire :\n${numeros}${opsSuivants.length > 5 ? '...' : ''}\n\nVoulez-vous continuer ?`;
+                        }
+                        
+                        if (window.confirm(confirmMsg)) {
+                          try {
+                            await deleteDoc(doc(db, 'ops', consultedOp.id));
+                            setOps(ops.filter(o => o.id !== consultedOp.id));
+                            alert(`✅ OP ${consultedOp.numero} supprimé.`);
+                            exitConsultMode();
+                          } catch (error) {
+                            alert('Erreur : ' + error.message);
+                          }
+                        }
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#424242' }}
+                    >
+                      🗑️ Supprimer
                     </button>
                   </div>
                 </div>
@@ -4324,6 +4372,26 @@ export default function App() {
                         const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
                         const selectedRib = benRibs[form.ribIndex || 0];
                         
+                        const newMontant = parseFloat(form.montant) || consultedOp.montant;
+                        
+                        // Vérifier si la modification du montant impacte les OP suivants
+                        if (newMontant !== consultedOp.montant) {
+                          const opsSuivants = ops.filter(o => 
+                            o.sourceId === consultedOp.sourceId &&
+                            o.exerciceId === consultedOp.exerciceId &&
+                            o.ligneBudgetaire === consultedOp.ligneBudgetaire &&
+                            (o.createdAt || '') > (consultedOp.createdAt || '') &&
+                            o.id !== consultedOp.id
+                          );
+                          
+                          if (opsSuivants.length > 0) {
+                            const numeros = opsSuivants.slice(0, 5).map(o => o.numero).join(', ');
+                            const diff = newMontant - consultedOp.montant;
+                            const confirmMsg = `⚠️ ATTENTION : Cette modification de montant (${diff > 0 ? '+' : ''}${formatMontant(diff)} F) impactera le cumul des engagements des OP suivants sur la même ligne budgétaire :\n${numeros}${opsSuivants.length > 5 ? '...' : ''}\n\nVoulez-vous continuer ?`;
+                            if (!window.confirm(confirmMsg)) return;
+                          }
+                        }
+                        
                         const updates = {
                           type: form.type,
                           beneficiaireId: form.beneficiaireId,
@@ -4332,7 +4400,7 @@ export default function App() {
                           banque: form.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '',
                           objet: form.objet,
                           piecesJustificatives: form.piecesJustificatives,
-                          montant: parseFloat(form.montant) || consultedOp.montant,
+                          montant: newMontant,
                           ligneBudgetaire: form.ligneBudgetaire,
                           tvaRecuperable: form.tvaRecuperable || false,
                           montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
@@ -4404,16 +4472,16 @@ export default function App() {
               <div style={{ padding: 20 }}>
                 <input
                   type="text"
-                  placeholder="Rechercher par N° OP, bénéficiaire, objet ou montant..."
+                  placeholder="Tapez le N° OP, bénéficiaire, objet ou montant..."
                   value={consultSearch}
                   onChange={e => setConsultSearch(e.target.value)}
                   style={{ ...styles.input, marginBottom: 12, fontSize: 14 }}
                   autoFocus
                 />
+                {consultSearch.trim().length >= 2 ? (
                 <div style={{ maxHeight: 400, overflowY: 'auto' }}>
                   {ops
                     .filter(op => {
-                      if (!consultSearch) return true;
                       const term = consultSearch.toLowerCase();
                       const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
                       return (
@@ -4424,14 +4492,14 @@ export default function App() {
                       );
                     })
                     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-                    .slice(0, 50)
+                    .slice(0, 20)
                     .map(op => {
                       const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
                       const src = sources.find(s => s.id === op.sourceId);
                       return (
                         <div
                           key={op.id}
-                          onClick={() => { loadOpForConsult(op); setShowConsultModal(false); }}
+                          onClick={() => { loadOpForConsult(op); setShowConsultModal(false); setConsultSearch(''); }}
                           style={{
                             padding: '12px 16px',
                             borderBottom: '1px solid #f0f0f0',
@@ -4459,10 +4527,19 @@ export default function App() {
                       );
                     })
                   }
-                  {ops.length === 0 && (
-                    <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>Aucun OP créé</div>
+                  {ops.filter(op => {
+                    const term = consultSearch.toLowerCase();
+                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                    return (op.numero || '').toLowerCase().includes(term) || (ben?.nom || '').toLowerCase().includes(term) || (op.objet || '').toLowerCase().includes(term);
+                  }).length === 0 && (
+                    <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>Aucun OP trouvé</div>
                   )}
                 </div>
+                ) : (
+                  <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>
+                    Saisissez au moins 2 caractères pour rechercher
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -4471,72 +4548,30 @@ export default function App() {
         {/* Modal Dupliquer un OP */}
         {showDuplicateModal && (
           <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+            <div style={{ ...styles.modalContent, maxWidth: 500 }}>
               <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff3e0' }}>
-                <h2 style={{ margin: 0, fontSize: 18, color: '#e65100' }}>📋 Dupliquer un OP Provisoire</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: 18, color: '#e65100' }}>📋 Dupliquer un OP Provisoire</h2>
+                  <button onClick={() => setShowDuplicateModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
+                </div>
               </div>
               <div style={{ padding: 24 }}>
-                <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
-                  <strong>Ce qui sera copié :</strong> Bénéficiaire, Mode de règlement, Objet, Pièces justificatives, Ligne budgétaire<br/>
-                  <strong style={{ color: '#e65100' }}>Ce qui ne sera PAS copié :</strong> Montant, TVA (à saisir manuellement)
-                </div>
-                
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Rechercher un OP Provisoire</label>
-                  <Autocomplete
-                    options={opsPourDuplication.map(op => {
-                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                      return {
-                        value: op.id,
-                        label: `${op.numero} - ${ben?.nom || 'N/A'}`,
-                        searchFields: [op.numero, ben?.nom || '', op.objet || '']
-                      };
-                    })}
-                    value={null}
-                    onChange={(option) => option && handleDuplicate(option.value)}
-                    placeholder="🔍 Rechercher par N°, bénéficiaire, objet..."
-                    noOptionsMessage="Aucun OP Provisoire trouvé"
-                    accentColor="#e65100"
-                  />
-                </div>
-
-                {opsPourDuplication.length > 0 && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Ou sélectionner dans les derniers OP Provisoires</label>
-                    <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e9ecef', borderRadius: 8 }}>
-                      <table style={styles.table}>
-                        <thead>
-                          <tr>
-                            <th style={{ ...styles.th, fontSize: 11 }}>N° OP</th>
-                            <th style={{ ...styles.th, fontSize: 11 }}>BÉNÉFICIAIRE</th>
-                            <th style={{ ...styles.th, fontSize: 11 }}>OBJET</th>
-                            <th style={{ ...styles.th, fontSize: 11 }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {opsPourDuplication.slice(0, 10).map(op => {
-                            const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                            return (
-                              <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => handleDuplicate(op.id)}>
-                                <td style={{ ...styles.td, fontSize: 12, fontFamily: 'monospace' }}>{op.numero}</td>
-                                <td style={{ ...styles.td, fontSize: 12 }}>{ben?.nom || 'N/A'}</td>
-                                <td style={{ ...styles.td, fontSize: 11, color: '#6c757d', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
-                                <td style={{ ...styles.td, textAlign: 'center' }}>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); handleDuplicate(op.id); }}
-                                    style={{ ...styles.button, padding: '4px 12px', fontSize: 11, background: '#e65100' }}
-                                  >
-                                    Dupliquer
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Rechercher un OP Provisoire à dupliquer</label>
+                <Autocomplete
+                  options={opsPourDuplication.map(op => {
+                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                    return {
+                      value: op.id,
+                      label: `${op.numero} - ${ben?.nom || 'N/A'}`,
+                      searchFields: [op.numero, ben?.nom || '', op.objet || '']
+                    };
+                  })}
+                  value={null}
+                  onChange={(option) => option && handleDuplicate(option.value)}
+                  placeholder="🔍 Rechercher par N°, bénéficiaire, objet..."
+                  noOptionsMessage="Aucun OP Provisoire trouvé"
+                  accentColor="#e65100"
+                />
 
                 {opsPourDuplication.length === 0 && (
                   <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
@@ -4544,9 +4579,6 @@ export default function App() {
                     <p>Aucun OP Provisoire créé pour cette source et cet exercice.</p>
                   </div>
                 )}
-              </div>
-              <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => setShowDuplicateModal(false)} style={styles.buttonSecondary}>Fermer</button>
               </div>
             </div>
           </div>
@@ -4810,6 +4842,86 @@ export default function App() {
       pw.document.close();
     };
 
+    // Supprimer un bordereau (seulement si statut ENVOYE)
+    const handleDeleteBordereau = async (bt) => {
+      if (bt.statut !== 'ENVOYE') {
+        alert('❌ Impossible de supprimer un bordereau déjà réceptionné ou traité.');
+        return;
+      }
+      
+      const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+        if (pwd !== null) alert('❌ Mot de passe incorrect');
+        return;
+      }
+      
+      if (!window.confirm(`Supprimer le bordereau ${bt.numero} ?\n\nLes ${bt.nbOps} OP concernés reviendront au statut précédent.`)) return;
+      
+      try {
+        // Remettre les OP au statut précédent
+        const previousStatut = bt.type === 'CF' ? 'CREE' : 'VISE_CF';
+        const dateField = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+        const btField = bt.type === 'CF' ? 'bordereauCF' : 'bordereauAC';
+        
+        for (const opId of bt.opsIds) {
+          await updateDoc(doc(db, 'ops', opId), {
+            statut: previousStatut,
+            [dateField]: null,
+            [btField]: null,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        // Supprimer le bordereau
+        await deleteDoc(doc(db, 'bordereaux', bt.id));
+        alert(`✅ Bordereau ${bt.numero} supprimé. Les OP sont revenus au statut ${previousStatut}.`);
+      } catch (error) {
+        alert('Erreur : ' + error.message);
+      }
+    };
+
+    // Modifier la date d'un bordereau (seulement si statut ENVOYE)
+    const handleModifyBordereauDate = async (bt) => {
+      if (bt.statut !== 'ENVOYE') {
+        alert('❌ Impossible de modifier un bordereau déjà réceptionné ou traité.');
+        return;
+      }
+      
+      const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+        if (pwd !== null) alert('❌ Mot de passe incorrect');
+        return;
+      }
+      
+      const newDate = window.prompt('Nouvelle date de transmission (AAAA-MM-JJ) :', bt.dateCreation);
+      if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+        if (newDate !== null) alert('Format de date invalide. Utilisez AAAA-MM-JJ.');
+        return;
+      }
+      
+      try {
+        const dateField = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+        
+        // Mettre à jour le bordereau
+        await updateDoc(doc(db, 'bordereaux', bt.id), {
+          dateCreation: newDate,
+          updatedAt: new Date().toISOString()
+        });
+        
+        // Mettre à jour la date sur tous les OP
+        for (const opId of bt.opsIds) {
+          await updateDoc(doc(db, 'ops', opId), {
+            [dateField]: newDate,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        alert(`✅ Date du bordereau modifiée au ${newDate}.`);
+      } catch (error) {
+        alert('Erreur : ' + error.message);
+      }
+    };
+
     // Bordereaux filtrés par type
     const bordereauCF = bordereaux.filter(bt => bt.type === 'CF' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActifLocal?.id);
     const bordereauAC = bordereaux.filter(bt => bt.type === 'AC' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActifLocal?.id);
@@ -4943,7 +5055,7 @@ export default function App() {
                     <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>TOTAL</th>
                     <th style={styles.th}>OBSERVATIONS</th>
                     <th style={{ ...styles.th, width: 100 }}>STATUT</th>
-                    <th style={{ ...styles.th, width: 80, textAlign: 'center' }}>ACTIONS</th>
+                    <th style={{ ...styles.th, width: 120, textAlign: 'center' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4962,10 +5074,24 @@ export default function App() {
                           <span style={{ background: statutBT.bg, color: statutBT.color, padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{statutBT.label}</span>
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
-                          <button onClick={() => handlePrintBordereau(bt)} title="Imprimer"
-                            style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 14 }}>
-                            🖨️
-                          </button>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                            <button onClick={() => handlePrintBordereau(bt)} title="Imprimer"
+                              style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                              🖨️
+                            </button>
+                            {bt.statut === 'ENVOYE' && (
+                              <>
+                                <button onClick={() => handleModifyBordereauDate(bt)} title="Modifier la date"
+                                  style={{ background: '#fff3e0', color: '#e65100', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                                  ✏️
+                                </button>
+                                <button onClick={() => handleDeleteBordereau(bt)} title="Supprimer"
+                                  style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                                  🗑️
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -8005,6 +8131,17 @@ export default function App() {
 
   return (
     <div style={styles.container}>
+      {/* Style global pour cacher les spinners des inputs numériques */}
+      <style>{`
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
       <Sidebar />
       <main style={styles.main}>
         {currentPage === 'dashboard' && <PageDashboard />}
