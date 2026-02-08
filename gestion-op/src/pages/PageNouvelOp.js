@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
+import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
