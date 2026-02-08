@@ -286,14 +286,10 @@ const styles = {
 
 // ==================== UTILITAIRES ====================
 const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
-
-// Parser un montant formaté (enlève les espaces et remplace la virgule par un point)
 const parseMontant = (str) => {
   if (!str) return '';
   return String(str).replace(/\s/g, '').replace(/,/g, '.');
 };
-
-// Formater un montant pour l'affichage dans un input (avec séparateurs)
 const formatMontantInput = (value) => {
   const num = parseFloat(parseMontant(value));
   if (isNaN(num)) return '';
@@ -405,6 +401,8 @@ export default function App() {
     const saved = localStorage.getItem('gestion-op-activeBudgetSource');
     return saved || null;
   });
+  const [consultOpId, setConsultOpId] = useState(null); // ID de l'OP à consulter depuis Liste OP
+  const [consultOpData, setConsultOpData] = useState(null); // Données de l'OP à consulter
 
   // Wrappers pour sauvegarder dans localStorage
   const setCurrentPage = (page) => {
@@ -432,6 +430,7 @@ export default function App() {
   const [beneficiaires, setBeneficiaires] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [ops, setOps] = useState([]);
+  const [bordereaux, setBordereaux] = useState([]);
   
   // Loading
   const [loading, setLoading] = useState(true);
@@ -478,6 +477,9 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
+    let unsubOps = null;
+    let unsubBordereaux = null;
+
     const loadData = async () => {
       setLoading(true);
       try {
@@ -509,9 +511,18 @@ export default function App() {
         const budgetsSnap = await getDocs(collection(db, 'budgets'));
         setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-        // Charger les OPs
-        const opsSnap = await getDocs(query(collection(db, 'ops'), orderBy('numero', 'desc')));
-        setOps(opsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // Charger les OPs (temps réel avec onSnapshot)
+        // Le listener est stocké pour cleanup
+        const opsQuery = query(collection(db, 'ops'), orderBy('numero', 'desc'));
+        unsubOps = onSnapshot(opsQuery, (snapshot) => {
+          setOps(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        // Charger les bordereaux (temps réel)
+        const btQuery = query(collection(db, 'bordereaux'), orderBy('createdAt', 'desc'));
+        unsubBordereaux = onSnapshot(btQuery, (snapshot) => {
+          setBordereaux(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
 
       } catch (error) {
         console.error('Erreur chargement données:', error);
@@ -520,6 +531,11 @@ export default function App() {
     };
 
     loadData();
+    
+    return () => {
+      if (unsubOps) unsubOps();
+      if (unsubBordereaux) unsubBordereaux();
+    };
   }, [user]);
 
   // Obtenir l'exercice actif
@@ -558,8 +574,10 @@ export default function App() {
         <NavItem id="dashboard" icon="📊" label="Tableau de bord" />
         
         <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>OPÉRATIONS</div>
-        <NavItem id="ops" icon="📋" label="Liste des OP" />
         <NavItem id="nouvelOp" icon="➕" label="Nouvel OP" />
+        <NavItem id="consulterOp" icon="🔍" label="Consulter OP" />
+        <NavItem id="ops" icon="📋" label="Liste des OP" />
+        <NavItem id="bordereaux" icon="📨" label="Bordereaux" />
         <NavItem id="suivi" icon="🔄" label="Suivi Circuit" />
         
         <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>GESTION</div>
@@ -3073,7 +3091,7 @@ export default function App() {
   };
 
   // ==================== PAGE NOUVEL OP ====================
-  const PageNouvelOp = () => {
+  const PageNouvelOp = ({ consultOpData, setConsultOpData }) => {
     const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
     const [form, setForm] = useState({
       type: 'PROVISOIRE',
@@ -3091,16 +3109,32 @@ export default function App() {
     });
     const [saving, setSaving] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-    
-    // States pour le mode consultation
-    const [isConsultMode, setIsConsultMode] = useState(false);
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [consultedOp, setConsultedOp] = useState(null);
-    const [showConsultModal, setShowConsultModal] = useState(false);
-    const [consultSearch, setConsultSearch] = useState('');
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
     const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
+
+    // Charger les données de duplication si disponibles
+    useEffect(() => {
+      if (window.duplicateOpData) {
+        const data = window.duplicateOpData;
+        setForm({
+          type: data.type || 'PROVISOIRE',
+          beneficiaireId: data.beneficiaireId || '',
+          ribIndex: 0,
+          modeReglement: data.modeReglement || 'VIREMENT',
+          objet: data.objet || '',
+          piecesJustificatives: data.piecesJustificatives || '',
+          montant: '',
+          ligneBudgetaire: data.ligneBudgetaire || '',
+          montantTVA: '',
+          tvaRecuperable: data.tvaRecuperable || false,
+          opProvisoireNumero: '',
+          opProvisoireId: ''
+        });
+        if (data.sourceId) setActiveSource(data.sourceId);
+        window.duplicateOpData = null;
+      }
+    }, []);
     
     // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité)
     const getBeneficiaireRibs = (ben) => {
@@ -3141,10 +3175,6 @@ export default function App() {
         opProvisoireId: ''
       });
       
-      // Quitter le mode consultation pour passer en mode création
-      setIsConsultMode(false);
-      setIsEditMode(false);
-      setConsultedOp(null);
       setShowDuplicateModal(false);
     };
     
@@ -3173,7 +3203,7 @@ export default function App() {
     };
 
     const getEngagementActuel = () => {
-      const montant = parseFloat(parseMontant(form.montant)) || 0;
+      const montant = parseFloat(form.montant) || 0;
       // Le montant est utilisé tel quel (négatif pour annulation, positif pour les autres)
       // Pour Définitif : remplace le provisoire, donc pas d'impact supplémentaire si même montant
       if (form.type === 'DEFINITIF' && form.opProvisoireId) {
@@ -3248,44 +3278,6 @@ export default function App() {
       });
     };
 
-    // Charger un OP en mode consultation
-    const loadOpForConsult = (op) => {
-      if (!op) return;
-      setConsultedOp(op);
-      setIsConsultMode(true);
-      setShowConsultModal(false);
-      setConsultSearch('');
-      // Changer la source active
-      if (op.sourceId) setActiveSource(op.sourceId);
-      // Trouver l'index du RIB
-      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-      const ribs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
-      const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
-      // Remplir le formulaire avec montants formatés
-      setForm({
-        type: op.type || 'PROVISOIRE',
-        beneficiaireId: op.beneficiaireId || '',
-        ribIndex: ribIndex >= 0 ? ribIndex : 0,
-        modeReglement: op.modeReglement || 'VIREMENT',
-        objet: op.objet || '',
-        piecesJustificatives: op.piecesJustificatives || '',
-        montant: op.montant ? formatMontantInput(op.montant) : '',
-        ligneBudgetaire: op.ligneBudgetaire || '',
-        montantTVA: op.montantTVA ? formatMontantInput(op.montantTVA) : '',
-        tvaRecuperable: op.tvaRecuperable || false,
-        opProvisoireNumero: op.opProvisoireNumero || '',
-        opProvisoireId: op.opProvisoireId || ''
-      });
-    };
-
-    // Quitter le mode consultation
-    const exitConsultMode = () => {
-      setIsConsultMode(false);
-      setIsEditMode(false);
-      setConsultedOp(null);
-      handleClear();
-    };
-
     // Validation et sauvegarde
     const handleSave = async () => {
       // Validations
@@ -3313,7 +3305,7 @@ export default function App() {
         alert('Veuillez saisir l\'objet de la dépense');
         return;
       }
-      if (!form.montant || parseFloat(parseMontant(form.montant)) === 0) {
+      if (!form.montant || parseFloat(form.montant) === 0) {
         alert('Veuillez saisir un montant valide (différent de zéro)');
         return;
       }
@@ -3330,7 +3322,33 @@ export default function App() {
 
       setSaving(true);
       try {
-        const numero = genererNumero();
+        const sigleProjet = projet?.sigle || 'PROJET';
+        const sigleSource = currentSourceObj?.sigle || 'OP';
+        const annee = exerciceActif?.annee || new Date().getFullYear();
+        
+        // Récupérer TOUS les OP de cette source/exercice depuis Firebase (pas le state local)
+        const allOpsSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('sourceId', '==', activeSource),
+          where('exerciceId', '==', exerciceActif.id)
+        ));
+        const allNumerosExistants = allOpsSnap.docs.map(d => d.data().numero);
+        
+        // Trouver le prochain numéro VRAIMENT disponible
+        let nextNum = allOpsSnap.size + 1;
+        let numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+        let tentatives = 0;
+        while (allNumerosExistants.includes(numero) && tentatives < 50) {
+          nextNum++;
+          numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+          tentatives++;
+        }
+        
+        const numeroInitial = genererNumero();
+        if (numero !== numeroInitial) {
+          alert(`⚠️ Le numéro ${numeroInitial} a déjà été utilisé par un autre utilisateur.\n\nVotre OP prendra le numéro : ${numero}`);
+        }
+        
         const opData = {
           numero,
           type: form.type,
@@ -3342,8 +3360,8 @@ export default function App() {
           ligneBudgetaire: form.ligneBudgetaire,
           objet: form.objet.trim(),
           piecesJustificatives: form.piecesJustificatives.trim(),
-          montant: parseFloat(parseMontant(form.montant)),
-          montantTVA: form.montantTVA ? parseFloat(parseMontant(form.montantTVA)) : null,
+          montant: parseFloat(form.montant),
+          montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
           tvaRecuperable: form.tvaRecuperable,
           statut: 'CREE',
           opProvisoireId: form.opProvisoireId || null,
@@ -3354,6 +3372,31 @@ export default function App() {
         };
 
         const docRef = await addDoc(collection(db, 'ops'), opData);
+        
+        // Re-vérification après écriture : détecter si un doublon a été créé au même instant
+        const doublonSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('numero', '==', numero)
+        ));
+        if (doublonSnap.size > 1) {
+          // Doublon détecté ! Corriger en prenant le numéro suivant
+          const allOpsSnap2 = await getDocs(query(
+            collection(db, 'ops'),
+            where('sourceId', '==', activeSource),
+            where('exerciceId', '==', exerciceActif.id)
+          ));
+          const allNums2 = allOpsSnap2.docs.map(d => d.data().numero);
+          let fixNum = allOpsSnap2.size + 1;
+          let fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+          while (allNums2.includes(fixNumero)) {
+            fixNum++;
+            fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+          }
+          await updateDoc(doc(db, 'ops', docRef.id), { numero: fixNumero, updatedAt: new Date().toISOString() });
+          opData.numero = fixNumero;
+          alert(`⚠️ Doublon détecté et corrigé automatiquement.\n\nNouveau numéro attribué : ${fixNumero}`);
+        }
+        
         setOps([...ops, { id: docRef.id, ...opData }]);
 
         alert(`✅ OP ${numero} créé avec succès !`);
@@ -3411,51 +3454,30 @@ export default function App() {
         ) : (
           <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
             <div style={{ padding: 24 }}>
-              {/* Ligne 1 : N°OP + Boutons Consulter/Effacer */}
+              {/* Ligne 1 : N°OP + Boutons Dupliquer/Effacer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
                 <div style={{ width: 250 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>
-                    {isEditMode ? 'N° OP (modification)' : isConsultMode ? 'N° OP (consultation)' : 'N° OP'}
-                  </label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N° OP</label>
                   <input 
                     type="text" 
-                    value={isConsultMode ? (consultedOp?.numero || '') : genererNumero()} 
+                    value={genererNumero()} 
                     readOnly 
-                    style={{ 
-                      ...styles.input, 
-                      marginBottom: 0, 
-                      background: isEditMode ? '#fff3e0' : isConsultMode ? '#e8f5e9' : '#f8f9fa', 
-                      fontWeight: 700, 
-                      fontFamily: 'monospace', 
-                      fontSize: 16,
-                      border: isEditMode ? '2px solid #f57f17' : isConsultMode ? '2px solid #4caf50' : undefined
-                    }} 
+                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16 }} 
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  {(isConsultMode || isEditMode) ? (
-                    <button 
-                      onClick={exitConsultMode} 
-                      style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#ffebee', color: '#c62828' }}
-                    >
-                      ✕ Quitter {isEditMode ? 'modification' : 'consultation'}
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => { setConsultSearch(''); setShowConsultModal(true); }} 
-                      style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#e3f2fd', color: '#1565c0' }}
-                    >
-                      🔍 Consulter un OP
-                    </button>
-                  )}
-                  <button onClick={() => { exitConsultMode(); handleClear(); }} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
+                  <button 
+                    onClick={() => setShowDuplicateModal(true)} 
+                    style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
+                  >
+                    📋 Dupliquer un OP
+                  </button>
+                  <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
                     EFFACER
                   </button>
                 </div>
               </div>
 
-              {/* Zone formulaire - désactivée en mode consultation (sauf édition) */}
-              <div style={(isConsultMode && !isEditMode) ? { pointerEvents: 'none', opacity: 0.85 } : {}}>
               {/* Ligne 2 : Type d'OP en boutons compacts */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>TYPE D'OP *</label>
@@ -3605,20 +3627,9 @@ export default function App() {
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) *</label>
                   <input 
-                    type="text" 
+                    type="number" 
                     value={form.montant} 
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^\d\s,.-]/g, '');
-                      setForm({ ...form, montant: val });
-                    }}
-                    onBlur={(e) => {
-                      const formatted = formatMontantInput(e.target.value);
-                      if (formatted) setForm({ ...form, montant: formatted });
-                    }}
-                    onFocus={(e) => {
-                      const raw = parseMontant(e.target.value);
-                      setForm({ ...form, montant: raw });
-                    }}
+                    onChange={(e) => setForm({ ...form, montant: e.target.value })}
                     style={{ ...styles.input, marginBottom: 0, background: '#fff0f0', fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} 
                     placeholder="0"
                     disabled={form.type === 'ANNULATION' && form.opProvisoireId}
@@ -3724,20 +3735,9 @@ export default function App() {
                         <div>
                           <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT TVA</label>
                           <input 
-                            type="text" 
+                            type="number" 
                             value={form.montantTVA} 
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/[^\d\s,.-]/g, '');
-                              setForm({ ...form, montantTVA: val });
-                            }}
-                            onBlur={(e) => {
-                              const formatted = formatMontantInput(e.target.value);
-                              if (formatted) setForm({ ...form, montantTVA: formatted });
-                            }}
-                            onFocus={(e) => {
-                              const raw = parseMontant(e.target.value);
-                              setForm({ ...form, montantTVA: raw });
-                            }}
+                            onChange={(e) => setForm({ ...form, montantTVA: e.target.value })}
                             style={{ ...styles.input, marginBottom: 0, fontFamily: 'monospace', textAlign: 'right' }} 
                             placeholder="0"
                           />
@@ -3796,517 +3796,13 @@ export default function App() {
                 </div>
               )}
 
-              </div> {/* Fin zone formulaire protégée */}
-
-              {/* Barre d'actions en mode CONSULTATION */}
-              {(isConsultMode && !isEditMode) ? (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #4caf50' }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <span style={{ padding: '10px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
-                      🔍 Mode consultation — {consultedOp?.numero}
-                    </span>
-                    {/* Flèches de navigation */}
-                    <button
-                      onClick={() => {
-                        const opsSource = ops.filter(o => o.sourceId === activeSource && o.exerciceId === exerciceActif?.id)
-                          .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
-                        if (opsSource.length === 0) return;
-                        const currentIdx = consultedOp ? opsSource.findIndex(o => o.id === consultedOp.id) : -1;
-                        const prevIdx = currentIdx > 0 ? currentIdx - 1 : opsSource.length - 1;
-                        loadOpForConsult(opsSource[prevIdx]);
-                      }}
-                      style={{ ...styles.buttonSecondary, padding: '10px 14px', fontSize: 16 }}
-                      title="OP précédent"
-                    >
-                      ◀
-                    </button>
-                    <button
-                      onClick={() => {
-                        const opsSource = ops.filter(o => o.sourceId === activeSource && o.exerciceId === exerciceActif?.id)
-                          .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
-                        if (opsSource.length === 0) return;
-                        const currentIdx = consultedOp ? opsSource.findIndex(o => o.id === consultedOp.id) : -1;
-                        const nextIdx = currentIdx < opsSource.length - 1 ? currentIdx + 1 : 0;
-                        loadOpForConsult(opsSource[nextIdx]);
-                      }}
-                      style={{ ...styles.buttonSecondary, padding: '10px 14px', fontSize: 16 }}
-                      title="OP suivant"
-                    >
-                      ▶
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button
-                      onClick={() => {
-                        // Imprimer l'OP consulté
-                        const ben = beneficiaires.find(b => b.id === consultedOp.beneficiaireId);
-                        const src = sources.find(s => s.id === consultedOp.sourceId);
-                        const ex = exercices.find(e => e.id === consultedOp.exerciceId);
-                        const bud = budgets.find(b => b.sourceId === consultedOp.sourceId && b.exerciceId === consultedOp.exerciceId);
-                        const ligne = bud?.lignes?.find(l => l.code === consultedOp.ligneBudgetaire);
-                        // Code impression simplifié
-                        alert('Fonction impression à implémenter');
-                      }}
-                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#1565c0' }}
-                    >
-                      🖨️ Imprimer
-                    </button>
-                    <button
-                      onClick={() => {
-                        const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
-                        if (pwd === (projet?.motDePasseAdmin || 'admin')) {
-                          setIsEditMode(true);
-                        } else if (pwd !== null) {
-                          alert('❌ Mot de passe incorrect');
-                        }
-                      }}
-                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#f57f17' }}
-                    >
-                      ✏️ Modifier
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const pwd = window.prompt('🔒 Mot de passe requis pour rejeter :');
-                        if (pwd === (projet?.motDePasseAdmin || 'admin')) {
-                          const motif = window.prompt('Motif du rejet :');
-                          if (motif) {
-                            await updateDoc(doc(db, 'ops', consultedOp.id), { 
-                              statut: 'REJETE_CF', 
-                              motifRejet: motif,
-                              updatedAt: new Date().toISOString()
-                            });
-                            const updatedOp = { ...consultedOp, statut: 'REJETE_CF', motifRejet: motif };
-                            setOps(ops.map(o => o.id === consultedOp.id ? updatedOp : o));
-                            setConsultedOp(updatedOp);
-                            alert(`OP ${consultedOp.numero} rejeté.`);
-                          }
-                        } else if (pwd !== null) {
-                          alert('❌ Mot de passe incorrect');
-                        }
-                      }}
-                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#c62828' }}
-                    >
-                      ❌ Rejeter
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
-                        if (pwd !== (projet?.motDePasseAdmin || 'admin')) {
-                          if (pwd !== null) alert('❌ Mot de passe incorrect');
-                          return;
-                        }
-                        if (window.confirm(`Voulez-vous vraiment supprimer l'OP ${consultedOp.numero} ?`)) {
-                          try {
-                            await deleteDoc(doc(db, 'ops', consultedOp.id));
-                            setOps(ops.filter(o => o.id !== consultedOp.id));
-                            alert(`✅ OP ${consultedOp.numero} supprimé.`);
-                            exitConsultMode();
-                          } catch (error) {
-                            alert('Erreur : ' + error.message);
-                          }
-                        }
-                      }}
-                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#424242' }}
-                    >
-                      🗑️ Supprimer
-                    </button>
-                    <button
-                      onClick={() => {
-                        // Dupliquer l'OP actuel
-                        if (consultedOp) {
-                          handleDuplicate(consultedOp.id);
-                        }
-                      }}
-                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#e65100' }}
-                    >
-                      📋 Dupliquer
-                    </button>
-                  </div>
-                </div>
-              ) : isEditMode ? (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #f57f17' }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <span style={{ padding: '10px 16px', background: '#fff3e0', color: '#e65100', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
-                      ✏️ Modification — {consultedOp?.numero}
-                    </span>
-                    <button
-                      onClick={() => setIsEditMode(false)}
-                      style={{ ...styles.buttonSecondary, padding: '10px 16px', fontSize: 12 }}
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (!consultedOp?.id) return;
-                        const updates = {
-                          type: form.type,
-                          beneficiaireId: form.beneficiaireId,
-                          modeReglement: form.modeReglement,
-                          rib: beneficiaireRibs[form.ribIndex]?.numero || '',
-                          banque: beneficiaireRibs[form.ribIndex]?.banque || '',
-                          objet: form.objet,
-                          piecesJustificatives: form.piecesJustificatives,
-                          montant: parseFloat(parseMontant(form.montant)) || 0,
-                          ligneBudgetaire: form.ligneBudgetaire,
-                          tvaRecuperable: form.tvaRecuperable || false,
-                          montantTVA: form.tvaRecuperable ? (parseFloat(parseMontant(form.montantTVA)) || 0) : 0,
-                          updatedAt: new Date().toISOString()
-                        };
-                        
-                        await updateDoc(doc(db, 'ops', consultedOp.id), updates);
-                        const updatedOp = { ...consultedOp, ...updates };
-                        setOps(ops.map(o => o.id === consultedOp.id ? updatedOp : o));
-                        setConsultedOp(updatedOp);
-                        setForm({
-                          ...form,
-                          montant: formatMontantInput(updates.montant),
-                          montantTVA: updates.montantTVA ? formatMontantInput(updates.montantTVA) : ''
-                        });
-                        setIsEditMode(false);
-                        alert(`✅ OP ${consultedOp.numero} modifié avec succès !`);
-                      } catch (error) {
-                        alert('Erreur : ' + error.message);
-                      }
-                    }}
-                    style={{ ...styles.button, padding: '14px 40px', fontSize: 16, background: '#f57f17' }}
-                  >
-                    💾 ENREGISTRER LES MODIFICATIONS
-                  </button>
-                </div>
-              ) : (
+              {/* Boutons Imprimer et Enregistrer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
                 <button
                   type="button"
                   onClick={() => {
-                    const selectedRib = beneficiaireRibs[form.ribIndex] || {};
-                    const engagementActuel = parseFloat(parseMontant(form.montant)) || 0;
-                    const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
-                    const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
-                    const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
-                    const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
-                    
-                    const printContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>OP ${genererNumero()}</title>
-  <style>
-    @page { size: A4; margin: 8mm; }
-    @media print {
-      html, body { height: 100%; margin: 0; padding: 0; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { 
-      font-family: 'Century Gothic', 'Trebuchet MS', 'Segoe UI', Arial, sans-serif; 
-      font-size: 11px; 
-      line-height: 1.4;
-      color: #000;
-      background: #fff;
-    }
-    .page { 
-      border: 2px solid #000;
-      max-width: 210mm;
-      margin: 0 auto;
-    }
-    
-    /* === EN-TÊTE === */
-    .header {
-      display: flex;
-      border-bottom: 1px solid #000;
-    }
-    .header-logo {
-      width: 17%;
-      padding: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-right: 1px solid #000;
-    }
-    .header-logo img { max-height: 75px; max-width: 100%; }
-    .header-center {
-      flex: 1;
-      padding: 5px 8px;
-      text-align: center;
-      border-right: 1px solid #000;
-    }
-    .header-center div { margin: 1px 0; }
-    .header-right {
-      width: 17%;
-      padding: 8px;
-      font-size: 10px;
-      text-align: right;
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
-    }
-    
-    /* === TITRE OP === */
-    .title-section {
-      text-align: center;
-      padding: 6px;
-      border-bottom: 1px solid #000;
-    }
-    
-    /* === LIGNE EXERCICE === */
-    .exercice-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 5px 10px;
-      border-bottom: 1px solid #000;
-    }
-    .type-red { color: #cc0000; font-weight: bold; }
-    
-    /* === ZONE CONTENU - PAS DE BORDURES INTERNES === */
-    .content {
-      padding: 8px 10px;
-    }
-    .content .line { margin: 5px 0; }
-    .content .line-space { margin: 12px 0; }
-    .bold { font-weight: bold; }
-    .underline { text-decoration: underline; }
-    .small { font-size: 10px; }
-    
-    /* Cases à cocher */
-    .check-row {
-      display: flex;
-      align-items: center;
-      margin: 6px 0;
-    }
-    .check-label { min-width: 270px; }
-    .check-opts { display: flex; gap: 40px; }
-    .check-item { display: flex; align-items: center; gap: 5px; }
-    .box { 
-      width: 20px; height: 14px; 
-      border: 1px solid #000; 
-      display: inline-flex; 
-      align-items: center; 
-      justify-content: center;
-      font-size: 10px;
-    }
-    
-    /* Montant */
-    .montant-row {
-      display: flex;
-      align-items: center;
-      margin: 10px 0;
-    }
-    .montant-box {
-      border: 1px solid #000;
-      padding: 2px 15px;
-      font-weight: bold;
-      text-decoration: underline;
-    }
-    
-    /* === TABLEAU BUDGETAIRE === */
-    .budget-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    .budget-table td {
-      border: 1px solid #000;
-      padding: 3px 6px;
-    }
-    .budget-table .col-a { width: 25px; text-align: center; font-weight: bold; }
-    .budget-table .col-c { width: 140px; text-align: right; }
-    
-    /* === SIGNATURES === */
-    .signatures {
-      display: flex;
-      border-top: 1px solid #000;
-    }
-    .sig-col {
-      flex: 1;
-      min-height: 100px;
-      border-right: 1px solid #000;
-      display: flex;
-      flex-direction: column;
-    }
-    .sig-col:last-child { border-right: none; }
-    .sig-header {
-      text-align: center;
-      font-weight: bold;
-      font-size: 10px;
-      padding: 5px;
-      border-bottom: 1px solid #000;
-    }
-    .sig-body {
-      flex: 1;
-      position: relative;
-      min-height: 80px;
-    }
-    .sig-name {
-      position: absolute;
-      bottom: 5px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-weight: bold;
-      text-decoration: underline;
-      font-size: 10px;
-    }
-    
-    /* === LIGNE ABIDJAN === */
-    .abidjan-row {
-      display: flex;
-      border-top: 1px solid #000;
-    }
-    .abidjan-cell {
-      flex: 1;
-      padding: 3px 8px;
-      font-size: 10px;
-      border-right: 1px solid #000;
-    }
-    .abidjan-cell:last-child { border-right: none; }
-    
-    /* === ACQUIT === */
-    .acquit-row {
-      display: flex;
-      min-height: 60px;
-    }
-    .acquit-left { flex: 2; }
-    .acquit-right {
-      flex: 1;
-      border-left: 1px solid #000;
-      padding: 6px 8px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-    }
-    .acquit-box {
-      border: 1px solid #000;
-      padding: 3px 10px;
-      font-size: 10px;
-    }
-    .acquit-date {
-      margin-top: auto;
-      font-size: 10px;
-    }
-  </style>
-</head>
-<body>
-  <div class="page">
-    <!-- EN-TÊTE -->
-    <div class="header">
-      <div class="header-logo">
-        <img src="${LOGO_PIF2}" />
-      </div>
-      <div class="header-center">
-        <div style="font-weight:bold">REPUBLIQUE DE CÔTE D'IVOIRE</div>
-        <div style="font-size:9px;letter-spacing:1px">------------------------</div>
-        <div style="font-style:italic;font-size:10px">MINISTERE DES EAUX ET FORETS</div>
-        <div style="font-size:9px;letter-spacing:1px">------------------------</div>
-        <div style="font-weight:bold">PROJET D'INVESTISSEMENT FORESTIER 2</div>
-        <div style="font-size:9px;letter-spacing:1px">------------------------</div>
-      </div>
-      <div class="header-right">Union – Discipline – Travail</div>
-    </div>
-    
-    <!-- TITRE -->
-    <div class="title-section">
-      <div style="font-weight:bold;text-decoration:underline">ORDRE DE PAIEMENT</div>
-      <div>N°${genererNumero()}</div>
-    </div>
-    
-    <!-- EXERCICE -->
-    <div class="exercice-row">
-      <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<span class="bold">${exerciceActif?.annee || ''}</span></div>
-      <div class="type-red">${form.type}</div>
-    </div>
-    
-    <!-- CONTENU PRINCIPAL -->
-    <div class="content">
-      <div class="line underline small">REFERENCE DU BENEFICIAIRE</div>
-      <div class="line-space">BENEFICIAIRE : <span class="bold">${selectedBeneficiaire?.nom || ''}</span></div>
-      
-      <div class="line">COMPTE CONTRIBUABLE : <span class="bold">${selectedBeneficiaire?.ncc || ''}</span></div>
-      
-      <div class="check-row">
-        <span class="check-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
-        <div class="check-opts">
-          <span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span>
-          <span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span>
-        </div>
-      </div>
-      
-      <div class="check-row">
-        <span class="check-label">MODE DE REGLEMENT :</span>
-        <div class="check-opts">
-          <span class="check-item">ESPECE <span class="box">${form.modeReglement === 'ESPECES' ? 'x' : ''}</span></span>
-          <span class="check-item">CHEQUE <span class="box">${form.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span>
-          <span class="check-item">VIREMENT <span class="box">${form.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span>
-        </div>
-      </div>
-      
-      <div class="line">REFERENCES BANCAIRES : <span class="bold">${form.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span></div>
-      
-      <div class="line-space">OBJET DE LA DEPENSE : <span class="bold">${form.objet || ''}</span></div>
-      
-      <div class="line-space">PIECES JUSTIFICATIVES : <span class="bold">${form.piecesJustificatives || ''}</span></div>
-      
-      <div class="montant-row">
-        <span style="min-width:140px">MONTANT TOTAL :</span>
-        <span class="montant-box">${formatMontant(Math.abs(engagementActuel))}</span>
-      </div>
-      
-      <div class="line">IMPUTATION BUDGETAIRE : <span class="bold">${codeImputationComplet.trim()}</span></div>
-      
-      <!-- TABLEAU BUDGETAIRE -->
-      <table class="budget-table">
-        <tr><td class="col-a">A</td><td>Dotation budgétaire</td><td class="col-c">${formatMontant(getDotation())}</td></tr>
-        <tr><td class="col-a">B</td><td>Engagements antérieurs</td><td class="col-c">${formatMontant(getEngagementsAnterieurs())}</td></tr>
-        <tr><td class="col-a">C</td><td>Engagement actuel</td><td class="col-c">${formatMontant(Math.abs(engagementActuel))}</td></tr>
-        <tr><td class="col-a">D</td><td>Engagements cumulés (B + C)</td><td class="col-c">${formatMontant(engagementsCumules)}</td></tr>
-        <tr><td class="col-a">E</td><td>Disponible budgétaire (A - D)</td><td class="col-c">${formatMontant(getDisponible())}</td></tr>
-      </table>
-    </div>
-    
-    <!-- SIGNATURES -->
-    <div class="signatures">
-      <div class="sig-col">
-        <div class="sig-header">VISA<br/>COORDONNATRICE</div>
-        <div class="sig-body"><div class="sig-name">ABE-KOFFI Thérèse</div></div>
-      </div>
-      <div class="sig-col">
-        <div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div>
-        <div class="sig-body"></div>
-      </div>
-      <div class="sig-col">
-        <div class="sig-header">VISA AGENT<br/>COMPTABLE</div>
-        <div class="sig-body"></div>
-      </div>
-    </div>
-    
-    <!-- ABIDJAN -->
-    <div class="abidjan-row">
-      <div class="abidjan-cell">Abidjan, le</div>
-      <div class="abidjan-cell">Abidjan, le</div>
-      <div class="abidjan-cell">Abidjan, le</div>
-    </div>
-    
-    <!-- ACQUIT -->
-    <div class="acquit-row">
-      <div class="acquit-left"></div>
-      <div class="acquit-right">
-        <div class="acquit-box">ACQUIT LIBERATOIRE</div>
-        <div class="acquit-date">Abidjan, le</div>
-      </div>
-    </div>
-  </div>
-  <script>
-    window.onload = function() {
-      window.print();
-      window.onafterprint = function() { window.close(); };
-    };
-  </script>
-</body>
-</html>`;
-                    const printWindow = window.open('', '_blank', 'width=800,height=600');
-                    printWindow.document.write(printContent);
-                    printWindow.document.close();
+                    if (!form.beneficiaireId || !form.montant) { alert('Remplissez au minimum le bénéficiaire et le montant pour imprimer.'); return; }
+                    alert('Pour imprimer, enregistrez d\'abord l\'OP puis consultez-le dans la page Consulter OP.');
                   }}
                   style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
                 >
@@ -4326,161 +3822,797 @@ export default function App() {
                   {saving ? 'Enregistrement...' : 'ENREGISTRER'}
                 </button>
               </div>
-              )}
             </div>
           </div>
         )}
-
-        {/* Modal Consulter un OP */}
-        {showConsultModal && (
+        {/* Modal Dupliquer un OP */}
+        {showDuplicateModal && (
           <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
-              <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
+            <div style={{ ...styles.modalContent, maxWidth: 500 }}>
+              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff3e0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>🔍 Consulter un OP</h2>
-                  <button onClick={() => setShowConsultModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
+                  <h2 style={{ margin: 0, fontSize: 18, color: '#e65100' }}>📋 Dupliquer un OP</h2>
+                  <button onClick={() => setShowDuplicateModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
                 </div>
               </div>
-              <div style={{ padding: 20 }}>
-                {/* Barre de recherche avec flèches */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 16 }}>
-                  <button
-                    onClick={() => {
-                      const opsSource = ops.filter(o => o.sourceId === activeSource && o.exerciceId === exerciceActif?.id)
-                        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-                      if (opsSource.length === 0) return;
-                      // Trouver le dernier OP ou naviguer
-                      const lastSelected = consultSearch ? opsSource.find(o => o.numero?.toLowerCase().includes(consultSearch.toLowerCase())) : null;
-                      const currentIdx = lastSelected ? opsSource.findIndex(o => o.id === lastSelected.id) : -1;
-                      const prevIdx = currentIdx > 0 ? currentIdx - 1 : opsSource.length - 1;
-                      loadOpForConsult(opsSource[prevIdx]);
-                    }}
-                    style={{ 
-                      padding: '12px 16px', 
-                      background: '#f8f9fa', 
-                      border: '2px solid #e9ecef', 
-                      borderRight: 'none',
-                      borderRadius: '8px 0 0 8px', 
-                      cursor: 'pointer',
-                      fontSize: 18
-                    }}
-                    title="OP précédent"
-                  >
-                    ◀
-                  </button>
-                  <input
-                    type="text"
-                    placeholder="🔍 Tapez un N° OP, bénéficiaire, objet..."
-                    value={consultSearch}
-                    onChange={e => setConsultSearch(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const term = consultSearch.toLowerCase();
-                        const found = ops.find(o => 
-                          (o.numero || '').toLowerCase().includes(term) ||
-                          beneficiaires.find(b => b.id === o.beneficiaireId)?.nom?.toLowerCase().includes(term)
-                        );
-                        if (found) loadOpForConsult(found);
-                      }
-                    }}
-                    style={{ 
-                      flex: 1,
-                      padding: '12px 16px',
-                      border: '2px solid #e9ecef',
-                      borderLeft: 'none',
-                      borderRight: 'none',
-                      fontSize: 14,
-                      outline: 'none'
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => {
-                      const opsSource = ops.filter(o => o.sourceId === activeSource && o.exerciceId === exerciceActif?.id)
-                        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-                      if (opsSource.length === 0) return;
-                      const lastSelected = consultSearch ? opsSource.find(o => o.numero?.toLowerCase().includes(consultSearch.toLowerCase())) : null;
-                      const currentIdx = lastSelected ? opsSource.findIndex(o => o.id === lastSelected.id) : -1;
-                      const nextIdx = currentIdx < opsSource.length - 1 ? currentIdx + 1 : 0;
-                      loadOpForConsult(opsSource[nextIdx]);
-                    }}
-                    style={{ 
-                      padding: '12px 16px', 
-                      background: '#f8f9fa', 
-                      border: '2px solid #e9ecef', 
-                      borderLeft: 'none',
-                      borderRadius: '0 8px 8px 0', 
-                      cursor: 'pointer',
-                      fontSize: 18
-                    }}
-                    title="OP suivant"
-                  >
-                    ▶
-                  </button>
-                </div>
-                
-                {/* Liste des résultats */}
-                {consultSearch.trim().length >= 2 ? (
-                  <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                    {ops
-                      .filter(op => {
-                        const term = consultSearch.toLowerCase();
-                        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                        return (
-                          (op.numero || '').toLowerCase().includes(term) ||
-                          (ben?.nom || '').toLowerCase().includes(term) ||
-                          (op.objet || '').toLowerCase().includes(term) ||
-                          String(op.montant || '').includes(term)
-                        );
-                      })
-                      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-                      .slice(0, 20)
-                      .map(op => {
-                        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                        const src = sources.find(s => s.id === op.sourceId);
-                        return (
-                          <div
-                            key={op.id}
-                            onClick={() => loadOpForConsult(op)}
-                            style={{
-                              padding: '12px 16px',
-                              borderBottom: '1px solid #f0f0f0',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              transition: 'background 0.15s'
-                            }}
-                            onMouseOver={e => e.currentTarget.style.background = '#e3f2fd'}
-                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                          >
-                            <div>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{op.numero}</div>
-                              <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{ben?.nom || 'N/A'} — {op.objet?.substring(0, 60) || ''}{(op.objet || '').length > 60 ? '...' : ''}</div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: '#0f4c3a' }}>{formatMontant(op.montant)} F</div>
-                              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                                <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: src?.couleur || '#999', color: '#fff' }}>{src?.sigle || ''}</span>
-                                <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: op.type === 'PROVISOIRE' ? '#ff9800' : op.type === 'DIRECT' ? '#2196f3' : op.type === 'DEFINITIF' ? '#4caf50' : '#f44336', color: '#fff' }}>{op.type}</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    }
-                    {ops.filter(op => {
-                      const term = consultSearch.toLowerCase();
+              <div style={{ padding: 24 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Rechercher un OP à dupliquer</label>
+                <Autocomplete
+                  options={opsPourDuplication.map(op => {
+                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                    return {
+                      value: op.id,
+                      label: `${op.numero} - ${ben?.nom || 'N/A'} (${op.type})`,
+                      searchFields: [op.numero, ben?.nom || '', op.objet || '', op.type]
+                    };
+                  })}
+                  value={null}
+                  onChange={(option) => option && handleDuplicate(option.value)}
+                  placeholder="🔍 Rechercher par N°, bénéficiaire, objet..."
+                  noOptionsMessage="Aucun OP trouvé"
+                  accentColor="#e65100"
+                />
+
+                {opsPourDuplication.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+                    <p>Aucun OP créé pour cette source et cet exercice.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ==================== PAGE BORDEREAUX ====================
+  const PageBordereaux = () => {
+    const [activeTab, setActiveTab] = useState('NOUVEAU_CF');
+    const [selectedOps, setSelectedOps] = useState([]);
+    const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
+    const [dateBordereau, setDateBordereau] = useState(new Date().toISOString().split('T')[0]);
+    const [observations, setObservations] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [searchBT, setSearchBT] = useState('');
+
+    const exerciceActifLocal = exercices.find(e => e.actif);
+    const currentSrc = sources.find(s => s.id === activeSourceBT);
+
+    // OP éligibles pour transmission CF : statut CREE, source et exercice actifs
+    const opsEligiblesCF = ops.filter(op =>
+      op.statut === 'CREE' &&
+      op.sourceId === activeSourceBT &&
+      op.exerciceId === exerciceActifLocal?.id &&
+      !['PROVISOIRE'].includes(op.type)
+    );
+
+    // OP éligibles pour transmission AC : statut VISE_CF
+    const opsEligiblesAC = ops.filter(op =>
+      op.statut === 'VISE_CF' &&
+      op.sourceId === activeSourceBT &&
+      op.exerciceId === exerciceActifLocal?.id
+    );
+
+    const opsEligibles = activeTab === 'NOUVEAU_CF' ? opsEligiblesCF : activeTab === 'NOUVEAU_AC' ? opsEligiblesAC : [];
+
+    // Filtrer par recherche
+    const opsFiltered = opsEligibles.filter(op => {
+      if (!searchBT) return true;
+      const term = searchBT.toLowerCase();
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      return (op.numero || '').toLowerCase().includes(term) ||
+        (ben?.nom || '').toLowerCase().includes(term) ||
+        (op.objet || '').toLowerCase().includes(term);
+    });
+
+    // Toggle sélection d'un OP
+    const toggleOp = (opId) => {
+      setSelectedOps(prev => prev.includes(opId) ? prev.filter(id => id !== opId) : [...prev, opId]);
+    };
+
+    // Sélectionner/Désélectionner tout
+    const toggleAll = () => {
+      if (selectedOps.length === opsFiltered.length) {
+        setSelectedOps([]);
+      } else {
+        setSelectedOps(opsFiltered.map(op => op.id));
+      }
+    };
+
+    // Générer le numéro du bordereau
+    const genererNumeroBT = (typeBT) => {
+      const prefix = typeBT === 'CF' ? 'BT-CF' : 'BT-AC';
+      const sigleProjet = projet?.sigle || 'PROJET';
+      const sigleSrc = currentSrc?.sigle || 'SRC';
+      const annee = exerciceActifLocal?.annee || new Date().getFullYear();
+      const existants = bordereaux.filter(bt =>
+        bt.type === typeBT &&
+        bt.sourceId === activeSourceBT &&
+        bt.exerciceId === exerciceActifLocal?.id
+      );
+      const nextNum = existants.length + 1;
+      return `${prefix}-${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSrc}/${annee}`;
+    };
+
+    // Total des OP sélectionnés
+    const totalSelected = selectedOps.reduce((sum, id) => {
+      const op = ops.find(o => o.id === id);
+      return sum + (op?.montant || 0);
+    }, 0);
+
+    // Créer le bordereau
+    const handleCreateBordereau = async () => {
+      if (selectedOps.length === 0) { alert('Veuillez sélectionner au moins un OP.'); return; }
+      const typeBT = activeTab === 'NOUVEAU_CF' ? 'CF' : 'AC';
+      const numero = genererNumeroBT(typeBT);
+
+      if (!window.confirm(`Créer le bordereau ${numero} avec ${selectedOps.length} OP pour un total de ${formatMontant(totalSelected)} F ?\n\nLes OP seront transmis au ${typeBT}.`)) return;
+
+      setSaving(true);
+      try {
+        const btData = {
+          numero,
+          type: typeBT,
+          sourceId: activeSourceBT,
+          exerciceId: exerciceActifLocal.id,
+          dateCreation: dateBordereau,
+          opsIds: selectedOps,
+          nbOps: selectedOps.length,
+          totalMontant: totalSelected,
+          statut: 'ENVOYE',
+          observations: observations.trim(),
+          createdAt: new Date().toISOString()
+        };
+
+        await addDoc(collection(db, 'bordereaux'), btData);
+
+        // Mettre à jour chaque OP : statut + référence bordereau + date transmission
+        const newStatut = typeBT === 'CF' ? 'TRANSMIS_CF' : 'TRANSMIS_AC';
+        const dateField = typeBT === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+        const btField = typeBT === 'CF' ? 'bordereauCF' : 'bordereauAC';
+
+        for (const opId of selectedOps) {
+          await updateDoc(doc(db, 'ops', opId), {
+            statut: newStatut,
+            [dateField]: dateBordereau,
+            [btField]: numero,
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        alert(`✅ Bordereau ${numero} créé avec succès !\n${selectedOps.length} OP transmis au ${typeBT}.`);
+        setSelectedOps([]);
+        setObservations('');
+        setActiveTab(typeBT === 'CF' ? 'LISTE_CF' : 'LISTE_AC');
+      } catch (error) {
+        alert('Erreur : ' + error.message);
+      }
+      setSaving(false);
+    };
+
+    // Imprimer un bordereau
+    const handlePrintBordereau = (bt) => {
+      const src = sources.find(s => s.id === bt.sourceId);
+      const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+      const printContent = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${bt.numero}</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  @media print { .toolbar { display: none !important; } body { background: #fff !important; padding: 0 !important; } .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; font-size: 11px; background: #e0e0e0; }
+  .toolbar { background: #1a1a2e; padding: 12px 20px; display: flex; gap: 12px; align-items: center; position: sticky; top: 0; z-index: 100; }
+  .toolbar button { padding: 8px 20px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-print { background: #2196F3; color: white; }
+  .btn-pdf { background: #4CAF50; color: white; }
+  .toolbar-title { color: rgba(255,255,255,0.7); margin-left: auto; font-size: 12px; }
+  .page-container { width: 210mm; min-height: 297mm; margin: 20px auto; background: white; padding: 12mm; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #1a1a2e; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-left img { width: 55px; height: auto; }
+  .header-left .info { font-size: 9px; line-height: 1.4; }
+  .header-right { text-align: right; font-size: 9px; }
+  .bt-title { text-align: center; margin: 15px 0; font-size: 16px; font-weight: bold; text-transform: uppercase; text-decoration: underline; }
+  .bt-numero { text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+  .bt-date { text-align: center; font-size: 11px; margin-bottom: 15px; }
+  .bt-dest { margin-bottom: 15px; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+  th { background: #1a1a2e; color: white; padding: 6px 8px; font-size: 9px; text-align: left; }
+  td { padding: 5px 8px; font-size: 10px; border-bottom: 1px solid #ddd; }
+  tr:nth-child(even) { background: #f8f8f8; }
+  .total-row { font-weight: bold; background: #e8f5e9 !important; font-size: 11px; }
+  .footer { margin-top: 30px; display: flex; justify-content: space-between; }
+  .footer .sign-block { width: 45%; text-align: center; }
+  .footer .sign-block .title { font-weight: bold; font-size: 10px; margin-bottom: 5px; }
+  .footer .sign-block .line { border-bottom: 1px dotted #333; height: 60px; }
+  .accuse { margin-top: 30px; padding: 10px; border: 1px dashed #999; font-size: 10px; }
+  .accuse .title { font-weight: bold; margin-bottom: 8px; }
+</style></head><body>
+<div class="toolbar">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
+  <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
+  <span class="toolbar-title">Aperçu – ${bt.numero}</span>
+</div>
+<div class="page-container">
+  <div class="header">
+    <div class="header-left">
+      <img src="${ARMOIRIE}" alt="Armoirie" />
+      <div class="info">
+        <div style="font-weight:bold">RÉPUBLIQUE DE CÔTE D'IVOIRE</div>
+        <div>Union - Discipline - Travail</div>
+        <div style="margin-top:4px;font-weight:bold">${projet?.ministere || ''}</div>
+        <div style="font-weight:bold">${projet?.nomProjet || ''}</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div style="font-weight:bold;font-size:11px">${src?.nom || ''}</div>
+      <div>${src?.sigle || ''}</div>
+    </div>
+  </div>
+  
+  <div class="bt-title">Bordereau de Transmission ${bt.type === 'CF' ? 'au Contrôleur Financier' : "à l'Agent Comptable"}</div>
+  <div class="bt-numero">${bt.numero}</div>
+  <div class="bt-date">Date : ${bt.dateCreation}</div>
+  
+  <div class="bt-dest">
+    <strong>De :</strong> ${projet?.titreCoordonnateur || 'Le Coordonnateur'} - ${projet?.nomProjet || ''}<br/>
+    <strong>À :</strong> ${bt.type === 'CF' ? 'Monsieur le Contrôleur Financier' : "Monsieur l'Agent Comptable"}
+    ${bt.observations ? '<br/><strong>Objet :</strong> ' + bt.observations : ''}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35px">N°</th>
+        <th style="width:130px">N° OP</th>
+        <th>BÉNÉFICIAIRE</th>
+        <th>OBJET</th>
+        <th style="width:65px">LIGNE</th>
+        <th style="width:100px;text-align:right">MONTANT (FCFA)</th>
+        <th style="width:50px;text-align:center">PJ</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${btOps.map((op, i) => {
+        const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+        return `<tr>
+          <td>${i + 1}</td>
+          <td style="font-family:monospace;font-weight:bold;font-size:9px">${op.numero}</td>
+          <td>${ben?.nom || 'N/A'}</td>
+          <td>${op.objet || '-'}</td>
+          <td style="font-family:monospace">${op.ligneBudgetaire || '-'}</td>
+          <td style="text-align:right;font-family:monospace;font-weight:bold">${Number(op.montant || 0).toLocaleString('fr-FR')}</td>
+          <td style="text-align:center">${op.piecesJustificatives ? '✓' : '-'}</td>
+        </tr>`;
+      }).join('')}
+      <tr class="total-row">
+        <td colspan="5" style="text-align:right">TOTAL (${btOps.length} OP)</td>
+        <td style="text-align:right;font-family:monospace">${Number(bt.totalMontant || 0).toLocaleString('fr-FR')}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:10px;margin-bottom:20px">Arrêté le présent bordereau à la somme de <strong>${Number(bt.totalMontant || 0).toLocaleString('fr-FR')} FCFA</strong> pour <strong>${btOps.length}</strong> ordre(s) de paiement.</p>
+
+  <div class="footer">
+    <div class="sign-block">
+      <div class="title">${projet?.titreCoordonnateur || 'Le Coordonnateur'}</div>
+      <div class="line"></div>
+      <div style="font-size:9px;margin-top:4px">${projet?.coordonnateur || ''}</div>
+    </div>
+    <div class="sign-block">
+      <div class="title">${bt.type === 'CF' ? 'Le Contrôleur Financier' : "L'Agent Comptable"}</div>
+      <div class="line"></div>
+    </div>
+  </div>
+
+  <div class="accuse">
+    <div class="title">📎 Accusé de réception</div>
+    <div>Reçu le : ____/____/________ à ____h____</div>
+    <div style="margin-top:5px">Nombre de dossiers reçus : ________</div>
+    <div style="margin-top:5px">Nom et signature : _______________________________</div>
+  </div>
+</div>
+</body></html>`;
+      const pw = window.open('', '_blank', 'width=900,height=700');
+      pw.document.write(printContent);
+      pw.document.close();
+    };
+
+    // Supprimer un bordereau (seulement si statut ENVOYE)
+    const handleDeleteBordereau = async (bt) => {
+      if (bt.statut !== 'ENVOYE') {
+        alert('❌ Impossible de supprimer un bordereau déjà réceptionné ou traité.');
+        return;
+      }
+      
+      const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+        if (pwd !== null) alert('❌ Mot de passe incorrect');
+        return;
+      }
+      
+      if (!window.confirm(`Supprimer le bordereau ${bt.numero} ?\n\nLes ${bt.nbOps} OP concernés reviendront au statut précédent.`)) return;
+      
+      try {
+        // Remettre les OP au statut précédent
+        const previousStatut = bt.type === 'CF' ? 'CREE' : 'VISE_CF';
+        const dateField = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+        const btField = bt.type === 'CF' ? 'bordereauCF' : 'bordereauAC';
+        
+        for (const opId of bt.opsIds) {
+          await updateDoc(doc(db, 'ops', opId), {
+            statut: previousStatut,
+            [dateField]: null,
+            [btField]: null,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        // Supprimer le bordereau
+        await deleteDoc(doc(db, 'bordereaux', bt.id));
+        alert(`✅ Bordereau ${bt.numero} supprimé. Les OP sont revenus au statut ${previousStatut}.`);
+      } catch (error) {
+        alert('Erreur : ' + error.message);
+      }
+    };
+
+    // Modifier la date d'un bordereau (seulement si statut ENVOYE)
+    const handleModifyBordereauDate = async (bt) => {
+      if (bt.statut !== 'ENVOYE') {
+        alert('❌ Impossible de modifier un bordereau déjà réceptionné ou traité.');
+        return;
+      }
+      
+      const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+        if (pwd !== null) alert('❌ Mot de passe incorrect');
+        return;
+      }
+      
+      const newDate = window.prompt('Nouvelle date de transmission (AAAA-MM-JJ) :', bt.dateCreation);
+      if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+        if (newDate !== null) alert('Format de date invalide. Utilisez AAAA-MM-JJ.');
+        return;
+      }
+      
+      try {
+        const dateField = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+        
+        // Mettre à jour le bordereau
+        await updateDoc(doc(db, 'bordereaux', bt.id), {
+          dateCreation: newDate,
+          updatedAt: new Date().toISOString()
+        });
+        
+        // Mettre à jour la date sur tous les OP
+        for (const opId of bt.opsIds) {
+          await updateDoc(doc(db, 'ops', opId), {
+            [dateField]: newDate,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        alert(`✅ Date du bordereau modifiée au ${newDate}.`);
+      } catch (error) {
+        alert('Erreur : ' + error.message);
+      }
+    };
+
+    // Bordereaux filtrés par type
+    const bordereauCF = bordereaux.filter(bt => bt.type === 'CF' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActifLocal?.id);
+    const bordereauAC = bordereaux.filter(bt => bt.type === 'AC' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActifLocal?.id);
+    const listeBT = activeTab === 'LISTE_CF' ? bordereauCF : activeTab === 'LISTE_AC' ? bordereauAC : [];
+
+    return (
+      <div>
+        {/* En-tête */}
+        <div style={{ background: '#1a1a2e', color: 'white', padding: '20px 24px', borderRadius: '10px 10px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>📨 Bordereaux de Transmission</h1>
+        </div>
+
+        {/* Onglets source */}
+        <div style={{ display: 'flex', gap: 8, padding: '16px 0', flexWrap: 'wrap' }}>
+          {sources.map(src => (
+            <button key={src.id} onClick={() => { setActiveSourceBT(src.id); setSelectedOps([]); }}
+              style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: activeSourceBT === src.id ? (src.couleur || '#0f4c3a') : '#f0f0f0', color: activeSourceBT === src.id ? 'white' : '#333', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+              {src.sigle}
+            </button>
+          ))}
+        </div>
+
+        {/* Sous-onglets */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {[
+            { key: 'NOUVEAU_CF', label: '➕ Nouveau BT au CF', color: '#1565c0' },
+            { key: 'NOUVEAU_AC', label: '➕ Nouveau BT à l\'AC', color: '#2e7d32' },
+            { key: 'LISTE_CF', label: '📤 BT au CF', count: bordereauCF.length },
+            { key: 'LISTE_AC', label: '💰 BT à l\'AC', count: bordereauAC.length },
+          ].map(tab => (
+            <button key={tab.key} onClick={() => { setActiveTab(tab.key); setSelectedOps([]); }}
+              style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: activeTab === tab.key ? (tab.color || '#0f4c3a') : '#f0f0f0', color: activeTab === tab.key ? 'white' : '#333', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+              {tab.label} {tab.count !== undefined && <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 10, fontSize: 11, marginLeft: 4 }}>{tab.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Création de bordereau */}
+        {(activeTab === 'NOUVEAU_CF' || activeTab === 'NOUVEAU_AC') && (
+          <div style={styles.card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: activeTab === 'NOUVEAU_CF' ? '#1565c0' : '#2e7d32' }}>
+                {activeTab === 'NOUVEAU_CF' ? '📤 Transmission au Contrôleur Financier' : '💰 Transmission à l\'Agent Comptable'}
+              </h3>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>Date :</label>
+                <input type="date" value={dateBordereau} onChange={e => setDateBordereau(e.target.value)}
+                  style={{ ...styles.input, marginBottom: 0, width: 160 }} />
+              </div>
+            </div>
+
+            <input type="text" placeholder="🔍 Rechercher un OP..." value={searchBT} onChange={e => setSearchBT(e.target.value)}
+              style={{ ...styles.input, marginBottom: 12 }} />
+
+            {opsFiltered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
+                <p>Aucun OP {activeTab === 'NOUVEAU_CF' ? 'à transmettre au CF' : 'visé par le CF à transmettre à l\'AC'} pour cette source</p>
+              </div>
+            ) : (
+              <>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...styles.th, width: 40 }}>
+                        <input type="checkbox" checked={selectedOps.length === opsFiltered.length && opsFiltered.length > 0} onChange={toggleAll} />
+                      </th>
+                      <th style={{ ...styles.th, width: 140 }}>N° OP</th>
+                      <th style={styles.th}>BÉNÉFICIAIRE</th>
+                      <th style={styles.th}>OBJET</th>
+                      <th style={{ ...styles.th, width: 70 }}>LIGNE</th>
+                      <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {opsFiltered.map(op => {
                       const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                      return (op.numero || '').toLowerCase().includes(term) || (ben?.nom || '').toLowerCase().includes(term) || (op.objet || '').toLowerCase().includes(term);
-                    }).length === 0 && (
-                      <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>Aucun OP trouvé</div>
-                    )}
+                      const checked = selectedOps.includes(op.id);
+                      return (
+                        <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: checked ? '#e3f2fd' : 'transparent' }}>
+                          <td style={styles.td}><input type="checkbox" checked={checked} onChange={() => toggleOp(op.id)} /></td>
+                          <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>{op.numero}</td>
+                          <td style={{ ...styles.td, fontSize: 12 }}>{ben?.nom || 'N/A'}</td>
+                          <td style={{ ...styles.td, fontSize: 11, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
+                          <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire || '-'}</td>
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                {selectedOps.length > 0 && (
+                  <div style={{ marginTop: 16, padding: 16, background: '#f5f5f5', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>
+                        {selectedOps.length} OP sélectionné(s) — Total : <span style={{ color: '#0f4c3a' }}>{formatMontant(totalSelected)} F</span>
+                      </span>
+                      <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#666' }}>
+                        N° : {genererNumeroBT(activeTab === 'NOUVEAU_CF' ? 'CF' : 'AC')}
+                      </span>
+                    </div>
+                    <textarea placeholder="Observations (facultatif)..." value={observations} onChange={e => setObservations(e.target.value)}
+                      style={{ ...styles.input, minHeight: 60, resize: 'vertical', marginBottom: 12 }} />
+                    <button onClick={handleCreateBordereau} disabled={saving}
+                      style={{ ...styles.button, padding: '14px 40px', fontSize: 16, background: activeTab === 'NOUVEAU_CF' ? '#1565c0' : '#2e7d32', width: '100%' }}>
+                      {saving ? 'Création en cours...' : `📨 Créer le bordereau et transmettre au ${activeTab === 'NOUVEAU_CF' ? 'CF' : 'AC'}`}
+                    </button>
                   </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Liste des bordereaux */}
+        {(activeTab === 'LISTE_CF' || activeTab === 'LISTE_AC') && (
+          <div style={styles.card}>
+            {listeBT.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
+                <p>Aucun bordereau {activeTab === 'LISTE_CF' ? 'au CF' : 'à l\'AC'} pour cette source</p>
+              </div>
+            ) : (
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={{ ...styles.th, width: 200 }}>N° BORDEREAU</th>
+                    <th style={{ ...styles.th, width: 100 }}>DATE</th>
+                    <th style={{ ...styles.th, width: 60, textAlign: 'center' }}>NB OP</th>
+                    <th style={{ ...styles.th, width: 130, textAlign: 'right' }}>TOTAL</th>
+                    <th style={styles.th}>OBSERVATIONS</th>
+                    <th style={{ ...styles.th, width: 100 }}>STATUT</th>
+                    <th style={{ ...styles.th, width: 120, textAlign: 'center' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listeBT.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map(bt => {
+                    const statutBT = bt.statut === 'ENVOYE' ? { bg: '#fff3e0', color: '#e65100', label: 'Envoyé' }
+                      : bt.statut === 'RECEPTIONNE' ? { bg: '#e3f2fd', color: '#1565c0', label: 'Réceptionné' }
+                      : { bg: '#e8f5e9', color: '#2e7d32', label: 'Traité' };
+                    return (
+                      <tr key={bt.id}>
+                        <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }}>{bt.numero}</td>
+                        <td style={{ ...styles.td, fontSize: 12 }}>{bt.dateCreation}</td>
+                        <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700 }}>{bt.nbOps}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>{formatMontant(bt.totalMontant)}</td>
+                        <td style={{ ...styles.td, fontSize: 11, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bt.observations || '-'}</td>
+                        <td style={styles.td}>
+                          <span style={{ background: statutBT.bg, color: statutBT.color, padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{statutBT.label}</span>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                            <button onClick={() => handlePrintBordereau(bt)} title="Imprimer"
+                              style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                              🖨️
+                            </button>
+                            {bt.statut === 'ENVOYE' && (
+                              <>
+                                <button onClick={() => handleModifyBordereauDate(bt)} title="Modifier la date"
+                                  style={{ background: '#fff3e0', color: '#e65100', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                                  ✏️
+                                </button>
+                                <button onClick={() => handleDeleteBordereau(bt)} title="Supprimer"
+                                  style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}>
+                                  🗑️
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ==================== PAGE CONSULTER OP ====================
+  const PageConsulterOp = () => {
+    const [selectedOp, setSelectedOp] = useState(null);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [editForm, setEditForm] = useState({});
+    
+    const currentSourceObj = sources.find(s => s.id === selectedOp?.sourceId);
+    const selectedBeneficiaire = beneficiaires.find(b => b.id === (isEditMode ? editForm.beneficiaireId : selectedOp?.beneficiaireId));
+    
+    const opBudget = selectedOp ? budgets
+      .filter(b => b.sourceId === selectedOp.sourceId && b.exerciceId === selectedOp.exerciceId)
+      .sort((a, b) => (b.version || 1) - (a.version || 1))[0] : null;
+    
+    const selectedLigne = opBudget?.lignes?.find(l => l.code === (isEditMode ? editForm.ligneBudgetaire : selectedOp?.ligneBudgetaire));
+    
+    const getBeneficiaireRibs = (ben) => {
+      if (!ben) return [];
+      if (ben.ribs && ben.ribs.length > 0) return ben.ribs;
+      if (ben.rib) return [{ banque: '', numero: ben.rib }];
+      return [];
+    };
+    const beneficiaireRibs = getBeneficiaireRibs(selectedBeneficiaire);
+
+    const allOps = ops
+      .filter(o => o.exerciceId === exerciceActif?.id)
+      .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
+    
+    const loadOp = (op) => {
+      if (!op) return;
+      setSelectedOp(op);
+      setIsEditMode(false);
+      setSearchQuery('');
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      const ribs = getBeneficiaireRibs(ben);
+      const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
+      setEditForm({
+        type: op.type || 'PROVISOIRE',
+        beneficiaireId: op.beneficiaireId || '',
+        ribIndex: ribIndex >= 0 ? ribIndex : 0,
+        modeReglement: op.modeReglement || 'VIREMENT',
+        objet: op.objet || '',
+        piecesJustificatives: op.piecesJustificatives || '',
+        montant: op.montant ? formatMontantInput(op.montant) : '',
+        ligneBudgetaire: op.ligneBudgetaire || '',
+        montantTVA: op.montantTVA ? formatMontantInput(op.montantTVA) : '',
+        tvaRecuperable: op.tvaRecuperable || false
+      });
+    };
+    
+    const goToPrevOp = () => {
+      if (allOps.length === 0) return;
+      const currentIdx = selectedOp ? allOps.findIndex(o => o.id === selectedOp.id) : -1;
+      const prevIdx = currentIdx > 0 ? currentIdx - 1 : allOps.length - 1;
+      loadOp(allOps[prevIdx]);
+    };
+    
+    const goToNextOp = () => {
+      if (allOps.length === 0) return;
+      const currentIdx = selectedOp ? allOps.findIndex(o => o.id === selectedOp.id) : -1;
+      const nextIdx = currentIdx < allOps.length - 1 ? currentIdx + 1 : 0;
+      loadOp(allOps[nextIdx]);
+    };
+    
+    const searchOp = () => {
+      const term = searchQuery.toLowerCase().trim();
+      if (!term) return;
+      const found = ops.find(o => 
+        o.exerciceId === exerciceActif?.id &&
+        ((o.numero || '').toLowerCase().includes(term) ||
+        beneficiaires.find(b => b.id === o.beneficiaireId)?.nom?.toLowerCase().includes(term))
+      );
+      if (found) loadOp(found);
+      else alert('Aucun OP trouvé');
+    };
+    
+    const handleDuplicate = () => {
+      if (!selectedOp) return;
+      window.duplicateOpData = {
+        type: selectedOp.type === 'ANNULATION' ? 'PROVISOIRE' : selectedOp.type,
+        beneficiaireId: selectedOp.beneficiaireId || '',
+        modeReglement: selectedOp.modeReglement || 'VIREMENT',
+        objet: selectedOp.objet || '',
+        piecesJustificatives: selectedOp.piecesJustificatives || '',
+        ligneBudgetaire: selectedOp.ligneBudgetaire || '',
+        tvaRecuperable: selectedOp.tvaRecuperable || false,
+        sourceId: selectedOp.sourceId
+      };
+      setCurrentPage('nouvelOp');
+    };
+
+    return (
+      <div>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a2e', margin: 0 }}>🔍 Consulter un OP</h1>
+          <p style={{ color: '#6c757d', marginTop: 4 }}>Recherchez et consultez les ordres de paiement</p>
+        </div>
+
+        <div style={{ ...styles.card, marginBottom: 24, padding: 20 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>RECHERCHER UN OP</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <button type="button" onClick={goToPrevOp} disabled={allOps.length === 0}
+              style={{ padding: '14px 18px', background: '#f8f9fa', border: '2px solid #e9ecef', borderRight: 'none', borderRadius: '10px 0 0 10px', cursor: allOps.length === 0 ? 'not-allowed' : 'pointer', fontSize: 20, color: '#666', opacity: allOps.length === 0 ? 0.5 : 1 }} title="OP précédent">◀</button>
+            <input type="text" value={selectedOp ? selectedOp.numero : searchQuery}
+              onChange={(e) => { if (!selectedOp) setSearchQuery(e.target.value); else { setSelectedOp(null); setSearchQuery(e.target.value); } }}
+              onKeyDown={(e) => { if (e.key === 'Enter') searchOp(); }}
+              placeholder="🔍 Tapez un N° OP ou nom de bénéficiaire puis Entrée..."
+              style={{ flex: 1, padding: '14px 20px', border: '2px solid #e9ecef', borderLeft: 'none', borderRight: 'none', fontSize: 16, fontFamily: 'monospace', fontWeight: selectedOp ? 700 : 400, textAlign: 'center', background: selectedOp ? '#e8f5e9' : '#fff', outline: 'none' }} />
+            <button type="button" onClick={goToNextOp} disabled={allOps.length === 0}
+              style={{ padding: '14px 18px', background: '#f8f9fa', border: '2px solid #e9ecef', borderLeft: 'none', borderRadius: '0 10px 10px 0', cursor: allOps.length === 0 ? 'not-allowed' : 'pointer', fontSize: 20, color: '#666', opacity: allOps.length === 0 ? 0.5 : 1 }} title="OP suivant">▶</button>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: '#6c757d', textAlign: 'center' }}>
+            {allOps.length} OP{allOps.length > 1 ? 's' : ''} disponible{allOps.length > 1 ? 's' : ''} pour l'exercice {exerciceActif?.annee || '-'}
+            {selectedOp && ` • Position: ${allOps.findIndex(o => o.id === selectedOp.id) + 1}/${allOps.length}`}
+          </div>
+        </div>
+
+        {!selectedOp ? (
+          <div style={{ ...styles.card, textAlign: 'center', padding: 60 }}>
+            <div style={{ fontSize: 60, marginBottom: 20 }}>🔍</div>
+            <h3 style={{ color: '#6c757d', fontWeight: 600 }}>Aucun OP sélectionné</h3>
+            <p style={{ color: '#adb5bd' }}>Utilisez la barre de recherche ci-dessus ou les flèches ◀ ▶ pour naviguer</p>
+          </div>
+        ) : (
+          <div style={styles.card}>
+            <div style={{ padding: 20, background: isEditMode ? '#fff3e0' : '#e8f5e9', borderBottom: '2px solid ' + (isEditMode ? '#f57f17' : '#4caf50'), display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px 12px 0 0' }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>{isEditMode ? '✏️ MODE MODIFICATION' : '🔍 MODE CONSULTATION'}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'monospace', color: '#1a1a2e' }}>{selectedOp.numero}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: currentSourceObj?.couleur || '#999', color: '#fff' }}>{currentSourceObj?.sigle || 'N/A'}</span>
+                <span style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: selectedOp.type === 'PROVISOIRE' ? '#ff9800' : selectedOp.type === 'DIRECT' ? '#2196f3' : selectedOp.type === 'DEFINITIF' ? '#4caf50' : '#f44336', color: '#fff' }}>{selectedOp.type}</span>
+                <span style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#e9ecef', color: '#495057' }}>{selectedOp.statut || 'CREE'}</span>
+              </div>
+            </div>
+
+            <div style={{ padding: 24 }}>
+              <div style={isEditMode ? {} : { pointerEvents: 'none', opacity: 0.9 }}>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
+                  <input type="text" value={selectedBeneficiaire?.nom || 'N/A'} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 600 }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 20, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
+                    <input type="text" value={selectedOp.modeReglement || 'N/A'} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RIB / COMPTE</label>
+                    <input type="text" value={typeof selectedOp.rib === 'object' ? selectedOp.rib?.numero : selectedOp.rib || 'N/A'} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE</label>
+                  <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', minHeight: 60, whiteSpace: 'pre-wrap' }}>{selectedOp.objet || 'N/A'}</div>
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
+                  <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', minHeight: 40, whiteSpace: 'pre-wrap' }}>{selectedOp.piecesJustificatives || '-'}</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: 20, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA)</label>
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace', fontSize: 20, fontWeight: 700, textAlign: 'right', color: '#0f4c3a' }}>{formatMontant(selectedOp.montant)} F</div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
+                    <input type="text" value={`${selectedOp.ligneBudgetaire || 'N/A'}${selectedLigne ? ` - ${selectedLigne.libelle}` : ''}`} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa' }} />
+                  </div>
+                </div>
+                {selectedOp.tvaRecuperable && (
+                  <div style={{ marginBottom: 20, padding: 16, background: '#e3f2fd', borderRadius: 8 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#1565c0' }}>💰 TVA RÉCUPÉRABLE</label>
+                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#1565c0' }}>{formatMontant(selectedOp.montantTVA)} F</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: '2px solid #e9ecef', marginTop: 20 }}>
+                {isEditMode ? (
+                  <>
+                    <button onClick={() => setIsEditMode(false)} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>Annuler</button>
+                    <button onClick={async () => {
+                      try {
+                        const updates = { type: editForm.type, beneficiaireId: editForm.beneficiaireId, modeReglement: editForm.modeReglement, rib: beneficiaireRibs[editForm.ribIndex]?.numero || '', banque: beneficiaireRibs[editForm.ribIndex]?.banque || '', objet: editForm.objet, piecesJustificatives: editForm.piecesJustificatives, montant: parseFloat(parseMontant(editForm.montant)) || 0, ligneBudgetaire: editForm.ligneBudgetaire, tvaRecuperable: editForm.tvaRecuperable || false, montantTVA: editForm.tvaRecuperable ? (parseFloat(parseMontant(editForm.montantTVA)) || 0) : 0, updatedAt: new Date().toISOString() };
+                        await updateDoc(doc(db, 'ops', selectedOp.id), updates);
+                        const updatedOp = { ...selectedOp, ...updates };
+                        setOps(ops.map(o => o.id === selectedOp.id ? updatedOp : o));
+                        setSelectedOp(updatedOp);
+                        setIsEditMode(false);
+                        alert(`✅ OP ${selectedOp.numero} modifié !`);
+                      } catch (error) { alert('Erreur : ' + error.message); }
+                    }} style={{ ...styles.button, padding: '14px 40px', fontSize: 16, background: '#f57f17' }}>💾 ENREGISTRER</button>
+                  </>
                 ) : (
-                  <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>
-                    Saisissez au moins 2 caractères ou utilisez les flèches ◀ ▶ pour naviguer
-                  </div>
+                  <>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => alert('Impression à venir')} style={{ ...styles.button, padding: '12px 20px', background: '#1565c0' }}>🖨️ Imprimer</button>
+                      <button onClick={() => { const pwd = window.prompt('🔒 Mot de passe :'); if (pwd === (projet?.motDePasseAdmin || 'admin')) setIsEditMode(true); else if (pwd !== null) alert('❌ Incorrect'); }} style={{ ...styles.button, padding: '12px 20px', background: '#f57f17' }}>✏️ Modifier</button>
+                      <button onClick={async () => {
+                        const pwd = window.prompt('🔒 Mot de passe :');
+                        if (pwd === (projet?.motDePasseAdmin || 'admin')) {
+                          const motif = window.prompt('Motif du rejet :');
+                          if (motif) {
+                            await updateDoc(doc(db, 'ops', selectedOp.id), { statut: 'REJETE_CF', motifRejet: motif, updatedAt: new Date().toISOString() });
+                            const updatedOp = { ...selectedOp, statut: 'REJETE_CF', motifRejet: motif };
+                            setOps(ops.map(o => o.id === selectedOp.id ? updatedOp : o));
+                            setSelectedOp(updatedOp);
+                            alert(`OP ${selectedOp.numero} rejeté.`);
+                          }
+                        } else if (pwd !== null) alert('❌ Incorrect');
+                      }} style={{ ...styles.button, padding: '12px 20px', background: '#c62828' }}>❌ Rejeter</button>
+                      <button onClick={async () => {
+                        const pwd = window.prompt('🔒 Mot de passe :');
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin')) { if (pwd !== null) alert('❌ Incorrect'); return; }
+                        if (window.confirm(`Supprimer l'OP ${selectedOp.numero} ?`)) {
+                          try {
+                            await deleteDoc(doc(db, 'ops', selectedOp.id));
+                            setOps(ops.filter(o => o.id !== selectedOp.id));
+                            alert(`✅ OP supprimé.`);
+                            setSelectedOp(null);
+                          } catch (error) { alert('Erreur : ' + error.message); }
+                        }
+                      }} style={{ ...styles.button, padding: '12px 20px', background: '#424242' }}>🗑️ Supprimer</button>
+                    </div>
+                    <button onClick={handleDuplicate} style={{ ...styles.button, padding: '12px 24px', background: '#e65100' }}>📋 Dupliquer</button>
+                  </>
                 )}
               </div>
             </div>
@@ -4493,7 +4625,7 @@ export default function App() {
   // ==================== PAGE LISTE DES OP ====================
   const PageListeOP = () => {
     const [activeSource, setActiveSource] = useState('ALL'); // 'ALL' pour toutes sources
-    const [activeTab, setActiveTab] = useState('TOUS'); // Onglet de suivi actif
+    const [activeTab, setActiveTab] = useState('CUMUL_OP'); // Onglet de suivi actif
     const [showAnterieur, setShowAnterieur] = useState(false); // Afficher exercices antérieurs
     const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
     const [filters, setFilters] = useState({
@@ -4509,6 +4641,9 @@ export default function App() {
     const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' });
     const [showPaiementModal, setShowPaiementModal] = useState(null);
     const [showPasswordModal, setShowPasswordModal] = useState(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importData, setImportData] = useState([]);
+    const [importError, setImportError] = useState('');
     const [showStatutModal, setShowStatutModal] = useState(null); // { op, nouveauStatut } - pour changement manuel de statut
     const [showEditModal, setShowEditModal] = useState(null); // OP à modifier
     const [editForm, setEditForm] = useState({});
@@ -4582,13 +4717,18 @@ export default function App() {
     };
 
     // Compteurs par onglet
+    // Provisoires à annuler : OP provisoires sans définitif ni annulation associé
+    const provisoiresAnnuler = opsExercice.filter(op => {
+      if (op.type !== 'PROVISOIRE') return false;
+      const hasDefinitif = opsExercice.some(o => o.opProvisoireId === op.id && o.type === 'DEFINITIF');
+      const hasAnnulation = opsExercice.some(o => o.opProvisoireId === op.id && o.type === 'ANNULATION');
+      return !hasDefinitif && !hasAnnulation && !['REJETE_CF', 'REJETE_AC'].includes(op.statut);
+    });
+    
     const counts = {
-      TOUS: opsExercice.filter(op => op.statut !== 'ARCHIVE').length,
-      CIRCUIT_CF: opsExercice.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'RETOURNE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut)).length,
-      CIRCUIT_AC: opsExercice.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'RETOURNE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut)).length,
-      DIFFERES: opsExercice.filter(op => ['DIFFERE_CF', 'DIFFERE_AC', 'RETOURNE_CF', 'RETOURNE_AC'].includes(op.statut)).length,
-      A_REGULARISER: provisoiresARegulariser.length,
-      ARCHIVES: opsExercice.filter(op => op.statut === 'ARCHIVE').length
+      CUMUL_OP: opsExercice.length,
+      PROV_A_ANNULER: provisoiresAnnuler.length,
+      A_REGULARISER: provisoiresARegulariser.length
     };
 
     // Filtrer selon l'onglet actif
@@ -4596,23 +4736,14 @@ export default function App() {
       let result = opsExercice;
       
       switch (activeTab) {
-        case 'TOUS':
-          result = result.filter(op => op.statut !== 'ARCHIVE'); // Exclure archives de "Tous"
+        case 'CUMUL_OP':
+          // Tous les OP
           break;
-        case 'CIRCUIT_CF':
-          result = result.filter(op => ['TRANSMIS_CF', 'DIFFERE_CF', 'RETOURNE_CF', 'VISE_CF', 'REJETE_CF'].includes(op.statut));
-          break;
-        case 'CIRCUIT_AC':
-          result = result.filter(op => ['TRANSMIS_AC', 'DIFFERE_AC', 'RETOURNE_AC', 'PAYE_PARTIEL', 'PAYE', 'REJETE_AC'].includes(op.statut));
-          break;
-        case 'DIFFERES':
-          result = result.filter(op => ['DIFFERE_CF', 'DIFFERE_AC', 'RETOURNE_CF', 'RETOURNE_AC'].includes(op.statut));
+        case 'PROV_A_ANNULER':
+          result = provisoiresAnnuler;
           break;
         case 'A_REGULARISER':
           result = provisoiresARegulariser;
-          break;
-        case 'ARCHIVES':
-          result = result.filter(op => op.statut === 'ARCHIVE');
           break;
         default:
           break;
@@ -4641,6 +4772,70 @@ export default function App() {
       if (filters.dateFin && op.dateCreation > filters.dateFin) return false;
       return true;
     }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    // Construire la liste d'affichage avec lignes de rejet dédoublées
+    // Tri chronologique (plus ancien en premier) pour calculer l'ordre et le cumul
+    const filteredOpsChrono = [...filteredOps].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    
+    const buildDisplayOps = () => {
+      const lines = [];
+      // D'abord les OP dans l'ordre chronologique de création
+      filteredOpsChrono.forEach(op => {
+        lines.push({ ...op, isRejetLine: false, displayDate: op.createdAt || op.dateCreation });
+      });
+      // Ajouter les lignes de rejet (montant négatif) pour les OP rejetés
+      filteredOpsChrono.forEach(op => {
+        if (['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
+          lines.push({
+            ...op,
+            isRejetLine: true,
+            displayNumero: (op.numero || '') + ' - REJET',
+            displayMontant: -(op.montant || 0),
+            displayDate: op.updatedAt || op.createdAt || op.dateCreation
+          });
+        }
+      });
+      // Trier par date (création pour les normaux, date de rejet pour les lignes de rejet)
+      lines.sort((a, b) => (a.displayDate || '').localeCompare(b.displayDate || ''));
+      
+      // Calculer ordre, cumul engagé et disponible
+      let cumul = 0;
+      let ordre = 0;
+      // Trouver la dotation pour la ligne budgétaire filtrée (si filtre actif)
+      const getDotationLigne = () => {
+        if (!filters.ligneBudgetaire) return null;
+        let totalDotation = 0;
+        budgets.forEach(b => {
+          if (b.lignes) {
+            const ligne = b.lignes.find(l => l.code === filters.ligneBudgetaire);
+            if (ligne) totalDotation += (ligne.dotation || 0);
+          }
+        });
+        return totalDotation;
+      };
+      const dotation = getDotationLigne();
+      
+      lines.forEach(line => {
+        ordre++;
+        line.ordre = ordre;
+        if (line.isRejetLine) {
+          cumul += line.displayMontant; // négatif
+        } else if (!['REJETE_CF', 'REJETE_AC'].includes(line.statut)) {
+          cumul += (line.montant || 0);
+        }
+        // Si l'OP est rejeté mais c'est la ligne de création, on compte quand même le montant positif
+        // car le rejet sera soustrait dans la ligne REJET
+        if (!line.isRejetLine && ['REJETE_CF', 'REJETE_AC'].includes(line.statut)) {
+          cumul += (line.montant || 0);
+        }
+        line.cumulEngage = cumul;
+        line.disponible = dotation !== null ? dotation - cumul : null;
+      });
+      
+      return lines;
+    };
+    
+    const displayOps = buildDisplayOps();
 
     // Totaux
     const totaux = {
@@ -5312,14 +5507,11 @@ export default function App() {
         </div>
 
         {/* Onglets de suivi */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           {[
-            { key: 'TOUS', label: 'Tous', icon: '📋' },
-            { key: 'CIRCUIT_CF', label: 'Circuit CF', icon: '📤' },
-            { key: 'CIRCUIT_AC', label: 'Circuit AC', icon: '💰' },
-            { key: 'DIFFERES', label: 'Différés', icon: '⏸️' },
-            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' },
-            { key: 'ARCHIVES', label: 'Archives', icon: '📦' }
+            { key: 'CUMUL_OP', label: 'Cumul OP', icon: '📋' },
+            { key: 'PROV_A_ANNULER', label: 'Provisoires à annuler', icon: '⚠️' },
+            { key: 'A_REGULARISER', label: 'À régulariser', icon: '⏳' }
           ].map(tab => (
             <button
               key={tab.key}
@@ -5328,7 +5520,7 @@ export default function App() {
                 padding: '10px 16px',
                 borderRadius: 8,
                 border: 'none',
-                background: activeTab === tab.key ? (tab.key === 'ARCHIVES' ? '#546e7a' : '#0f4c3a') : '#f0f0f0',
+                background: activeTab === tab.key ? '#0f4c3a' : '#f0f0f0',
                 color: activeTab === tab.key ? 'white' : '#333',
                 fontWeight: 600,
                 fontSize: 13,
@@ -5348,6 +5540,27 @@ export default function App() {
               </span>
             </button>
           ))}
+          
+          {/* Bouton Importer des OP */}
+          <button
+            onClick={() => setShowImportModal(true)}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 8,
+              border: '2px dashed #1565c0',
+              background: '#e3f2fd',
+              color: '#1565c0',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginLeft: 'auto'
+            }}
+          >
+            📥 Importer des OP
+          </button>
         </div>
 
         {/* Onglets sources */}
@@ -5484,38 +5697,51 @@ export default function App() {
               <p>Aucun OP trouvé</p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh' }}>
               <table style={styles.table}>
-                <thead>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
+                    <th style={{ ...styles.th, width: 45 }}>N°</th>
                     {activeSource === 'ALL' && <th style={{ ...styles.th, width: 60 }}>SOURCE</th>}
                     <th style={{ ...styles.th, width: 145 }}>N° OP</th>
-                    <th style={{ ...styles.th, width: 80 }}>CRÉATION</th>
                     <th style={{ ...styles.th, width: 75 }}>TYPE</th>
                     <th style={{ ...styles.th, width: 140 }}>BÉNÉFICIAIRE</th>
                     <th style={styles.th}>OBJET</th>
                     <th style={{ ...styles.th, width: 70 }}>LIGNE</th>
+                    <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>DOTATION</th>
                     <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
-                    {/* Colonnes dynamiques selon l'onglet */}
-                    {activeTab === 'CIRCUIT_CF' && <th style={{ ...styles.th, width: 80 }}>TRANS. CF</th>}
-                    {activeTab === 'CIRCUIT_CF' && <th style={{ ...styles.th, width: 80 }}>VISA CF</th>}
-                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 80 }}>TRANS. AC</th>}
-                    {activeTab === 'CIRCUIT_AC' && <th style={{ ...styles.th, width: 85, textAlign: 'right' }}>PAYÉ</th>}
-                    {activeTab === 'DIFFERES' && <th style={{ ...styles.th, width: 80 }}>DATE DIFF.</th>}
                     {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 80 }}>ANCIENNETÉ</th>}
+                    <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>CUMUL ENGAGÉ</th>
+                    {filters.ligneBudgetaire && <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>DISPONIBLE</th>}
                     <th style={{ ...styles.th, width: 95 }}>STATUT</th>
                     <th style={{ ...styles.th, width: 100, textAlign: 'center' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOps.map(op => {
+                  {displayOps.map((op, idx) => {
                     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
                     const source = sources.find(s => s.id === op.sourceId);
-                    const statut = statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut };
+                    const isRejet = op.isRejetLine;
+                    
+                    // Ne pas afficher les lignes de rejet (désengagement) - demandé par Carole
+                    if (isRejet) return null;
+                    
+                    // Ne pas afficher le statut "Créé" - demandé par Carole
+                    const statutObj = op.statut === 'CREE' 
+                      ? { bg: 'transparent', color: 'transparent', label: '' }
+                      : (statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut });
                     const anciennete = getAnciennete(op.dateCreation);
+                    
+                    // Récupérer la dotation de la ligne budgétaire
+                    const currentBudget = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
+                    const ligneBudget = currentBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
+                    const dotationLigne = ligneBudget?.dotation || 0;
                     
                     return (
                       <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => setShowDetail(op)}>
+                        <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#666' }}>
+                          {op.ordre}
+                        </td>
                         {activeSource === 'ALL' && (
                           <td style={styles.td}>
                             <span style={{ 
@@ -5533,7 +5759,6 @@ export default function App() {
                         <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>
                           {op.numero}
                         </td>
-                        <td style={{ ...styles.td, fontSize: 11 }}>{op.dateCreation || '-'}</td>
                         <td style={styles.td}>
                           <span style={{
                             background: `${typeColors[op.type]}20`,
@@ -5551,31 +5776,12 @@ export default function App() {
                           {op.objet || '-'}
                         </td>
                         <td style={{ ...styles.td, fontSize: 11, fontFamily: 'monospace' }}>{op.ligneBudgetaire || '-'}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: '#666' }}>
+                          {formatMontant(dotationLigne)}
+                        </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
                           {formatMontant(op.montant)}
                         </td>
-                        {/* Colonnes dynamiques selon l'onglet */}
-                        {activeTab === 'CIRCUIT_CF' && (
-                          <td style={{ ...styles.td, fontSize: 11 }}>{op.dateTransmissionCF || '-'}</td>
-                        )}
-                        {activeTab === 'CIRCUIT_CF' && (
-                          <td style={{ ...styles.td, fontSize: 11, color: op.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>
-                            {op.dateVisaCF || '-'}
-                          </td>
-                        )}
-                        {activeTab === 'CIRCUIT_AC' && (
-                          <td style={{ ...styles.td, fontSize: 11 }}>{op.dateTransmissionAC || '-'}</td>
-                        )}
-                        {activeTab === 'CIRCUIT_AC' && (
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: op.totalPaye ? '#2e7d32' : '#adb5bd' }}>
-                            {formatMontant(op.totalPaye || 0)}
-                          </td>
-                        )}
-                        {activeTab === 'DIFFERES' && (
-                          <td style={{ ...styles.td, fontSize: 11, color: '#f9a825' }}>
-                            {op.dateDiffereCF || op.dateDiffereAC || '-'}
-                          </td>
-                        )}
                         {activeTab === 'A_REGULARISER' && (
                           <td style={styles.td}>
                             <span style={{
@@ -5590,27 +5796,36 @@ export default function App() {
                             </span>
                           </td>
                         )}
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
+                          {formatMontant(op.cumulEngage || 0)}
+                        </td>
+                        {filters.ligneBudgetaire && (
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32' }}>
+                            {op.disponible !== null ? formatMontant(op.disponible) : '-'}
+                          </td>
+                        )}
                         <td style={styles.td}>
                           <span style={{
-                            background: statut.bg,
-                            color: statut.color,
+                            background: statutObj.bg,
+                            color: statutObj.color,
                             padding: '3px 8px',
                             borderRadius: 4,
                             fontSize: 10,
                             fontWeight: 600
                           }}>
-                            {statut.label}
+                            {statutObj.label}
                           </span>
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          {!isRejet ? (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            {/* Bouton Modifier/Supprimer */}
+                            {/* Bouton Consulter OP */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleOpenEdit(op); }}
-                              title="Modifier / Supprimer"
+                              onClick={(e) => { e.stopPropagation(); setConsultOpData(op); setCurrentPage('nouvelOp'); }}
+                              title="Consulter l'OP"
                               style={{ 
-                                background: '#fff8e1', 
-                                color: '#f57f17', 
+                                background: '#e3f2fd', 
+                                color: '#1565c0', 
                                 border: 'none', 
                                 borderRadius: 6, 
                                 padding: '8px 12px', 
@@ -5618,7 +5833,7 @@ export default function App() {
                                 fontSize: 14
                               }}
                             >
-                              ✏️
+                              🔍
                             </button>
                             {/* Bouton Circuit */}
                             <button
@@ -5637,6 +5852,9 @@ export default function App() {
                               📋
                             </button>
                           </div>
+                          ) : (
+                            <span style={{ color: '#c62828', fontSize: 11, fontWeight: 600 }}>↩ Désengagement</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -5646,6 +5864,194 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Modal Import OP */}
+        {showImportModal && (
+          <div style={styles.modal} onClick={() => { setShowImportModal(false); setImportData([]); setImportError(''); }}>
+            <div style={{ ...styles.modalContent, maxWidth: 900 }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#1565c0', color: 'white' }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>📥 Importer des OP depuis Excel/CSV</h2>
+              </div>
+              <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
+                <div style={{ marginBottom: 20, padding: 16, background: '#e3f2fd', borderRadius: 8, fontSize: 13 }}>
+                  <strong>📋 Format attendu (colonnes) :</strong><br/>
+                  Type | Bénéficiaire (NCC) | Objet | Ligne Budgétaire | Montant | Date Création
+                </div>
+                
+                <input 
+                  type="file" 
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                      try {
+                        const text = evt.target.result;
+                        const lines = text.split('\n').filter(l => l.trim());
+                        const headers = lines[0].split(/[;,\t]/);
+                        
+                        const data = lines.slice(1).map((line, idx) => {
+                          const cols = line.split(/[;,\t]/);
+                          return {
+                            idx: idx + 1,
+                            type: (cols[0] || '').trim().toUpperCase(),
+                            beneficiaire: (cols[1] || '').trim(),
+                            objet: (cols[2] || '').trim(),
+                            ligneBudgetaire: (cols[3] || '').trim(),
+                            montant: parseFloat((cols[4] || '0').replace(/[^\d.-]/g, '')) || 0,
+                            dateCreation: (cols[5] || new Date().toISOString().split('T')[0]).trim(),
+                            valid: true,
+                            error: ''
+                          };
+                        }).filter(d => d.type || d.beneficiaire || d.montant);
+                        
+                        // Validation
+                        data.forEach(d => {
+                          if (!['PROVISOIRE', 'DIRECT', 'DEFINITIF', 'ANNULATION'].includes(d.type)) {
+                            d.valid = false;
+                            d.error = 'Type invalide';
+                          }
+                          if (!d.beneficiaire) {
+                            d.valid = false;
+                            d.error = 'Bénéficiaire manquant';
+                          }
+                          if (!d.montant || d.montant <= 0) {
+                            d.valid = false;
+                            d.error = 'Montant invalide';
+                          }
+                        });
+                        
+                        setImportData(data);
+                        setImportError('');
+                      } catch (err) {
+                        setImportError('Erreur de lecture du fichier : ' + err.message);
+                        setImportData([]);
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                  style={{ marginBottom: 16 }}
+                />
+                
+                {importError && (
+                  <div style={{ padding: 12, background: '#ffebee', color: '#c62828', borderRadius: 6, marginBottom: 16 }}>
+                    ⚠️ {importError}
+                  </div>
+                )}
+                
+                {importData.length > 0 && (
+                  <>
+                    <div style={{ marginBottom: 12, fontSize: 13 }}>
+                      <strong>{importData.length}</strong> lignes détectées — 
+                      <span style={{ color: '#2e7d32' }}> {importData.filter(d => d.valid).length} valides</span> / 
+                      <span style={{ color: '#c62828' }}> {importData.filter(d => !d.valid).length} erreurs</span>
+                    </div>
+                    
+                    <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...styles.th, width: 40 }}>#</th>
+                            <th style={{ ...styles.th, width: 80 }}>Type</th>
+                            <th style={styles.th}>Bénéficiaire</th>
+                            <th style={styles.th}>Objet</th>
+                            <th style={{ ...styles.th, width: 70 }}>Ligne</th>
+                            <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>Montant</th>
+                            <th style={{ ...styles.th, width: 100 }}>Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importData.map(d => (
+                            <tr key={d.idx} style={{ background: d.valid ? 'transparent' : '#fff8f8' }}>
+                              <td style={styles.td}>{d.idx}</td>
+                              <td style={styles.td}>{d.type}</td>
+                              <td style={styles.td}>{d.beneficiaire}</td>
+                              <td style={{ ...styles.td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.objet}</td>
+                              <td style={styles.td}>{d.ligneBudgetaire}</td>
+                              <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(d.montant)}</td>
+                              <td style={styles.td}>
+                                {d.valid ? (
+                                  <span style={{ color: '#2e7d32', fontSize: 12 }}>✓ OK</span>
+                                ) : (
+                                  <span style={{ color: '#c62828', fontSize: 11 }}>⚠️ {d.error}</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>
+                        Annuler
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          const validOps = importData.filter(d => d.valid);
+                          if (validOps.length === 0) {
+                            alert('Aucun OP valide à importer');
+                            return;
+                          }
+                          
+                          if (!window.confirm(`Importer ${validOps.length} OP ?`)) return;
+                          
+                          try {
+                            for (const d of validOps) {
+                              // Trouver le bénéficiaire par NCC ou nom
+                              const ben = beneficiaires.find(b => 
+                                b.ncc === d.beneficiaire || 
+                                b.nom.toLowerCase().includes(d.beneficiaire.toLowerCase())
+                              );
+                              
+                              // Générer le numéro
+                              const sigleProjet = projet?.sigle || 'PROJET';
+                              const sigleSrc = sources.find(s => s.id === activeSource)?.sigle || 'SRC';
+                              const annee = exerciceActif?.annee || new Date().getFullYear();
+                              const existants = ops.filter(o => o.sourceId === (activeSource === 'ALL' ? sources[0]?.id : activeSource) && o.exerciceId === exerciceActif?.id);
+                              const nextNum = existants.length + 1;
+                              const numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSrc}/${annee}`;
+                              
+                              const opData = {
+                                numero,
+                                type: d.type,
+                                beneficiaireId: ben?.id || null,
+                                beneficiaireNom: ben?.nom || d.beneficiaire,
+                                objet: d.objet,
+                                ligneBudgetaire: d.ligneBudgetaire,
+                                montant: d.montant,
+                                dateCreation: d.dateCreation,
+                                statut: 'CREE',
+                                sourceId: activeSource === 'ALL' ? sources[0]?.id : activeSource,
+                                exerciceId: exerciceActif?.id,
+                                createdAt: new Date().toISOString(),
+                                importedAt: new Date().toISOString()
+                              };
+                              
+                              await addDoc(collection(db, 'ops'), opData);
+                            }
+                            
+                            alert(`✅ ${validOps.length} OP importés avec succès !`);
+                            setShowImportModal(false);
+                            setImportData([]);
+                          } catch (err) {
+                            alert('Erreur import : ' + err.message);
+                          }
+                        }}
+                        disabled={importData.filter(d => d.valid).length === 0}
+                        style={{ ...styles.button, background: importData.filter(d => d.valid).length === 0 ? '#ccc' : '#2e7d32' }}
+                      >
+                        ✓ Importer {importData.filter(d => d.valid).length} OP
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Détail OP */}
         {showDetail && (
@@ -6245,32 +6651,61 @@ export default function App() {
   <meta charset="UTF-8">
   <title>OP ${showEditModal.numero}</title>
   <style>
-    @page { size: A4; margin: 8mm; }
+    @page { size: A4; margin: 10mm; }
     @media print {
-      html, body { height: 100%; margin: 0; padding: 0; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .toolbar { display: none !important; }
+      body { background: #fff !important; padding: 0 !important; }
+      .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
-      font-family: 'Century Gothic', 'Trebuchet MS', 'Segoe UI', Arial, sans-serif; 
+      font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
       font-size: 11px; 
       line-height: 1.4;
-      color: #000;
+      background: #e0e0e0;
+      padding: 0;
+    }
+    .toolbar {
+      background: #1a1a2e;
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .toolbar button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print { background: #2196F3; color: #fff; }
+    .btn-print:hover { background: #1976D2; }
+    .btn-pdf { background: #4CAF50; color: #fff; }
+    .btn-pdf:hover { background: #388E3C; }
+    .toolbar-title { color: #fff; font-size: 14px; margin-left: auto; }
+    .page-container {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 20px auto;
       background: #fff;
+      padding: 8mm;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
-    .page { 
+    .inner-frame {
       border: 2px solid #000;
-      max-width: 210mm;
-      margin: 0 auto;
+      height: 100%;
     }
-    
-    /* === EN-TÊTE === */
     .header {
       display: flex;
       border-bottom: 1px solid #000;
     }
     .header-logo {
-      width: 17%;
+      width: 22%;
       padding: 8px;
       display: flex;
       align-items: center;
@@ -6279,284 +6714,352 @@ export default function App() {
     }
     .header-logo img { max-height: 75px; max-width: 100%; }
     .header-center {
-      flex: 1;
-      padding: 5px 8px;
+      width: 56%;
+      padding: 6px;
       text-align: center;
       border-right: 1px solid #000;
     }
-    .header-center div { margin: 1px 0; }
+    .header-center .republic { font-weight: bold; font-size: 11px; }
+    .header-center .sep { font-size: 8px; letter-spacing: 0.5px; color: #333; }
+    .header-center .ministry { font-style: italic; font-size: 10px; }
+    .header-center .project { font-weight: bold; font-size: 10px; }
     .header-right {
-      width: 17%;
+      width: 22%;
       padding: 8px;
       font-size: 10px;
       text-align: right;
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-end;
     }
-    
-    /* === TITRE OP === */
-    .title-section {
+    .op-title-section {
       text-align: center;
-      padding: 6px;
+      padding: 6px 10px;
       border-bottom: 1px solid #000;
     }
-    
-    /* === LIGNE EXERCICE === */
-    .exercice-row {
+    .op-title { font-weight: bold; text-decoration: underline; font-size: 11px; }
+    .op-numero { font-size: 10px; margin-top: 2px; }
+    .body-content {
+      padding: 12px 15px;
+      border-bottom: 1px solid #000;
+    }
+    .exercice-line {
       display: flex;
       justify-content: space-between;
-      padding: 5px 10px;
-      border-bottom: 1px solid #000;
+      margin-bottom: 10px;
     }
-    .type-red { color: #cc0000; font-weight: bold; }
-    
-    /* === ZONE CONTENU - PAS DE BORDURES INTERNES === */
-    .content {
-      padding: 8px 10px;
+    .type-red { color: #c00; font-weight: bold; }
+    .field { margin-bottom: 8px; }
+    .field-title { text-decoration: underline; font-size: 10px; margin-bottom: 6px; }
+    .field-value { font-weight: bold; }
+    .field-large {
+      margin: 15px 0;
+      min-height: 45px;
+      line-height: 1.6;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
-    .content .line { margin: 5px 0; }
-    .content .line-space { margin: 12px 0; }
-    .bold { font-weight: bold; }
-    .underline { text-decoration: underline; }
-    .small { font-size: 10px; }
-    
-    /* Cases à cocher */
-    .check-row {
+    .checkbox-line {
       display: flex;
       align-items: center;
-      margin: 6px 0;
+      margin-bottom: 8px;
     }
-    .check-label { min-width: 270px; }
-    .check-opts { display: flex; gap: 40px; }
-    .check-item { display: flex; align-items: center; gap: 5px; }
+    .checkbox-label { min-width: 230px; }
+    .checkbox-options { display: flex; gap: 50px; }
+    .check-item { display: flex; align-items: center; gap: 6px; }
     .box { 
-      width: 20px; height: 14px; 
+      width: 18px; 
+      height: 14px; 
       border: 1px solid #000; 
       display: inline-flex; 
       align-items: center; 
       justify-content: center;
       font-size: 10px;
     }
-    
-    /* Montant */
-    .montant-row {
+    .budget-section { margin-top: 15px; }
+    .budget-row {
       display: flex;
       align-items: center;
-      margin: 10px 0;
+      margin-bottom: 8px;
     }
-    .montant-box {
+    .budget-row .col-left { width: 33.33%; }
+    .budget-row .col-center { width: 33.33%; }
+    .budget-row .col-right { width: 33.33%; }
+    .value-box {
       border: 1px solid #000;
-      padding: 2px 15px;
+      padding: 4px 10px;
+      text-align: right;
       font-weight: bold;
-      text-decoration: underline;
+      white-space: nowrap;
+      font-size: 10px;
     }
-    
-    /* === TABLEAU BUDGETAIRE === */
     .budget-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
     }
     .budget-table td {
       border: 1px solid #000;
-      padding: 3px 6px;
+      padding: 4px 8px;
+      font-size: 10px;
     }
-    .budget-table .col-a { width: 25px; text-align: center; font-weight: bold; }
-    .budget-table .col-c { width: 140px; text-align: right; }
-    
-    /* === SIGNATURES === */
-    .signatures {
+    .budget-table .col-letter { 
+      width: 4%;
+      text-align: center; 
+      font-weight: bold; 
+    }
+    .budget-table .col-label { width: 29.33%; }
+    .budget-table .col-amount { 
+      width: 33.33%;
+      text-align: right;
+      padding-right: 10px;
+    }
+    .budget-table .col-empty {
+      width: 33.33%;
+      border: none;
+    }
+    .signatures-section {
       display: flex;
-      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
     }
-    .sig-col {
-      flex: 1;
-      min-height: 100px;
-      border-right: 1px solid #000;
+    .sig-box {
+      width: 33.33%;
+      min-height: 160px;
       display: flex;
       flex-direction: column;
+      border-right: 1px solid #000;
     }
-    .sig-col:last-child { border-right: none; }
+    .sig-box:last-child { border-right: none; }
     .sig-header {
       text-align: center;
       font-weight: bold;
-      font-size: 10px;
-      padding: 5px;
+      font-size: 9px;
+      padding: 6px;
       border-bottom: 1px solid #000;
+      line-height: 1.3;
     }
-    .sig-body {
+    .sig-content {
       flex: 1;
-      position: relative;
-      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
     }
     .sig-name {
-      position: absolute;
-      bottom: 5px;
-      left: 0;
-      right: 0;
-      text-align: center;
+      text-align: right;
       font-weight: bold;
       text-decoration: underline;
-      font-size: 10px;
+      font-size: 9px;
     }
-    
-    /* === LIGNE ABIDJAN === */
     .abidjan-row {
       display: flex;
-      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
     }
     .abidjan-cell {
-      flex: 1;
-      padding: 3px 8px;
-      font-size: 10px;
+      width: 33.33%;
+      padding: 4px 10px;
+      font-size: 9px;
       border-right: 1px solid #000;
     }
     .abidjan-cell:last-child { border-right: none; }
-    
-    /* === ACQUIT === */
-    .acquit-row {
-      display: flex;
-      min-height: 60px;
-    }
-    .acquit-left { flex: 2; }
-    .acquit-right {
-      flex: 1;
-      border-left: 1px solid #000;
-      padding: 6px 8px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
+    .acquit-section { display: flex; }
+    .acquit-empty { 
+      width: 66.66%;
+      border-right: 1px solid #000;
     }
     .acquit-box {
-      border: 1px solid #000;
-      padding: 3px 10px;
-      font-size: 10px;
+      width: 33.33%;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+    }
+    .acquit-header {
+      text-align: center;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+    }
+    .acquit-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
     }
     .acquit-date {
-      margin-top: auto;
-      font-size: 10px;
+      font-size: 9px;
+      text-align: left;
+    }
+    @media print { 
+      body { padding: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <!-- EN-TÊTE -->
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
+    <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
+    <span class="toolbar-title">Aperçu – OP ${showEditModal.numero}</span>
+  </div>
+  <div class="page-container">
+  <div class="inner-frame">
     <div class="header">
       <div class="header-logo">
-        <img src="${LOGO_PIF2}" />
+        <img src="${LOGO_PIF2}" alt="PIF2" />
       </div>
       <div class="header-center">
-        <div style="font-weight:bold">REPUBLIQUE DE CÔTE D'IVOIRE</div>
-        <div style="font-size:9px;letter-spacing:1px">------------------------</div>
-        <div style="font-style:italic;font-size:10px">MINISTERE DES EAUX ET FORETS</div>
-        <div style="font-size:9px;letter-spacing:1px">------------------------</div>
-        <div style="font-weight:bold">PROJET D'INVESTISSEMENT FORESTIER 2</div>
-        <div style="font-size:9px;letter-spacing:1px">------------------------</div>
+        <div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+        <div class="sep">------------------------</div>
+        <div class="ministry">MINISTERE DES EAUX ET FORETS</div>
+        <div class="sep">------------------------</div>
+        <div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+        <div class="sep">------------------------</div>
       </div>
-      <div class="header-right">Union – Discipline – Travail</div>
+      <div class="header-right">
+        <div style="text-align: center;">
+          <img src="${ARMOIRIE}" alt="Armoirie" style="max-height: 50px; max-width: 60px; margin-bottom: 3px;" />
+          <div>Union – Discipline – Travail</div>
+        </div>
+      </div>
     </div>
     
-    <!-- TITRE -->
-    <div class="title-section">
-      <div style="font-weight:bold;text-decoration:underline">ORDRE DE PAIEMENT</div>
-      <div>N°${showEditModal.numero}</div>
+    <div class="op-title-section">
+      <div class="op-title">ORDRE DE PAIEMENT</div>
+      <div class="op-numero">N°${showEditModal.numero}</div>
     </div>
     
-    <!-- EXERCICE -->
-    <div class="exercice-row">
-      <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<span class="bold">${exercice?.annee || ''}</span></div>
-      <div class="type-red">${editForm.type}</div>
-    </div>
-    
-    <!-- CONTENU PRINCIPAL -->
-    <div class="content">
-      <div class="line underline small">REFERENCE DU BENEFICIAIRE</div>
-      <div class="line-space">BENEFICIAIRE : <span class="bold">${editBeneficiaire?.nom || ''}</span></div>
+    <div class="body-content">
+      <div class="exercice-line">
+        <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<strong>${exercice?.annee || ''}</strong></div>
+        <div class="type-red">${editForm.type}</div>
+      </div>
       
-      <div class="line">COMPTE CONTRIBUABLE : <span class="bold">${editBeneficiaire?.ncc || ''}</span></div>
+      <div class="field">
+        <div class="field-title">REFERENCE DU BENEFICIAIRE</div>
+      </div>
       
-      <div class="check-row">
-        <span class="check-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
-        <div class="check-opts">
+      <div class="field">
+        BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editBeneficiaire?.nom || ''}</span>
+      </div>
+      
+      <div class="field">
+        COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editBeneficiaire?.ncc || ''}</span>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+        <div class="checkbox-options">
           <span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span>
           <span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span>
         </div>
       </div>
       
-      <div class="check-row">
-        <span class="check-label">MODE DE REGLEMENT :</span>
-        <div class="check-opts">
+      <div class="checkbox-line">
+        <span class="checkbox-label">MODE DE REGLEMENT :</span>
+        <div class="checkbox-options">
           <span class="check-item">ESPECE <span class="box">${editForm.modeReglement === 'ESPECES' ? 'x' : ''}</span></span>
           <span class="check-item">CHEQUE <span class="box">${editForm.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span>
           <span class="check-item">VIREMENT <span class="box">${editForm.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span>
         </div>
       </div>
       
-      <div class="line">REFERENCES BANCAIRES : <span class="bold">${editForm.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span></div>
-      
-      <div class="line-space">OBJET DE LA DEPENSE : <span class="bold">${editForm.objet || ''}</span></div>
-      
-      <div class="line-space">PIECES JUSTIFICATIVES : <span class="bold">${editForm.piecesJustificatives || ''}</span></div>
-      
-      <div class="montant-row">
-        <span style="min-width:140px">MONTANT TOTAL :</span>
-        <span class="montant-box">${formatMontant(Math.abs(engagementActuel))}</span>
+      <div class="field">
+        REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
       </div>
       
-      <div class="line">IMPUTATION BUDGETAIRE : <span class="bold">${codeImputationComplet.trim()}</span></div>
+      <div class="field-large">
+        OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.objet || ''}</span>
+      </div>
       
-      <!-- TABLEAU BUDGETAIRE -->
-      <table class="budget-table">
-        <tr><td class="col-a">A</td><td>Dotation budgétaire</td><td class="col-c">${formatMontant(dotation)}</td></tr>
-        <tr><td class="col-a">B</td><td>Engagements antérieurs</td><td class="col-c">${formatMontant(engagementsAnterieurs)}</td></tr>
-        <tr><td class="col-a">C</td><td>Engagement actuel</td><td class="col-c">${formatMontant(Math.abs(engagementActuel))}</td></tr>
-        <tr><td class="col-a">D</td><td>Engagements cumulés (B + C)</td><td class="col-c">${formatMontant(engagementsCumules)}</td></tr>
-        <tr><td class="col-a">E</td><td>Disponible budgétaire (A - D)</td><td class="col-c">${formatMontant(disponible)}</td></tr>
-      </table>
+      <div class="field-large">
+        PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.piecesJustificatives || ''}</span>
+      </div>
+      
+      <div class="budget-section">
+        <div class="budget-row">
+          <div class="col-left">MONTANT TOTAL :</div>
+          <div class="col-center">
+            <div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <div class="budget-row">
+          <div class="col-left">IMPUTATION BUDGETAIRE :</div>
+          <div class="col-center">
+            <div class="value-box">${codeImputationComplet.trim()}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <table class="budget-table">
+          <tr>
+            <td class="col-letter">A</td>
+            <td class="col-label">Dotation budgétaire</td>
+            <td class="col-amount">${formatMontant(dotation)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">B</td>
+            <td class="col-label">Engagements antérieurs</td>
+            <td class="col-amount">${formatMontant(engagementsAnterieurs)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">C</td>
+            <td class="col-label">Engagement actuel</td>
+            <td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">D</td>
+            <td class="col-label">Engagements cumulés (B + C)</td>
+            <td class="col-amount">${formatMontant(engagementsCumules)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">E</td>
+            <td class="col-label">Disponible budgétaire (A - D)</td>
+            <td class="col-amount">${formatMontant(disponible)}</td>
+            <td class="col-empty"></td>
+          </tr>
+        </table>
+      </div>
     </div>
     
-    <!-- SIGNATURES -->
-    <div class="signatures">
-      <div class="sig-col">
+    <div class="signatures-section">
+      <div class="sig-box">
         <div class="sig-header">VISA<br/>COORDONNATRICE</div>
-        <div class="sig-body"><div class="sig-name">ABE-KOFFI Thérèse</div></div>
+        <div class="sig-content">
+          <div class="sig-name">ABE-KOFFI Thérèse</div>
+        </div>
       </div>
-      <div class="sig-col">
+      <div class="sig-box">
         <div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div>
-        <div class="sig-body"></div>
+        <div class="sig-content"></div>
       </div>
-      <div class="sig-col">
+      <div class="sig-box">
         <div class="sig-header">VISA AGENT<br/>COMPTABLE</div>
-        <div class="sig-body"></div>
+        <div class="sig-content"></div>
       </div>
     </div>
     
-    <!-- ABIDJAN -->
     <div class="abidjan-row">
       <div class="abidjan-cell">Abidjan, le</div>
       <div class="abidjan-cell">Abidjan, le</div>
       <div class="abidjan-cell">Abidjan, le</div>
     </div>
     
-    <!-- ACQUIT -->
-    <div class="acquit-row">
-      <div class="acquit-left"></div>
-      <div class="acquit-right">
-        <div class="acquit-box">ACQUIT LIBERATOIRE</div>
-        <div class="acquit-date">Abidjan, le</div>
+    <div class="acquit-section">
+      <div class="acquit-empty"></div>
+      <div class="acquit-box">
+        <div class="acquit-header">ACQUIT LIBERATOIRE</div>
+        <div class="acquit-content">
+          <div class="acquit-date">Abidjan, le</div>
+        </div>
       </div>
     </div>
   </div>
-  <script>
-    window.onload = function() {
-      window.print();
-      window.onafterprint = function() { window.close(); };
-    };
-  </script>
+  </div>
 </body>
 </html>`;
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
             printWindow.document.write(printContent);
             printWindow.document.close();
           };
@@ -7145,6 +7648,17 @@ export default function App() {
 
   return (
     <div style={styles.container}>
+      {/* Style global pour cacher les spinners des inputs numériques */}
+      <style>{`
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
       <Sidebar />
       <main style={styles.main}>
         {currentPage === 'dashboard' && <PageDashboard />}
@@ -7153,7 +7667,9 @@ export default function App() {
         {currentPage === 'budget' && <PageBudget />}
         {currentPage === 'historique' && <PageHistoriqueBudget />}
         {currentPage === 'ops' && <PageListeOP />}
-        {currentPage === 'nouvelOp' && <PageNouvelOp />}
+        {currentPage === 'nouvelOp' && <PageNouvelOp consultOpData={consultOpData} setConsultOpData={setConsultOpData} />}
+        {currentPage === 'consulterOp' && <PageConsulterOp />}
+        {currentPage === 'bordereaux' && <PageBordereaux />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
       </main>
     </div>
