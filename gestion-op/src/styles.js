@@ -1,0 +1,24 @@
+// ==================== STYLES PARTAGÉS ====================
+const styles = {
+  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  sidebar: { width: 260, background: 'linear-gradient(180deg, #0a3528 0%, #0f4c3a 100%)', color: 'white', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed' },
+  main: { marginLeft: 260, flex: 1, padding: 26 },
+  card: { background: 'white', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  input: { width: '100%', padding: '12px 14px', border: '2px solid #e9ecef', borderRadius: 8, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' },
+  button: { padding: '12px 24px', background: '#0f4c3a', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 500 },
+  buttonSecondary: { padding: '12px 24px', background: '#e9ecef', color: '#333', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: { padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, background: '#f8f9fa', borderBottom: '2px solid #e9ecef' },
+  td: { padding: '14px 16px', borderBottom: '1px solid #f1f3f4' },
+  badge: { padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500 },
+  modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 },
+  modalContent: { background: 'white', borderRadius: 14, width: '90%', maxWidth: 600, maxHeight: '90vh', overflow: 'auto' },
+  tabs: { display: 'flex', gap: 0, borderBottom: '2px solid #e9ecef', marginBottom: 24 },
+  tab: { padding: '12px 24px', cursor: 'pointer', borderBottom: '2px solid transparent', marginBottom: -2, fontSize: 14, fontWeight: 500, color: '#6c757d' },
+  tabActive: { padding: '12px 24px', cursor: 'pointer', borderBottom: '2px solid #0f4c3a', marginBottom: -2, fontSize: 14, fontWeight: 600, color: '#0f4c3a' },
+  sourceTabs: { display: 'flex', gap: 8, marginBottom: 20 },
+  sourceTab: { padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, border: '2px solid #e9ecef', background: 'white' },
+  sourceTabActive: { padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, border: '2px solid', color: 'white' },
+};
+
+export default styles;
