@@ -287,6 +287,19 @@ const styles = {
 // ==================== UTILITAIRES ====================
 const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
 
+// Parser un montant formaté (enlève les espaces et remplace la virgule par un point)
+const parseMontant = (str) => {
+  if (!str) return '';
+  return String(str).replace(/\s/g, '').replace(/,/g, '.');
+};
+
+// Formater un montant pour l'affichage dans un input (avec séparateurs)
+const formatMontantInput = (value) => {
+  const num = parseFloat(parseMontant(value));
+  if (isNaN(num)) return '';
+  return new Intl.NumberFormat('fr-FR').format(num);
+};
+
 const formatDate = (date) => {
   if (!date) return '';
   const d = date.toDate ? date.toDate() : new Date(date);
@@ -2582,9 +2595,17 @@ export default function App() {
                                 <td style={{ ...styles.td, fontSize: 13 }}>{ligne.libelle}</td>
                                 <td style={styles.td}>
                                   <input
-                                    type="number"
-                                    value={ligne.dotation || ''}
-                                    onChange={(e) => updateDotation(ligne.code, e.target.value)}
+                                    type="text"
+                                    defaultValue={ligne.dotation ? formatMontant(ligne.dotation) : ''}
+                                    onBlur={(e) => {
+                                      const numVal = parseFloat(parseMontant(e.target.value)) || 0;
+                                      updateDotation(ligne.code, numVal);
+                                      e.target.value = numVal ? formatMontant(numVal) : '';
+                                    }}
+                                    onFocus={(e) => {
+                                      // Afficher la valeur brute pour l'édition
+                                      e.target.value = ligne.dotation || '';
+                                    }}
                                     placeholder="0"
                                     style={{ 
                                       width: '100%', 
@@ -3119,7 +3140,7 @@ export default function App() {
       const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
       const ribs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
       const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
-      // Remplir le formulaire
+      // Remplir le formulaire avec montants formatés
       setForm({
         type: op.type || 'PROVISOIRE',
         beneficiaireId: op.beneficiaireId || '',
@@ -3127,9 +3148,9 @@ export default function App() {
         modeReglement: op.modeReglement || 'VIREMENT',
         objet: op.objet || '',
         piecesJustificatives: op.piecesJustificatives || '',
-        montant: String(op.montant || ''),
+        montant: op.montant ? formatMontantInput(op.montant) : '',
         ligneBudgetaire: op.ligneBudgetaire || '',
-        montantTVA: String(op.montantTVA || ''),
+        montantTVA: op.montantTVA ? formatMontantInput(op.montantTVA) : '',
         tvaRecuperable: op.tvaRecuperable || false,
         opProvisoireNumero: op.opProvisoireNumero || '',
         opProvisoireId: op.opProvisoireId || ''
@@ -3220,7 +3241,7 @@ export default function App() {
     };
 
     const getEngagementActuel = () => {
-      const montant = parseFloat(form.montant) || 0;
+      const montant = parseFloat(parseMontant(form.montant)) || 0;
       // Le montant est utilisé tel quel (négatif pour annulation, positif pour les autres)
       // Pour Définitif : remplace le provisoire, donc pas d'impact supplémentaire si même montant
       if (form.type === 'DEFINITIF' && form.opProvisoireId) {
@@ -3322,7 +3343,7 @@ export default function App() {
         alert('Veuillez saisir l\'objet de la dépense');
         return;
       }
-      if (!form.montant || parseFloat(form.montant) === 0) {
+      if (!form.montant || parseFloat(parseMontant(form.montant)) === 0) {
         alert('Veuillez saisir un montant valide (différent de zéro)');
         return;
       }
@@ -3377,8 +3398,8 @@ export default function App() {
           ligneBudgetaire: form.ligneBudgetaire,
           objet: form.objet.trim(),
           piecesJustificatives: form.piecesJustificatives.trim(),
-          montant: parseFloat(form.montant),
-          montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
+          montant: parseFloat(parseMontant(form.montant)),
+          montantTVA: form.montantTVA ? parseFloat(parseMontant(form.montantTVA)) : null,
           tvaRecuperable: form.tvaRecuperable,
           statut: 'CREE',
           opProvisoireId: form.opProvisoireId || null,
@@ -3663,9 +3684,23 @@ export default function App() {
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) *</label>
                   <input 
-                    type="number" 
+                    type="text" 
                     value={form.montant} 
-                    onChange={(e) => setForm({ ...form, montant: e.target.value })}
+                    onChange={(e) => {
+                      // Permettre seulement chiffres, espaces, virgule et point
+                      const val = e.target.value.replace(/[^\d\s,.-]/g, '');
+                      setForm({ ...form, montant: val });
+                    }}
+                    onBlur={(e) => {
+                      // Formater avec séparateurs de milliers au blur
+                      const formatted = formatMontantInput(e.target.value);
+                      if (formatted) setForm({ ...form, montant: formatted });
+                    }}
+                    onFocus={(e) => {
+                      // Enlever le formatage au focus pour faciliter l'édition
+                      const raw = parseMontant(e.target.value);
+                      setForm({ ...form, montant: raw });
+                    }}
                     style={{ ...styles.input, marginBottom: 0, background: '#fff0f0', fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} 
                     placeholder="0"
                     disabled={form.type === 'ANNULATION' && form.opProvisoireId}
@@ -3771,9 +3806,20 @@ export default function App() {
                         <div>
                           <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT TVA</label>
                           <input 
-                            type="number" 
+                            type="text" 
                             value={form.montantTVA} 
-                            onChange={(e) => setForm({ ...form, montantTVA: e.target.value })}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^\d\s,.-]/g, '');
+                              setForm({ ...form, montantTVA: val });
+                            }}
+                            onBlur={(e) => {
+                              const formatted = formatMontantInput(e.target.value);
+                              if (formatted) setForm({ ...form, montantTVA: formatted });
+                            }}
+                            onFocus={(e) => {
+                              const raw = parseMontant(e.target.value);
+                              setForm({ ...form, montantTVA: raw });
+                            }}
                             style={{ ...styles.input, marginBottom: 0, fontFamily: 'monospace', textAlign: 'right' }} 
                             placeholder="0"
                           />
@@ -3847,7 +3893,7 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         const selectedRib = beneficiaireRibs[form.ribIndex] || {};
-                        const engagementActuel = parseFloat(form.montant) || 0;
+                        const engagementActuel = parseFloat(parseMontant(form.montant)) || 0;
                         const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
                         const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
                         const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
@@ -4302,13 +4348,11 @@ export default function App() {
                             motifRejet: motif,
                             updatedAt: new Date().toISOString()
                           });
-                          setOps(ops.map(o => o.id === consultedOp.id ? { ...o, statut: 'REJETE_CF', motifRejet: motif } : o));
-                          alert(`OP ${consultedOp.numero} rejeté.`);
-                          // Rester sur la page Consulter, prêt à chercher un autre OP
-                          setIsConsultMode(false);
+                          const updatedOp = { ...consultedOp, statut: 'REJETE_CF', motifRejet: motif };
+                          setOps(ops.map(o => o.id === consultedOp.id ? updatedOp : o));
+                          setConsultedOp(updatedOp); // Garder l'OP affiché avec le nouveau statut
                           setIsEditMode(false);
-                          setConsultedOp(null);
-                          setShowConsultModal(true); // Ouvrir le modal de recherche
+                          alert(`OP ${consultedOp.numero} rejeté.`);
                         }
                       }}
                       style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#c62828' }}
@@ -4343,11 +4387,10 @@ export default function App() {
                             await deleteDoc(doc(db, 'ops', consultedOp.id));
                             setOps(ops.filter(o => o.id !== consultedOp.id));
                             alert(`✅ OP ${consultedOp.numero} supprimé.`);
-                            // Rester sur la page Consulter, prêt à chercher un autre OP
-                            setIsConsultMode(false);
-                            setIsEditMode(false);
+                            // L'OP n'existe plus, ouvrir le modal pour en chercher un autre
                             setConsultedOp(null);
-                            setShowConsultModal(true); // Ouvrir le modal de recherche
+                            setIsEditMode(false);
+                            setShowConsultModal(true);
                           } catch (error) {
                             alert('Erreur : ' + error.message);
                           }
@@ -4380,7 +4423,7 @@ export default function App() {
                         const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
                         const selectedRib = benRibs[form.ribIndex || 0];
                         
-                        const newMontant = parseFloat(form.montant) || consultedOp.montant;
+                        const newMontant = parseFloat(parseMontant(form.montant)) || consultedOp.montant;
                         
                         // Vérifier si la modification du montant impacte les OP suivants
                         if (newMontant !== consultedOp.montant) {
@@ -4411,13 +4454,20 @@ export default function App() {
                           montant: newMontant,
                           ligneBudgetaire: form.ligneBudgetaire,
                           tvaRecuperable: form.tvaRecuperable || false,
-                          montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
+                          montantTVA: form.tvaRecuperable ? (parseFloat(parseMontant(form.montantTVA)) || 0) : 0,
                           updatedAt: new Date().toISOString()
                         };
                         
                         await updateDoc(doc(db, 'ops', consultedOp.id), updates);
-                        setOps(ops.map(o => o.id === consultedOp.id ? { ...o, ...updates } : o));
-                        setConsultedOp({ ...consultedOp, ...updates });
+                        const updatedOp = { ...consultedOp, ...updates };
+                        setOps(ops.map(o => o.id === consultedOp.id ? updatedOp : o));
+                        setConsultedOp(updatedOp);
+                        // Mettre à jour le formulaire avec les nouvelles valeurs
+                        setForm({
+                          ...form,
+                          montant: formatMontantInput(updates.montant),
+                          montantTVA: updates.montantTVA ? formatMontantInput(updates.montantTVA) : ''
+                        });
                         setIsEditMode(false);
                         alert(`✅ OP ${consultedOp.numero} modifié avec succès !`);
                       } catch (error) {
@@ -4436,7 +4486,7 @@ export default function App() {
                   onClick={() => {
                     // Réutilise la même logique d'impression que le mode consultation
                     const selectedRib = beneficiaireRibs[form.ribIndex] || {};
-                    const engagementActuel = parseFloat(form.montant) || 0;
+                    const engagementActuel = parseFloat(parseMontant(form.montant)) || 0;
                     const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
                     const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
                     const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
