@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Select from 'react-select';
+import Autocomplete from '../components/Autocomplete';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -2504,16 +2504,11 @@ const PageListeOP = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, marginBottom: 16 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
-                  <Select
-                    options={beneficiaires.map(b => ({ value: b.id, label: b.nom }))}
+                  <Autocomplete
+                    options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
                     value={editForm.beneficiaireId ? { value: editForm.beneficiaireId, label: editBeneficiaire?.nom || '' } : null}
                     onChange={(option) => setEditForm({ ...editForm, beneficiaireId: option?.value || '', ribIndex: 0 })}
                     placeholder="🔍 Rechercher un bénéficiaire..."
-                    isClearable
-                    styles={{
-                      control: (base) => ({ ...base, minHeight: 44, borderRadius: 8 }),
-                      menu: (base) => ({ ...base, zIndex: 9999 })
-                    }}
                   />
                 </div>
                 <div>
@@ -2609,16 +2604,11 @@ const PageListeOP = () => {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
-                  <Select
-                    options={(editBudget?.lignes || []).map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}` }))}
+                  <Autocomplete
+                    options={(editBudget?.lignes || []).map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}`, searchFields: [l.code, l.libelle] }))}
                     value={editForm.ligneBudgetaire ? { value: editForm.ligneBudgetaire, label: `${editForm.ligneBudgetaire}${editLigne ? ' - ' + editLigne.libelle : ''}` } : null}
                     onChange={(option) => setEditForm({ ...editForm, ligneBudgetaire: option?.value || '' })}
                     placeholder="🔍 Rechercher une ligne..."
-                    isClearable
-                    styles={{
-                      control: (base) => ({ ...base, minHeight: 44, borderRadius: 8 }),
-                      menu: (base) => ({ ...base, zIndex: 9999 })
-                    }}
                   />
                 </div>
               </div>
