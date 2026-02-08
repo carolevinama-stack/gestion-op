@@ -4278,7 +4278,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
-                        if (pwd === (projet?.motDePasseAdmin || 'admin123')) {
+                        if (pwd === (projet?.motDePasseAdmin || 'admin')) {
                           setIsEditMode(true);
                         } else if (pwd !== null) {
                           alert('❌ Mot de passe incorrect');
@@ -4291,7 +4291,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         const pwd = window.prompt('🔒 Mot de passe requis pour rejeter :');
-                        if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin')) {
                           if (pwd !== null) alert('❌ Mot de passe incorrect');
                           return;
                         }
@@ -4304,7 +4304,11 @@ export default function App() {
                           });
                           setOps(ops.map(o => o.id === consultedOp.id ? { ...o, statut: 'REJETE_CF', motifRejet: motif } : o));
                           alert(`OP ${consultedOp.numero} rejeté.`);
-                          exitConsultMode();
+                          // Rester sur la page Consulter, prêt à chercher un autre OP
+                          setIsConsultMode(false);
+                          setIsEditMode(false);
+                          setConsultedOp(null);
+                          setShowConsultModal(true); // Ouvrir le modal de recherche
                         }
                       }}
                       style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#c62828' }}
@@ -4314,7 +4318,7 @@ export default function App() {
                     <button
                       onClick={async () => {
                         const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
-                        if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin')) {
                           if (pwd !== null) alert('❌ Mot de passe incorrect');
                           return;
                         }
@@ -4339,7 +4343,11 @@ export default function App() {
                             await deleteDoc(doc(db, 'ops', consultedOp.id));
                             setOps(ops.filter(o => o.id !== consultedOp.id));
                             alert(`✅ OP ${consultedOp.numero} supprimé.`);
-                            exitConsultMode();
+                            // Rester sur la page Consulter, prêt à chercher un autre OP
+                            setIsConsultMode(false);
+                            setIsEditMode(false);
+                            setConsultedOp(null);
+                            setShowConsultModal(true); // Ouvrir le modal de recherche
                           } catch (error) {
                             alert('Erreur : ' + error.message);
                           }
@@ -4850,7 +4858,7 @@ export default function App() {
       }
       
       const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
-      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin')) {
         if (pwd !== null) alert('❌ Mot de passe incorrect');
         return;
       }
@@ -4888,7 +4896,7 @@ export default function App() {
       }
       
       const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
-      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin')) {
         if (pwd !== null) alert('❌ Mot de passe incorrect');
         return;
       }
