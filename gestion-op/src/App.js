@@ -3081,7 +3081,7 @@ export default function App() {
   };
 
   // ==================== PAGE NOUVEL OP ====================
-  const PageNouvelOp = () => {
+  const PageNouvelOp = ({ consultOpData, setConsultOpData }) => {
     const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
     const [form, setForm] = useState({
       type: 'PROVISOIRE',
@@ -3141,8 +3141,7 @@ export default function App() {
       setIsConsultMode(false);
       setIsEditMode(false);
       setConsultedOp(null);
-      setConsultOpId(null);
-      setConsultOpData(null);
+      if (setConsultOpData) setConsultOpData(null);
       handleClear();
     };
 
@@ -3150,7 +3149,7 @@ export default function App() {
     useEffect(() => {
       if (consultOpData) {
         loadOpForConsult(consultOpData);
-        setConsultOpData(null);
+        if (setConsultOpData) setConsultOpData(null);
       }
     }, [consultOpData]);
     
@@ -8014,7 +8013,7 @@ export default function App() {
         {currentPage === 'budget' && <PageBudget />}
         {currentPage === 'historique' && <PageHistoriqueBudget />}
         {currentPage === 'ops' && <PageListeOP />}
-        {currentPage === 'nouvelOp' && <PageNouvelOp />}
+        {currentPage === 'nouvelOp' && <PageNouvelOp consultOpData={consultOpData} setConsultOpData={setConsultOpData} />}
         {currentPage === 'bordereaux' && <PageBordereaux />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
       </main>
