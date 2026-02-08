@@ -392,7 +392,8 @@ export default function App() {
     const saved = localStorage.getItem('gestion-op-activeBudgetSource');
     return saved || null;
   });
-  const [consultOpId, setConsultOpId] = useState(null); // OP à consulter depuis Liste OP
+  const [consultOpId, setConsultOpId] = useState(null); // ID de l'OP à consulter depuis Liste OP
+  const [consultOpData, setConsultOpData] = useState(null); // Données de l'OP à consulter
 
   // Wrappers pour sauvegarder dans localStorage
   const setCurrentPage = (page) => {
@@ -3141,19 +3142,17 @@ export default function App() {
       setIsEditMode(false);
       setConsultedOp(null);
       setConsultOpId(null);
+      setConsultOpData(null);
       handleClear();
     };
 
-    // Si on vient de Liste OP avec un consultOpId
-    React.useEffect(() => {
-      if (consultOpId && ops.length > 0) {
-        const op = ops.find(o => o.id === consultOpId);
-        if (op) {
-          loadOpForConsult(op);
-          setConsultOpId(null);
-        }
+    // Si on vient de Liste OP avec un consultOpData - se déclenche au montage
+    useEffect(() => {
+      if (consultOpData) {
+        loadOpForConsult(consultOpData);
+        setConsultOpData(null);
       }
-    }, [consultOpId, ops]);
+    }, [consultOpData]);
     
     // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité)
     const getBeneficiaireRibs = (ben) => {
@@ -6180,7 +6179,7 @@ export default function App() {
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                             {/* Bouton Consulter OP */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); setConsultOpId(op.id); setCurrentPage('nouvelOp'); }}
+                              onClick={(e) => { e.stopPropagation(); setConsultOpData(op); setCurrentPage('nouvelOp'); }}
                               title="Consulter l'OP"
                               style={{ 
                                 background: '#e3f2fd', 
