@@ -1208,7 +1208,7 @@ const PageListeOP = () => {
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                           {/* Bouton Consulter OP */}
                           <button
-                            onClick={(e) => { e.stopPropagation(); setConsultOpData(op); setCurrentPage('nouvelOp'); }}
+                            onClick={(e) => { e.stopPropagation(); setConsultOpData(op); setCurrentPage('consulterOp'); }}
                             title="Consulter l'OP"
                             style={{ 
                               background: '#e3f2fd', 
