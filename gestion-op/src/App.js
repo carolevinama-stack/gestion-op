@@ -3976,7 +3976,6 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-              /* Boutons Enregistrer et Imprimer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
                 <button
                   type="button"
