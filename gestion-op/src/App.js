@@ -286,15 +286,6 @@ const styles = {
 
 // ==================== UTILITAIRES ====================
 const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
-const parseMontant = (str) => {
-  if (!str) return '';
-  return String(str).replace(/\s/g, '').replace(/,/g, '.');
-};
-const formatMontantInput = (value) => {
-  const num = parseFloat(parseMontant(value));
-  if (isNaN(num)) return '';
-  return new Intl.NumberFormat('fr-FR').format(num);
-};
 
 const formatDate = (date) => {
   if (!date) return '';
@@ -575,7 +566,6 @@ export default function App() {
         
         <div style={{ padding: '16px 18px 6px', fontSize: 10, opacity: 0.5, letterSpacing: 1 }}>OPÉRATIONS</div>
         <NavItem id="nouvelOp" icon="➕" label="Nouvel OP" />
-        <NavItem id="consulterOp" icon="🔍" label="Consulter OP" />
         <NavItem id="ops" icon="📋" label="Liste des OP" />
         <NavItem id="bordereaux" icon="📨" label="Bordereaux" />
         <NavItem id="suivi" icon="🔄" label="Suivi Circuit" />
@@ -3109,32 +3099,59 @@ export default function App() {
     });
     const [saving, setSaving] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+    const [showConsultModal, setShowConsultModal] = useState(false);
+    const [consultSearch, setConsultSearch] = useState('');
+    const [isConsultMode, setIsConsultMode] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false); // Mode modification d'un OP existant
+    const [consultedOp, setConsultedOp] = useState(null); // L'OP en consultation
 
     const currentSourceObj = sources.find(s => s.id === activeSource);
     const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
 
-    // Charger les données de duplication si disponibles
+    // Charger un OP en mode consultation
+    const loadOpForConsult = (op) => {
+      if (!op) return;
+      setConsultedOp(op);
+      setIsConsultMode(true);
+      // Changer la source active
+      if (op.sourceId) setActiveSource(op.sourceId);
+      // Trouver l'index du RIB
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      const ribs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+      const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
+      // Remplir le formulaire
+      setForm({
+        type: op.type || 'PROVISOIRE',
+        beneficiaireId: op.beneficiaireId || '',
+        ribIndex: ribIndex >= 0 ? ribIndex : 0,
+        modeReglement: op.modeReglement || 'VIREMENT',
+        objet: op.objet || '',
+        piecesJustificatives: op.piecesJustificatives || '',
+        montant: String(op.montant || ''),
+        ligneBudgetaire: op.ligneBudgetaire || '',
+        montantTVA: String(op.montantTVA || ''),
+        tvaRecuperable: op.tvaRecuperable || false,
+        opProvisoireNumero: op.opProvisoireNumero || '',
+        opProvisoireId: op.opProvisoireId || ''
+      });
+    };
+
+    // Quitter le mode consultation
+    const exitConsultMode = () => {
+      setIsConsultMode(false);
+      setIsEditMode(false);
+      setConsultedOp(null);
+      if (setConsultOpData) setConsultOpData(null);
+      handleClear();
+    };
+
+    // Si on vient de Liste OP avec un consultOpData - se déclenche au montage
     useEffect(() => {
-      if (window.duplicateOpData) {
-        const data = window.duplicateOpData;
-        setForm({
-          type: data.type || 'PROVISOIRE',
-          beneficiaireId: data.beneficiaireId || '',
-          ribIndex: 0,
-          modeReglement: data.modeReglement || 'VIREMENT',
-          objet: data.objet || '',
-          piecesJustificatives: data.piecesJustificatives || '',
-          montant: '',
-          ligneBudgetaire: data.ligneBudgetaire || '',
-          montantTVA: '',
-          tvaRecuperable: data.tvaRecuperable || false,
-          opProvisoireNumero: '',
-          opProvisoireId: ''
-        });
-        if (data.sourceId) setActiveSource(data.sourceId);
-        window.duplicateOpData = null;
+      if (consultOpData) {
+        loadOpForConsult(consultOpData);
+        if (setConsultOpData) setConsultOpData(null);
       }
-    }, []);
+    }, [consultOpData]);
     
     // Fonction utilitaire pour obtenir les RIB (rétrocompatibilité)
     const getBeneficiaireRibs = (ben) => {
@@ -3454,30 +3471,49 @@ export default function App() {
         ) : (
           <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
             <div style={{ padding: 24 }}>
-              {/* Ligne 1 : N°OP + Boutons Dupliquer/Effacer */}
+              {/* Ligne 1 : N°OP + Boutons Consulter/Dupliquer/Effacer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
                 <div style={{ width: 250 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N° OP</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>{isEditMode ? 'N° OP (modification)' : isConsultMode ? 'N° OP (consultation)' : 'N° OP'}</label>
                   <input 
                     type="text" 
-                    value={genererNumero()} 
+                    value={isConsultMode ? (consultedOp?.numero || '') : genererNumero()} 
                     readOnly 
-                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16 }} 
+                    style={{ ...styles.input, marginBottom: 0, background: isEditMode ? '#fff3e0' : isConsultMode ? '#e8f5e9' : '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16, border: isEditMode ? '2px solid #f57f17' : isConsultMode ? '2px solid #4caf50' : undefined }} 
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button 
-                    onClick={() => setShowDuplicateModal(true)} 
-                    style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
-                  >
-                    📋 Dupliquer un OP
-                  </button>
-                  <button onClick={handleClear} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
+                  {(isConsultMode || isEditMode) ? (
+                    <button 
+                      onClick={exitConsultMode} 
+                      style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#ffebee', color: '#c62828' }}
+                    >
+                      ✕ Quitter {isEditMode ? 'modification' : 'consultation'}
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => { setConsultSearch(''); setShowConsultModal(true); }} 
+                        style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#e3f2fd', color: '#1565c0' }}
+                      >
+                        🔍 Consulter un OP
+                      </button>
+                      <button 
+                        onClick={() => setShowDuplicateModal(true)} 
+                        style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
+                      >
+                        📋 Dupliquer un OP
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => { exitConsultMode(); handleClear(); }} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
                     EFFACER
                   </button>
                 </div>
               </div>
 
+              {/* Wrapper lecture seule en mode consultation */}
+              <div style={(isConsultMode && !isEditMode) ? { pointerEvents: 'none', opacity: 0.85 } : {}}>
               {/* Ligne 2 : Type d'OP en boutons compacts */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>TYPE D'OP *</label>
@@ -3796,13 +3832,609 @@ export default function App() {
                 </div>
               )}
 
-              {/* Boutons Imprimer et Enregistrer */}
+              </div>{/* Fin wrapper lecture seule */}
+              
+              {/* Boutons selon le mode */}
+              {(isConsultMode && !isEditMode) ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #4caf50' }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <span style={{ padding: '10px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+                      🔍 Mode consultation — {consultedOp?.numero}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const selectedRib = beneficiaireRibs[form.ribIndex] || {};
+                        const engagementActuel = parseFloat(form.montant) || 0;
+                        const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
+                        const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
+                        const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
+                        const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
+                    
+                    const printContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>OP ${isConsultMode ? (consultedOp?.numero || '') : genererNumero()}</title>
+  <style>
+    @page { size: A4; margin: 10mm; }
+    @media print {
+      .toolbar { display: none !important; }
+      body { background: #fff !important; padding: 0 !important; }
+      .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
+      font-size: 11px; 
+      line-height: 1.4;
+      background: #e0e0e0;
+      padding: 0;
+    }
+    .toolbar {
+      background: #1a1a2e;
+      padding: 12px 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .toolbar button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print { background: #2196F3; color: #fff; }
+    .btn-print:hover { background: #1976D2; }
+    .btn-pdf { background: #4CAF50; color: #fff; }
+    .btn-pdf:hover { background: #388E3C; }
+    .toolbar-title { color: #fff; font-size: 14px; margin-left: auto; }
+    .page-container {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 20px auto;
+      background: #fff;
+      padding: 8mm;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .inner-frame {
+      border: 2px solid #000;
+      height: 100%;
+    }
+    .header {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .header-logo {
+      width: 22%;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid #000;
+    }
+    .header-logo img { max-height: 75px; max-width: 100%; }
+    .header-center {
+      width: 56%;
+      padding: 6px;
+      text-align: center;
+      border-right: 1px solid #000;
+    }
+    .header-center .republic { font-weight: bold; font-size: 11px; }
+    .header-center .sep { font-size: 8px; letter-spacing: 0.5px; color: #333; }
+    .header-center .ministry { font-style: italic; font-size: 10px; }
+    .header-center .project { font-weight: bold; font-size: 10px; }
+    .header-right {
+      width: 22%;
+      padding: 8px;
+      font-size: 10px;
+      text-align: right;
+    }
+    .op-title-section {
+      text-align: center;
+      padding: 6px 10px;
+      border-bottom: 1px solid #000;
+    }
+    .op-title { font-weight: bold; text-decoration: underline; font-size: 11px; }
+    .op-numero { font-size: 10px; margin-top: 2px; }
+    .body-content {
+      padding: 12px 15px;
+      border-bottom: 1px solid #000;
+    }
+    .exercice-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .type-red { color: #c00; font-weight: bold; }
+    .field { margin-bottom: 8px; }
+    .field-title { text-decoration: underline; font-size: 10px; margin-bottom: 6px; }
+    .field-value { font-weight: bold; }
+    .field-large {
+      margin: 15px 0;
+      min-height: 45px;
+      line-height: 1.6;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .checkbox-line {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .checkbox-label { min-width: 230px; }
+    .checkbox-options { display: flex; gap: 50px; }
+    .check-item { display: flex; align-items: center; gap: 6px; }
+    .box { 
+      width: 18px; 
+      height: 14px; 
+      border: 1px solid #000; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center;
+      font-size: 10px;
+    }
+    .budget-section { margin-top: 15px; }
+    .budget-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .budget-row .col-left { width: 33.33%; }
+    .budget-row .col-center { width: 33.33%; }
+    .budget-row .col-right { width: 33.33%; }
+    .value-box {
+      border: 1px solid #000;
+      padding: 4px 10px;
+      text-align: right;
+      font-weight: bold;
+      white-space: nowrap;
+      font-size: 10px;
+    }
+    .budget-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .budget-table td {
+      border: 1px solid #000;
+      padding: 4px 8px;
+      font-size: 10px;
+    }
+    .budget-table .col-letter { 
+      width: 4%;
+      text-align: center; 
+      font-weight: bold; 
+    }
+    .budget-table .col-label { width: 29.33%; }
+    .budget-table .col-amount { 
+      width: 33.33%;
+      text-align: right;
+      padding-right: 10px;
+    }
+    .budget-table .col-empty {
+      width: 33.33%;
+      border: none;
+    }
+    .signatures-section {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .sig-box {
+      width: 33.33%;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #000;
+    }
+    .sig-box:last-child { border-right: none; }
+    .sig-header {
+      text-align: center;
+      font-weight: bold;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+      line-height: 1.3;
+    }
+    .sig-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
+    }
+    .sig-name {
+      text-align: right;
+      font-weight: bold;
+      text-decoration: underline;
+      font-size: 9px;
+    }
+    .abidjan-row {
+      display: flex;
+      border-bottom: 1px solid #000;
+    }
+    .abidjan-cell {
+      width: 33.33%;
+      padding: 4px 10px;
+      font-size: 9px;
+      border-right: 1px solid #000;
+    }
+    .abidjan-cell:last-child { border-right: none; }
+    .acquit-section { display: flex; }
+    .acquit-empty { 
+      width: 66.66%;
+      border-right: 1px solid #000;
+    }
+    .acquit-box {
+      width: 33.33%;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+    }
+    .acquit-header {
+      text-align: center;
+      font-size: 9px;
+      padding: 6px;
+      border-bottom: 1px solid #000;
+    }
+    .acquit-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 8px;
+    }
+    .acquit-date {
+      font-size: 9px;
+      text-align: left;
+    }
+    @media print { 
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
+    <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
+    <span class="toolbar-title">Aperçu – OP ${isConsultMode ? (consultedOp?.numero || '') : genererNumero()}</span>
+  </div>
+  <div class="page-container">
+  <div class="inner-frame">
+    <div class="header">
+      <div class="header-logo">
+        <img src="${LOGO_PIF2}" alt="PIF2" />
+      </div>
+      <div class="header-center">
+        <div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+        <div class="sep">------------------------</div>
+        <div class="ministry">MINISTERE DES EAUX ET FORETS</div>
+        <div class="sep">------------------------</div>
+        <div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+        <div class="sep">------------------------</div>
+      </div>
+      <div class="header-right">
+        <div style="text-align: center;">
+          <img src="${ARMOIRIE}" alt="Armoirie" style="max-height: 50px; max-width: 60px; margin-bottom: 3px;" />
+          <div>Union – Discipline – Travail</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="op-title-section">
+      <div class="op-title">ORDRE DE PAIEMENT</div>
+      <div class="op-numero">N°${isConsultMode ? (consultedOp?.numero || '') : genererNumero()}</div>
+    </div>
+    
+    <div class="body-content">
+      <div class="exercice-line">
+        <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<strong>${exerciceActif?.annee || ''}</strong></div>
+        <div class="type-red">${form.type}</div>
+      </div>
+      
+      <div class="field">
+        <div class="field-title">REFERENCE DU BENEFICIAIRE</div>
+      </div>
+      
+      <div class="field">
+        BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedBeneficiaire?.nom || ''}</span>
+      </div>
+      
+      <div class="field">
+        COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedBeneficiaire?.ncc || ''}</span>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+        <div class="checkbox-options">
+          <span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span>
+          <span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span>
+        </div>
+      </div>
+      
+      <div class="checkbox-line">
+        <span class="checkbox-label">MODE DE REGLEMENT :</span>
+        <div class="checkbox-options">
+          <span class="check-item">ESPECE <span class="box">${form.modeReglement === 'ESPECES' ? 'x' : ''}</span></span>
+          <span class="check-item">CHEQUE <span class="box">${form.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span>
+          <span class="check-item">VIREMENT <span class="box">${form.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span>
+        </div>
+      </div>
+      
+      <div class="field">
+        REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${form.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
+      </div>
+      
+      <div class="field-large">
+        OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${form.objet || ''}</span>
+      </div>
+      
+      <div class="field-large">
+        PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${form.piecesJustificatives || ''}</span>
+      </div>
+      
+      <div class="budget-section">
+        <div class="budget-row">
+          <div class="col-left">MONTANT TOTAL :</div>
+          <div class="col-center">
+            <div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <div class="budget-row">
+          <div class="col-left">IMPUTATION BUDGETAIRE :</div>
+          <div class="col-center">
+            <div class="value-box">${codeImputationComplet.trim()}</div>
+          </div>
+          <div class="col-right"></div>
+        </div>
+        
+        <table class="budget-table">
+          <tr>
+            <td class="col-letter">A</td>
+            <td class="col-label">Dotation budgétaire</td>
+            <td class="col-amount">${formatMontant(getDotation())}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">B</td>
+            <td class="col-label">Engagements antérieurs</td>
+            <td class="col-amount">${formatMontant(getEngagementsAnterieurs())}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">C</td>
+            <td class="col-label">Engagement actuel</td>
+            <td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">D</td>
+            <td class="col-label">Engagements cumulés (B + C)</td>
+            <td class="col-amount">${formatMontant(engagementsCumules)}</td>
+            <td class="col-empty"></td>
+          </tr>
+          <tr>
+            <td class="col-letter">E</td>
+            <td class="col-label">Disponible budgétaire (A - D)</td>
+            <td class="col-amount">${formatMontant(getDisponible())}</td>
+            <td class="col-empty"></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    
+    <div class="signatures-section">
+      <div class="sig-box">
+        <div class="sig-header">VISA<br/>COORDONNATRICE</div>
+        <div class="sig-content">
+          <div class="sig-name">ABE-KOFFI Thérèse</div>
+        </div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div>
+        <div class="sig-content"></div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-header">VISA AGENT<br/>COMPTABLE</div>
+        <div class="sig-content"></div>
+      </div>
+    </div>
+    
+    <div class="abidjan-row">
+      <div class="abidjan-cell">Abidjan, le</div>
+      <div class="abidjan-cell">Abidjan, le</div>
+      <div class="abidjan-cell">Abidjan, le</div>
+    </div>
+    
+    <div class="acquit-section">
+      <div class="acquit-empty"></div>
+      <div class="acquit-box">
+        <div class="acquit-header">ACQUIT LIBERATOIRE</div>
+        <div class="acquit-content">
+          <div class="acquit-date">Abidjan, le</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</body>
+</html>`;
+                    const printWindow = window.open('', '_blank', 'width=900,height=700');
+                    printWindow.document.write(printContent);
+                    printWindow.document.close();
+                  }}
+                  style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
+                >
+                  🖨️ Imprimer
+                </button>
+                    <button
+                      onClick={() => {
+                        const pwd = window.prompt('🔒 Mot de passe requis pour modifier :');
+                        if (pwd === (projet?.motDePasseAdmin || 'admin123')) {
+                          setIsEditMode(true);
+                        } else if (pwd !== null) {
+                          alert('❌ Mot de passe incorrect');
+                        }
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#f57f17' }}
+                    >
+                      ✏️ Modifier
+                    </button>
+                    <button
+                      onClick={() => {
+                        const pwd = window.prompt('🔒 Mot de passe requis pour rejeter :');
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+                          if (pwd !== null) alert('❌ Mot de passe incorrect');
+                          return;
+                        }
+                        const motif = window.prompt('Motif du rejet :');
+                        if (motif !== null) {
+                          updateDoc(doc(db, 'ops', consultedOp.id), { 
+                            statut: 'REJETE_CF', 
+                            motifRejet: motif,
+                            updatedAt: new Date().toISOString()
+                          });
+                          setOps(ops.map(o => o.id === consultedOp.id ? { ...o, statut: 'REJETE_CF', motifRejet: motif } : o));
+                          alert(`OP ${consultedOp.numero} rejeté.`);
+                          exitConsultMode();
+                        }
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#c62828' }}
+                    >
+                      ❌ Rejeter
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const pwd = window.prompt('🔒 Mot de passe requis pour supprimer :');
+                        if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+                          if (pwd !== null) alert('❌ Mot de passe incorrect');
+                          return;
+                        }
+                        
+                        // Vérifier si la suppression impacte des OP suivants
+                        const opsSuivants = ops.filter(o => 
+                          o.sourceId === consultedOp.sourceId &&
+                          o.exerciceId === consultedOp.exerciceId &&
+                          o.ligneBudgetaire === consultedOp.ligneBudgetaire &&
+                          (o.createdAt || '') > (consultedOp.createdAt || '') &&
+                          o.id !== consultedOp.id
+                        );
+                        
+                        let confirmMsg = `Voulez-vous vraiment supprimer l'OP ${consultedOp.numero} ?`;
+                        if (opsSuivants.length > 0) {
+                          const numeros = opsSuivants.slice(0, 5).map(o => o.numero).join(', ');
+                          confirmMsg = `⚠️ ATTENTION : Cette suppression impactera le cumul des engagements des OP suivants sur la même ligne budgétaire :\n${numeros}${opsSuivants.length > 5 ? '...' : ''}\n\nVoulez-vous continuer ?`;
+                        }
+                        
+                        if (window.confirm(confirmMsg)) {
+                          try {
+                            await deleteDoc(doc(db, 'ops', consultedOp.id));
+                            setOps(ops.filter(o => o.id !== consultedOp.id));
+                            alert(`✅ OP ${consultedOp.numero} supprimé.`);
+                            exitConsultMode();
+                          } catch (error) {
+                            alert('Erreur : ' + error.message);
+                          }
+                        }
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#424242' }}
+                    >
+                      🗑️ Supprimer
+                    </button>
+                  </div>
+                </div>
+              ) : isEditMode ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '2px solid #f57f17' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ padding: '10px 16px', background: '#fff3e0', color: '#e65100', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+                      ✏️ Modification — {consultedOp?.numero}
+                    </span>
+                    <button
+                      onClick={() => setIsEditMode(false)}
+                      style={{ ...styles.buttonSecondary, padding: '10px 16px', fontSize: 12 }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (!consultedOp?.id) return;
+                        const ben = beneficiaires.find(b => b.id === form.beneficiaireId);
+                        const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+                        const selectedRib = benRibs[form.ribIndex || 0];
+                        
+                        const newMontant = parseFloat(form.montant) || consultedOp.montant;
+                        
+                        // Vérifier si la modification du montant impacte les OP suivants
+                        if (newMontant !== consultedOp.montant) {
+                          const opsSuivants = ops.filter(o => 
+                            o.sourceId === consultedOp.sourceId &&
+                            o.exerciceId === consultedOp.exerciceId &&
+                            o.ligneBudgetaire === consultedOp.ligneBudgetaire &&
+                            (o.createdAt || '') > (consultedOp.createdAt || '') &&
+                            o.id !== consultedOp.id
+                          );
+                          
+                          if (opsSuivants.length > 0) {
+                            const numeros = opsSuivants.slice(0, 5).map(o => o.numero).join(', ');
+                            const diff = newMontant - consultedOp.montant;
+                            const confirmMsg = `⚠️ ATTENTION : Cette modification de montant (${diff > 0 ? '+' : ''}${formatMontant(diff)} F) impactera le cumul des engagements des OP suivants sur la même ligne budgétaire :\n${numeros}${opsSuivants.length > 5 ? '...' : ''}\n\nVoulez-vous continuer ?`;
+                            if (!window.confirm(confirmMsg)) return;
+                          }
+                        }
+                        
+                        const updates = {
+                          type: form.type,
+                          beneficiaireId: form.beneficiaireId,
+                          modeReglement: form.modeReglement,
+                          rib: form.modeReglement === 'VIREMENT' ? (selectedRib?.numero || '') : '',
+                          banque: form.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '',
+                          objet: form.objet,
+                          piecesJustificatives: form.piecesJustificatives,
+                          montant: newMontant,
+                          ligneBudgetaire: form.ligneBudgetaire,
+                          tvaRecuperable: form.tvaRecuperable || false,
+                          montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
+                          updatedAt: new Date().toISOString()
+                        };
+                        
+                        await updateDoc(doc(db, 'ops', consultedOp.id), updates);
+                        setOps(ops.map(o => o.id === consultedOp.id ? { ...o, ...updates } : o));
+                        setConsultedOp({ ...consultedOp, ...updates });
+                        setIsEditMode(false);
+                        alert(`✅ OP ${consultedOp.numero} modifié avec succès !`);
+                      } catch (error) {
+                        alert('Erreur : ' + error.message);
+                      }
+                    }}
+                    style={{ ...styles.button, padding: '14px 40px', fontSize: 16, background: '#f57f17' }}
+                  >
+                    💾 ENREGISTRER LES MODIFICATIONS
+                  </button>
+                </div>
+              ) : (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #e9ecef' }}>
                 <button
                   type="button"
                   onClick={() => {
+                    // Réutilise la même logique d'impression que le mode consultation
+                    const selectedRib = beneficiaireRibs[form.ribIndex] || {};
+                    const engagementActuel = parseFloat(form.montant) || 0;
+                    const engagementsCumules = getEngagementsAnterieurs() + engagementActuel;
+                    const isBailleur = currentSourceObj?.sigle?.includes('IDA') || currentSourceObj?.sigle?.includes('BAD') || currentSourceObj?.sigle?.includes('UE');
+                    const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
+                    const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
                     if (!form.beneficiaireId || !form.montant) { alert('Remplissez au minimum le bénéficiaire et le montant pour imprimer.'); return; }
-                    alert('Pour imprimer, enregistrez d\'abord l\'OP puis consultez-le dans la page Consulter OP.');
+                    alert('Pour imprimer, enregistrez d\'abord l\'OP puis consultez-le via le bouton 🔍 Consulter un OP.');
                   }}
                   style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
                 >
@@ -3822,9 +4454,97 @@ export default function App() {
                   {saving ? 'Enregistrement...' : 'ENREGISTRER'}
                 </button>
               </div>
+              )}
             </div>
           </div>
         )}
+
+        {/* Modal Consulter un OP */}
+        {showConsultModal && (
+          <div style={styles.modal}>
+            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
+              <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>🔍 Consulter un OP</h2>
+                  <button onClick={() => setShowConsultModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
+                </div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <input
+                  type="text"
+                  placeholder="Tapez le N° OP, bénéficiaire, objet ou montant..."
+                  value={consultSearch}
+                  onChange={e => setConsultSearch(e.target.value)}
+                  style={{ ...styles.input, marginBottom: 12, fontSize: 14 }}
+                  autoFocus
+                />
+                {consultSearch.trim().length >= 2 ? (
+                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                  {ops
+                    .filter(op => {
+                      const term = consultSearch.toLowerCase();
+                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                      return (
+                        (op.numero || '').toLowerCase().includes(term) ||
+                        (ben?.nom || '').toLowerCase().includes(term) ||
+                        (op.objet || '').toLowerCase().includes(term) ||
+                        String(op.montant || '').includes(term)
+                      );
+                    })
+                    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+                    .slice(0, 20)
+                    .map(op => {
+                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                      const src = sources.find(s => s.id === op.sourceId);
+                      return (
+                        <div
+                          key={op.id}
+                          onClick={() => { loadOpForConsult(op); setShowConsultModal(false); setConsultSearch(''); }}
+                          style={{
+                            padding: '12px 16px',
+                            borderBottom: '1px solid #f0f0f0',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = '#e3f2fd'}
+                          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{op.numero}</div>
+                            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{ben?.nom || 'N/A'} — {op.objet?.substring(0, 60) || ''}{(op.objet || '').length > 60 ? '...' : ''}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: '#0f4c3a' }}>{formatMontant(op.montant)} F</div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                              <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: src?.couleur || '#999', color: '#fff' }}>{src?.sigle || ''}</span>
+                              <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: op.type === 'PROVISOIRE' ? '#ff9800' : op.type === 'DIRECT' ? '#2196f3' : op.type === 'DEFINITIF' ? '#4caf50' : '#f44336', color: '#fff' }}>{op.type}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
+                  {ops.filter(op => {
+                    const term = consultSearch.toLowerCase();
+                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+                    return (op.numero || '').toLowerCase().includes(term) || (ben?.nom || '').toLowerCase().includes(term) || (op.objet || '').toLowerCase().includes(term);
+                  }).length === 0 && (
+                    <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>Aucun OP trouvé</div>
+                  )}
+                </div>
+                ) : (
+                  <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>
+                    Saisissez au moins 2 caractères pour rechercher
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Dupliquer un OP */}
         {showDuplicateModal && (
           <div style={styles.modal}>
@@ -4379,243 +5099,6 @@ export default function App() {
                 </tbody>
               </table>
             )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ==================== PAGE CONSULTER OP ====================
-  const PageConsulterOp = () => {
-    const [selectedOp, setSelectedOp] = useState(null);
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [editForm, setEditForm] = useState({});
-    
-    const currentSourceObj = sources.find(s => s.id === selectedOp?.sourceId);
-    const selectedBeneficiaire = beneficiaires.find(b => b.id === (isEditMode ? editForm.beneficiaireId : selectedOp?.beneficiaireId));
-    
-    const opBudget = selectedOp ? budgets
-      .filter(b => b.sourceId === selectedOp.sourceId && b.exerciceId === selectedOp.exerciceId)
-      .sort((a, b) => (b.version || 1) - (a.version || 1))[0] : null;
-    
-    const selectedLigne = opBudget?.lignes?.find(l => l.code === (isEditMode ? editForm.ligneBudgetaire : selectedOp?.ligneBudgetaire));
-    
-    const getBeneficiaireRibs = (ben) => {
-      if (!ben) return [];
-      if (ben.ribs && ben.ribs.length > 0) return ben.ribs;
-      if (ben.rib) return [{ banque: '', numero: ben.rib }];
-      return [];
-    };
-    const beneficiaireRibs = getBeneficiaireRibs(selectedBeneficiaire);
-
-    const allOps = ops
-      .filter(o => o.exerciceId === exerciceActif?.id)
-      .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
-    
-    const loadOp = (op) => {
-      if (!op) return;
-      setSelectedOp(op);
-      setIsEditMode(false);
-      setSearchQuery('');
-      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-      const ribs = getBeneficiaireRibs(ben);
-      const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
-      setEditForm({
-        type: op.type || 'PROVISOIRE',
-        beneficiaireId: op.beneficiaireId || '',
-        ribIndex: ribIndex >= 0 ? ribIndex : 0,
-        modeReglement: op.modeReglement || 'VIREMENT',
-        objet: op.objet || '',
-        piecesJustificatives: op.piecesJustificatives || '',
-        montant: op.montant ? formatMontantInput(op.montant) : '',
-        ligneBudgetaire: op.ligneBudgetaire || '',
-        montantTVA: op.montantTVA ? formatMontantInput(op.montantTVA) : '',
-        tvaRecuperable: op.tvaRecuperable || false
-      });
-    };
-    
-    const goToPrevOp = () => {
-      if (allOps.length === 0) return;
-      const currentIdx = selectedOp ? allOps.findIndex(o => o.id === selectedOp.id) : -1;
-      const prevIdx = currentIdx > 0 ? currentIdx - 1 : allOps.length - 1;
-      loadOp(allOps[prevIdx]);
-    };
-    
-    const goToNextOp = () => {
-      if (allOps.length === 0) return;
-      const currentIdx = selectedOp ? allOps.findIndex(o => o.id === selectedOp.id) : -1;
-      const nextIdx = currentIdx < allOps.length - 1 ? currentIdx + 1 : 0;
-      loadOp(allOps[nextIdx]);
-    };
-    
-    const searchOp = () => {
-      const term = searchQuery.toLowerCase().trim();
-      if (!term) return;
-      const found = ops.find(o => 
-        o.exerciceId === exerciceActif?.id &&
-        ((o.numero || '').toLowerCase().includes(term) ||
-        beneficiaires.find(b => b.id === o.beneficiaireId)?.nom?.toLowerCase().includes(term))
-      );
-      if (found) loadOp(found);
-      else alert('Aucun OP trouvé');
-    };
-    
-    const handleDuplicate = () => {
-      if (!selectedOp) return;
-      window.duplicateOpData = {
-        type: selectedOp.type === 'ANNULATION' ? 'PROVISOIRE' : selectedOp.type,
-        beneficiaireId: selectedOp.beneficiaireId || '',
-        modeReglement: selectedOp.modeReglement || 'VIREMENT',
-        objet: selectedOp.objet || '',
-        piecesJustificatives: selectedOp.piecesJustificatives || '',
-        ligneBudgetaire: selectedOp.ligneBudgetaire || '',
-        tvaRecuperable: selectedOp.tvaRecuperable || false,
-        sourceId: selectedOp.sourceId
-      };
-      setCurrentPage('nouvelOp');
-    };
-
-    return (
-      <div>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1a1a2e', margin: 0 }}>🔍 Consulter un OP</h1>
-          <p style={{ color: '#6c757d', marginTop: 4 }}>Recherchez et consultez les ordres de paiement</p>
-        </div>
-
-        <div style={{ ...styles.card, marginBottom: 24, padding: 20 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 10, color: '#6c757d' }}>RECHERCHER UN OP</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            <button type="button" onClick={goToPrevOp} disabled={allOps.length === 0}
-              style={{ padding: '14px 18px', background: '#f8f9fa', border: '2px solid #e9ecef', borderRight: 'none', borderRadius: '10px 0 0 10px', cursor: allOps.length === 0 ? 'not-allowed' : 'pointer', fontSize: 20, color: '#666', opacity: allOps.length === 0 ? 0.5 : 1 }} title="OP précédent">◀</button>
-            <input type="text" value={selectedOp ? selectedOp.numero : searchQuery}
-              onChange={(e) => { if (!selectedOp) setSearchQuery(e.target.value); else { setSelectedOp(null); setSearchQuery(e.target.value); } }}
-              onKeyDown={(e) => { if (e.key === 'Enter') searchOp(); }}
-              placeholder="🔍 Tapez un N° OP ou nom de bénéficiaire puis Entrée..."
-              style={{ flex: 1, padding: '14px 20px', border: '2px solid #e9ecef', borderLeft: 'none', borderRight: 'none', fontSize: 16, fontFamily: 'monospace', fontWeight: selectedOp ? 700 : 400, textAlign: 'center', background: selectedOp ? '#e8f5e9' : '#fff', outline: 'none' }} />
-            <button type="button" onClick={goToNextOp} disabled={allOps.length === 0}
-              style={{ padding: '14px 18px', background: '#f8f9fa', border: '2px solid #e9ecef', borderLeft: 'none', borderRadius: '0 10px 10px 0', cursor: allOps.length === 0 ? 'not-allowed' : 'pointer', fontSize: 20, color: '#666', opacity: allOps.length === 0 ? 0.5 : 1 }} title="OP suivant">▶</button>
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: '#6c757d', textAlign: 'center' }}>
-            {allOps.length} OP{allOps.length > 1 ? 's' : ''} disponible{allOps.length > 1 ? 's' : ''} pour l'exercice {exerciceActif?.annee || '-'}
-            {selectedOp && ` • Position: ${allOps.findIndex(o => o.id === selectedOp.id) + 1}/${allOps.length}`}
-          </div>
-        </div>
-
-        {!selectedOp ? (
-          <div style={{ ...styles.card, textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 60, marginBottom: 20 }}>🔍</div>
-            <h3 style={{ color: '#6c757d', fontWeight: 600 }}>Aucun OP sélectionné</h3>
-            <p style={{ color: '#adb5bd' }}>Utilisez la barre de recherche ci-dessus ou les flèches ◀ ▶ pour naviguer</p>
-          </div>
-        ) : (
-          <div style={styles.card}>
-            <div style={{ padding: 20, background: isEditMode ? '#fff3e0' : '#e8f5e9', borderBottom: '2px solid ' + (isEditMode ? '#f57f17' : '#4caf50'), display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px 12px 0 0' }}>
-              <div>
-                <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>{isEditMode ? '✏️ MODE MODIFICATION' : '🔍 MODE CONSULTATION'}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'monospace', color: '#1a1a2e' }}>{selectedOp.numero}</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <span style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: currentSourceObj?.couleur || '#999', color: '#fff' }}>{currentSourceObj?.sigle || 'N/A'}</span>
-                <span style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: selectedOp.type === 'PROVISOIRE' ? '#ff9800' : selectedOp.type === 'DIRECT' ? '#2196f3' : selectedOp.type === 'DEFINITIF' ? '#4caf50' : '#f44336', color: '#fff' }}>{selectedOp.type}</span>
-                <span style={{ padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#e9ecef', color: '#495057' }}>{selectedOp.statut || 'CREE'}</span>
-              </div>
-            </div>
-
-            <div style={{ padding: 24 }}>
-              <div style={isEditMode ? {} : { pointerEvents: 'none', opacity: 0.9 }}>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
-                  <input type="text" value={selectedBeneficiaire?.nom || 'N/A'} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontWeight: 600 }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 20, marginBottom: 20 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
-                    <input type="text" value={selectedOp.modeReglement || 'N/A'} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa' }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RIB / COMPTE</label>
-                    <input type="text" value={typeof selectedOp.rib === 'object' ? selectedOp.rib?.numero : selectedOp.rib || 'N/A'} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE</label>
-                  <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', minHeight: 60, whiteSpace: 'pre-wrap' }}>{selectedOp.objet || 'N/A'}</div>
-                </div>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
-                  <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', minHeight: 40, whiteSpace: 'pre-wrap' }}>{selectedOp.piecesJustificatives || '-'}</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: 20, marginBottom: 20 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA)</label>
-                    <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace', fontSize: 20, fontWeight: 700, textAlign: 'right', color: '#0f4c3a' }}>{formatMontant(selectedOp.montant)} F</div>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
-                    <input type="text" value={`${selectedOp.ligneBudgetaire || 'N/A'}${selectedLigne ? ` - ${selectedLigne.libelle}` : ''}`} readOnly style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa' }} />
-                  </div>
-                </div>
-                {selectedOp.tvaRecuperable && (
-                  <div style={{ marginBottom: 20, padding: 16, background: '#e3f2fd', borderRadius: 8 }}>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#1565c0' }}>💰 TVA RÉCUPÉRABLE</label>
-                    <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#1565c0' }}>{formatMontant(selectedOp.montantTVA)} F</div>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: '2px solid #e9ecef', marginTop: 20 }}>
-                {isEditMode ? (
-                  <>
-                    <button onClick={() => setIsEditMode(false)} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>Annuler</button>
-                    <button onClick={async () => {
-                      try {
-                        const updates = { type: editForm.type, beneficiaireId: editForm.beneficiaireId, modeReglement: editForm.modeReglement, rib: beneficiaireRibs[editForm.ribIndex]?.numero || '', banque: beneficiaireRibs[editForm.ribIndex]?.banque || '', objet: editForm.objet, piecesJustificatives: editForm.piecesJustificatives, montant: parseFloat(parseMontant(editForm.montant)) || 0, ligneBudgetaire: editForm.ligneBudgetaire, tvaRecuperable: editForm.tvaRecuperable || false, montantTVA: editForm.tvaRecuperable ? (parseFloat(parseMontant(editForm.montantTVA)) || 0) : 0, updatedAt: new Date().toISOString() };
-                        await updateDoc(doc(db, 'ops', selectedOp.id), updates);
-                        const updatedOp = { ...selectedOp, ...updates };
-                        setOps(ops.map(o => o.id === selectedOp.id ? updatedOp : o));
-                        setSelectedOp(updatedOp);
-                        setIsEditMode(false);
-                        alert(`✅ OP ${selectedOp.numero} modifié !`);
-                      } catch (error) { alert('Erreur : ' + error.message); }
-                    }} style={{ ...styles.button, padding: '14px 40px', fontSize: 16, background: '#f57f17' }}>💾 ENREGISTRER</button>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={() => alert('Impression à venir')} style={{ ...styles.button, padding: '12px 20px', background: '#1565c0' }}>🖨️ Imprimer</button>
-                      <button onClick={() => { const pwd = window.prompt('🔒 Mot de passe :'); if (pwd === (projet?.motDePasseAdmin || 'admin')) setIsEditMode(true); else if (pwd !== null) alert('❌ Incorrect'); }} style={{ ...styles.button, padding: '12px 20px', background: '#f57f17' }}>✏️ Modifier</button>
-                      <button onClick={async () => {
-                        const pwd = window.prompt('🔒 Mot de passe :');
-                        if (pwd === (projet?.motDePasseAdmin || 'admin')) {
-                          const motif = window.prompt('Motif du rejet :');
-                          if (motif) {
-                            await updateDoc(doc(db, 'ops', selectedOp.id), { statut: 'REJETE_CF', motifRejet: motif, updatedAt: new Date().toISOString() });
-                            const updatedOp = { ...selectedOp, statut: 'REJETE_CF', motifRejet: motif };
-                            setOps(ops.map(o => o.id === selectedOp.id ? updatedOp : o));
-                            setSelectedOp(updatedOp);
-                            alert(`OP ${selectedOp.numero} rejeté.`);
-                          }
-                        } else if (pwd !== null) alert('❌ Incorrect');
-                      }} style={{ ...styles.button, padding: '12px 20px', background: '#c62828' }}>❌ Rejeter</button>
-                      <button onClick={async () => {
-                        const pwd = window.prompt('🔒 Mot de passe :');
-                        if (pwd !== (projet?.motDePasseAdmin || 'admin')) { if (pwd !== null) alert('❌ Incorrect'); return; }
-                        if (window.confirm(`Supprimer l'OP ${selectedOp.numero} ?`)) {
-                          try {
-                            await deleteDoc(doc(db, 'ops', selectedOp.id));
-                            setOps(ops.filter(o => o.id !== selectedOp.id));
-                            alert(`✅ OP supprimé.`);
-                            setSelectedOp(null);
-                          } catch (error) { alert('Erreur : ' + error.message); }
-                        }
-                      }} style={{ ...styles.button, padding: '12px 20px', background: '#424242' }}>🗑️ Supprimer</button>
-                    </div>
-                    <button onClick={handleDuplicate} style={{ ...styles.button, padding: '12px 24px', background: '#e65100' }}>📋 Dupliquer</button>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
         )}
       </div>
@@ -7668,7 +8151,6 @@ export default function App() {
         {currentPage === 'historique' && <PageHistoriqueBudget />}
         {currentPage === 'ops' && <PageListeOP />}
         {currentPage === 'nouvelOp' && <PageNouvelOp consultOpData={consultOpData} setConsultOpData={setConsultOpData} />}
-        {currentPage === 'consulterOp' && <PageConsulterOp />}
         {currentPage === 'bordereaux' && <PageBordereaux />}
         {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
       </main>
