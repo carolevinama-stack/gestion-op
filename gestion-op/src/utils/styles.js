@@ -1,5 +1,5 @@
 // ==================== STYLES PARTAGÉS ====================
-const styles = {
+export const styles = {
   container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
   sidebar: { width: 260, background: 'linear-gradient(180deg, #0a3528 0%, #0f4c3a 100%)', color: 'white', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed' },
   main: { marginLeft: 260, flex: 1, padding: 26 },
@@ -20,5 +20,3 @@ const styles = {
   sourceTab: { padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, border: '2px solid #e9ecef', background: 'white' },
   sourceTabActive: { padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, border: '2px solid', color: 'white' },
 };
-
-export default styles;
