@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styles from '../utils/styles';
+import { styles } from '../utils/styles';
 
 // ==================== PAGE DE CONNEXION ====================
 const LoginPage = ({ onLogin, error }) => {
