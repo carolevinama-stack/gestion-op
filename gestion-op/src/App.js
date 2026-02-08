@@ -19,6 +19,41 @@ import PageBordereaux from './pages/PageBordereaux';
 import PageListeOP from './pages/PageListeOP';
 import PageEnConstruction from './pages/PageEnConstruction';
 
+// ==================== ERROR BOUNDARY ====================
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    this.setState({ errorInfo });
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, maxWidth: 800, margin: '40px auto', background: '#ffebee', borderRadius: 12 }}>
+          <h2 style={{ color: '#c62828', marginBottom: 16 }}>Erreur de rendu</h2>
+          <pre style={{ background: '#fff', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 13, color: '#c62828', whiteSpace: 'pre-wrap' }}>
+            {this.state.error && this.state.error.toString()}
+          </pre>
+          <pre style={{ background: '#fff', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 11, color: '#666', marginTop: 12, whiteSpace: 'pre-wrap' }}>
+            {this.state.errorInfo && this.state.errorInfo.componentStack}
+          </pre>
+          <button onClick={() => { localStorage.removeItem('gestion-op-currentPage'); window.location.reload(); }} 
+            style={{ marginTop: 16, padding: '12px 24px', background: '#c62828', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
+            Reinitialiser et recharger
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ==================== INNER APP (authenticated) ====================
 function AppContent() {
   const { currentPage, loading } = useAppContext();
@@ -30,7 +65,7 @@ function AppContent() {
         <main style={styles.main}>
           <div style={{ textAlign: 'center', padding: 60 }}>
             <div style={{ fontSize: 40, marginBottom: 20 }}>⏳</div>
-            <p>Chargement des données...</p>
+            <p>Chargement des donnees...</p>
           </div>
         </main>
       </div>
@@ -39,7 +74,6 @@ function AppContent() {
 
   return (
     <div style={styles.container}>
-      {/* Style global pour cacher les spinners des inputs numériques */}
       <style>{`
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button {
@@ -52,16 +86,18 @@ function AppContent() {
       `}</style>
       <Sidebar />
       <main style={styles.main}>
-        {currentPage === 'dashboard' && <PageDashboard />}
-        {currentPage === 'parametres' && <PageParametres />}
-        {currentPage === 'beneficiaires' && <PageBeneficiaires />}
-        {currentPage === 'budget' && <PageBudget />}
-        {currentPage === 'historique' && <PageHistoriqueBudget />}
-        {currentPage === 'ops' && <PageListeOP />}
-        {currentPage === 'nouvelOp' && <PageNouvelOp />}
-        {currentPage === 'consulterOp' && <PageConsulterOp />}
-        {currentPage === 'bordereaux' && <PageBordereaux />}
-        {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
+        <ErrorBoundary>
+          {currentPage === 'dashboard' && <PageDashboard />}
+          {currentPage === 'parametres' && <PageParametres />}
+          {currentPage === 'beneficiaires' && <PageBeneficiaires />}
+          {currentPage === 'budget' && <PageBudget />}
+          {currentPage === 'historique' && <PageHistoriqueBudget />}
+          {currentPage === 'ops' && <PageListeOP />}
+          {currentPage === 'nouvelOp' && <PageNouvelOp />}
+          {currentPage === 'consulterOp' && <PageConsulterOp />}
+          {currentPage === 'bordereaux' && <PageBordereaux />}
+          {currentPage === 'suivi' && <PageEnConstruction title="Suivi Circuit" icon="🔄" />}
+        </ErrorBoundary>
       </main>
     </div>
   );
@@ -69,12 +105,10 @@ function AppContent() {
 
 // ==================== MAIN APP ====================
 export default function App() {
-  // Auth state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
-  // ==================== AUTH ====================
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -92,14 +126,13 @@ export default function App() {
       if (error.code === 'auth/invalid-credential') {
         setAuthError('Email ou mot de passe incorrect');
       } else if (error.code === 'auth/too-many-requests') {
-        setAuthError('Trop de tentatives. Veuillez réessayer plus tard.');
+        setAuthError('Trop de tentatives. Veuillez reessayer plus tard.');
       } else {
-        setAuthError('Erreur de connexion. Veuillez réessayer.');
+        setAuthError('Erreur de connexion. Veuillez reessayer.');
       }
     }
   };
 
-  // ==================== RENDER ====================
   if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f4c3a' }}>
@@ -116,8 +149,10 @@ export default function App() {
   }
 
   return (
-    <AppProvider user={user}>
-      <AppContent />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider user={user}>
+        <AppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
