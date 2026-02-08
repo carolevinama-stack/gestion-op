@@ -19,6 +19,32 @@ import PageBordereaux from './pages/PageBordereaux';
 import PageListeOP from './pages/PageListeOP';
 import PageEnConstruction from './pages/PageEnConstruction';
 
+// ==================== DIAGNOSTIC ====================
+// Vérification des imports
+const IMPORTS_CHECK = {
+  PageDashboard: typeof PageDashboard,
+  PageParametres: typeof PageParametres,
+  PageBeneficiaires: typeof PageBeneficiaires,
+  PageBudget: typeof PageBudget,
+  PageHistoriqueBudget: typeof PageHistoriqueBudget,
+  PageNouvelOp: typeof PageNouvelOp,
+  PageConsulterOp: typeof PageConsulterOp,
+  PageBordereaux: typeof PageBordereaux,
+  PageListeOP: typeof PageListeOP,
+  PageEnConstruction: typeof PageEnConstruction,
+  Sidebar: typeof Sidebar,
+  LoginPage: typeof LoginPage,
+};
+
+console.log('=== DIAGNOSTIC IMPORTS ===');
+Object.entries(IMPORTS_CHECK).forEach(([name, type]) => {
+  if (type === 'undefined') {
+    console.error('UNDEFINED IMPORT:', name);
+  } else {
+    console.log('OK:', name, '=', type);
+  }
+});
+
 // ==================== ERROR BOUNDARY ====================
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -30,23 +56,20 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, errorInfo) {
     this.setState({ errorInfo });
-    console.error('ErrorBoundary caught:', error, errorInfo);
   }
   render() {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 40, maxWidth: 800, margin: '40px auto', background: '#ffebee', borderRadius: 12 }}>
-          <h2 style={{ color: '#c62828', marginBottom: 16 }}>Erreur de rendu</h2>
-          <pre style={{ background: '#fff', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 13, color: '#c62828', whiteSpace: 'pre-wrap' }}>
+          <h2 style={{ color: '#c62828' }}>ERREUR dans : {this.props.name || 'inconnu'}</h2>
+          <pre style={{ background: '#fff', padding: 16, borderRadius: 8, fontSize: 13, color: '#c62828', whiteSpace: 'pre-wrap', overflow: 'auto' }}>
             {this.state.error && this.state.error.toString()}
           </pre>
-          <pre style={{ background: '#fff', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 11, color: '#666', marginTop: 12, whiteSpace: 'pre-wrap' }}>
-            {this.state.errorInfo && this.state.errorInfo.componentStack}
-          </pre>
-          <button onClick={() => { localStorage.removeItem('gestion-op-currentPage'); window.location.reload(); }} 
-            style={{ marginTop: 16, padding: '12px 24px', background: '#c62828', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
-            Reinitialiser et recharger
-          </button>
+          {this.state.errorInfo && (
+            <pre style={{ background: '#fff', padding: 16, borderRadius: 8, fontSize: 11, color: '#666', marginTop: 8, whiteSpace: 'pre-wrap', overflow: 'auto' }}>
+              {this.state.errorInfo.componentStack}
+            </pre>
+          )}
         </div>
       );
     }
@@ -54,14 +77,16 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// ==================== INNER APP (authenticated) ====================
+// ==================== INNER APP ====================
 function AppContent() {
   const { currentPage, loading } = useAppContext();
 
   if (loading) {
     return (
       <div style={styles.container}>
-        <Sidebar />
+        <ErrorBoundary name="Sidebar-loading">
+          <Sidebar />
+        </ErrorBoundary>
         <main style={styles.main}>
           <div style={{ textAlign: 'center', padding: 60 }}>
             <div style={{ fontSize: 40, marginBottom: 20 }}>⏳</div>
@@ -76,17 +101,14 @@ function AppContent() {
     <div style={styles.container}>
       <style>{`
         input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-        input[type="number"] {
-          -moz-appearance: textfield;
-        }
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
       `}</style>
-      <Sidebar />
+      <ErrorBoundary name="Sidebar">
+        <Sidebar />
+      </ErrorBoundary>
       <main style={styles.main}>
-        <ErrorBoundary>
+        <ErrorBoundary name={currentPage}>
           {currentPage === 'dashboard' && <PageDashboard />}
           {currentPage === 'parametres' && <PageParametres />}
           {currentPage === 'beneficiaires' && <PageBeneficiaires />}
@@ -122,14 +144,10 @@ export default function App() {
       setAuthError('');
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      console.error('Erreur de connexion:', error);
-      if (error.code === 'auth/invalid-credential') {
-        setAuthError('Email ou mot de passe incorrect');
-      } else if (error.code === 'auth/too-many-requests') {
-        setAuthError('Trop de tentatives. Veuillez reessayer plus tard.');
-      } else {
-        setAuthError('Erreur de connexion. Veuillez reessayer.');
-      }
+      console.error('Erreur:', error);
+      if (error.code === 'auth/invalid-credential') setAuthError('Email ou mot de passe incorrect');
+      else if (error.code === 'auth/too-many-requests') setAuthError('Trop de tentatives.');
+      else setAuthError('Erreur de connexion.');
     }
   };
 
@@ -149,9 +167,11 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary name="AppProvider">
       <AppProvider user={user}>
-        <AppContent />
+        <ErrorBoundary name="AppContent">
+          <AppContent />
+        </ErrorBoundary>
       </AppProvider>
     </ErrorBoundary>
   );
