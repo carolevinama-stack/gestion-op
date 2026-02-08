@@ -1,7 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { AppProvider, useAppContext } from './context/AppContext';
+import { styles } from './utils/styles';
 import LoginPage from './components/LoginPage';
+import Sidebar from './components/Sidebar';
+import PageDashboard from './pages/PageDashboard';
+
+function AppContent() {
+  const { currentPage, setCurrentPage, loading } = useAppContext();
+
+  useEffect(() => {
+    if (currentPage !== 'dashboard') setCurrentPage('dashboard');
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <Sidebar />
+        <main style={styles.main}>
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <div style={{ fontSize: 40, marginBottom: 20 }}>⏳</div>
+            <p>Chargement...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.container}>
+      <Sidebar />
+      <main style={styles.main}>
+        <PageDashboard />
+      </main>
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -40,12 +75,8 @@ export default function App() {
   if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
   return (
-    <div style={{ padding: 40, textAlign: 'center' }}>
-      <h1>TEST - Application fonctionne</h1>
-      <p>Connecte en tant que : {user.email}</p>
-      <button onClick={() => auth.signOut()} style={{ padding: '10px 20px', marginTop: 20, cursor: 'pointer' }}>
-        Deconnexion
-      </button>
-    </div>
+    <AppProvider user={user}>
+      <AppContent />
+    </AppProvider>
   );
 }
