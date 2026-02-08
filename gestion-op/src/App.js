@@ -3122,6 +3122,7 @@ export default function App() {
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showConsultModal, setShowConsultModal] = useState(false);
     const [consultSearch, setConsultSearch] = useState('');
+    const [opSearchQuery, setOpSearchQuery] = useState(''); // Recherche dans le champ N° OP
     const [isConsultMode, setIsConsultMode] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false); // Mode modification d'un OP existant
     const [consultedOp, setConsultedOp] = useState(null); // L'OP en consultation
@@ -3162,6 +3163,7 @@ export default function App() {
       setIsConsultMode(false);
       setIsEditMode(false);
       setConsultedOp(null);
+      setOpSearchQuery('');
       if (setConsultOpData) setConsultOpData(null);
       handleClear();
     };
@@ -3213,7 +3215,11 @@ export default function App() {
         opProvisoireId: ''
       });
       
-      setShowDuplicateModal(false);
+      // Quitter le mode consultation pour passer en mode création
+      setIsConsultMode(false);
+      setIsEditMode(false);
+      setConsultedOp(null);
+      setOpSearchQuery('');
     };
     
     // Budget actif pour la source et l'exercice actif
@@ -3492,40 +3498,128 @@ export default function App() {
         ) : (
           <div style={{ ...styles.card, borderRadius: '0 0 10px 10px', padding: 0 }}>
             <div style={{ padding: 24 }}>
-              {/* Ligne 1 : N°OP + Boutons Consulter/Dupliquer/Effacer */}
+              {/* Ligne 1 : N°OP avec recherche et navigation + Bouton Effacer */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 20 }}>
-                <div style={{ width: 250 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>{isEditMode ? 'N° OP (modification)' : isConsultMode ? 'N° OP (consultation)' : 'N° OP'}</label>
-                  <input 
-                    type="text" 
-                    value={isConsultMode ? (consultedOp?.numero || '') : genererNumero()} 
-                    readOnly 
-                    style={{ ...styles.input, marginBottom: 0, background: isEditMode ? '#fff3e0' : isConsultMode ? '#e8f5e9' : '#f8f9fa', fontWeight: 700, fontFamily: 'monospace', fontSize: 16, border: isEditMode ? '2px solid #f57f17' : isConsultMode ? '2px solid #4caf50' : undefined }} 
-                  />
+                <div style={{ width: 400 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>
+                    {isEditMode ? 'N° OP (modification)' : isConsultMode ? 'N° OP (consultation)' : 'N° OP — Tapez un numéro pour consulter'}
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                    {/* Flèche précédent */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const opsSource = ops.filter(o => o.sourceId === activeSource && o.exerciceId === exerciceActif?.id)
+                          .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
+                        if (opsSource.length === 0) return;
+                        const currentIdx = consultedOp ? opsSource.findIndex(o => o.id === consultedOp.id) : -1;
+                        const prevIdx = currentIdx > 0 ? currentIdx - 1 : opsSource.length - 1;
+                        loadOpForConsult(opsSource[prevIdx]);
+                      }}
+                      style={{ 
+                        padding: '12px 14px', 
+                        background: '#f8f9fa', 
+                        border: '2px solid #e9ecef', 
+                        borderRight: 'none',
+                        borderRadius: '8px 0 0 8px', 
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        color: '#666'
+                      }}
+                      title="OP précédent"
+                    >
+                      ◀
+                    </button>
+                    
+                    {/* Champ de recherche */}
+                    <input 
+                      type="text" 
+                      value={isConsultMode ? (consultedOp?.numero || '') : (opSearchQuery || '')}
+                      onChange={(e) => {
+                        if (!isConsultMode) {
+                          setOpSearchQuery(e.target.value);
+                          // Rechercher l'OP correspondant
+                          const term = e.target.value.toLowerCase();
+                          if (term.length >= 3) {
+                            const found = ops.find(o => 
+                              o.sourceId === activeSource &&
+                              o.exerciceId === exerciceActif?.id &&
+                              (o.numero || '').toLowerCase().includes(term)
+                            );
+                            if (found) {
+                              loadOpForConsult(found);
+                              setOpSearchQuery('');
+                            }
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !isConsultMode) {
+                          const term = opSearchQuery.toLowerCase();
+                          const found = ops.find(o => 
+                            o.sourceId === activeSource &&
+                            o.exerciceId === exerciceActif?.id &&
+                            (o.numero || '').toLowerCase().includes(term)
+                          );
+                          if (found) {
+                            loadOpForConsult(found);
+                            setOpSearchQuery('');
+                          } else {
+                            alert('Aucun OP trouvé avec ce numéro');
+                          }
+                        }
+                      }}
+                      placeholder={isConsultMode ? '' : '🔍 Tapez un N° OP...'}
+                      readOnly={isConsultMode || isEditMode}
+                      style={{ 
+                        ...styles.input, 
+                        marginBottom: 0, 
+                        borderRadius: 0,
+                        background: isEditMode ? '#fff3e0' : isConsultMode ? '#e8f5e9' : '#fff', 
+                        fontWeight: 700, 
+                        fontFamily: 'monospace', 
+                        fontSize: 16, 
+                        textAlign: 'center',
+                        border: isEditMode ? '2px solid #f57f17' : isConsultMode ? '2px solid #4caf50' : '2px solid #e9ecef',
+                        flex: 1
+                      }} 
+                    />
+                    
+                    {/* Flèche suivant */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const opsSource = ops.filter(o => o.sourceId === activeSource && o.exerciceId === exerciceActif?.id)
+                          .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
+                        if (opsSource.length === 0) return;
+                        const currentIdx = consultedOp ? opsSource.findIndex(o => o.id === consultedOp.id) : -1;
+                        const nextIdx = currentIdx < opsSource.length - 1 ? currentIdx + 1 : 0;
+                        loadOpForConsult(opsSource[nextIdx]);
+                      }}
+                      style={{ 
+                        padding: '12px 14px', 
+                        background: '#f8f9fa', 
+                        border: '2px solid #e9ecef', 
+                        borderLeft: 'none',
+                        borderRadius: '0 8px 8px 0', 
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        color: '#666'
+                      }}
+                      title="OP suivant"
+                    >
+                      ▶
+                    </button>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  {(isConsultMode || isEditMode) ? (
+                  {(isConsultMode || isEditMode) && (
                     <button 
                       onClick={exitConsultMode} 
                       style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#ffebee', color: '#c62828' }}
                     >
                       ✕ Quitter {isEditMode ? 'modification' : 'consultation'}
                     </button>
-                  ) : (
-                    <>
-                      <button 
-                        onClick={() => { setConsultSearch(''); setShowConsultModal(true); }} 
-                        style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#e3f2fd', color: '#1565c0' }}
-                      >
-                        🔍 Consulter un OP
-                      </button>
-                      <button 
-                        onClick={() => setShowDuplicateModal(true)} 
-                        style={{ ...styles.buttonSecondary, padding: '12px 20px', background: '#fff3e0', color: '#e65100' }}
-                      >
-                        📋 Dupliquer un OP
-                      </button>
-                    </>
                   )}
                   <button onClick={() => { exitConsultMode(); handleClear(); }} style={{ ...styles.buttonSecondary, padding: '12px 24px' }}>
                     EFFACER
@@ -4387,10 +4481,12 @@ export default function App() {
                             await deleteDoc(doc(db, 'ops', consultedOp.id));
                             setOps(ops.filter(o => o.id !== consultedOp.id));
                             alert(`✅ OP ${consultedOp.numero} supprimé.`);
-                            // L'OP n'existe plus, ouvrir le modal pour en chercher un autre
+                            // L'OP n'existe plus, revenir au formulaire vierge
                             setConsultedOp(null);
+                            setIsConsultMode(false);
                             setIsEditMode(false);
-                            setShowConsultModal(true);
+                            setOpSearchQuery('');
+                            handleClear();
                           } catch (error) {
                             alert('Erreur : ' + error.message);
                           }
@@ -4399,6 +4495,17 @@ export default function App() {
                       style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#424242' }}
                     >
                       🗑️ Supprimer
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Dupliquer l'OP actuel
+                        if (consultedOp) {
+                          handleDuplicate(consultedOp.id);
+                        }
+                      }}
+                      style={{ ...styles.button, padding: '14px 24px', fontSize: 14, background: '#e65100' }}
+                    >
+                      📋 Dupliquer
                     </button>
                   </div>
                 </div>
@@ -4492,7 +4599,7 @@ export default function App() {
                     const isTresor = currentSourceObj?.sigle?.includes('BN') || currentSourceObj?.sigle?.includes('TRESOR') || currentSourceObj?.sigle?.includes('ETAT');
                     const codeImputationComplet = (currentSourceObj?.codeImputation || '') + ' ' + (form.ligneBudgetaire || '');
                     if (!form.beneficiaireId || !form.montant) { alert('Remplissez au minimum le bénéficiaire et le montant pour imprimer.'); return; }
-                    alert('Pour imprimer, enregistrez d\'abord l\'OP puis consultez-le via le bouton 🔍 Consulter un OP.');
+                    alert('Pour imprimer, enregistrez d\'abord l\'OP puis recherchez-le dans le champ N° OP.');
                   }}
                   style={{ ...styles.buttonSecondary, padding: '14px 24px', fontSize: 14 }}
                 >
@@ -4517,130 +4624,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Modal Consulter un OP */}
-        {showConsultModal && (
-          <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 700 }}>
-              <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>🔍 Consulter un OP</h2>
-                  <button onClick={() => setShowConsultModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
-                </div>
-              </div>
-              <div style={{ padding: 20 }}>
-                <input
-                  type="text"
-                  placeholder="Tapez le N° OP, bénéficiaire, objet ou montant..."
-                  value={consultSearch}
-                  onChange={e => setConsultSearch(e.target.value)}
-                  style={{ ...styles.input, marginBottom: 12, fontSize: 14 }}
-                  autoFocus
-                />
-                {consultSearch.trim().length >= 2 ? (
-                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                  {ops
-                    .filter(op => {
-                      const term = consultSearch.toLowerCase();
-                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                      return (
-                        (op.numero || '').toLowerCase().includes(term) ||
-                        (ben?.nom || '').toLowerCase().includes(term) ||
-                        (op.objet || '').toLowerCase().includes(term) ||
-                        String(op.montant || '').includes(term)
-                      );
-                    })
-                    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-                    .slice(0, 20)
-                    .map(op => {
-                      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                      const src = sources.find(s => s.id === op.sourceId);
-                      return (
-                        <div
-                          key={op.id}
-                          onClick={() => { loadOpForConsult(op); setShowConsultModal(false); setConsultSearch(''); }}
-                          style={{
-                            padding: '12px 16px',
-                            borderBottom: '1px solid #f0f0f0',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            transition: 'background 0.15s'
-                          }}
-                          onMouseOver={e => e.currentTarget.style.background = '#e3f2fd'}
-                          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{op.numero}</div>
-                            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{ben?.nom || 'N/A'} — {op.objet?.substring(0, 60) || ''}{(op.objet || '').length > 60 ? '...' : ''}</div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: '#0f4c3a' }}>{formatMontant(op.montant)} F</div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                              <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: src?.couleur || '#999', color: '#fff' }}>{src?.sigle || ''}</span>
-                              <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: op.type === 'PROVISOIRE' ? '#ff9800' : op.type === 'DIRECT' ? '#2196f3' : op.type === 'DEFINITIF' ? '#4caf50' : '#f44336', color: '#fff' }}>{op.type}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  }
-                  {ops.filter(op => {
-                    const term = consultSearch.toLowerCase();
-                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                    return (op.numero || '').toLowerCase().includes(term) || (ben?.nom || '').toLowerCase().includes(term) || (op.objet || '').toLowerCase().includes(term);
-                  }).length === 0 && (
-                    <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>Aucun OP trouvé</div>
-                  )}
-                </div>
-                ) : (
-                  <div style={{ padding: 30, textAlign: 'center', color: '#999' }}>
-                    Saisissez au moins 2 caractères pour rechercher
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Dupliquer un OP */}
-        {showDuplicateModal && (
-          <div style={styles.modal}>
-            <div style={{ ...styles.modalContent, maxWidth: 500 }}>
-              <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#fff3e0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0, fontSize: 18, color: '#e65100' }}>📋 Dupliquer un OP</h2>
-                  <button onClick={() => setShowDuplicateModal(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
-                </div>
-              </div>
-              <div style={{ padding: 24 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Rechercher un OP à dupliquer</label>
-                <Autocomplete
-                  options={opsPourDuplication.map(op => {
-                    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                    return {
-                      value: op.id,
-                      label: `${op.numero} - ${ben?.nom || 'N/A'} (${op.type})`,
-                      searchFields: [op.numero, ben?.nom || '', op.objet || '', op.type]
-                    };
-                  })}
-                  value={null}
-                  onChange={(option) => option && handleDuplicate(option.value)}
-                  placeholder="🔍 Rechercher par N°, bénéficiaire, objet..."
-                  noOptionsMessage="Aucun OP trouvé"
-                  accentColor="#e65100"
-                />
-
-                {opsPourDuplication.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: 40, color: '#6c757d' }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-                    <p>Aucun OP créé pour cette source et cet exercice.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
