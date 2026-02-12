@@ -149,7 +149,7 @@ const PageListeOP = () => {
       const source = sources.find(s => s.id === op.sourceId);
       if (
         !op.numero?.toLowerCase().includes(search) &&
-        !ben?.nom?.toLowerCase().includes(search) &&
+        !(op.beneficiaireNom || ben?.nom || '').toLowerCase().includes(search) &&
         !op.objet?.toLowerCase().includes(search) &&
         !source?.sigle?.toLowerCase().includes(search)
       ) return false;
@@ -187,19 +187,16 @@ const PageListeOP = () => {
     // Calculer ordre, cumul engagé et disponible
     let cumul = 0;
     let ordre = 0;
-    // Trouver la dotation pour la ligne budgétaire filtrée (si filtre actif)
-    const getDotationLigne = () => {
-      if (!filters.ligneBudgetaire) return null;
-      let totalDotation = 0;
-      budgets.forEach(b => {
-        if (b.lignes) {
-          const ligne = b.lignes.find(l => l.code === filters.ligneBudgetaire);
-          if (ligne) totalDotation += (ligne.dotation || 0);
-        }
-      });
-      return totalDotation;
+    
+    // Helper : récupérer la dotation figée d'un OP (fallback budget actuel si ancien OP)
+    const getDotationOP = (op) => {
+      if (op.dotationLigne !== undefined && op.dotationLigne !== null) return op.dotationLigne;
+      const latestBudget = budgets
+        .filter(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId)
+        .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+      const ligne = latestBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
+      return ligne?.dotation || 0;
     };
-    const dotation = getDotationLigne();
     
     lines.forEach(line => {
       ordre++;
@@ -215,7 +212,9 @@ const PageListeOP = () => {
         cumul += (line.montant || 0);
       }
       line.cumulEngage = cumul;
-      line.disponible = dotation !== null ? dotation - cumul : null;
+      // Disponible = dotation figée de cet OP - engagements cumulés
+      const dotOP = getDotationOP(line);
+      line.disponible = dotOP - cumul;
     });
     
     return lines;
@@ -604,6 +603,7 @@ const PageListeOP = () => {
       const updates = {
         type: editForm.type,
         beneficiaireId: editForm.beneficiaireId,
+        beneficiaireNom: ben?.nom || '',
         modeReglement: editForm.modeReglement,
         rib: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.numero || '') : '',
         banque: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '',
@@ -639,7 +639,7 @@ const PageListeOP = () => {
         op.numero,
         op.dateCreation || '',
         op.type,
-        ben?.nom || '',
+        op.beneficiaireNom || ben?.nom || '',
         op.objet || '',
         op.ligneBudgetaire || '',
         op.montant || 0,
@@ -1019,7 +1019,7 @@ const PageListeOP = () => {
                   <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
                   {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 80 }}>ANCIENNETÉ</th>}
                   <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>CUMUL ENGAGÉ</th>
-                  {filters.ligneBudgetaire && <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>DISPONIBLE</th>}
+                  <th style={{ ...styles.th, width: 110, textAlign: 'right' }}>DISPONIBLE</th>
                   <th style={{ ...styles.th, width: 95 }}>STATUT</th>
                   <th style={{ ...styles.th, width: 100, textAlign: 'center' }}>ACTIONS</th>
                 </tr>
@@ -1039,10 +1039,16 @@ const PageListeOP = () => {
                     : (statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut });
                   const anciennete = getAnciennete(op.dateCreation);
                   
-                  // Récupérer la dotation de la ligne budgétaire
-                  const currentBudget = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
-                  const ligneBudget = currentBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
-                  const dotationLigne = ligneBudget?.dotation || 0;
+                  // Dotation sauvegardée au moment de la création de l'OP
+                  // Si anciens OP sans dotationLigne, fallback sur le budget actuel
+                  let dotationLigne = op.dotationLigne;
+                  if (dotationLigne === undefined || dotationLigne === null) {
+                    const currentBudget = budgets
+                      .filter(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId)
+                      .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+                    const ligneBudget = currentBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
+                    dotationLigne = ligneBudget?.dotation || 0;
+                  }
                   
                   return (
                     <tr key={op.id} style={{ cursor: 'pointer' }} onClick={() => setShowDetail(op)}>
@@ -1078,7 +1084,7 @@ const PageListeOP = () => {
                           {op.type}
                         </span>
                       </td>
-                      <td style={{ ...styles.td, fontSize: 11 }}>{ben?.nom || 'N/A'}</td>
+                      <td style={{ ...styles.td, fontSize: 11 }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
                       <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>
                         {op.objet || '-'}
                       </td>
@@ -1106,11 +1112,9 @@ const PageListeOP = () => {
                       <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>
                         {formatMontant(op.cumulEngage || 0)}
                       </td>
-                      {filters.ligneBudgetaire && (
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32' }}>
-                          {op.disponible !== null ? formatMontant(op.disponible) : '-'}
-                        </td>
-                      )}
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32' }}>
+                        {formatMontant(op.disponible)}
+                      </td>
                       <td style={styles.td}>
                         <span style={{
                           background: statutObj.bg,
@@ -1373,10 +1377,15 @@ const PageListeOP = () => {
                 const statut = statutConfig[showDetail.statut] || { label: showDetail.statut };
                 const source = sources.find(s => s.id === showDetail.sourceId);
                 
-                // Calcul des engagements antérieurs sur la même ligne
-                const currentBudget = budgets.find(b => b.sourceId === showDetail.sourceId && b.exerciceId === showDetail.exerciceId);
-                const ligne = currentBudget?.lignes?.find(l => l.code === showDetail.ligneBudgetaire);
-                const dotation = ligne?.dotation || 0;
+                // Dotation figée de l'OP (fallback budget actuel pour anciens OP)
+                let dotation = showDetail.dotationLigne;
+                if (dotation === undefined || dotation === null) {
+                  const currentBudget = budgets
+                    .filter(b => b.sourceId === showDetail.sourceId && b.exerciceId === showDetail.exerciceId)
+                    .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+                  const ligne = currentBudget?.lignes?.find(l => l.code === showDetail.ligneBudgetaire);
+                  dotation = ligne?.dotation || 0;
+                }
                 
                 const opsAnterieurs = ops.filter(o => 
                   o.sourceId === showDetail.sourceId &&
@@ -1432,7 +1441,7 @@ const PageListeOP = () => {
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>BÉNÉFICIAIRE</label>
-                      <div style={{ marginTop: 4, fontWeight: 600 }}>{ben?.nom || 'N/A'}</div>
+                      <div style={{ marginTop: 4, fontWeight: 600 }}>{showDetail.beneficiaireNom || ben?.nom || 'N/A'}</div>
                       {ben?.ncc && <div style={{ fontSize: 12, color: '#6c757d' }}>NCC: {ben.ncc}</div>}
                     </div>
                     <div>
@@ -1870,12 +1879,17 @@ const PageListeOP = () => {
       {showEditModal && (() => {
         const editBeneficiaire = beneficiaires.find(b => b.id === editForm.beneficiaireId);
         const editRibs = editBeneficiaire?.ribs || (editBeneficiaire?.rib ? [{ numero: editBeneficiaire.rib, banque: '' }] : []);
-        const editBudget = budgets.find(b => b.sourceId === showEditModal.sourceId && b.exerciceId === showEditModal.exerciceId);
+        const editBudget = budgets
+          .filter(b => b.sourceId === showEditModal.sourceId && b.exerciceId === showEditModal.exerciceId)
+          .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
         const editSource = sources.find(s => s.id === showEditModal.sourceId);
-        const editLigne = editBudget?.lignes?.find(l => l.code === editForm.ligneBudgetaire);
         
-        // Calculs budgétaires
-        const dotation = editLigne?.dotation || 0;
+        // Dotation figée de l'OP (fallback budget actuel pour anciens OP)
+        let dotation = showEditModal.dotationLigne;
+        const editLigne = editBudget?.lignes?.find(l => l.code === editForm.ligneBudgetaire);
+        if (dotation === undefined || dotation === null) {
+          dotation = editLigne?.dotation || 0;
+        }
         const engagementsAnterieurs = ops
           .filter(o => 
             o.sourceId === showEditModal.sourceId &&
