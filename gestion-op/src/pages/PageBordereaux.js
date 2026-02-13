@@ -1,0 +1,992 @@
+import React, { useState, useRef } from 'react';
+import { useAppContext } from '../context/AppContext';
+import { db } from '../firebase';
+import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { styles } from '../utils/styles';
+import { formatMontant } from '../utils/formatters';
+import { ARMOIRIE } from '../utils/logos';
+
+// ============================================================
+// COMPOSANTS STABLES (définis HORS du composant principal)
+// ============================================================
+const Badge = React.memo(({ bg, color, children }) => (
+  <span style={{ background: bg, color, padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>{children}</span>
+));
+const Empty = React.memo(({ text }) => (
+  <div style={{ textAlign: 'center', padding: 40, color: '#999' }}><div style={{ fontSize: 40, marginBottom: 10 }}>📭</div><p>{text}</p></div>
+));
+const STab = React.memo(({ active, label, count, color, onClick }) => (
+  <button onClick={onClick} style={{ padding: '9px 16px', borderRadius: 6, border: 'none', background: active ? color : '#f5f5f5', color: active ? 'white' : '#666', fontWeight: 600, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+    {label}{count !== undefined && <span style={{ background: active ? 'rgba(255,255,255,0.25)' : '#ddd', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{count}</span>}
+  </button>
+));
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+const PageBordereaux = () => {
+  const { projet, sources, exercices, beneficiaires, ops, bordereaux } = useAppContext();
+
+  // === STATE ===
+  const [mainTab, setMainTab] = useState('CF');
+  const [subTabCF, setSubTabCF] = useState('NOUVEAU');
+  const [subTabAC, setSubTabAC] = useState('NOUVEAU');
+  const [subTabArch, setSubTabArch] = useState('A_ARCHIVER');
+  const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
+  const [selectedOps, setSelectedOps] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [searchBT, setSearchBT] = useState('');
+  const [searchSuivi, setSearchSuivi] = useState('');
+  const [searchArch, setSearchArch] = useState('');
+
+  // Retours CF
+  const [resultatCF, setResultatCF] = useState('VISE');
+  const [motifRetour, setMotifRetour] = useState('');
+
+  // Retours AC / Paiement
+  const [resultatAC, setResultatAC] = useState('DIFFERE');
+  const [motifRetourAC, setMotifRetourAC] = useState('');
+  const [paiementMontant, setPaiementMontant] = useState('');
+  const [paiementReference, setPaiementReference] = useState('');
+
+  // Archive
+  const [boiteArchivage, setBoiteArchivage] = useState('');
+
+  // UI
+  const [expandedBT, setExpandedBT] = useState(null);
+  const [editingBT, setEditingBT] = useState(null); // BT en mode modification
+  const [showAddOps, setShowAddOps] = useState(null);
+  const [drawerPaiement, setDrawerPaiement] = useState(null); // Drawer paiement AC
+
+  // === REFS pour dates (éviter re-render) ===
+  const dateRefs = useRef({});
+  const getDateRef = (key) => dateRefs.current[key] || '';
+  const setDateRef = (key, el) => { if (el) dateRefs.current['_el_' + key] = el; };
+  const readDate = (key) => dateRefs.current['_el_' + key]?.value || '';
+
+  // === DATA ===
+  const exerciceActif = exercices.find(e => e.actif);
+  const currentSrc = sources.find(s => s.id === activeSourceBT);
+  const opsForSource = ops.filter(op => op.sourceId === activeSourceBT && op.exerciceId === exerciceActif?.id);
+
+  const opsEligiblesCF = opsForSource.filter(op => op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF');
+  const opsTransmisCF = opsForSource.filter(op => op.statut === 'TRANSMIS_CF');
+  const opsDifferesCF = opsForSource.filter(op => op.statut === 'DIFFERE_CF');
+  const opsRejetesCF = opsForSource.filter(op => op.statut === 'REJETE_CF');
+  const opsEligiblesAC = opsForSource.filter(op => op.statut === 'VISE_CF');
+  const opsTransmisAC = opsForSource.filter(op => op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL');
+  const opsDifferesAC = opsForSource.filter(op => op.statut === 'DIFFERE_AC');
+  const opsRejetesAC = opsForSource.filter(op => op.statut === 'REJETE_AC');
+  const opsAArchiver = opsForSource.filter(op => op.statut === 'PAYE');
+  const opsArchives = opsForSource.filter(op => op.statut === 'ARCHIVE');
+
+  const bordereauCF = bordereaux.filter(bt => bt.type === 'CF' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActif?.id);
+  const bordereauAC = bordereaux.filter(bt => bt.type === 'AC' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActif?.id);
+
+  // === HELPERS ===
+  const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
+
+  const checkPwd = () => {
+    const p = window.prompt('Mot de passe requis :');
+    if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; }
+    return true;
+  };
+
+  const filterBordereaux = (btList) => btList.filter(bt => {
+    if (!searchBT) return true;
+    const t = searchBT.toLowerCase();
+    if ((bt.numero || '').toLowerCase().includes(t)) return true;
+    return bt.opsIds?.some(opId => {
+      const op = ops.find(o => o.id === opId);
+      return (op?.numero || '').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op?.objet || '').toLowerCase().includes(t);
+    });
+  });
+
+  const filterOpsBySearch = (opsList, term) => {
+    if (!term) return opsList;
+    const t = term.toLowerCase();
+    return opsList.filter(op => (op.numero || '').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet || '').toLowerCase().includes(t) || (op.motifDiffere || '').toLowerCase().includes(t) || (op.motifRejet || '').toLowerCase().includes(t));
+  };
+
+  const toggleOp = (opId) => setSelectedOps(prev => prev.includes(opId) ? prev.filter(id => id !== opId) : [...prev, opId]);
+  const toggleAll = (opsList) => {
+    if (selectedOps.length === opsList.length && opsList.length > 0) setSelectedOps([]);
+    else setSelectedOps(opsList.map(o => o.id));
+  };
+  const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
+
+  const genererNumeroBT = (typeBT) => {
+    const pf = typeBT === 'CF' ? 'BT-CF' : 'BT-AC';
+    const sp = projet?.sigle || 'PROJET'; const ss = currentSrc?.sigle || 'SRC';
+    const a = exerciceActif?.annee || new Date().getFullYear();
+    const n = bordereaux.filter(bt => bt.type === typeBT && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActif?.id).length + 1;
+    return `${pf}-${String(n).padStart(4, '0')}/${sp}-${ss}/${a}`;
+  };
+
+  // Changement d'onglet
+  const chgTab = (t) => { setMainTab(t); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setEditingBT(null); setDrawerPaiement(null); setSearchSuivi(''); setSearchArch(''); };
+  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setEditingBT(null); };
+
+  // ================================================================
+  // ACTIONS
+  // ================================================================
+  const handleCreateBordereau = async (typeBT) => {
+    if (selectedOps.length === 0) { alert('Sélectionnez au moins un OP.'); return; }
+    const num = genererNumeroBT(typeBT);
+    if (!window.confirm(`Créer ${num} — ${selectedOps.length} OP — ${formatMontant(totalSelected)} F ?`)) return;
+    setSaving(true);
+    try {
+      await addDoc(collection(db, 'bordereaux'), {
+        numero: num, type: typeBT, sourceId: activeSourceBT, exerciceId: exerciceActif.id,
+        dateCreation: new Date().toISOString().split('T')[0], dateTransmission: null,
+        opsIds: selectedOps, nbOps: selectedOps.length, totalMontant: totalSelected,
+        statut: 'EN_COURS', createdAt: new Date().toISOString()
+      });
+      const bf = typeBT === 'CF' ? 'bordereauCF' : 'bordereauAC';
+      for (const opId of selectedOps) await updateDoc(doc(db, 'ops', opId), { [bf]: num, updatedAt: new Date().toISOString() });
+      alert(`${num} créé.`); setSelectedOps([]);
+      if (typeBT === 'CF') setSubTabCF('BORDEREAUX'); else setSubTabAC('BORDEREAUX');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleTransmettre = async (bt) => {
+    const d = readDate('trans_' + bt.id);
+    if (!d) { alert('Saisissez une date.'); return; }
+    const lab = bt.type === 'CF' ? 'au CF' : "à l'AC";
+    if (!window.confirm(`Transmettre ${bt.numero} ${lab} le ${d} ?`)) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'bordereaux', bt.id), { dateTransmission: d, statut: 'ENVOYE', updatedAt: new Date().toISOString() });
+      const ns = bt.type === 'CF' ? 'TRANSMIS_CF' : 'TRANSMIS_AC';
+      const df = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+      for (const opId of bt.opsIds) await updateDoc(doc(db, 'ops', opId), { statut: ns, [df]: d, updatedAt: new Date().toISOString() });
+      alert(`Transmis ${lab}.`);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleAnnulerTransmission = async (bt) => {
+    if (!checkPwd()) return;
+    if (!window.confirm(`Annuler la transmission de ${bt.numero} ?`)) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'bordereaux', bt.id), { dateTransmission: null, statut: 'EN_COURS', updatedAt: new Date().toISOString() });
+      const prevSt = bt.type === 'CF' ? 'EN_COURS' : 'VISE_CF';
+      const df = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+      for (const opId of bt.opsIds) {
+        const op = ops.find(o => o.id === opId);
+        const expected = bt.type === 'CF' ? 'TRANSMIS_CF' : 'TRANSMIS_AC';
+        if (op && op.statut === expected) await updateDoc(doc(db, 'ops', opId), { statut: prevSt, [df]: null, updatedAt: new Date().toISOString() });
+      }
+      alert('Transmission annulée.');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleEnterEditBT = (bt) => {
+    if (bt.statut === 'ENVOYE' && !checkPwd()) return;
+    setEditingBT(bt.id);
+  };
+
+  const handleAddOpToBT = async (bt, opId) => {
+    try {
+      const nIds = [...bt.opsIds, opId];
+      const nT = nIds.reduce((s, id) => s + (ops.find(x => x.id === id)?.montant || 0), 0);
+      await updateDoc(doc(db, 'bordereaux', bt.id), { opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: new Date().toISOString() });
+      await updateDoc(doc(db, 'ops', opId), { [bt.type === 'CF' ? 'bordereauCF' : 'bordereauAC']: bt.numero, updatedAt: new Date().toISOString() });
+      setShowAddOps(null);
+    } catch (e) { alert('Erreur : ' + e.message); }
+  };
+
+  const handleRemoveOpFromBT = async (bt, opId) => {
+    if (bt.opsIds.length <= 1) { alert('Minimum 1 OP.'); return; }
+    if (!window.confirm('Retirer cet OP ?')) return;
+    try {
+      const nIds = bt.opsIds.filter(id => id !== opId);
+      const nT = nIds.reduce((s, id) => s + (ops.find(x => x.id === id)?.montant || 0), 0);
+      await updateDoc(doc(db, 'bordereaux', bt.id), { opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: new Date().toISOString() });
+      const prevSt = bt.type === 'CF' ? 'EN_COURS' : 'VISE_CF';
+      await updateDoc(doc(db, 'ops', opId), { [bt.type === 'CF' ? 'bordereauCF' : 'bordereauAC']: null, statut: prevSt, updatedAt: new Date().toISOString() });
+    } catch (e) { alert('Erreur : ' + e.message); }
+  };
+
+  const handleDeleteBordereau = async (bt) => {
+    if (!checkPwd()) return;
+    if (!window.confirm(`Supprimer ${bt.numero} ?`)) return;
+    try {
+      const ps = bt.type === 'CF' ? 'EN_COURS' : 'VISE_CF';
+      const df = bt.type === 'CF' ? 'dateTransmissionCF' : 'dateTransmissionAC';
+      const bf = bt.type === 'CF' ? 'bordereauCF' : 'bordereauAC';
+      for (const opId of bt.opsIds) {
+        const op = ops.find(o => o.id === opId);
+        if (op) await updateDoc(doc(db, 'ops', opId), { [bf]: null, statut: ps, [df]: null, updatedAt: new Date().toISOString() });
+      }
+      await deleteDoc(doc(db, 'bordereaux', bt.id));
+      alert('Supprimé.'); if (expandedBT === bt.id) setExpandedBT(null); setEditingBT(null);
+    } catch (e) { alert('Erreur : ' + e.message); }
+  };
+
+  // === RETOUR CF (BATCH) ===
+  const handleRetourCF = async () => {
+    if (selectedOps.length === 0) { alert('Sélectionnez des OP.'); return; }
+    const d = readDate('retourCF');
+    if (!d) { alert('Date requise.'); return; }
+    if ((resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && !motifRetour.trim()) { alert('Motif obligatoire.'); return; }
+    if (resultatCF === 'REJETE' && !checkPwd()) return;
+    const lab = resultatCF === 'VISE' ? 'Visé' : resultatCF === 'DIFFERE' ? 'Différé' : 'Rejeté';
+    if (!window.confirm(`Marquer ${selectedOps.length} OP comme "${lab}" ?`)) return;
+    setSaving(true);
+    try {
+      let upd = { updatedAt: new Date().toISOString() };
+      if (resultatCF === 'VISE') { upd.statut = 'VISE_CF'; upd.dateVisaCF = d; }
+      else if (resultatCF === 'DIFFERE') { upd.statut = 'DIFFERE_CF'; upd.dateDiffere = d; upd.motifDiffere = motifRetour.trim(); }
+      else { upd.statut = 'REJETE_CF'; upd.dateRejet = d; upd.motifRejet = motifRetour.trim(); }
+      for (const opId of selectedOps) await updateDoc(doc(db, 'ops', opId), upd);
+      alert(`${selectedOps.length} OP → "${lab}".`);
+      setSelectedOps([]); setMotifRetour('');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleAnnulerRetourCF = async (opId, statut) => {
+    if (!checkPwd()) return;
+    const lab = statut === 'VISE_CF' ? 'visa' : statut === 'DIFFERE_CF' ? 'différé CF' : statut === 'REJETE_CF' ? 'rejet CF' : statut === 'DIFFERE_AC' ? 'différé AC' : 'rejet AC';
+    const retour = ['DIFFERE_AC', 'REJETE_AC'].includes(statut) ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
+    if (!window.confirm(`Annuler le ${lab} ? L'OP reviendra en "${retour}".`)) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'ops', opId), { statut: retour, dateVisaCF: null, dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString() });
+      alert(`${lab} annulé.`);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // === RETOUR AC (depuis drawer) ===
+  const handleRetourAC = async () => {
+    if (!drawerPaiement) return;
+    if (!motifRetourAC.trim()) { alert('Motif obligatoire.'); return; }
+    const d = readDate('retourAC');
+    if (!d) { alert('Date requise.'); return; }
+    if (resultatAC === 'REJETE' && !checkPwd()) return;
+    const lab = resultatAC === 'DIFFERE' ? 'Différé AC' : 'Rejeté AC';
+    if (!window.confirm(`Marquer comme "${lab}" ?`)) return;
+    setSaving(true);
+    try {
+      let upd = { updatedAt: new Date().toISOString() };
+      if (resultatAC === 'DIFFERE') { upd.statut = 'DIFFERE_AC'; upd.dateDiffere = d; upd.motifDiffere = motifRetourAC.trim(); }
+      else { upd.statut = 'REJETE_AC'; upd.dateRejet = d; upd.motifRejet = motifRetourAC.trim(); }
+      await updateDoc(doc(db, 'ops', drawerPaiement.id), upd);
+      alert(`OP → "${lab}".`); setDrawerPaiement(null); setMotifRetourAC('');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // === PAIEMENT ===
+  const handlePaiement = async (opId) => {
+    const op = ops.find(o => o.id === opId);
+    if (!op) return;
+    const m = parseFloat(paiementMontant);
+    if (!m || m <= 0) { alert('Montant invalide.'); return; }
+    const d = readDate('paiement');
+    if (!d) { alert('Date requise.'); return; }
+    const paiem = op.paiements || [];
+    const deja = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+    const reste = (op.montant || 0) - deja;
+    if (m > reste + 1) { alert(`Dépasse le reste (${formatMontant(reste)} F).`); return; }
+    const nP = [...paiem, { date: d, montant: m, reference: paiementReference.trim(), createdAt: new Date().toISOString() }];
+    const tot = nP.reduce((s, p) => s + (p.montant || 0), 0);
+    const solde = (op.montant || 0) - tot < 1;
+    if (!window.confirm(`Paiement ${formatMontant(m)} F ?\n${solde ? '→ Soldé' : '→ Reste ' + formatMontant((op.montant || 0) - tot) + ' F'}`)) return;
+    setSaving(true);
+    try {
+      const upd = { paiements: nP, totalPaye: tot, datePaiement: d, updatedAt: new Date().toISOString() };
+      upd.statut = solde ? 'PAYE' : 'PAYE_PARTIEL';
+      await updateDoc(doc(db, 'ops', opId), upd);
+      alert(solde ? 'OP soldé → Prêt pour archivage.' : 'Paiement partiel enregistré.');
+      setPaiementMontant(''); setPaiementReference('');
+      if (solde) setDrawerPaiement(null);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleAnnulerPaiement = async (opId) => {
+    const op = ops.find(o => o.id === opId);
+    const p = op?.paiements || [];
+    if (p.length === 0) return;
+    if (!checkPwd()) return;
+    const der = p[p.length - 1];
+    if (!window.confirm(`Annuler paiement ${formatMontant(der.montant)} F du ${der.date} ?`)) return;
+    setSaving(true);
+    try {
+      const nP = p.slice(0, -1);
+      const tot = nP.reduce((s, x) => s + (x.montant || 0), 0);
+      const upd = { paiements: nP, totalPaye: tot, statut: nP.length > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC', updatedAt: new Date().toISOString() };
+      if (nP.length === 0) upd.datePaiement = null;
+      await updateDoc(doc(db, 'ops', opId), upd);
+      alert('Paiement annulé.');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // === ARCHIVAGE ===
+  const handleArchiverDirect = async (opId) => {
+    if (!checkPwd()) return;
+    const boite = window.prompt('Boîte d\'archivage :');
+    if (!boite || !boite.trim()) return;
+    if (!window.confirm(`Archiver directement dans "${boite}" ?`)) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'ops', opId), { statut: 'ARCHIVE', boiteArchivage: boite.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString() });
+      alert('Archivé.'); setDrawerPaiement(null);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleArchiver = async () => {
+    if (selectedOps.length === 0 || !boiteArchivage.trim()) return;
+    if (!window.confirm(`Archiver ${selectedOps.length} OP dans "${boiteArchivage}" ?`)) return;
+    setSaving(true);
+    try {
+      for (const opId of selectedOps) await updateDoc(doc(db, 'ops', opId), { statut: 'ARCHIVE', boiteArchivage: boiteArchivage.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString() });
+      alert(`${selectedOps.length} OP archivés.`); setSelectedOps([]); setBoiteArchivage('');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleDesarchiver = async (opId) => {
+    if (!checkPwd()) return;
+    if (!window.confirm('Désarchiver ?')) return;
+    setSaving(true);
+    try {
+      const op = ops.find(o => o.id === opId);
+      const prev = (op?.totalPaye && op.totalPaye >= (op?.montant || 0)) ? 'PAYE' : (op?.totalPaye > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC');
+      await updateDoc(doc(db, 'ops', opId), { statut: prev, boiteArchivage: null, dateArchivage: null, updatedAt: new Date().toISOString() });
+      alert('Désarchivé.');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // === RÉINTRODUIRE ===
+  const handleReintroduire = async (opIds, type = 'CF') => {
+    const d = readDate('reintro');
+    if (!d) { alert('Date requise.'); return; }
+    if (!window.confirm(`Réintroduire ${opIds.length} OP ?`)) return;
+    setSaving(true);
+    try {
+      for (const opId of opIds) {
+        const op = ops.find(o => o.id === opId);
+        const hist = [...(op?.historiqueDifferes || []), { dateDiffere: op?.dateDiffere, motifDiffere: op?.motifDiffere, dateReintroduction: d, type }];
+        const upd = { statut: type === 'CF' ? 'EN_COURS' : 'TRANSMIS_AC', dateReintroduction: d, historiqueDifferes: hist, dateDiffere: null, motifDiffere: null, updatedAt: new Date().toISOString() };
+        if (type === 'CF') { upd.bordereauCF = null; upd.dateTransmissionCF = null; }
+        await updateDoc(doc(db, 'ops', opId), upd);
+      }
+      alert(`${opIds.length} OP réintroduit(s).`); setSelectedOps([]);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // === IMPRESSION ===
+  const handlePrintBordereau = (bt) => {
+    const src = sources.find(s => s.id === bt.sourceId);
+    const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+    const rows = btOps.map((op, i) => `<tr><td>${i+1}</td><td style="font-family:monospace;font-weight:bold;font-size:9px">${op.numero}</td><td>${getBen(op)}</td><td>${op.objet || '-'}</td><td style="font-family:monospace">${op.ligneBudgetaire || '-'}</td><td style="text-align:right;font-family:monospace;font-weight:bold">${Number(op.montant || 0).toLocaleString('fr-FR')}</td></tr>`).join('');
+    const dest = bt.type === 'CF' ? 'au Contrôleur Financier' : "à l'Agent Comptable";
+    const destM = bt.type === 'CF' ? 'Monsieur le Contrôleur Financier' : "Monsieur l'Agent Comptable";
+    const destT = bt.type === 'CF' ? 'Le Contrôleur Financier' : "L'Agent Comptable";
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${bt.numero}</title><style>@page{size:A4;margin:10mm}@media print{.tb{display:none!important}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Century Gothic',sans-serif;font-size:11px;background:#e0e0e0}.tb{background:#1a1a2e;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}.tb button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#2196F3;color:white}.tb span{color:rgba(255,255,255,0.7);margin-left:auto;font-size:12px}.pg{width:210mm;min-height:297mm;margin:20px auto;background:white;padding:12mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.hd{display:flex;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #1a1a2e}table{width:100%;border-collapse:collapse;margin:15px 0}th{background:#1a1a2e;color:white;padding:6px 8px;font-size:9px;text-align:left}td{padding:5px 8px;font-size:10px;border-bottom:1px solid #ddd}tr:nth-child(even){background:#f8f8f8}.tot{font-weight:bold;background:#e8f5e9!important}.ft{margin-top:30px;display:flex;justify-content:space-between}.sb{width:45%;text-align:center}.ln{border-bottom:1px dotted #333;height:60px;margin-top:5px}.ac{margin-top:30px;padding:10px;border:1px dashed #999;font-size:10px}</style></head><body><div class="tb"><button onclick="window.print()">Imprimer</button><span>${bt.numero}</span></div><div class="pg"><div class="hd"><div style="display:flex;align-items:center;gap:10px"><img src="${ARMOIRIE}" alt="" style="width:55px"/><div style="font-size:9px;line-height:1.4"><div style="font-weight:bold">RÉPUBLIQUE DE CÔTE D'IVOIRE</div><div>Union - Discipline - Travail</div><div style="margin-top:4px;font-weight:bold">${projet?.ministere || ''}</div><div style="font-weight:bold">${projet?.nomProjet || ''}</div></div></div><div style="text-align:right;font-size:9px"><div style="font-weight:bold;font-size:11px">${src?.nom || ''}</div><div>${src?.sigle || ''}</div></div></div><div style="text-align:center;margin:15px 0;font-size:16px;font-weight:bold;text-transform:uppercase;text-decoration:underline">Bordereau de Transmission ${dest}</div><div style="text-align:center;font-size:13px;font-weight:bold">${bt.numero}</div><div style="text-align:center;font-size:11px;margin-bottom:15px">Date : ${bt.dateTransmission || bt.dateCreation}</div><div style="margin-bottom:15px;font-size:11px"><strong>De :</strong> ${projet?.titreCoordonnateur || 'Le Coordonnateur'}<br/><strong>À :</strong> ${destM}</div><table><thead><tr><th style="width:35px">N°</th><th style="width:130px">N° OP</th><th>BÉNÉFICIAIRE</th><th>OBJET</th><th style="width:65px">LIGNE</th><th style="width:100px;text-align:right">MONTANT</th></tr></thead><tbody>${rows}<tr class="tot"><td colspan="5" style="text-align:right">TOTAL (${btOps.length} OP)</td><td style="text-align:right;font-family:monospace">${Number(bt.totalMontant || 0).toLocaleString('fr-FR')}</td></tr></tbody></table><p style="font-size:10px;margin-bottom:20px">Arrêté à <strong>${Number(bt.totalMontant || 0).toLocaleString('fr-FR')} FCFA</strong> pour <strong>${btOps.length}</strong> OP.</p><div class="ft"><div class="sb"><div style="font-weight:bold;font-size:10px">${projet?.titreCoordonnateur || 'Le Coordonnateur'}</div><div class="ln"></div><div style="font-size:9px;margin-top:4px">${projet?.coordonnateur || ''}</div></div><div class="sb"><div style="font-weight:bold;font-size:10px">${destT}</div><div class="ln"></div></div></div><div class="ac"><div style="font-weight:bold;margin-bottom:8px">Accusé de réception</div><div>Reçu le : ____/____/________ — Dossiers : ________</div><div style="margin-top:5px">Nom et signature : _______________________________</div></div></div></body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700'); w.document.write(html); w.document.close();
+  };
+
+  // ================================================================
+  // STYLES DRAWER
+  // ================================================================
+  const drawerS = { position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, background: 'white', zIndex: 100, boxShadow: '-8px 0 32px rgba(12,74,94,0.12)', borderRadius: '20px 0 0 20px', display: 'flex', flexDirection: 'column' };
+  const overlayS = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(12,74,94,0.08)', zIndex: 90 };
+  const iStyle = { ...styles.input, marginBottom: 0, width: 170 };
+
+  // ================================================================
+  // RENDU
+  // ================================================================
+  return (
+    <div>
+      <div style={{ background: '#1a1a2e', color: 'white', padding: '20px 24px', borderRadius: '10px 10px 0 0' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Circuit de validation</h1>
+      </div>
+      {/* Sources */}
+      <div style={{ display: 'flex', gap: 8, padding: '16px 0', flexWrap: 'wrap' }}>
+        {sources.map(src => (
+          <button key={src.id} onClick={() => { setActiveSourceBT(src.id); setSelectedOps([]); setExpandedBT(null); setEditingBT(null); }}
+            style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: activeSourceBT === src.id ? (src.couleur || '#0f4c3a') : '#f0f0f0', color: activeSourceBT === src.id ? 'white' : '#333', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>{src.sigle}</button>
+        ))}
+      </div>
+      {/* Onglets principaux */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {[{ k: 'CF', l: 'Contrôle Financier', c: '#1565c0' }, { k: 'AC', l: 'Agent Comptable', c: '#2e7d32' }, { k: 'ARCHIVES', l: 'Archives', c: '#795548' }].map(t => (
+          <button key={t.k} onClick={() => chgTab(t.k)} style={{ flex: 1, padding: '14px 12px', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, background: mainTab === t.k ? t.c : '#e0e0e0', color: mainTab === t.k ? 'white' : '#666', borderRadius: 8 }}>{t.l}</button>
+        ))}
+      </div>
+
+      {/* ===== CF ===== */}
+      {mainTab === 'CF' && <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          <STab active={subTabCF === 'NOUVEAU'} label="Nouveau BT" count={opsEligiblesCF.length} color="#1565c0" onClick={() => chgSub(setSubTabCF, 'NOUVEAU')} />
+          <STab active={subTabCF === 'BORDEREAUX'} label="Bordereaux" count={bordereauCF.length} color="#0d47a1" onClick={() => chgSub(setSubTabCF, 'BORDEREAUX')} />
+          <STab active={subTabCF === 'RETOUR'} label="Retour CF" count={opsTransmisCF.length} color="#e65100" onClick={() => chgSub(setSubTabCF, 'RETOUR')} />
+          <STab active={subTabCF === 'SUIVI'} label="Suivi" count={opsDifferesCF.length + opsRejetesCF.length} color="#c62828" onClick={() => chgSub(setSubTabCF, 'SUIVI')} />
+        </div>
+
+        {/* Nouveau BT CF */}
+        {subTabCF === 'NOUVEAU' && <div style={styles.card}>
+          <h3 style={{ margin: '0 0 16px', color: '#1565c0' }}>Sélectionner les OP pour un bordereau au CF</h3>
+          <input type="text" placeholder="Rechercher OP..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
+          {filterOpsBySearch(opsEligiblesCF, searchBT).length === 0 ? <Empty text="Aucun OP" /> :
+          <div style={{ maxHeight: 450, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
+            <table style={styles.table}><thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr>
+              <th style={{ ...styles.th, width: 36 }}><input type="checkbox" checked={selectedOps.length === filterOpsBySearch(opsEligiblesCF, searchBT).length && filterOpsBySearch(opsEligiblesCF, searchBT).length > 0} onChange={() => toggleAll(filterOpsBySearch(opsEligiblesCF, searchBT))} /></th>
+              <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={styles.th}>OBJET</th><th style={{ ...styles.th, width: 70 }}>LIGNE</th><th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 80 }}>STATUT</th>
+            </tr></thead><tbody>
+              {filterOpsBySearch(opsEligiblesCF, searchBT).map(op => {
+                const ch = selectedOps.includes(op.id);
+                return <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: ch ? '#e3f2fd' : 'transparent' }}>
+                  <td style={styles.td}><input type="checkbox" checked={ch} onChange={() => toggleOp(op.id)} /></td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire || '-'}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={styles.td}><Badge bg={op.statut === 'DIFFERE_CF' ? '#fef3cd' : '#e3f2fd'} color={op.statut === 'DIFFERE_CF' ? '#b45309' : '#1565c0'}>{op.statut === 'DIFFERE_CF' ? 'Différé' : 'En cours'}</Badge></td>
+                </tr>;
+              })}
+            </tbody></table>
+          </div>}
+          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#e3f2fd', borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
+            <button onClick={() => handleCreateBordereau('CF')} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, background: '#1565c0', width: '100%' }}>{saving ? '...' : `Créer le bordereau`}</button>
+          </div>}
+        </div>}
+
+        {/* Bordereaux CF */}
+        {subTabCF === 'BORDEREAUX' && <div style={styles.card}>
+          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 16, maxWidth: 400 }} />
+          {filterBordereaux(bordereauCF).length === 0 ? <Empty text="Aucun bordereau CF" /> :
+          <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            {filterBordereaux(bordereauCF).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map(bt => {
+              const isExp = expandedBT === bt.id;
+              const isPrep = bt.statut === 'EN_COURS';
+              const isEdit = editingBT === bt.id;
+              const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+              const avail = opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && !bt.opsIds.includes(op.id));
+              return <div key={bt.id} style={{ marginBottom: 2 }}>
+                {/* Ligne compacte */}
+                <div onClick={() => { setExpandedBT(isExp ? null : bt.id); setEditingBT(null); setShowAddOps(null); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: isExp ? '#e6f6f9' : isPrep ? '#fffde7' : 'white', borderRadius: isExp ? '10px 10px 0 0' : 10, border: isExp ? '1px solid #0891b2' : isPrep ? '1px dashed #f59e0b' : '1px solid #e0e0e0', borderBottom: isExp ? 'none' : undefined, cursor: 'pointer' }}>
+                  <span style={{ fontSize: 11, color: '#5f8a8b', transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, minWidth: 200 }}>{bt.numero}</span>
+                  <span style={{ fontSize: 12, color: '#5f8a8b', minWidth: 90 }}>{bt.dateTransmission || bt.dateCreation}</span>
+                  <Badge bg={isPrep ? '#fef3cd' : '#d5f5f0'} color={isPrep ? '#b45309' : '#0d9488'}>{isPrep ? 'En cours' : 'Transmis'}</Badge>
+                  <span style={{ fontSize: 12, color: '#5f8a8b' }}>{bt.nbOps} OP</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, marginLeft: 'auto' }}>{formatMontant(bt.totalMontant)} F</span>
+                  <div style={{ display: 'flex', gap: 4, marginLeft: 8 }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handlePrintBordereau(bt)} title="Imprimer" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12 }}>🖨️</button>
+                    <button onClick={() => handleDeleteBordereau(bt)} title="Supprimer" style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12 }}>🗑️</button>
+                  </div>
+                </div>
+                {/* Détail déplié */}
+                {isExp && <div style={{ border: '1px solid #0891b2', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: 16, background: 'white' }}>
+                  {/* Transmission */}
+                  {isPrep && <div style={{ background: '#fef3cd', borderRadius: 8, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#b45309' }}>Date :</span>
+                    <input type="date" defaultValue={bt.dateTransmission || ''} ref={el => setDateRef('trans_' + bt.id, el)} style={iStyle} />
+                    <button onClick={() => handleTransmettre(bt)} disabled={saving} title="Transmettre" style={{ background: '#2e7d32', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>✓ Transmettre</button>
+                  </div>}
+                  {/* Annuler transmission */}
+                  {bt.statut === 'ENVOYE' && <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={() => handleAnnulerTransmission(bt)} disabled={saving} style={{ background: '#fff3e0', color: '#e65100', border: '1px solid #ffe0b2', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>↩ Annuler la transmission</button>
+                  </div>}
+                  {/* Mode modification */}
+                  {!isEdit && <div style={{ marginBottom: 10, textAlign: 'right' }}>
+                    <button onClick={() => handleEnterEditBT(bt)} style={{ background: '#f5f5f5', color: '#666', border: '1px solid #ddd', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>✏️ Modifier</button>
+                  </div>}
+                  {isEdit && <div style={{ marginBottom: 10, textAlign: 'right' }}>
+                    <button onClick={() => setEditingBT(null)} style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 700, marginRight: 6 }}>✕ Quitter modification</button>
+                  </div>}
+                  {/* Table OPs */}
+                  <table style={{ ...styles.table, fontSize: 11 }}><thead><tr>
+                    <th style={{ ...styles.th, width: 30 }}>N°</th><th style={{ ...styles.th, width: 120 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={styles.th}>OBJET</th><th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
+                    {isEdit && <th style={{ ...styles.th, width: 50, textAlign: 'center' }}>⚙️</th>}
+                  </tr></thead><tbody>
+                    {btOps.map((op, i) => <tr key={op.id}>
+                      <td style={styles.td}>{i+1}</td>
+                      <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                      <td style={{ ...styles.td, fontSize: 11 }}>{getBen(op)}</td>
+                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                      {isEdit && <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <button onClick={() => handleRemoveOpFromBT(bt, op.id)} style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                      </td>}
+                    </tr>)}
+                  </tbody></table>
+                  {/* Ajouter OP */}
+                  {isEdit && <div style={{ marginTop: 8 }}>
+                    <button onClick={() => setShowAddOps(showAddOps === bt.id ? null : bt.id)} style={{ background: '#e8f5e9', color: '#2e7d32', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{showAddOps === bt.id ? '✕ Fermer' : '➕ Ajouter'}</button>
+                    {showAddOps === bt.id && <div style={{ marginTop: 8, padding: 12, background: '#e8f5e9', borderRadius: 8, maxHeight: 200, overflowY: 'auto' }}>
+                      {avail.length === 0 ? <span style={{ fontSize: 12, color: '#999' }}>Aucun OP disponible</span> :
+                      avail.map(op => <div key={op.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid #c8e6c9' }}>
+                        <span style={{ fontSize: 11 }}><strong style={{ fontFamily: 'monospace' }}>{op.numero}</strong> — {getBen(op)} — {formatMontant(op.montant)} F</span>
+                        <button onClick={() => handleAddOpToBT(bt, op.id)} style={{ background: '#2e7d32', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>+</button>
+                      </div>)}
+                    </div>}
+                  </div>}
+                </div>}
+              </div>;
+            })}
+          </div>}
+        </div>}
+
+        {/* Retour CF - Multi-select */}
+        {subTabCF === 'RETOUR' && <div style={styles.card}>
+          <h3 style={{ margin: '0 0 6px', color: '#e65100' }}>OP transmis au CF ({opsTransmisCF.length})</h3>
+          <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>Sélectionnez les OP pour renseigner le retour.</p>
+          <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
+          {filterOpsBySearch(opsTransmisCF, searchBT).length === 0 ? <Empty text="Aucun OP" /> :
+          <div style={{ maxHeight: 350, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
+            <table style={styles.table}><thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr>
+              <th style={{ ...styles.th, width: 36 }}><input type="checkbox" checked={selectedOps.length === filterOpsBySearch(opsTransmisCF, searchBT).length && filterOpsBySearch(opsTransmisCF, searchBT).length > 0} onChange={() => toggleAll(filterOpsBySearch(opsTransmisCF, searchBT))} /></th>
+              <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 100 }}>N° BT</th><th style={{ ...styles.th, width: 90 }}>TRANSMIS</th>
+            </tr></thead><tbody>
+              {filterOpsBySearch(opsTransmisCF, searchBT).map(op => {
+                const ch = selectedOps.includes(op.id);
+                return <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: ch ? '#fff3e0' : 'transparent' }}>
+                  <td style={styles.td}><input type="checkbox" checked={ch} onChange={() => toggleOp(op.id)} /></td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 9 }}>{op.bordereauCF || '-'}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateTransmissionCF || '-'}</td>
+                </tr>;
+              })}
+            </tbody></table>
+          </div>}
+          {/* Panel retour */}
+          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#fff3e0', borderRadius: 10, border: '1px solid #ffe0b2' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Retour CF — {selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {[{ v: 'VISE', l: '✅ Visé', c: '#2e7d32', bg: '#e8f5e9' }, { v: 'DIFFERE', l: '⏸ Différé', c: '#e65100', bg: '#fff3e0' }, { v: 'REJETE', l: '✕ Rejeté', c: '#c62828', bg: '#ffebee' }].map(o => (
+                <button key={o.v} onClick={() => setResultatCF(o.v)} style={{ flex: 1, padding: '12px 8px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: resultatCF === o.v ? `3px solid ${o.c}` : '2px solid #ddd', background: resultatCF === o.v ? o.bg : 'white', color: resultatCF === o.v ? o.c : '#999' }}>{o.l}</button>
+              ))}
+            </div>
+            <div style={{ marginBottom: 12 }}><label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date</label>
+              <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el => setDateRef('retourCF', el)} style={iStyle} />
+            </div>
+            {(resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#c62828' }}>Motif (obligatoire) *</label>
+              <textarea value={motifRetour} onChange={e => setMotifRetour(e.target.value)} placeholder="Motif..." style={{ ...styles.input, minHeight: 60, resize: 'vertical', marginBottom: 0 }} />
+            </div>}
+            {resultatCF === 'REJETE' && <p style={{ fontSize: 11, color: '#c62828', marginBottom: 8 }}>⚠ Le rejet sera confirmé par mot de passe.</p>}
+            <button onClick={handleRetourCF} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, width: '100%', background: resultatCF === 'VISE' ? '#2e7d32' : resultatCF === 'DIFFERE' ? '#e65100' : '#c62828' }}>{saving ? '...' : `Valider (${selectedOps.length} OP)`}</button>
+          </div>}
+        </div>}
+
+        {/* Suivi CF */}
+        {subTabCF === 'SUIVI' && <div>
+          {opsDifferesCF.length === 0 && opsRejetesCF.length === 0 ? <div style={styles.card}><Empty text="Aucun différé/rejeté CF" /></div> : <>
+          <div style={{ marginBottom: 12 }}><input type="text" placeholder="Rechercher dans suivi..." value={searchSuivi} onChange={e => setSearchSuivi(e.target.value)} style={{ ...styles.input, maxWidth: 400, marginBottom: 0 }} /></div>
+          {filterOpsBySearch(opsDifferesCF, searchSuivi).length > 0 && <div style={{ ...styles.card, border: '2px solid #f59e0b' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#b45309', fontSize: 15 }}>⏸ Différés CF ({filterOpsBySearch(opsDifferesCF, searchSuivi).length})</h3>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <table style={styles.table}><thead><tr>
+                <th style={{ ...styles.th, width: 36 }}><input type="checkbox" checked={selectedOps.length === filterOpsBySearch(opsDifferesCF, searchSuivi).length && filterOpsBySearch(opsDifferesCF, searchSuivi).length > 0} onChange={() => toggleAll(filterOpsBySearch(opsDifferesCF, searchSuivi))} /></th>
+                <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 90 }}>DATE</th><th style={styles.th}>MOTIF</th><th style={{ ...styles.th, width: 50 }}></th>
+              </tr></thead><tbody>{filterOpsBySearch(opsDifferesCF, searchSuivi).map(op => {
+                const ch = selectedOps.includes(op.id);
+                return <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: ch ? '#fef3cd' : 'transparent' }}>
+                  <td style={styles.td}><input type="checkbox" checked={ch} onChange={() => toggleOp(op.id)} /></td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateDiffere || '-'}</td>
+                  <td style={{ ...styles.td, fontSize: 11 }}>{op.motifDiffere || '-'}</td>
+                  <td style={styles.td} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handleAnnulerRetourCF(op.id, 'DIFFERE_CF')} title="Annuler différé" style={{ background: '#fff3e0', color: '#e65100', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 10 }}>↩</button>
+                  </td>
+                </tr>;
+              })}</tbody></table>
+            </div>
+            {selectedOps.length > 0 && selectedOps.some(id => opsDifferesCF.find(o => o.id === id)) && <div style={{ marginTop: 12, padding: 12, background: '#fef3cd', borderRadius: 8, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div><label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Date</label>
+                <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el => setDateRef('reintro', el)} style={iStyle} />
+              </div>
+              <button onClick={() => handleReintroduire(selectedOps, 'CF')} disabled={saving} style={{ ...styles.button, padding: '10px 24px', background: '#f59e0b', marginBottom: 0 }}>{saving ? '...' : `Réintroduire (${selectedOps.length})`}</button>
+            </div>}
+          </div>}
+          {filterOpsBySearch(opsRejetesCF, searchSuivi).length > 0 && <div style={{ ...styles.card, marginTop: 16, border: '2px solid #dc2626' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#dc2626', fontSize: 15 }}>✕ Rejetés CF ({filterOpsBySearch(opsRejetesCF, searchSuivi).length})</h3>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <table style={styles.table}><thead><tr>
+                <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 90 }}>DATE</th><th style={styles.th}>MOTIF</th><th style={{ ...styles.th, width: 50 }}></th>
+              </tr></thead><tbody>{filterOpsBySearch(opsRejetesCF, searchSuivi).map(op => (
+                <tr key={op.id} style={{ background: '#fef2f2' }}>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#dc2626' }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateRejet || '-'}</td>
+                  <td style={{ ...styles.td, fontSize: 11 }}>{op.motifRejet || '-'}</td>
+                  <td style={styles.td}><button onClick={() => handleAnnulerRetourCF(op.id, 'REJETE_CF')} title="Annuler rejet" style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 10 }}>↩</button></td>
+                </tr>
+              ))}</tbody></table>
+            </div>
+          </div>}
+          </>}
+        </div>}
+      </div>}
+
+      {/* ===== AC ===== */}
+      {mainTab === 'AC' && <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          <STab active={subTabAC === 'NOUVEAU'} label="Nouveau BT" count={opsEligiblesAC.length} color="#2e7d32" onClick={() => chgSub(setSubTabAC, 'NOUVEAU')} />
+          <STab active={subTabAC === 'BORDEREAUX'} label="Bordereaux" count={bordereauAC.length} color="#1b5e20" onClick={() => chgSub(setSubTabAC, 'BORDEREAUX')} />
+          <STab active={subTabAC === 'PAIEMENT'} label="Paiements" count={opsTransmisAC.length} color="#6a1b9a" onClick={() => chgSub(setSubTabAC, 'PAIEMENT')} />
+          <STab active={subTabAC === 'SUIVI'} label="Suivi" count={opsDifferesAC.length + opsRejetesAC.length} color="#c62828" onClick={() => chgSub(setSubTabAC, 'SUIVI')} />
+        </div>
+
+        {/* Nouveau BT AC */}
+        {subTabAC === 'NOUVEAU' && <div style={styles.card}>
+          <h3 style={{ margin: '0 0 16px', color: '#2e7d32' }}>OP visés pour un bordereau à l'AC</h3>
+          <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
+          {filterOpsBySearch(opsEligiblesAC, searchBT).length === 0 ? <Empty text="Aucun OP visé" /> :
+          <div style={{ maxHeight: 450, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
+            <table style={styles.table}><thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr>
+              <th style={{ ...styles.th, width: 36 }}><input type="checkbox" checked={selectedOps.length === filterOpsBySearch(opsEligiblesAC, searchBT).length && filterOpsBySearch(opsEligiblesAC, searchBT).length > 0} onChange={() => toggleAll(filterOpsBySearch(opsEligiblesAC, searchBT))} /></th>
+              <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={styles.th}>OBJET</th><th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 90 }}>VISA CF</th><th style={{ ...styles.th, width: 40 }}></th>
+            </tr></thead><tbody>
+              {filterOpsBySearch(opsEligiblesAC, searchBT).map(op => {
+                const ch = selectedOps.includes(op.id);
+                return <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: ch ? '#e8f5e9' : 'transparent' }}>
+                  <td style={styles.td}><input type="checkbox" checked={ch} onChange={() => toggleOp(op.id)} /></td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateVisaCF || '-'}</td>
+                  <td style={styles.td} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handleAnnulerRetourCF(op.id, 'VISE_CF')} title="Annuler visa" style={{ background: '#fff3e0', color: '#e65100', border: 'none', borderRadius: 4, padding: '3px 6px', cursor: 'pointer', fontSize: 10 }}>↩</button>
+                  </td>
+                </tr>;
+              })}
+            </tbody></table>
+          </div>}
+          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#e8f5e9', borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
+            <button onClick={() => handleCreateBordereau('AC')} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, background: '#2e7d32', width: '100%' }}>{saving ? '...' : `Créer le bordereau`}</button>
+          </div>}
+        </div>}
+
+        {/* Bordereaux AC */}
+        {subTabAC === 'BORDEREAUX' && <div style={styles.card}>
+          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 16, maxWidth: 400 }} />
+          {filterBordereaux(bordereauAC).length === 0 ? <Empty text="Aucun bordereau AC" /> :
+          <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            {filterBordereaux(bordereauAC).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map(bt => {
+              const isExp = expandedBT === bt.id;
+              const isPrep = bt.statut === 'EN_COURS';
+              const isEdit = editingBT === bt.id;
+              const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+              const avail = opsForSource.filter(op => op.statut === 'VISE_CF' && !bt.opsIds.includes(op.id));
+              return <div key={bt.id} style={{ marginBottom: 2 }}>
+                <div onClick={() => { setExpandedBT(isExp ? null : bt.id); setEditingBT(null); setShowAddOps(null); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: isExp ? '#e6f6f9' : isPrep ? '#fffde7' : 'white', borderRadius: isExp ? '10px 10px 0 0' : 10, border: isExp ? '1px solid #0891b2' : isPrep ? '1px dashed #f59e0b' : '1px solid #e0e0e0', borderBottom: isExp ? 'none' : undefined, cursor: 'pointer' }}>
+                  <span style={{ fontSize: 11, color: '#5f8a8b', transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, minWidth: 200 }}>{bt.numero}</span>
+                  <span style={{ fontSize: 12, color: '#5f8a8b', minWidth: 90 }}>{bt.dateTransmission || bt.dateCreation}</span>
+                  <Badge bg={isPrep ? '#fef3cd' : '#d5f5f0'} color={isPrep ? '#b45309' : '#0d9488'}>{isPrep ? 'En cours' : 'Transmis'}</Badge>
+                  <span style={{ fontSize: 12, color: '#5f8a8b' }}>{bt.nbOps} OP</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, marginLeft: 'auto' }}>{formatMontant(bt.totalMontant)} F</span>
+                  <div style={{ display: 'flex', gap: 4, marginLeft: 8 }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handlePrintBordereau(bt)} title="Imprimer" style={{ background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12 }}>🖨️</button>
+                    <button onClick={() => handleDeleteBordereau(bt)} title="Supprimer" style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12 }}>🗑️</button>
+                  </div>
+                </div>
+                {isExp && <div style={{ border: '1px solid #0891b2', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: 16, background: 'white' }}>
+                  {isPrep && <div style={{ background: '#fef3cd', borderRadius: 8, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#b45309' }}>Date :</span>
+                    <input type="date" defaultValue={bt.dateTransmission || ''} ref={el => setDateRef('trans_' + bt.id, el)} style={iStyle} />
+                    <button onClick={() => handleTransmettre(bt)} disabled={saving} style={{ background: '#2e7d32', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>✓ Transmettre</button>
+                  </div>}
+                  {bt.statut === 'ENVOYE' && <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={() => handleAnnulerTransmission(bt)} disabled={saving} style={{ background: '#fff3e0', color: '#e65100', border: '1px solid #ffe0b2', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>↩ Annuler la transmission</button>
+                  </div>}
+                  {!isEdit && <div style={{ marginBottom: 10, textAlign: 'right' }}>
+                    <button onClick={() => handleEnterEditBT(bt)} style={{ background: '#f5f5f5', color: '#666', border: '1px solid #ddd', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>✏️ Modifier</button>
+                  </div>}
+                  {isEdit && <div style={{ marginBottom: 10, textAlign: 'right' }}>
+                    <button onClick={() => setEditingBT(null)} style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>✕ Quitter modification</button>
+                  </div>}
+                  <table style={{ ...styles.table, fontSize: 11 }}><thead><tr>
+                    <th style={{ ...styles.th, width: 30 }}>N°</th><th style={{ ...styles.th, width: 120 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={styles.th}>OBJET</th><th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th>
+                    {isEdit && <th style={{ ...styles.th, width: 50, textAlign: 'center' }}>⚙️</th>}
+                  </tr></thead><tbody>
+                    {btOps.map((op, i) => <tr key={op.id}>
+                      <td style={styles.td}>{i+1}</td>
+                      <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                      <td style={{ ...styles.td, fontSize: 11 }}>{getBen(op)}</td>
+                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                      {isEdit && <td style={{ ...styles.td, textAlign: 'center' }}><button onClick={() => handleRemoveOpFromBT(bt, op.id)} style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11 }}>✕</button></td>}
+                    </tr>)}
+                  </tbody></table>
+                  {isEdit && <div style={{ marginTop: 8 }}>
+                    <button onClick={() => setShowAddOps(showAddOps === bt.id ? null : bt.id)} style={{ background: '#e8f5e9', color: '#2e7d32', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{showAddOps === bt.id ? '✕ Fermer' : '➕ Ajouter'}</button>
+                    {showAddOps === bt.id && <div style={{ marginTop: 8, padding: 12, background: '#e8f5e9', borderRadius: 8, maxHeight: 200, overflowY: 'auto' }}>
+                      {avail.length === 0 ? <span style={{ fontSize: 12, color: '#999' }}>Aucun OP disponible</span> :
+                      avail.map(op => <div key={op.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid #c8e6c9' }}>
+                        <span style={{ fontSize: 11 }}><strong style={{ fontFamily: 'monospace' }}>{op.numero}</strong> — {getBen(op)} — {formatMontant(op.montant)} F</span>
+                        <button onClick={() => handleAddOpToBT(bt, op.id)} style={{ background: '#2e7d32', color: 'white', border: 'none', borderRadius: 4, padding: '4px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>+</button>
+                      </div>)}
+                    </div>}
+                  </div>}
+                </div>}
+              </div>;
+            })}
+          </div>}
+        </div>}
+
+        {/* Paiements AC */}
+        {subTabAC === 'PAIEMENT' && <div style={styles.card}>
+          <h3 style={{ margin: '0 0 6px', color: '#6a1b9a' }}>Paiements ({opsTransmisAC.length})</h3>
+          <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>Cliquez sur un OP pour ouvrir le panneau de gestion.</p>
+          <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
+          {filterOpsBySearch(opsTransmisAC, searchBT).length === 0 ? <Empty text="Aucun OP" /> :
+          <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+            {filterOpsBySearch(opsTransmisAC, searchBT).map(op => {
+              const paiem = op.paiements || [];
+              const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+              const reste = (op.montant || 0) - tot;
+              return <div key={op.id} onClick={() => { setDrawerPaiement(op); setPaiementMontant(''); setPaiementReference(''); setMotifRetourAC(''); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', border: '1px solid #e0e0e0', borderRadius: 10, marginBottom: 4, cursor: 'pointer', background: drawerPaiement?.id === op.id ? '#faf5ff' : op.statut === 'PAYE_PARTIEL' ? '#faf5ff' : 'white' }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }}>{op.numero}</span>
+                <span style={{ fontSize: 12, flex: 1 }}>{getBen(op)}</span>
+                {tot > 0 && <Badge bg="#f3e5f5" color="#6a1b9a">{Math.round(tot / (op.montant || 1) * 100)}%</Badge>}
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12 }}>{formatMontant(op.montant)} F</span>
+                {tot > 0 && <span style={{ fontSize: 11, color: reste > 0 ? '#c62828' : '#2e7d32' }}>Reste {formatMontant(reste)}</span>}
+                <span style={{ color: '#6a1b9a', fontSize: 14 }}>→</span>
+              </div>;
+            })}
+          </div>}
+        </div>}
+
+        {/* Suivi AC */}
+        {subTabAC === 'SUIVI' && <div>
+          {opsDifferesAC.length === 0 && opsRejetesAC.length === 0 ? <div style={styles.card}><Empty text="Aucun différé/rejeté AC" /></div> : <>
+          <div style={{ marginBottom: 12 }}><input type="text" placeholder="Rechercher dans suivi..." value={searchSuivi} onChange={e => setSearchSuivi(e.target.value)} style={{ ...styles.input, maxWidth: 400, marginBottom: 0 }} /></div>
+          {filterOpsBySearch(opsDifferesAC, searchSuivi).length > 0 && <div style={{ ...styles.card, border: '2px solid #f59e0b' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#b45309', fontSize: 15 }}>⏸ Différés AC ({filterOpsBySearch(opsDifferesAC, searchSuivi).length})</h3>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <table style={styles.table}><thead><tr>
+                <th style={{ ...styles.th, width: 36 }}><input type="checkbox" checked={selectedOps.length === filterOpsBySearch(opsDifferesAC, searchSuivi).length && selectedOps.length > 0} onChange={() => toggleAll(filterOpsBySearch(opsDifferesAC, searchSuivi))} /></th>
+                <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 90 }}>DATE</th><th style={styles.th}>MOTIF</th><th style={{ ...styles.th, width: 50 }}></th>
+              </tr></thead><tbody>{filterOpsBySearch(opsDifferesAC, searchSuivi).map(op => {
+                const ch = selectedOps.includes(op.id);
+                return <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: ch ? '#fef3cd' : 'transparent' }}>
+                  <td style={styles.td}><input type="checkbox" checked={ch} onChange={() => toggleOp(op.id)} /></td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateDiffere || '-'}</td>
+                  <td style={{ ...styles.td, fontSize: 11 }}>{op.motifDiffere || '-'}</td>
+                  <td style={styles.td} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => handleAnnulerRetourCF(op.id, 'DIFFERE_AC')} title="Annuler" style={{ background: '#fff3e0', color: '#e65100', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 10 }}>↩</button>
+                  </td>
+                </tr>;
+              })}</tbody></table>
+            </div>
+            {selectedOps.length > 0 && selectedOps.some(id => opsDifferesAC.find(o => o.id === id)) && <div style={{ marginTop: 12, padding: 12, background: '#fef3cd', borderRadius: 8, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div><label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Date</label>
+                <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el => setDateRef('reintro', el)} style={iStyle} />
+              </div>
+              <button onClick={() => handleReintroduire(selectedOps, 'AC')} disabled={saving} style={{ ...styles.button, padding: '10px 24px', background: '#f59e0b', marginBottom: 0 }}>{saving ? '...' : `Réintroduire (${selectedOps.length})`}</button>
+            </div>}
+          </div>}
+          {filterOpsBySearch(opsRejetesAC, searchSuivi).length > 0 && <div style={{ ...styles.card, marginTop: 16, border: '2px solid #dc2626' }}>
+            <h3 style={{ margin: '0 0 12px', color: '#dc2626', fontSize: 15 }}>✕ Rejetés AC ({filterOpsBySearch(opsRejetesAC, searchSuivi).length})</h3>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              <table style={styles.table}><thead><tr>
+                <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 100, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 90 }}>DATE</th><th style={styles.th}>MOTIF</th><th style={{ ...styles.th, width: 50 }}></th>
+              </tr></thead><tbody>{filterOpsBySearch(opsRejetesAC, searchSuivi).map(op => (
+                <tr key={op.id} style={{ background: '#fef2f2' }}>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#dc2626' }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateRejet || '-'}</td>
+                  <td style={{ ...styles.td, fontSize: 11 }}>{op.motifRejet || '-'}</td>
+                  <td style={styles.td}><button onClick={() => handleAnnulerRetourCF(op.id, 'REJETE_AC')} title="Annuler" style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 10 }}>↩</button></td>
+                </tr>
+              ))}</tbody></table>
+            </div>
+          </div>}
+          </>}
+        </div>}
+      </div>}
+
+      {/* ===== ARCHIVES ===== */}
+      {mainTab === 'ARCHIVES' && <div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <STab active={subTabArch === 'A_ARCHIVER'} label="À archiver" count={opsAArchiver.length} color="#795548" onClick={() => chgSub(setSubTabArch, 'A_ARCHIVER')} />
+          <STab active={subTabArch === 'ARCHIVES'} label="Archivés" count={opsArchives.length} color="#5d4037" onClick={() => chgSub(setSubTabArch, 'ARCHIVES')} />
+        </div>
+
+        {subTabArch === 'A_ARCHIVER' && <div style={styles.card}>
+          <h3 style={{ margin: '0 0 6px', color: '#795548' }}>OP soldés — prêts à archiver ({opsAArchiver.length})</h3>
+          <p style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Les OP soldés apparaissent ici automatiquement.</p>
+          <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e => setSearchArch(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
+          {filterOpsBySearch(opsAArchiver, searchArch).length === 0 ? <Empty text="Aucun OP à archiver" /> :
+          <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
+            <table style={styles.table}><thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr>
+              <th style={{ ...styles.th, width: 36 }}><input type="checkbox" checked={selectedOps.length === filterOpsBySearch(opsAArchiver, searchArch).length && filterOpsBySearch(opsAArchiver, searchArch).length > 0} onChange={() => toggleAll(filterOpsBySearch(opsAArchiver, searchArch))} /></th>
+              <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 100 }}>PAYÉ LE</th>
+            </tr></thead><tbody>
+              {filterOpsBySearch(opsAArchiver, searchArch).map(op => {
+                const ch = selectedOps.includes(op.id);
+                return <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: ch ? '#efebe9' : 'transparent' }}>
+                  <td style={styles.td}><input type="checkbox" checked={ch} onChange={() => toggleOp(op.id)} /></td>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.datePaiement || '-'}</td>
+                </tr>;
+              })}
+            </tbody></table>
+          </div>}
+          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#efebe9', borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Archiver {selectedOps.length} OP</div>
+            <div style={{ marginBottom: 12 }}><label style={{ fontSize: 12, fontWeight: 600 }}>Boîte d'archivage</label><input type="text" value={boiteArchivage} onChange={e => setBoiteArchivage(e.target.value)} placeholder="Ex: BOX-2025-001" style={{ ...styles.input, marginBottom: 0, marginTop: 4 }} /></div>
+            <button onClick={() => handleArchiver()} disabled={saving || !boiteArchivage.trim()} style={{ ...styles.button, padding: '14px', background: '#795548', width: '100%', opacity: !boiteArchivage.trim() ? 0.5 : 1 }}>{saving ? '...' : `Archiver (${selectedOps.length} OP)`}</button>
+          </div>}
+        </div>}
+
+        {subTabArch === 'ARCHIVES' && <div style={styles.card}>
+          <h3 style={{ margin: '0 0 16px', color: '#5d4037' }}>OP Archivés ({opsArchives.length})</h3>
+          <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e => setSearchArch(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
+          {filterOpsBySearch(opsArchives, searchArch).length === 0 ? <Empty text="Aucun OP archivé" /> :
+          <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+            <table style={styles.table}><thead style={{ position: 'sticky', top: 0, zIndex: 1 }}><tr>
+              <th style={{ ...styles.th, width: 130 }}>N° OP</th><th style={styles.th}>BÉNÉFICIAIRE</th><th style={{ ...styles.th, width: 110, textAlign: 'right' }}>MONTANT</th><th style={{ ...styles.th, width: 120 }}>BOÎTE</th><th style={{ ...styles.th, width: 90 }}>DATE</th><th style={{ ...styles.th, width: 50 }}></th>
+            </tr></thead><tbody>
+              {filterOpsBySearch(opsArchives, searchArch).map(op => (
+                <tr key={op.id}>
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
+                  <td style={{ ...styles.td, fontWeight: 700, color: '#795548' }}>{op.boiteArchivage || '-'}</td>
+                  <td style={{ ...styles.td, fontSize: 12 }}>{op.dateArchivage || '-'}</td>
+                  <td style={styles.td}><button onClick={() => handleDesarchiver(op.id)} title="Désarchiver" style={{ background: '#fff3e0', color: '#e65100', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 10 }}>↩</button></td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>}
+        </div>}
+      </div>}
+
+      {/* ===== DRAWER PAIEMENT AC ===== */}
+      {drawerPaiement && <>
+        <div onClick={() => setDrawerPaiement(null)} style={overlayS} />
+        <div style={drawerS}>
+          <div style={{ padding: '18px 22px', borderBottom: '1px solid #edf3f3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0c3d4d', margin: 0 }}>Gestion OP</h3>
+            <button onClick={() => setDrawerPaiement(null)} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#f0f5f5', cursor: 'pointer', color: '#5f8a8b', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
+            {(() => {
+              const op = ops.find(o => o.id === drawerPaiement.id) || drawerPaiement;
+              const paiem = op.paiements || [];
+              const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+              const reste = (op.montant || 0) - tot;
+              const pct = Math.round(tot / Math.max(op.montant || 1, 1) * 100);
+              return <>
+                {/* Info OP */}
+                <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #edf3f3' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0c3d4d' }}>{op.numero}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0c3d4d', marginTop: 2 }}>{getBen(op)}</div>
+                  <div style={{ fontSize: 12, color: '#5f8a8b', marginTop: 2 }}>{op.objet || '-'}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#6a1b9a', marginTop: 8 }}>{formatMontant(op.montant)} <span style={{ fontSize: 12, color: '#5f8a8b', fontWeight: 500 }}>FCFA</span></div>
+                  <div style={{ marginTop: 10, background: '#f0f0f0', borderRadius: 6, height: 8, overflow: 'hidden' }}><div style={{ width: `${pct}%`, height: '100%', background: pct >= 100 ? '#2e7d32' : '#6a1b9a', borderRadius: 6 }} /></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
+                    <span style={{ color: '#6a1b9a', fontWeight: 600 }}>Payé : {formatMontant(tot)} ({pct}%)</span>
+                    <span style={{ color: reste > 0 ? '#c62828' : '#2e7d32', fontWeight: 600 }}>Reste : {formatMontant(reste)}</span>
+                  </div>
+                </div>
+
+                {/* Historique */}
+                {paiem.length > 0 && <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5f8a8b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Historique</div>
+                  {paiem.map((p, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: i % 2 === 0 ? '#faf5ff' : 'white', borderRadius: 6, marginBottom: 2 }}>
+                    <div><span style={{ fontSize: 12, fontWeight: 500 }}>{p.date}</span><span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{p.reference || 'Sans réf.'}</span></div>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: '#6a1b9a' }}>{formatMontant(p.montant)} F</span>
+                  </div>)}
+                  <button onClick={() => handleAnnulerPaiement(op.id)} disabled={saving} style={{ marginTop: 6, padding: '6px 14px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>↩ Annuler dernier paiement</button>
+                </div>}
+
+                {/* Nouveau paiement */}
+                {reste > 0 && (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && <div style={{ background: '#f5f0ff', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#6a1b9a', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Nouveau paiement</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <div style={{ flex: 1, minWidth: 120 }}><label style={{ fontSize: 10, fontWeight: 600, display: 'block', marginBottom: 3 }}>Date</label>
+                      <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el => setDateRef('paiement', el)} style={{ ...styles.input, marginBottom: 0, width: '100%' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 100 }}><label style={{ fontSize: 10, fontWeight: 600, display: 'block', marginBottom: 3 }}>Montant</label>
+                      <input type="number" value={paiementMontant} onChange={e => setPaiementMontant(e.target.value)} placeholder={String(reste)} style={{ ...styles.input, marginBottom: 0, width: '100%' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 100 }}><label style={{ fontSize: 10, fontWeight: 600, display: 'block', marginBottom: 3 }}>Référence</label>
+                      <input type="text" value={paiementReference} onChange={e => setPaiementReference(e.target.value)} placeholder="VIR-..." style={{ ...styles.input, marginBottom: 0, width: '100%' }} />
+                    </div>
+                  </div>
+                  <button onClick={() => handlePaiement(op.id)} disabled={saving} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 8, background: '#6a1b9a', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{saving ? '...' : `Payer`}</button>
+                </div>}
+
+                {/* OP soldé */}
+                {reste <= 0 && op.statut !== 'ARCHIVE' && <div style={{ marginBottom: 16 }}>
+                  <div style={{ background: '#d5f5f0', borderRadius: 10, padding: 14, textAlign: 'center', color: '#0d9488', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>✅ OP entièrement soldé</div>
+                  <button onClick={() => handleArchiverDirect(op.id)} disabled={saving} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 8, background: '#795548', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{saving ? '...' : '📦 Archiver directement (mot de passe)'}</button>
+                </div>}
+
+                {/* Différer / Rejeter */}
+                {op.statut === 'TRANSMIS_AC' && <div style={{ borderTop: '1px solid #edf3f3', paddingTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#5f8a8b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Autre décision</div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    {[{ v: 'DIFFERE', l: '⏸ Différer', c: '#b45309', bg: '#fef3cd' }, { v: 'REJETE', l: '✕ Rejeter', c: '#dc2626', bg: '#fee2e2' }].map(o => (
+                      <button key={o.v} onClick={() => setResultatAC(o.v)} style={{ flex: 1, padding: '10px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: resultatAC === o.v ? `3px solid ${o.c}` : '2px solid #e2ecec', background: resultatAC === o.v ? o.bg : 'white', color: resultatAC === o.v ? o.c : '#a0bfbf' }}>{o.l}</button>
+                    ))}
+                  </div>
+                  <div style={{ marginBottom: 10 }}><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Date</label>
+                    <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el => setDateRef('retourAC', el)} style={iStyle} />
+                  </div>
+                  <div style={{ marginBottom: 10 }}><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: '#c62828' }}>Motif (obligatoire) *</label>
+                    <textarea value={motifRetourAC} onChange={e => setMotifRetourAC(e.target.value)} placeholder="Motif..." style={{ ...styles.input, minHeight: 60, resize: 'vertical', marginBottom: 0 }} />
+                  </div>
+                  {resultatAC === 'REJETE' && <p style={{ fontSize: 11, color: '#c62828', marginBottom: 8 }}>⚠ Confirmé par mot de passe.</p>}
+                  <button onClick={handleRetourAC} disabled={saving} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 8, background: resultatAC === 'DIFFERE' ? '#f59e0b' : '#dc2626', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{saving ? '...' : 'Valider'}</button>
+                </div>}
+
+                {/* Annuler transmission AC */}
+                {(op.statut === 'TRANSMIS_AC' && paiem.length === 0) && <div style={{ borderTop: '1px solid #edf3f3', paddingTop: 12, marginTop: 12 }}>
+                  <button onClick={async () => {
+                    if (!checkPwd()) return;
+                    if (!window.confirm('Annuler la transmission AC ? L\'OP reviendra à VISE_CF.')) return;
+                    setSaving(true);
+                    try {
+                      await updateDoc(doc(db, 'ops', op.id), { statut: 'VISE_CF', dateTransmissionAC: null, bordereauAC: null, updatedAt: new Date().toISOString() });
+                      alert('Transmission AC annulée.'); setDrawerPaiement(null);
+                    } catch (e) { alert('Erreur : ' + e.message); }
+                    setSaving(false);
+                  }} disabled={saving} style={{ width: '100%', padding: 10, border: '1px solid #ffe0b2', borderRadius: 8, background: '#fff3e0', color: '#e65100', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>↩ Annuler la transmission AC</button>
+                </div>}
+              </>;
+            })()}
+          </div>
+        </div>
+      </>}
+    </div>
+  );
+};
+
+export default PageBordereaux;
