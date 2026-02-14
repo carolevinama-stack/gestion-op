@@ -130,7 +130,13 @@ const PageNouvelOp = () => {
     const sigleSource = currentSourceObj?.sigle || 'OP';
     const annee = exerciceActif?.annee || new Date().getFullYear();
     const opsSource = ops.filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id);
-    const nextNum = opsSource.length + 1;
+    // Extraire le plus grand numéro existant
+    let maxNum = 0;
+    opsSource.forEach(op => {
+      const match = (op.numero || '').match(/N°(\d+)\//);
+      if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+    });
+    const nextNum = maxNum + 1;
     return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
   };
 
@@ -174,7 +180,13 @@ const PageNouvelOp = () => {
       const allOpsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
       const allNumerosExistants = allOpsSnap.docs.map(d => d.data().numero);
       
-      let nextNum = allOpsSnap.size + 1;
+      // Extraire le plus grand numéro existant
+      let maxNum = 0;
+      allNumerosExistants.forEach(n => {
+        const match = (n || '').match(/N°(\d+)\//);
+        if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+      });
+      let nextNum = maxNum + 1;
       let numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
       let tentatives = 0;
       while (allNumerosExistants.includes(numero) && tentatives < 50) { nextNum++; numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`; tentatives++; }
@@ -199,7 +211,9 @@ const PageNouvelOp = () => {
       if (doublonSnap.size > 1) {
         const allOpsSnap2 = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
         const allNums2 = allOpsSnap2.docs.map(d => d.data().numero);
-        let fixNum = allOpsSnap2.size + 1;
+        let fixMax = 0;
+        allNums2.forEach(n => { const m = (n || '').match(/N°(\d+)\//); if (m) fixMax = Math.max(fixMax, parseInt(m[1])); });
+        let fixNum = fixMax + 1;
         let fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
         while (allNums2.includes(fixNumero)) { fixNum++; fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`; }
         await updateDoc(doc(db, 'ops', docRef.id), { numero: fixNumero, updatedAt: new Date().toISOString() });
