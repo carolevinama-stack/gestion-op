@@ -14,20 +14,12 @@ const ROLE_PERMISSIONS = {
     pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'suivi', 'budget', 'beneficiaires', 'parametres', 'admin', 'historique'],
     canCreate: true, canEdit: true, canDelete: true, canVisa: true, canPay: true, canArchive: true, canManageUsers: true
   },
-  SAISIE: {
-    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'budget', 'beneficiaires', 'historique'],
-    canCreate: true, canEdit: true, canDelete: true, canVisa: false, canPay: false, canArchive: false, canManageUsers: false
-  },
-  CF: {
-    pages: ['dashboard', 'consulterOp', 'ops', 'bordereaux', 'budget', 'historique'],
-    canCreate: false, canEdit: false, canDelete: false, canVisa: true, canPay: false, canArchive: false, canManageUsers: false
-  },
-  AC: {
-    pages: ['dashboard', 'consulterOp', 'ops', 'bordereaux', 'budget', 'historique'],
-    canCreate: false, canEdit: false, canDelete: false, canVisa: false, canPay: true, canArchive: true, canManageUsers: false
+  OPERATEUR: {
+    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'suivi', 'budget', 'beneficiaires', 'historique'],
+    canCreate: true, canEdit: true, canDelete: true, canVisa: true, canPay: true, canArchive: true, canManageUsers: false
   },
   CONSULTATION: {
-    pages: ['dashboard', 'consulterOp', 'ops', 'bordereaux', 'budget', 'historique'],
+    pages: ['dashboard', 'consulterOp', 'ops', 'suivi', 'historique'],
     canCreate: false, canEdit: false, canDelete: false, canVisa: false, canPay: false, canArchive: false, canManageUsers: false
   }
 };
@@ -132,8 +124,9 @@ export function AppProvider({ user, children }) {
     loadProfile();
   }, [user]);
 
-  // Permissions calculées
-  const userRole = userProfile?.role || 'CONSULTATION';
+  // Permissions calculées (avec rétrocompatibilité anciens rôles)
+  const mapRole = (r) => ['SAISIE', 'CF', 'AC'].includes(r) ? 'OPERATEUR' : r;
+  const userRole = mapRole(userProfile?.role) || 'CONSULTATION';
   const permissions = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.CONSULTATION;
   const canAccessPage = (page) => permissions.pages.includes(page);
 
