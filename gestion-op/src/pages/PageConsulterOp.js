@@ -125,7 +125,6 @@ const SourceCard = ({ source, active, onClick }) => {
 
 // ==================== PAGE CONSULTER OP ====================
 const statutConfig = {
-  CREE: { bg: P.bgSection, color: P.olive, label: 'Créé' },
   EN_COURS: { bg: P.bgSection, color: P.olive, label: 'En cours' },
   TRANSMIS_CF: { bg: P.orange + '15', color: P.orange, label: 'Transmis CF' },
   DIFFERE_CF: { bg: P.gold + '20', color: '#b8860b', label: 'Différé CF' },
