@@ -627,6 +627,14 @@ const PageConsulterOp = () => {
                       <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{selectedOp.dateCreation || ''}</span>
                     </div>
 
+                    {/* CONFECTIONNÉ PAR */}
+                    {selectedOp.creePar && (
+                      <div style={{ flex: '0 0 auto' }}>
+                        <label style={labelStyle}>CONFECTIONNÉ PAR</label>
+                        <span style={{ padding: '6px 10px', background: P.olivePale, border: `1px solid ${P.olive}20`, borderRadius: 8, fontSize: 12, fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap', color: P.olive }}>{selectedOp.creePar}</span>
+                      </div>
+                    )}
+
                     {/* OP PROVISOIRE inline */}
                     {['ANNULATION', 'DEFINITIF'].includes(isEditMode ? form.type : selectedOp.type) && (
                       <div style={{ flex: '0 0 auto' }}>
