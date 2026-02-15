@@ -5,7 +5,6 @@ import { formatMontant } from '../utils/formatters';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, getDocs, query, where } from 'firebase/firestore';
-import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
 // ===================== PALETTE PIF2 =====================
@@ -331,6 +330,21 @@ const PageNouvelOp = () => {
   // Somme des OP provisoires sélectionnés (DEFINITIF)
   const getSumOpProv = () => form.opProvisoireIds.reduce((s, id) => { const o = ops.find(op => op.id === id); return s + (o?.montant || 0); }, 0);
 
+  const [montantFocused, setMontantFocused] = useState(false);
+  const [tvaFocused, setTvaFocused] = useState(false);
+
+  // Format montant with thousand separators for display
+  const fmtDisplay = (val) => {
+    if (!val && val !== 0) return '';
+    const num = String(val).replace(/\s/g, '');
+    if (num === '' || num === '-') return num;
+    const parts = num.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return parts.join('.');
+  };
+  // Strip separators for editing
+  const stripFmt = (val) => String(val || '').replace(/\s/g, '');
+
   const handleClear = () => {
     setForm(defaultForm);
     try { localStorage.removeItem('op_draft'); } catch (e) {}
@@ -645,13 +659,24 @@ const PageNouvelOp = () => {
                   <div>
                     <label style={labelStyle}>MONTANT (FCFA) *</label>
                     {form.type === 'ANNULATION' ? (
-                      <input key="montant-annulation" type="text" value={form.montant} onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9.\-]/g, '');
-                        setForm({ ...form, montant: val });
-                      }}
+                      <input key="montant-annulation" type="text"
+                        value={montantFocused ? stripFmt(form.montant) : fmtDisplay(form.montant)}
+                        onFocus={() => setMontantFocused(true)}
+                        onBlur={() => setMontantFocused(false)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9.\-]/g, '');
+                          setForm({ ...form, montant: val });
+                        }}
                         style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right', color: '#c62828' }} placeholder="0" />
                     ) : (
-                      <MontantInput key="montant-normal" value={form.montant} onChange={(val) => setForm({ ...form, montant: val })}
+                      <input key="montant-normal" type="text"
+                        value={montantFocused ? stripFmt(form.montant) : fmtDisplay(form.montant)}
+                        onFocus={() => setMontantFocused(true)}
+                        onBlur={() => setMontantFocused(false)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9.]/g, '');
+                          setForm({ ...form, montant: val });
+                        }}
                         style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} placeholder="0" />
                     )}
                   </div>
@@ -710,7 +735,12 @@ const PageNouvelOp = () => {
                             );
                           })}
                           {form.tvaRecuperable && (
-                            <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 13, textAlign: 'right', width: 110, padding: '6px 10px' }} placeholder="0" />
+                            <input type="text"
+                              value={tvaFocused ? stripFmt(form.montantTVA) : fmtDisplay(form.montantTVA)}
+                              onFocus={() => setTvaFocused(true)}
+                              onBlur={() => setTvaFocused(false)}
+                              onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ''); setForm({ ...form, montantTVA: val }); }}
+                              style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 13, textAlign: 'right', width: 110, padding: '6px 10px' }} placeholder="0" />
                           )}
                         </div>
                       </div>
