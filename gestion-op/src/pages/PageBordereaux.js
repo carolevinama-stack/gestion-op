@@ -638,7 +638,7 @@ const PageBordereaux = () => {
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, marginLeft: 'auto' }}>{formatMontant(bt.totalMontant)} F</span>
               <div style={{ display: 'flex', gap: 4, marginLeft: 8 }} onClick={e => e.stopPropagation()}>
                 <IBtn icon={Ic.printer(P.cfBlue)} title="Imprimer" bg={P.cfBluePale} color={P.cfBlue} onClick={() => handlePrintBordereau(bt)} />
-                <IBtn icon={Ic.edit({P.purple})} title="Modifier le numéro" bg={P.purplePale} color={P.purple} onClick={() => handleStartEditBtNumero(bt)} />
+                <IBtn icon={Ic.edit(P.purple)} title="Modifier le numéro" bg={P.purplePale} color={P.purple} onClick={() => handleStartEditBtNumero(bt)} />
                 {bt.statut === 'ENVOYE' && <IBtn icon={Ic.undo()} title="Annuler la transmission" bg={P.orangePale} color={P.orange} onClick={() => handleAnnulerTransmission(bt)} disabled={saving} />}
                 <IBtn icon={Ic.trash(P.red)} title="Supprimer le bordereau" bg={P.redPale} color={P.red} onClick={() => handleDeleteBordereau(bt)} />
               </div>
