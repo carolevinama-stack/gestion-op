@@ -82,7 +82,7 @@ const ToastNotif = ({ toast, onDone }) => {
 
 // ==================== SECTION TITLE ====================
 const SectionTitle = ({ icon, label, accent }) => (
-  <div style={{ fontSize: 12, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+  <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
     <div style={{ width: 28, height: 28, borderRadius: 8, background: accent + '12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
     {label}
   </div>
@@ -452,8 +452,8 @@ const PageConsulterOp = () => {
   };
 
   // === STYLES ===
-  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
-  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 13, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
+  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 14, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
   const editFieldStyle = { ...fieldStyle, background: P.inputBg, border: `1.5px solid ${accent}40` };
   const isReadOnly = selectedOp && !isEditMode;
 
@@ -552,7 +552,7 @@ const PageConsulterOp = () => {
                       <button onClick={goToPrev} title="OP précédent" style={{ padding: '3px 8px', background: P.bgApp, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(34,51,0,0.08)', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.chevronUp(accent)}</button>
                       <button onClick={goToNext} title="OP suivant" style={{ padding: '3px 8px', background: P.bgApp, cursor: 'pointer', border: 'none', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.chevronDown(accent)}</button>
                     </div>
-                    <span style={{ fontSize: 11, color: P.labelMuted, whiteSpace: 'nowrap', marginLeft: 4 }}>{selectedOp ? `${currentIndex + 1}/${opsSource.length}` : `${opsSource.length}`}</span>
+                    <span style={{ fontSize: 12, color: P.labelMuted, whiteSpace: 'nowrap', marginLeft: 4 }}>{selectedOp ? `${currentIndex + 1}/${opsSource.length}` : `${opsSource.length}`}</span>
                   </div>
                   {showDropdown && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: P.bgCard, border: '1.5px solid rgba(34,51,0,0.08)', borderTop: 'none', borderRadius: '0 0 10px 10px', maxHeight: 300, overflowY: 'auto', zIndex: 1000, boxShadow: '0 8px 24px rgba(34,51,0,0.08)', minWidth: 380 }}>
@@ -568,10 +568,10 @@ const PageConsulterOp = () => {
                             onMouseOut={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? accent + '0a' : 'transparent'; }}>
                             <div>
                               <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13, color: P.sidebarDark }}>{op.numero}</div>
-                              <div style={{ fontSize: 11, color: P.labelMuted, marginTop: 2 }}>{ben?.nom || 'N/A'} — {(op.objet || '').substring(0, 40)}{(op.objet || '').length > 40 ? '...' : ''}</div>
+                              <div style={{ fontSize: 12, color: P.labelMuted, marginTop: 2 }}>{ben?.nom || 'N/A'} — {(op.objet || '').substring(0, 40)}{(op.objet || '').length > 40 ? '...' : ''}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: accent, fontSize: 12 }}>{formatMontant(op.montant)} F</div>
+                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: accent, fontSize: 13 }}>{formatMontant(op.montant)} F</div>
                               <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, background: tc + '18', color: tc }}>{op.type}</span>
                             </div>
                           </div>
@@ -589,9 +589,9 @@ const PageConsulterOp = () => {
                       {editNumero !== null ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                           <input value={editNumero} onChange={e => setEditNumero(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveNumero(); if (e.key === 'Escape') setEditNumero(null); }}
-                            style={{ padding: '6px 8px', border: `1.5px solid ${accent}40`, borderRadius: 8, fontFamily: 'monospace', fontWeight: 700, fontSize: 12, background: P.inputBg, width: 200, color: P.sidebarDark }} autoFocus />
-                          <button onClick={handleSaveNumero} style={{ border: 'none', background: '#2e7d32', color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>✓</button>
-                          <button onClick={() => setEditNumero(null)} style={{ border: 'none', background: P.labelMuted, color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
+                            style={{ padding: '6px 8px', border: `1.5px solid ${accent}40`, borderRadius: 8, fontFamily: 'monospace', fontWeight: 700, fontSize: 13, background: P.inputBg, width: 220, color: P.sidebarDark }} autoFocus />
+                          <button onClick={handleSaveNumero} style={{ border: 'none', background: '#2e7d32', color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>✓</button>
+                          <button onClick={() => setEditNumero(null)} style={{ border: 'none', background: P.labelMuted, color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}>✕</button>
                         </div>
                       ) : (
                         <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', color: P.sidebarDark }}>
@@ -610,27 +610,27 @@ const PageConsulterOp = () => {
                             setForm({ ...form, type: newType, opProvisoireId: '', opProvisoireNumero: '',
                               tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(newType) ? null : form.tvaRecuperable });
                           }}
-                          style={{ padding: '5px 8px', border: `1.5px solid ${(typeColors[form.type] || P.labelMuted)}40`, borderRadius: 8, fontWeight: 700, fontSize: 11, color: typeColors[form.type] || P.labelMuted, cursor: 'pointer', background: P.bgCard, outline: 'none' }}>
+                          style={{ padding: '8px 12px', border: `1.5px solid ${(typeColors[form.type] || P.labelMuted)}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || P.labelMuted, cursor: 'pointer', background: P.bgCard, outline: 'none' }}>
                           <option value="PROVISOIRE">Provisoire</option>
                           <option value="DIRECT">Direct</option>
                           <option value="DEFINITIF">Définitif</option>
                           <option value="ANNULATION">Annulation</option>
                         </select>
                       ) : (
-                        <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: (typeColors[selectedOp.type] || P.labelMuted) + '15', color: typeColors[selectedOp.type] || P.labelMuted, display: 'inline-block' }}>{selectedOp.type}</span>
+                        <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: (typeColors[selectedOp.type] || P.labelMuted) + '15', color: typeColors[selectedOp.type] || P.labelMuted, display: 'inline-block' }}>{selectedOp.type}</span>
                       )}
                     </div>
 
                     {/* DATE */}
                     <div style={{ flex: '0 0 auto' }}>
                       <label style={labelStyle}>DATE</label>
-                      <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{selectedOp.dateCreation || ''}</span>
+                      <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{selectedOp.dateCreation || ''}</span>
                     </div>
 
                     {/* OP PROVISOIRE inline */}
                     {['ANNULATION', 'DEFINITIF'].includes(isEditMode ? form.type : selectedOp.type) && (
                       <div style={{ flex: '0 0 auto' }}>
-                        <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: (isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#c62828' : '#2e7d32' }}>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: (isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#c62828' : '#2e7d32' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh((isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#c62828' : '#2e7d32')} OP PROV.</span>
                         </label>
                         {isEditMode ? (
@@ -648,7 +648,7 @@ const PageConsulterOp = () => {
                             style={{ minWidth: 200 }}
                           />
                         ) : (
-                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#c6282810' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#c6282825' : P.olive + '20'}` }}>
+                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#c6282810' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#c6282825' : P.olive + '20'}` }}>
                             {selectedOp.opProvisoireNumero || '—'}
                           </span>
                         )}
@@ -659,7 +659,7 @@ const PageConsulterOp = () => {
                     {statutInfo && (
                       <div style={{ flex: '0 0 auto', marginLeft: 'auto' }}>
                         <label style={labelStyle}>STATUT</label>
-                        <span style={{ padding: '5px 12px', borderRadius: 8, background: statutInfo.bg, color: statutInfo.color, fontWeight: 700, fontSize: 10, display: 'inline-block', whiteSpace: 'nowrap' }}>{statutInfo.label}</span>
+                        <span style={{ padding: '5px 12px', borderRadius: 8, background: statutInfo.bg, color: statutInfo.color, fontWeight: 700, fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap' }}>{statutInfo.label}</span>
                       </div>
                     )}
                   </>
@@ -680,25 +680,25 @@ const PageConsulterOp = () => {
                           {isEditMode ? (
                             <Autocomplete options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))} value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null} onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })} placeholder="Rechercher..." accentColor={accent} />
                           ) : (
-                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600, color: P.sidebarDark }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
+                            <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600, color: P.sidebarDark }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
                           <div style={{ minWidth: 90 }}>
                             <label style={labelStyle}>N°CC</label>
-                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 12 }}>{selectedBeneficiaire?.ncc || ''}</div>
+                            <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 14 }}>{selectedBeneficiaire?.ncc || ''}</div>
                           </div>
                           <div>
                             <label style={labelStyle}>RÈGLEMENT</label>
-                            <div style={{ display: 'flex', gap: 4, height: 38, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: 4, height: 42, alignItems: 'center' }}>
                               {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => {
                                 const active = form.modeReglement === mode;
                                 return (
-                                  <div key={mode} onClick={() => isEditMode && setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 10px', height: 38, borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default', boxSizing: 'border-box' }}>
-                                    <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
+                                  <div key={mode} onClick={() => isEditMode && setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 42, borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default', boxSizing: 'border-box' }}>
+                                    <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />}
                                     </div>
-                                    <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{mode}</span>
+                                    <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{mode}</span>
                                   </div>
                                 );
                               })}
@@ -712,13 +712,13 @@ const PageConsulterOp = () => {
                           <div style={{ gridColumn: '1 / 3' }}>
                             <label style={labelStyle}>RIB</label>
                             {isEditMode && beneficiaireRibs.length > 1 ? (
-                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: 'auto' }}>
+                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 14, width: 'auto' }}>
                                 {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
                               </select>
                             ) : (
                               <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
-                                {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
-                                <span style={{ fontSize: 12, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{selectedRib.banque}</span>}
+                                <span style={{ fontSize: 14, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
                               </div>
                             )}
                           </div>
@@ -732,13 +732,13 @@ const PageConsulterOp = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
                         <div style={{ gridColumn: '1 / 3' }}>
                           <label style={labelStyle}>OBJET</label>
-                          {isEditMode ? <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+                          {isEditMode ? <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} />
                           : <div style={{ ...fieldStyle, minHeight: 100, color: P.sidebarDark }}>{form.objet || ''}</div>}
                         </div>
                         <div>
                           <label style={labelStyle}>PIÈCES JUSTIFICATIVES</label>
-                          {isEditMode ? <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 12, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
+                          {isEditMode ? <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} />
+                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 14, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
                         </div>
                       </div>
                     </div>
@@ -755,11 +755,11 @@ const PageConsulterOp = () => {
                         <div style={{ minWidth: 0 }}>
                           <label style={labelStyle}>LIGNE BUDG.</label>
                           {isEditMode ? <Autocomplete options={(currentBudget?.lignes || []).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))} value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null} onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })} placeholder="Code..." accentColor={accent} />
-                          : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: P.sidebarDark }}>{form.ligneBudgetaire || ''}</div>}
+                          : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 14, color: P.sidebarDark }}>{form.ligneBudgetaire || ''}</div>}
                         </div>
                         <div>
                           <label style={labelStyle}>LIBELLÉ</label>
-                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 12, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
+                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 14, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
                         </div>
                       </div>
 
@@ -767,20 +767,20 @@ const PageConsulterOp = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, alignItems: 'start' }}>
                         <div style={{ gridColumn: '1 / 3', background: P.bgApp, padding: 14, borderRadius: 12, border: `1px solid ${P.bgSection}` }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px' }}>
-                            <span style={{ fontSize: 11, color: P.labelMuted }}>Dotation</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
-                            <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. antérieurs</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
-                            <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. actuel</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
-                            <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. cumulés</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
+                            <span style={{ fontSize: 13, color: P.labelMuted }}>Dotation</span>
+                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
+                            <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. antérieurs</span>
+                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
+                            <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. actuel</span>
+                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
+                            <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. cumulés</span>
+                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
                             <div style={{ gridColumn: '1 / -1', height: 1, background: P.bgSection, margin: '4px 0' }} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
-                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
+                            <span style={{ fontSize: 15, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
                           </div>
                           {getDisponible() < 0 && form.type !== 'ANNULATION' && (
-                            <div style={{ marginTop: 10, padding: 8, background: '#c6282810', borderRadius: 8, color: '#c62828', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.warning('#c62828')} Budget insuffisant</div>
+                            <div style={{ marginTop: 10, padding: 8, background: '#c6282810', borderRadius: 8, color: '#c62828', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.warning('#c62828')} Budget insuffisant</div>
                           )}
                         </div>
                         {/* Col 3 : TVA + Motif rejet/différé */}
@@ -792,19 +792,19 @@ const PageConsulterOp = () => {
                                 {[{ val: true, lbl: 'OUI' }, { val: false, lbl: 'NON' }].map(opt => {
                                   const active = form.tvaRecuperable === opt.val;
                                   return (
-                                    <div key={opt.lbl} onClick={() => isEditMode && setForm({ ...form, tvaRecuperable: opt.val })} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default' }}>
-                                      <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
+                                    <div key={opt.lbl} onClick={() => isEditMode && setForm({ ...form, tvaRecuperable: opt.val })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default' }}>
+                                      <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />}
                                       </div>
-                                      <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{opt.lbl}</span>
+                                      <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{opt.lbl}</span>
                                     </div>
                                   );
                                 })}
                                 {form.tvaRecuperable && (
                                   isEditMode ? (
-                                    <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 11, textAlign: 'right', width: 100, padding: '4px 8px' }} placeholder="0" />
+                                    <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 13, textAlign: 'right', width: 110, padding: '6px 10px' }} placeholder="0" />
                                   ) : (
-                                    selectedOp.montantTVA ? <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 600, color: P.sidebarDark }}>{formatMontant(selectedOp.montantTVA)} F</span> : null
+                                    selectedOp.montantTVA ? <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: P.sidebarDark }}>{formatMontant(selectedOp.montantTVA)} F</span> : null
                                   )
                                 )}
                               </div>
@@ -813,15 +813,15 @@ const PageConsulterOp = () => {
                           {/* Motif rejet */}
                           {selectedOp.motifRejet && (
                             <div style={{ padding: 12, background: '#c6282808', borderRadius: 10, border: '1.5px solid #c6282825' }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#c62828', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.xCircle('#c62828')} MOTIF DU REJET</div>
-                              <div style={{ fontSize: 12, color: '#c62828', lineHeight: 1.5 }}>{selectedOp.motifRejet}</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#c62828', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.xCircle('#c62828')} MOTIF DU REJET</div>
+                              <div style={{ fontSize: 13, color: '#c62828', lineHeight: 1.5 }}>{selectedOp.motifRejet}</div>
                             </div>
                           )}
                           {/* Observation différé */}
                           {selectedOp.observationDiffere && (
                             <div style={{ padding: 12, background: P.gold + '10', borderRadius: 10, border: `1.5px solid ${P.gold}30` }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: '#b8860b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.clock('#b8860b')} OBSERVATION — DIFFÉRÉ</div>
-                              <div style={{ fontSize: 12, color: '#b8860b', lineHeight: 1.5 }}>{selectedOp.observationDiffere}</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#b8860b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.clock('#b8860b')} OBSERVATION — DIFFÉRÉ</div>
+                              <div style={{ fontSize: 13, color: '#b8860b', lineHeight: 1.5 }}>{selectedOp.observationDiffere}</div>
                             </div>
                           )}
                         </div>
