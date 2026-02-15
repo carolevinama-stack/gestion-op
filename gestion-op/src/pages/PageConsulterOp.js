@@ -453,7 +453,7 @@ const PageConsulterOp = () => {
 
   // === STYLES ===
   const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
-  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 14, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
+  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 13, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
   const editFieldStyle = { ...fieldStyle, background: P.inputBg, border: `1.5px solid ${accent}40` };
   const isReadOnly = selectedOp && !isEditMode;
 
@@ -518,7 +518,7 @@ const PageConsulterOp = () => {
       )}
 
       {/* Sources fixées */}
-      <div style={{ flexShrink: 0, marginBottom: 4 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, flexShrink: 0, background: P.bgApp, borderBottom: `1px solid ${P.bgSection}`, padding: '16px 0 12px', boxShadow: '0 2px 8px rgba(34,51,0,0.04)' }}>
         <div style={{ maxWidth: 1020, margin: '0 auto' }}>
           <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>{Icons.wallet(P.labelMuted)} SOURCE DE FINANCEMENT</label>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -686,7 +686,7 @@ const PageConsulterOp = () => {
                         <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
                           <div style={{ minWidth: 90 }}>
                             <label style={labelStyle}>N°CC</label>
-                            <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 14 }}>{selectedBeneficiaire?.ncc || ''}</div>
+                            <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 13 }}>{selectedBeneficiaire?.ncc || ''}</div>
                           </div>
                           <div>
                             <label style={labelStyle}>RÈGLEMENT</label>
@@ -712,13 +712,13 @@ const PageConsulterOp = () => {
                           <div style={{ gridColumn: '1 / 3' }}>
                             <label style={labelStyle}>RIB</label>
                             {isEditMode && beneficiaireRibs.length > 1 ? (
-                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 14, width: 'auto' }}>
+                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 13, width: 'auto' }}>
                                 {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
                               </select>
                             ) : (
                               <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
                                 {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{selectedRib.banque}</span>}
-                                <span style={{ fontSize: 14, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                <span style={{ fontSize: 13, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
                               </div>
                             )}
                           </div>
@@ -732,13 +732,13 @@ const PageConsulterOp = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
                         <div style={{ gridColumn: '1 / 3' }}>
                           <label style={labelStyle}>OBJET</label>
-                          {isEditMode ? <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} />
+                          {isEditMode ? <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
                           : <div style={{ ...fieldStyle, minHeight: 100, color: P.sidebarDark }}>{form.objet || ''}</div>}
                         </div>
                         <div>
                           <label style={labelStyle}>PIÈCES JUSTIFICATIVES</label>
-                          {isEditMode ? <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} />
-                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 14, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
+                          {isEditMode ? <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
+                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 13, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
                         </div>
                       </div>
                     </div>
@@ -755,11 +755,11 @@ const PageConsulterOp = () => {
                         <div style={{ minWidth: 0 }}>
                           <label style={labelStyle}>LIGNE BUDG.</label>
                           {isEditMode ? <Autocomplete options={(currentBudget?.lignes || []).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))} value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null} onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })} placeholder="Code..." accentColor={accent} />
-                          : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 14, color: P.sidebarDark }}>{form.ligneBudgetaire || ''}</div>}
+                          : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: P.sidebarDark }}>{form.ligneBudgetaire || ''}</div>}
                         </div>
                         <div>
                           <label style={labelStyle}>LIBELLÉ</label>
-                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 14, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
+                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 13, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
                         </div>
                       </div>
 
@@ -768,16 +768,16 @@ const PageConsulterOp = () => {
                         <div style={{ gridColumn: '1 / 3', background: P.bgApp, padding: 14, borderRadius: 12, border: `1px solid ${P.bgSection}` }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px' }}>
                             <span style={{ fontSize: 13, color: P.labelMuted }}>Dotation</span>
-                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
+                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
                             <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. antérieurs</span>
-                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
+                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
                             <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. actuel</span>
-                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
+                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
                             <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. cumulés</span>
-                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
+                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
                             <div style={{ gridColumn: '1 / -1', height: 1, background: P.bgSection, margin: '4px 0' }} />
-                            <span style={{ fontSize: 14, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
-                            <span style={{ fontSize: 15, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
+                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
                           </div>
                           {getDisponible() < 0 && form.type !== 'ANNULATION' && (
                             <div style={{ marginTop: 10, padding: 8, background: '#c6282810', borderRadius: 8, color: '#c62828', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.warning('#c62828')} Budget insuffisant</div>
