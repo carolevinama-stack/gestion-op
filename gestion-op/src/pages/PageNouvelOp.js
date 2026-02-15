@@ -79,7 +79,7 @@ const ToastNotif = ({ toast, onDone }) => {
 
 // ==================== SECTION TITLE ====================
 const SectionTitle = ({ icon, label, accent }) => (
-  <div style={{ fontSize: 12, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+  <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
     <div style={{ width: 28, height: 28, borderRadius: 8, background: accent + '12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       {icon}
     </div>
@@ -238,24 +238,26 @@ const PageNouvelOp = () => {
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => getDotation() - getEngagementsCumules();
 
-  // OP provisoires pour ANNULATION (TOUS bénéficiaires - le bénéficiaire sera rempli après sélection)
-  const opProvisoiresAnnulation = ops.filter(op =>
+  // OP provisoires pour ANNULATION (strictement par bénéficiaire)
+  const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
+    op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
     op.exerciceId === exerciceActif?.id &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
-  );
+  ) : [];
 
-  // OP provisoires pour DEFINITIF (tous bénéficiaires, même source/exercice, exclure déjà sélectionnés)
-  const opProvisoiresDefinitif = ops.filter(op =>
+  // OP provisoires pour DEFINITIF (strictement par bénéficiaire, exclure déjà sélectionnés)
+  const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
+    op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
     op.exerciceId === exerciceActif?.id &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'DEFINITIF') &&
     !form.opProvisoireIds.includes(op.id)
-  );
+  ) : [];
 
   const opProvisoiresDisponibles = form.type === 'ANNULATION' ? opProvisoiresAnnulation : opProvisoiresDefinitif;
 
@@ -419,8 +421,8 @@ const PageNouvelOp = () => {
 
   // === STYLES ===
   const accent = currentSourceObj?.couleur || P.olive;
-  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
-  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 13, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
+  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 14, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
   const editFieldStyle = { ...fieldStyle, background: P.inputBg, border: `1.5px solid ${accent}40` };
 
   return (
@@ -437,8 +439,8 @@ const PageNouvelOp = () => {
         </div>
       ))}
 
-      {/* ===== SOURCES DE FINANCEMENT (fixées en haut) ===== */}
-      <div style={{ flexShrink: 0, marginBottom: 4 }}>
+      {/* ===== SOURCES DE FINANCEMENT (sticky en haut) ===== */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, flexShrink: 0, background: P.bgApp, borderBottom: `1px solid ${P.bgSection}`, padding: '16px 0 12px', boxShadow: '0 2px 8px rgba(34,51,0,0.04)' }}>
         <div style={{ maxWidth: 1020, margin: '0 auto' }}>
           <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             {Icons.wallet(P.labelMuted)}
@@ -468,13 +470,13 @@ const PageNouvelOp = () => {
               <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
                 <div style={{ flex: '0 1 auto' }}>
                   <label style={labelStyle}>N° OP (auto)</label>
-                  <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{genererNumero()}</span>
+                  <span style={{ padding: '8px 12px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 14, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{genererNumero()}</span>
                 </div>
                 <div style={{ flex: '0 0 auto' }}>
                   <label style={labelStyle}>TYPE *</label>
                   <select value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireNumeros: [], tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
-                    style={{ padding: '5px 8px', border: `1.5px solid ${(typeColors[form.type] || P.labelMuted)}40`, borderRadius: 8, fontWeight: 700, fontSize: 11, color: typeColors[form.type] || P.labelMuted, cursor: 'pointer', background: P.bgCard, outline: 'none' }}>
+                    style={{ padding: '8px 12px', border: `1.5px solid ${(typeColors[form.type] || P.labelMuted)}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || P.labelMuted, cursor: 'pointer', background: P.bgCard, outline: 'none' }}>
                     <option value="PROVISOIRE">Provisoire</option>
                     <option value="DIRECT">Direct</option>
                     <option value="DEFINITIF">Définitif</option>
@@ -483,13 +485,13 @@ const PageNouvelOp = () => {
                 </div>
                 <div style={{ flex: '0 0 auto' }}>
                   <label style={labelStyle}>DATE</label>
-                  <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', color: P.sidebarDark }}>{new Date().toISOString().split('T')[0]}</span>
+                  <span style={{ padding: '8px 12px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-block', color: P.sidebarDark }}>{new Date().toISOString().split('T')[0]}</span>
                 </div>
 
                 {/* OP Provisoire inline - ANNULATION (single select) */}
                 {form.type === 'ANNULATION' && (
                   <div style={{ flex: '0 0 auto' }}>
-                    <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#c62828' }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#c62828' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh('#c62828')} OP PROV. *</span>
                     </label>
                     <Autocomplete
@@ -512,7 +514,7 @@ const PageNouvelOp = () => {
                 {/* OP Provisoire inline - DEFINITIF (multi-select) */}
                 {form.type === 'DEFINITIF' && (
                   <div style={{ flex: '1 1 auto', minWidth: 200 }}>
-                    <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#2e7d32' }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: '#2e7d32' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh('#2e7d32')} OP PROV. * (multi)</span>
                     </label>
                     <Autocomplete
@@ -545,8 +547,10 @@ const PageNouvelOp = () => {
 
                 {/* EFFACER */}
                 <div style={{ marginLeft: 'auto' }}>
-                  <button onClick={handleClear} style={{ padding: '7px 16px', borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: P.bgCard, fontSize: 11, fontWeight: 600, color: P.labelMuted, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {Icons.eraser(P.labelMuted)} EFFACER
+                  <button onClick={handleClear} style={{ padding: '8px 18px', borderRadius: 8, border: `1.5px solid ${P.orange}40`, background: P.orange + '08', fontSize: 12, fontWeight: 700, color: P.orange, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = P.orange + '15'}
+                    onMouseLeave={e => e.currentTarget.style.background = P.orange + '08'}>
+                    {Icons.eraser(P.orange)} EFFACER
                   </button>
                 </div>
               </div>
@@ -572,19 +576,19 @@ const PageNouvelOp = () => {
                   <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
                     <div style={{ minWidth: 90 }}>
                       <label style={labelStyle}>N°CC</label>
-                      <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 12 }}>{selectedBeneficiaire?.ncc || ''}</div>
+                      <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 14 }}>{selectedBeneficiaire?.ncc || ''}</div>
                     </div>
                     <div>
                       <label style={labelStyle}>RÈGLEMENT</label>
-                      <div style={{ display: 'flex', gap: 4, height: 38, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 4, height: 42, alignItems: 'center' }}>
                         {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => {
                           const active = form.modeReglement === mode;
                           return (
-                            <div key={mode} onClick={() => setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 10px', height: 38, borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: 'pointer', boxSizing: 'border-box' }}>
-                              <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
+                            <div key={mode} onClick={() => setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 42, borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: 'pointer', boxSizing: 'border-box' }}>
+                              <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />}
                               </div>
-                              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{mode}</span>
+                              <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{mode}</span>
                             </div>
                           );
                         })}
@@ -603,11 +607,11 @@ const PageNouvelOp = () => {
                         <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', gap: 6, background: P.orange + '10', color: P.orange, border: `1.5px solid ${P.orange}30`, fontSize: 12 }}>{Icons.warning(P.orange)} Aucun RIB</div>
                       ) : beneficiaireRibs.length === 1 ? (
                         <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
-                          {beneficiaireRibs[0].banque && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{beneficiaireRibs[0].banque}</span>}
-                          <span style={{ fontSize: 12, color: P.sidebarDark }}>{beneficiaireRibs[0].numero}</span>
+                          {beneficiaireRibs[0].banque && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{beneficiaireRibs[0].banque}</span>}
+                          <span style={{ fontSize: 14, color: P.sidebarDark }}>{beneficiaireRibs[0].numero}</span>
                         </div>
                       ) : (
-                        <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: 'auto' }}>
+                        <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 14, width: 'auto' }}>
                           {beneficiaireRibs.map((rib, index) => <option key={index} value={index}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
                         </select>
                       )}
@@ -623,12 +627,12 @@ const PageNouvelOp = () => {
                   <div style={{ gridColumn: '1 / 3' }}>
                     <label style={labelStyle}>OBJET *</label>
                     <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })}
-                      style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} placeholder="Décrire l'objet de la dépense..." />
+                      style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} placeholder="Décrire l'objet de la dépense..." />
                   </div>
                   <div>
                     <label style={labelStyle}>PIÈCES JUSTIFICATIVES</label>
                     <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })}
-                      style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} placeholder="Lister les pièces jointes..." />
+                      style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} placeholder="Lister les pièces jointes..." />
                   </div>
                 </div>
               </div>
@@ -665,24 +669,24 @@ const PageNouvelOp = () => {
                   </div>
                   <div>
                     <label style={labelStyle}>LIBELLÉ</label>
-                    <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 12, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
+                    <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 14, color: P.labelMuted, height: 42, display: 'flex', alignItems: 'center' }}>{selectedLigne?.libelle || ''}</div>
                   </div>
                 </div>
                 {/* Ligne 2 : Budget + TVA alignés par le haut */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, alignItems: 'start' }}>
                   <div style={{ gridColumn: '1 / 3', background: P.bgApp, padding: 14, borderRadius: 12, border: `1px solid ${P.bgSection}` }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px' }}>
-                      <span style={{ fontSize: 11, color: P.labelMuted }}>Dotation</span>
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
-                      <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. antérieurs</span>
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
-                      <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. actuel</span>
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
-                      <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. cumulés</span>
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
+                      <span style={{ fontSize: 13, color: P.labelMuted }}>Dotation</span>
+                      <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
+                      <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. antérieurs</span>
+                      <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
+                      <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. actuel</span>
+                      <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
+                      <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. cumulés</span>
+                      <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
                       <div style={{ gridColumn: '1 / -1', height: 1, background: P.bgSection, margin: '4px 0' }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
-                      <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
+                      <span style={{ fontSize: 15, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
                     </div>
                     {getDisponible() < 0 && form.type !== 'ANNULATION' && (
                       <div style={{ marginTop: 10, padding: 8, background: '#c6282810', borderRadius: 8, color: '#c62828', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.warning('#c62828')} Budget insuffisant</div>
@@ -697,16 +701,16 @@ const PageNouvelOp = () => {
                             const active = form.tvaRecuperable === opt.val;
                             return (
                               <div key={opt.lbl} onClick={() => setForm({ ...form, tvaRecuperable: opt.val })}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: 'pointer' }}>
-                                <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: 'pointer' }}>
+                                <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />}
                                 </div>
-                                <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{opt.lbl}</span>
+                                <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{opt.lbl}</span>
                               </div>
                             );
                           })}
                           {form.tvaRecuperable && (
-                            <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 11, textAlign: 'right', width: 100, padding: '4px 8px' }} placeholder="0" />
+                            <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 13, textAlign: 'right', width: 110, padding: '6px 10px' }} placeholder="0" />
                           )}
                         </div>
                       </div>
@@ -725,19 +729,19 @@ const PageNouvelOp = () => {
                     <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: '#2e7d32', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.dollar('#2e7d32')} Récapitulatif — {form.opProvisoireIds.length} OP provisoire{form.opProvisoireIds.length > 1 ? 's' : ''}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                       <div>
-                        <div style={{ fontSize: 9, color: P.labelMuted, marginBottom: 4 }}>Total provisoire{form.opProvisoireIds.length > 1 ? 's' : ''}</div>
+                        <div style={{ fontSize: 11, color: P.labelMuted, marginBottom: 4 }}>Total provisoire{form.opProvisoireIds.length > 1 ? 's' : ''}</div>
                         <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#1565c0' }}>{formatMontant(sumProv)} F</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 9, color: P.labelMuted, marginBottom: 4 }}>Montant définitif</div>
+                        <div style={{ fontSize: 11, color: P.labelMuted, marginBottom: 4 }}>Montant définitif</div>
                         <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: P.sidebarDark }}>{mtDef > 0 ? formatMontant(mtDef) + ' F' : '—'}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 9, color: P.labelMuted, marginBottom: 4 }}>Écart</div>
+                        <div style={{ fontSize: 11, color: P.labelMuted, marginBottom: 4 }}>Écart</div>
                         {mtDef > 0 ? (
                           <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: ecart > 0 ? '#c62828' : ecart < 0 ? P.orange : '#2e7d32' }}>
                             {ecart > 0 ? '+' + formatMontant(ecart) + ' F' : ecart < 0 ? formatMontant(ecart) + ' F' : '0 F'}
-                            <div style={{ fontSize: 9, fontWeight: 400, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                               {ecart > 0 ? <>{Icons.warning('#c62828')} Trop perçu → reversement</> : ecart < 0 ? <>{Icons.warning(P.orange)} Complément à payer</> : <>{Icons.check('#2e7d32')} Aucun écart</>}
                             </div>
                           </div>
