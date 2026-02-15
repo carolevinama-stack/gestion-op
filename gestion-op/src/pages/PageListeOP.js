@@ -164,15 +164,14 @@ const PageListeOP = () => {
     return true;
   });
 
-  // Provisoires à régulariser (provisoires payés sans DEFINITIF ou ANNULATION liés)
+  // Provisoires à régulariser (provisoires payés/partiellement payés, seul un DEFINITIF régularise)
   const provisoiresARegulariser = opsExercice.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    if (op.statut !== 'PAYE') return false;
-    const hasRegularisation = opsExercice.some(o => 
-      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
-      o.opProvisoireId === op.id
+    if (!['PAYE', 'TRAITE'].includes(op.statut)) return false;
+    const hasDefinitif = opsExercice.some(o => 
+      o.type === 'DEFINITIF' && o.opProvisoireId === op.id
     );
-    return !hasRegularisation;
+    return !hasDefinitif;
   });
 
   // Calcul ancienneté en jours
