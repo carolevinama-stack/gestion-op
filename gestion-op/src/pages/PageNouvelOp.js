@@ -283,6 +283,8 @@ const PageNouvelOp = () => {
 
   const handleSelectOpProvisoire = (opId) => {
     if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' }); return; }
+    // Si c'est déjà le même OP sélectionné, ne pas écraser le montant
+    if (opId === form.opProvisoireId) return;
     const op = ops.find(o => o.id === opId);
     if (op) {
       setForm({
@@ -491,6 +493,7 @@ const PageNouvelOp = () => {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh('#c62828')} OP PROV. *</span>
                     </label>
                     <Autocomplete
+                      key={'ann-prov-' + (form.opProvisoireId || 'none')}
                       options={opProvisoiresDisponibles.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
                       value={form.opProvisoireId ? opProvisoiresDisponibles.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || (form.opProvisoireNumero ? { value: '', label: form.opProvisoireNumero } : null) : (form.opProvisoireNumero ? { value: '', label: form.opProvisoireNumero } : null)}
                       onChange={(option) => {
@@ -638,13 +641,13 @@ const PageNouvelOp = () => {
                   <div>
                     <label style={labelStyle}>MONTANT (FCFA) *</label>
                     {form.type === 'ANNULATION' ? (
-                      <input type="text" value={form.montant} onChange={(e) => {
+                      <input key="montant-annulation" type="text" value={form.montant} onChange={(e) => {
                         const val = e.target.value.replace(/[^0-9.\-]/g, '');
                         setForm({ ...form, montant: val });
                       }}
-                        style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} placeholder="0" />
+                        style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right', color: '#c62828' }} placeholder="0" />
                     ) : (
-                      <MontantInput value={form.montant} onChange={(val) => setForm({ ...form, montant: val })}
+                      <MontantInput key="montant-normal" value={form.montant} onChange={(val) => setForm({ ...form, montant: val })}
                         style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} placeholder="0" />
                     )}
                   </div>
