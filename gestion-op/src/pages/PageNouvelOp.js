@@ -238,17 +238,20 @@ const PageNouvelOp = () => {
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => getDotation() - getEngagementsCumules();
 
-  // OP provisoires pour ANNULATION (même bénéficiaire)
-  const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
+  // OP provisoires pour ANNULATION (TOUS bénéficiaires - le bénéficiaire sera rempli après sélection)
+  const opProvisoiresAnnulation = ops.filter(op =>
     op.type === 'PROVISOIRE' &&
-    op.beneficiaireId === form.beneficiaireId &&
+    op.sourceId === activeSource &&
+    op.exerciceId === exerciceActif?.id &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
-  ) : [];
+  );
 
-  // OP provisoires pour DEFINITIF (tous bénéficiaires, exclure déjà sélectionnés)
+  // OP provisoires pour DEFINITIF (tous bénéficiaires, même source/exercice, exclure déjà sélectionnés)
   const opProvisoiresDefinitif = ops.filter(op =>
     op.type === 'PROVISOIRE' &&
+    op.sourceId === activeSource &&
+    op.exerciceId === exerciceActif?.id &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'DEFINITIF') &&
     !form.opProvisoireIds.includes(op.id)
@@ -336,7 +339,7 @@ const PageNouvelOp = () => {
     if (form.modeReglement === 'VIREMENT' && !selectedRib) { showToast('error', 'RIB manquant', 'Veuillez renseigner un RIB pour le bénéficiaire'); return; }
     if (!form.ligneBudgetaire) { showToast('error', 'Champ obligatoire', 'Veuillez sélectionner une ligne budgétaire'); return; }
     if (!form.objet.trim()) { showToast('error', 'Champ obligatoire', 'Veuillez saisir l\'objet de la dépense'); return; }
-    if (!form.montant || parseFloat(form.montant) === 0) { showToast('error', 'Champ obligatoire', 'Veuillez saisir un montant valide'); return; }
+    if (!form.montant || (form.type !== 'ANNULATION' && parseFloat(form.montant) === 0)) { showToast('error', 'Champ obligatoire', 'Veuillez saisir un montant valide'); return; }
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
       showToast('error', 'Champ obligatoire', 'Veuillez indiquer si la TVA est récupérable (OUI / NON)'); return;
     }
@@ -510,6 +513,7 @@ const PageNouvelOp = () => {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh('#2e7d32')} OP PROV. * (multi)</span>
                     </label>
                     <Autocomplete
+                      key={'def-prov-' + form.opProvisoireIds.length}
                       options={opProvisoiresDisponibles.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
                       value={null}
                       onChange={(option) => { if (option?.value) handleAddOpProv(option.value); }}
@@ -633,8 +637,16 @@ const PageNouvelOp = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={labelStyle}>MONTANT (FCFA) *</label>
-                    <MontantInput value={form.montant} onChange={(val) => setForm({ ...form, montant: val })}
-                      style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} placeholder="0" />
+                    {form.type === 'ANNULATION' ? (
+                      <input type="text" value={form.montant} onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.\-]/g, '');
+                        setForm({ ...form, montant: val });
+                      }}
+                        style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} placeholder="0" />
+                    ) : (
+                      <MontantInput value={form.montant} onChange={(val) => setForm({ ...form, montant: val })}
+                        style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 16, textAlign: 'right' }} placeholder="0" />
+                    )}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <label style={labelStyle}>LIGNE BUDG. *</label>
