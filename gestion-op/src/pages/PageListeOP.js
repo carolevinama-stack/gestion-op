@@ -861,11 +861,11 @@ const PageListeOP = () => {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleExport} style={{ padding: '8px 16px', borderRadius: 9, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FDFCFA', fontSize: 12, fontWeight: 600, color: '#4B5D16', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleExport} style={{ padding: '8px 16px', borderRadius: 9, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FDFCFA', fontSize: 13, fontWeight: 600, color: '#4B5D16', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4B5D16" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export Excel
           </button>
-          <button onClick={() => setCurrentPage('nouvelOp')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: '#4B5D16', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setCurrentPage('nouvelOp')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: '#4B5D16', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nouvel OP
           </button>
@@ -874,7 +874,7 @@ const PageListeOP = () => {
 
       {/* Sélecteur d'exercice */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, padding: '9px 14px', background: '#FDFCFA', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontWeight: 500, color: '#8A7D6B' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#8A7D6B' }}>
           <input 
             type="checkbox" 
             checked={showAnterieur}
@@ -890,7 +890,7 @@ const PageListeOP = () => {
           <select
             value={selectedExercice || ''}
             onChange={(e) => setSelectedExercice(e.target.value)}
-            style={{ padding: '5px 10px', borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', fontSize: 12, width: 140, background: '#FFFDF5', fontFamily: 'inherit', outline: 'none' }}
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', fontSize: 13, width: 140, background: '#FFFDF5', fontFamily: 'inherit', outline: 'none' }}
           >
             {exercices.map(ex => (
               <option key={ex.id} value={ex.id}>
@@ -900,7 +900,7 @@ const PageListeOP = () => {
           </select>
         )}
         {showAnterieur && (
-          <span style={{ fontSize: 11, color: '#E45C10', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 12, color: '#E45C10', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E45C10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Consultation seule
           </span>
@@ -924,7 +924,7 @@ const PageListeOP = () => {
               background: activeTab === tab.key ? '#4B5D16' : '#fff',
               color: activeTab === tab.key ? 'white' : '#666',
               fontWeight: 600,
-              fontSize: 12,
+              fontSize: 13,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -937,7 +937,7 @@ const PageListeOP = () => {
               background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#ECE2CE',
               padding: '1px 7px',
               borderRadius: 20,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 800,
               color: activeTab === tab.key ? '#fff' : '#aaa'
             }}>
@@ -958,13 +958,13 @@ const PageListeOP = () => {
             background: 'transparent',
             color: activeSource === 'ALL' ? '#4B5D16' : '#999',
             fontWeight: 700,
-            fontSize: 12.5,
+            fontSize: 13,
             cursor: 'pointer',
             marginBottom: -2,
             transition: 'all 0.15s'
           }}
         >
-          TOUTES <span style={{ fontSize: 10, color: '#bbb', marginLeft: 4 }}>{opsExercice.length}</span>
+          TOUTES <span style={{ fontSize: 11, color: '#bbb', marginLeft: 4 }}>{opsExercice.length}</span>
         </button>
         {sources.map(source => {
           const count = opsExercice.filter(op => op.sourceId === source.id).length;
@@ -979,13 +979,13 @@ const PageListeOP = () => {
               background: 'transparent',
               color: activeSource === source.id ? source.couleur : '#999',
               fontWeight: 700,
-              fontSize: 12.5,
+              fontSize: 13,
               cursor: 'pointer',
               marginBottom: -2,
               transition: 'all 0.15s'
             }}
           >
-            {source.sigle} <span style={{ fontSize: 10, color: '#bbb', marginLeft: 4 }}>{count}</span>
+            {source.sigle} <span style={{ fontSize: 11, color: '#bbb', marginLeft: 4 }}>{count}</span>
           </button>
           );
         })}
@@ -995,7 +995,7 @@ const PageListeOP = () => {
       <div style={{ background: '#FDFCFA', padding: '12px 16px', borderRadius: 12, marginBottom: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 130px 150px 105px 105px', gap: 10, alignItems: 'end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Recherche</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Recherche</label>
             <div style={{ position: 'relative' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
@@ -1003,16 +1003,16 @@ const PageListeOP = () => {
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 placeholder="N°, bénéficiaire, objet..."
-                style={{ ...styles.input, marginBottom: 0, paddingLeft: 28, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
+                style={{ ...styles.input, marginBottom: 0, paddingLeft: 28, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 13 }}
               />
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Type</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Type</label>
             <select
               value={filters.type}
               onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 13 }}
             >
               <option value="">Tous</option>
               <option value="PROVISOIRE">Provisoire</option>
@@ -1022,11 +1022,11 @@ const PageListeOP = () => {
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Statut</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Statut</label>
             <select
               value={filters.statut}
               onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 13 }}
             >
               <option value="">Tous</option>
               {Object.entries(statutConfig).map(([key, val]) => (
@@ -1035,13 +1035,13 @@ const PageListeOP = () => {
             </select>
           </div>
           <div style={{ position: 'relative' }}>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Ligne budgétaire</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Ligne budgétaire</label>
             <input
               type="text"
               placeholder="Rechercher / Filtrer..."
               value={filters.ligneBudgetaire}
               onChange={(e) => setFilters({ ...filters, ligneBudgetaire: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 13 }}
               list="lignesBudgetairesList"
             />
             <datalist id="lignesBudgetairesList">
@@ -1051,21 +1051,21 @@ const PageListeOP = () => {
             </datalist>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Du</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Du</label>
             <input
               type="date"
               value={filters.dateDebut}
               onChange={(e) => setFilters({ ...filters, dateDebut: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 13 }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Au</label>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Au</label>
             <input
               type="date"
               value={filters.dateFin}
               onChange={(e) => setFilters({ ...filters, dateFin: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 13 }}
             />
           </div>
         </div>
@@ -1074,14 +1074,14 @@ const PageListeOP = () => {
       {/* Tableau */}
       <div style={{ background: '#FDFCFA', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
         <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F6F4F1' }}>
-          <span style={{ fontSize: 12, color: '#8A7D6B' }}>
+          <span style={{ fontSize: 13, color: '#8A7D6B' }}>
             <strong style={{ color: '#4B5D16' }}>{totaux.count}</strong> OP — Montant : <strong style={{ color: '#223300', fontFamily: 'monospace' }}>{formatMontant(totaux.montant)}</strong>
             {totaux.paye > 0 && <> — Payé : <strong style={{ color: '#00695c', fontFamily: 'monospace' }}>{formatMontant(totaux.paye)}</strong></>}
           </span>
           {(filters.type || filters.statut || filters.search || filters.ligneBudgetaire || filters.dateDebut || filters.dateFin) && (
             <button 
               onClick={() => setFilters({ type: '', statut: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '' })}
-              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(34,51,0,0.08)', background: '#F6F4F1', fontSize: 11, color: '#999', cursor: 'pointer' }}
+              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(34,51,0,0.08)', background: '#F6F4F1', fontSize: 12, color: '#999', cursor: 'pointer' }}
             >
               Effacer filtres
             </button>
@@ -1098,18 +1098,18 @@ const PageListeOP = () => {
             <table style={styles.table}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
-                  {activeSource === 'ALL' && <th style={{ ...styles.th, width: 55, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Source</th>}
-                  <th style={{ ...styles.th, width: 140, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>N° OP</th>
-                  <th style={{ ...styles.th, width: 70, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Type</th>
-                  <th style={{ ...styles.th, width: 140, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Bénéficiaire</th>
-                  <th style={{ ...styles.th, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Objet</th>
-                  <th style={{ ...styles.th, width: 60, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Ligne</th>
-                  <th style={{ ...styles.th, width: 95, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Dotation</th>
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Montant</th>
-                  {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 70, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Ancienneté</th>}
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Eng. ant.</th>
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Disponible</th>
-                  <th style={{ ...styles.th, width: 95, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Statut</th>
+                  {activeSource === 'ALL' && <th style={{ ...styles.th, width: 55, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Source</th>}
+                  <th style={{ ...styles.th, width: 140, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>N° OP</th>
+                  <th style={{ ...styles.th, width: 70, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Type</th>
+                  <th style={{ ...styles.th, width: 140, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Bénéficiaire</th>
+                  <th style={{ ...styles.th, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Objet</th>
+                  <th style={{ ...styles.th, width: 60, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Ligne</th>
+                  <th style={{ ...styles.th, width: 95, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Dotation</th>
+                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Montant</th>
+                  {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 70, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Ancienneté</th>}
+                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Eng. ant.</th>
+                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Disponible</th>
+                  <th style={{ ...styles.th, width: 95, background: '#F6F4F1', color: '#8A7D6B', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Statut</th>
                   <th style={{ ...styles.th, width: 38, textAlign: 'center', background: '#F6F4F1', borderBottom: '2px solid #ECE2CE' }}></th>
                 </tr>
               </thead>
@@ -1144,14 +1144,14 @@ const PageListeOP = () => {
                             color: 'white', 
                             padding: '2px 7px', 
                             borderRadius: 4, 
-                            fontSize: 9, 
+                            fontSize: 10, 
                             fontWeight: 700 
                           }}>
                             {source?.sigle || '?'}
                           </span>
                         </td>
                       )}
-                      <td style={{ ...styles.td, fontFamily: '"SF Mono","Fira Code",monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#c62828' : '#223300', borderBottom: '1px solid #F6F4F1' }}>
+                      <td style={{ ...styles.td, fontFamily: '"SF Mono","Fira Code",monospace', fontSize: 11, fontWeight: 600, color: isRejet ? '#c62828' : '#223300', borderBottom: '1px solid #F6F4F1' }}>
                         {isRejet ? op.displayNumero : op.numero}
                       </td>
                       <td style={{ ...styles.td, borderBottom: '1px solid #F6F4F1' }}>
@@ -1160,22 +1160,22 @@ const PageListeOP = () => {
                           color: isRejet ? '#c62828' : typeColors[op.type],
                           padding: '2px 7px',
                           borderRadius: 4,
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: 700,
                           letterSpacing: 0.3
                         }}>
                           {isRejet ? 'REJET' : op.type}
                         </span>
                       </td>
-                      <td style={{ ...styles.td, fontSize: 11, fontWeight: 500, color: '#333', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderBottom: '1px solid #F6F4F1' }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
-                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#8A7D6B', borderBottom: '1px solid #F6F4F1' }} title={op.objet}>
+                      <td style={{ ...styles.td, fontSize: 12, fontWeight: 500, color: '#333', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderBottom: '1px solid #F6F4F1' }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
+                      <td style={{ ...styles.td, fontSize: 12, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#8A7D6B', borderBottom: '1px solid #F6F4F1' }} title={op.objet}>
                         {op.objet || '-'}
                       </td>
-                      <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace', color: '#666', borderBottom: '1px solid #F6F4F1' }}>{op.ligneBudgetaire || '-'}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5, color: '#999', borderBottom: '1px solid #F6F4F1' }}>
+                      <td style={{ ...styles.td, fontSize: 11, fontFamily: 'monospace', color: '#666', borderBottom: '1px solid #F6F4F1' }}>{op.ligneBudgetaire || '-'}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: '#999', borderBottom: '1px solid #F6F4F1' }}>
                         {formatMontant(dotationLigne)}
                       </td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: isRejet ? '#c62828' : '#223300', borderBottom: '1px solid #F6F4F1' }}>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: isRejet ? '#c62828' : '#223300', borderBottom: '1px solid #F6F4F1' }}>
                         {isRejet ? '-' + formatMontant(op.montant) : formatMontant(op.montant)}
                       </td>
                       {activeTab === 'A_REGULARISER' && (
@@ -1185,17 +1185,17 @@ const PageListeOP = () => {
                             color: anciennete > 30 ? '#c62828' : anciennete > 15 ? '#E45C10' : '#2e7d32',
                             padding: '2px 8px',
                             borderRadius: 4,
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: 600
                           }}>
                             {anciennete}j
                           </span>
                         </td>
                       )}
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 10.5, color: '#666', borderBottom: '1px solid #F6F4F1' }}>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 11, color: '#666', borderBottom: '1px solid #F6F4F1' }}>
                         {formatMontant(op.engagementAnterieur || 0)}
                       </td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32', borderBottom: '1px solid #F6F4F1' }}>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32', borderBottom: '1px solid #F6F4F1' }}>
                         {formatMontant(op.disponible)}
                       </td>
                       <td style={{ ...styles.td, borderBottom: '1px solid #F6F4F1' }}>
@@ -1207,7 +1207,7 @@ const PageListeOP = () => {
                           color: statutObj.color,
                           padding: '3px 9px',
                           borderRadius: 20,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 600,
                           whiteSpace: 'nowrap'
                         }}>
@@ -1291,7 +1291,7 @@ const PageListeOP = () => {
                   <div style={{ display: 'grid', gap: 16 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                       <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>SOURCE</label>
+                        <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>SOURCE</label>
                         <div style={{ marginTop: 4 }}>
                           <span style={{ background: source?.couleur || '#666', color: 'white', padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
                             {source?.sigle || '?'}
@@ -1299,7 +1299,7 @@ const PageListeOP = () => {
                         </div>
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>TYPE</label>
+                        <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>TYPE</label>
                         <div style={{ marginTop: 4 }}>
                           <span style={{ background: `${typeColors[showDetail.type]}20`, color: typeColors[showDetail.type], padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
                             {showDetail.type}
@@ -1307,7 +1307,7 @@ const PageListeOP = () => {
                         </div>
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>STATUT</label>
+                        <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>STATUT</label>
                         <div style={{ marginTop: 4 }}>
                           <span style={{ background: statut.bg, color: statut.color, padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
                             {statut.label}
@@ -1316,39 +1316,39 @@ const PageListeOP = () => {
                       </div>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>BÉNÉFICIAIRE</label>
+                      <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>BÉNÉFICIAIRE</label>
                       <div style={{ marginTop: 4, fontWeight: 600 }}>{showDetail.beneficiaireNom || ben?.nom || 'N/A'}</div>
-                      {ben?.ncc && <div style={{ fontSize: 12, color: '#6c757d' }}>NCC: {ben.ncc}</div>}
+                      {ben?.ncc && <div style={{ fontSize: 13, color: '#6c757d' }}>NCC: {ben.ncc}</div>}
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>OBJET</label>
+                      <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>OBJET</label>
                       <div style={{ marginTop: 4 }}>{showDetail.objet}</div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                       <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>LIGNE BUDGÉTAIRE</label>
+                        <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>LIGNE BUDGÉTAIRE</label>
                         <div style={{ marginTop: 4 }}><code>{showDetail.ligneBudgetaire}</code></div>
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>MODE RÈGLEMENT</label>
+                        <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>MODE RÈGLEMENT</label>
                         <div style={{ marginTop: 4 }}>{showDetail.modeReglement}</div>
                       </div>
                     </div>
                     
                     {/* Section Budget / Engagements */}
                     <div style={{ background: '#E45C1010', padding: 16, borderRadius: 8 }}>
-                      <label style={{ fontSize: 11, color: '#E45C10', fontWeight: 600, marginBottom: 12, display: 'block' }}>📊 SITUATION BUDGÉTAIRE (Ligne {showDetail.ligneBudgetaire})</label>
+                      <label style={{ fontSize: 12, color: '#E45C10', fontWeight: 600, marginBottom: 12, display: 'block' }}>📊 SITUATION BUDGÉTAIRE (Ligne {showDetail.ligneBudgetaire})</label>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
                         <div>
-                          <div style={{ color: '#6c757d', fontSize: 11 }}>Dotation</div>
+                          <div style={{ color: '#6c757d', fontSize: 12 }}>Dotation</div>
                           <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{formatMontant(dotation)}</div>
                         </div>
                         <div>
-                          <div style={{ color: '#6c757d', fontSize: 11 }}>Engagements antérieurs</div>
+                          <div style={{ color: '#6c757d', fontSize: 12 }}>Engagements antérieurs</div>
                           <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#E45C10' }}>{formatMontant(engagementsAnterieurs)}</div>
                         </div>
                         <div>
-                          <div style={{ color: '#6c757d', fontSize: 11 }}>Disponible avant cet OP</div>
+                          <div style={{ color: '#6c757d', fontSize: 12 }}>Disponible avant cet OP</div>
                           <div style={{ fontWeight: 600, fontFamily: 'monospace', color: (dotation - engagementsAnterieurs) >= 0 ? '#2e7d32' : '#c62828' }}>
                             {formatMontant(dotation - engagementsAnterieurs)}
                           </div>
@@ -1360,19 +1360,19 @@ const PageListeOP = () => {
                     <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                         <div>
-                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>MONTANT</label>
+                          <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>MONTANT</label>
                           <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>
                             {formatMontant(showDetail.montant)}
                           </div>
                         </div>
                         <div>
-                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>PAYÉ</label>
+                          <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>PAYÉ</label>
                           <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#2e7d32' }}>
                             {formatMontant(showDetail.totalPaye || 0)}
                           </div>
                         </div>
                         <div>
-                          <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>RESTE</label>
+                          <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600 }}>RESTE</label>
                           <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: (showDetail.montant - (showDetail.totalPaye || 0)) > 0 ? '#E45C10' : '#2e7d32' }}>
                             {formatMontant(showDetail.montant - (showDetail.totalPaye || 0))}
                           </div>
@@ -1382,24 +1382,24 @@ const PageListeOP = () => {
                     
                     {/* Dates du circuit */}
                     <div style={{ background: '#F6F4F1', padding: 16, borderRadius: 8 }}>
-                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600, marginBottom: 12, display: 'block' }}>📅 SUIVI DU CIRCUIT</label>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, fontSize: 12 }}>
+                      <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600, marginBottom: 12, display: 'block' }}>📅 SUIVI DU CIRCUIT</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, fontSize: 13 }}>
                         {/* Colonne CF */}
                         <div style={{ background: '#F2B63520', padding: 12, borderRadius: 6 }}>
                           <div style={{ fontWeight: 600, color: '#E45C10', marginBottom: 8 }}>Contrôleur Financier</div>
                           <div style={{ display: 'grid', gap: 6 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#6c757d', fontSize: 10 }}>Transmission</span>
+                              <span style={{ color: '#6c757d', fontSize: 11 }}>Transmission</span>
                               <span style={{ fontWeight: 500 }}>{showDetail.dateTransmissionCF || '-'}</span>
                             </div>
                             {showDetail.bordereauCF && (
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: '#6c757d', fontSize: 10 }}>Bordereau</span>
-                                <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{showDetail.bordereauCF}</span>
+                                <span style={{ color: '#6c757d', fontSize: 11 }}>Bordereau</span>
+                                <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{showDetail.bordereauCF}</span>
                               </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#6c757d', fontSize: 10 }}>Visa</span>
+                              <span style={{ color: '#6c757d', fontSize: 11 }}>Visa</span>
                               <span style={{ fontWeight: 500, color: showDetail.dateVisaCF ? '#2e7d32' : '#adb5bd' }}>{showDetail.dateVisaCF || '-'}</span>
                             </div>
                           </div>
@@ -1410,17 +1410,17 @@ const PageListeOP = () => {
                           <div style={{ fontWeight: 600, color: '#7b1fa2', marginBottom: 8 }}>Agent Comptable</div>
                           <div style={{ display: 'grid', gap: 6 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#6c757d', fontSize: 10 }}>Transmission</span>
+                              <span style={{ color: '#6c757d', fontSize: 11 }}>Transmission</span>
                               <span style={{ fontWeight: 500 }}>{showDetail.dateTransmissionAC || '-'}</span>
                             </div>
                             {showDetail.bordereauAC && (
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: '#6c757d', fontSize: 10 }}>Bordereau</span>
-                                <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{showDetail.bordereauAC}</span>
+                                <span style={{ color: '#6c757d', fontSize: 11 }}>Bordereau</span>
+                                <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{showDetail.bordereauAC}</span>
                               </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#6c757d', fontSize: 10 }}>Paiement</span>
+                              <span style={{ color: '#6c757d', fontSize: 11 }}>Paiement</span>
                               <span style={{ fontWeight: 500, color: showDetail.datePaiement ? '#00695c' : '#adb5bd' }}>{showDetail.datePaiement || '-'}</span>
                             </div>
                           </div>
@@ -1433,12 +1433,12 @@ const PageListeOP = () => {
                           <div style={{ fontWeight: 600, color: '#8A7D6B', marginBottom: 8 }}>Archivage</div>
                           <div style={{ display: 'flex', gap: 24 }}>
                             <div>
-                              <span style={{ color: '#6c757d', fontSize: 10 }}>Date : </span>
+                              <span style={{ color: '#6c757d', fontSize: 11 }}>Date : </span>
                               <span style={{ fontWeight: 500 }}>{showDetail.dateArchivage || '-'}</span>
                             </div>
                             {showDetail.boiteArchive && (
                               <div>
-                                <span style={{ color: '#6c757d', fontSize: 10 }}>Boîte : </span>
+                                <span style={{ color: '#6c757d', fontSize: 11 }}>Boîte : </span>
                                 <span style={{ fontWeight: 600 }}>{showDetail.boiteArchive}</span>
                               </div>
                             )}
@@ -1450,13 +1450,13 @@ const PageListeOP = () => {
                     {/* Historique des paiements */}
                     {showDetail.paiements && showDetail.paiements.length > 0 && (
                       <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600, marginBottom: 8, display: 'block' }}>HISTORIQUE DES PAIEMENTS</label>
-                        <table style={{ ...styles.table, fontSize: 12 }}>
+                        <label style={{ fontSize: 12, color: '#6c757d', fontWeight: 600, marginBottom: 8, display: 'block' }}>HISTORIQUE DES PAIEMENTS</label>
+                        <table style={{ ...styles.table, fontSize: 13 }}>
                           <thead>
                             <tr>
-                              <th style={{ ...styles.th, fontSize: 11 }}>DATE</th>
-                              <th style={{ ...styles.th, fontSize: 11 }}>RÉFÉRENCE</th>
-                              <th style={{ ...styles.th, fontSize: 11, textAlign: 'right' }}>MONTANT</th>
+                              <th style={{ ...styles.th, fontSize: 12 }}>DATE</th>
+                              <th style={{ ...styles.th, fontSize: 12 }}>RÉFÉRENCE</th>
+                              <th style={{ ...styles.th, fontSize: 12, textAlign: 'right' }}>MONTANT</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1475,9 +1475,9 @@ const PageListeOP = () => {
                     {/* Motif retour */}
                     {(showDetail.statut === 'RETOURNE_CF' || showDetail.statut === 'RETOURNE_AC') && (
                       <div style={{ background: '#0277bd15', padding: 16, borderRadius: 8 }}>
-                        <label style={{ fontSize: 11, color: '#0277bd', fontWeight: 600 }}>MOTIF DU RETOUR</label>
+                        <label style={{ fontSize: 12, color: '#0277bd', fontWeight: 600 }}>MOTIF DU RETOUR</label>
                         <div style={{ marginTop: 4 }}>{showDetail.motifRetourCF || showDetail.motifRetourAC}</div>
-                        <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
+                        <div style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>
                           Date: {showDetail.dateRetourCF || showDetail.dateRetourAC}
                         </div>
                       </div>
@@ -1486,9 +1486,9 @@ const PageListeOP = () => {
                     {/* Motif différé */}
                     {(showDetail.statut === 'DIFFERE_CF' || showDetail.statut === 'DIFFERE_AC') && (
                       <div style={{ background: '#F2B63520', padding: 16, borderRadius: 8 }}>
-                        <label style={{ fontSize: 11, color: '#f9a825', fontWeight: 600 }}>MOTIF DU DIFFÉRÉ</label>
+                        <label style={{ fontSize: 12, color: '#f9a825', fontWeight: 600 }}>MOTIF DU DIFFÉRÉ</label>
                         <div style={{ marginTop: 4 }}>{showDetail.motifDiffereCF || showDetail.motifDiffereAC}</div>
-                        <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
+                        <div style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>
                           Date: {showDetail.dateDiffereCF || showDetail.dateDiffereAC}
                         </div>
                       </div>
@@ -1497,15 +1497,15 @@ const PageListeOP = () => {
                     {/* Motif rejet */}
                     {(showDetail.statut === 'REJETE_CF' || showDetail.statut === 'REJETE_AC') && showDetail.motifRejet && (
                       <div style={{ background: '#c6282815', padding: 16, borderRadius: 8 }}>
-                        <label style={{ fontSize: 11, color: '#c62828', fontWeight: 600 }}>MOTIF DU REJET</label>
+                        <label style={{ fontSize: 12, color: '#c62828', fontWeight: 600 }}>MOTIF DU REJET</label>
                         <div style={{ marginTop: 4, color: '#c62828' }}>{showDetail.motifRejet}</div>
-                        <div style={{ fontSize: 12, color: '#c62828', marginTop: 4 }}>
+                        <div style={{ fontSize: 13, color: '#c62828', marginTop: 4 }}>
                           Date: {showDetail.dateRejet} - Par: {showDetail.rejetePar}
                         </div>
                       </div>
                     )}
 
-                    <div style={{ fontSize: 12, color: '#6c757d' }}>
+                    <div style={{ fontSize: 13, color: '#6c757d' }}>
                       En cours le {showDetail.dateCreation || '-'}
                     </div>
                   </div>
@@ -1544,22 +1544,22 @@ const PageListeOP = () => {
               <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 20 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, textAlign: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Montant OP</div>
+                    <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Montant OP</div>
                     <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace' }}>{formatMontant(showPaiementModal.montant)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Déjà payé</div>
+                    <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Déjà payé</div>
                     <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#2e7d32' }}>{formatMontant(showPaiementModal.totalPaye || 0)}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Reste à payer</div>
+                    <div style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Reste à payer</div>
                     <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#E45C10' }}>{formatMontant(showPaiementModal.montant - (showPaiementModal.totalPaye || 0))}</div>
                   </div>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date du paiement *</label>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Date du paiement *</label>
                   <input 
                     type="date" 
                     value={actionForm.date} 
@@ -1568,7 +1568,7 @@ const PageListeOP = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Référence *</label>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Référence *</label>
                   <input 
                     type="text" 
                     value={actionForm.reference} 
@@ -1579,7 +1579,7 @@ const PageListeOP = () => {
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant payé *</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Montant payé *</label>
                 <MontantInput 
                   value={actionForm.montant} 
                   onChange={(val) => setActionForm({ ...actionForm, montant: val })}
@@ -1610,11 +1610,11 @@ const PageListeOP = () => {
               <h2 style={{ margin: 0, fontSize: 18, color: showTransmissionModal.destination === 'CF' ? '#E45C10' : '#7b1fa2' }}>
                 Transmettre {showTransmissionModal.destination === 'CF' ? 'au CF' : 'à l\'AC'}
               </h2>
-              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showTransmissionModal.op.numero}</div>
+              <div style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{showTransmissionModal.op.numero}</div>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date de transmission *</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Date de transmission *</label>
                 <input 
                   type="date" 
                   value={actionForm.date} 
@@ -1623,7 +1623,7 @@ const PageListeOP = () => {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
                   N° Bordereau de transmission {showTransmissionModal.destination}
                 </label>
                 <input 
@@ -1633,7 +1633,7 @@ const PageListeOP = () => {
                   style={styles.input}
                   placeholder={`Ex: BT-${showTransmissionModal.destination}-2026-001`}
                 />
-                <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - référence du bordereau de transmission</span>
+                <span style={{ fontSize: 12, color: '#6c757d' }}>Optionnel - référence du bordereau de transmission</span>
               </div>
             </div>
             <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
@@ -1652,11 +1652,11 @@ const PageListeOP = () => {
           <div style={{ ...styles.modalContent, maxWidth: 450 }}>
             <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#F6F4F1' }}>
               <h2 style={{ margin: 0, fontSize: 18, color: '#8A7D6B' }}>Archiver l'OP</h2>
-              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showArchiveModal.numero}</div>
+              <div style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{showArchiveModal.numero}</div>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date d'archivage *</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Date d'archivage *</label>
                 <input 
                   type="date" 
                   value={actionForm.date} 
@@ -1665,7 +1665,7 @@ const PageListeOP = () => {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>N° Boîte / Classeur d'archive</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>N° Boîte / Classeur d'archive</label>
                 <input 
                   type="text" 
                   value={actionForm.boiteArchive} 
@@ -1673,7 +1673,7 @@ const PageListeOP = () => {
                   style={styles.input}
                   placeholder="Ex: BOX-2026-001, Classeur IDA-A3..."
                 />
-                <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - pour faciliter la recherche physique</span>
+                <span style={{ fontSize: 12, color: '#6c757d' }}>Optionnel - pour faciliter la recherche physique</span>
               </div>
             </div>
             <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
@@ -1692,11 +1692,11 @@ const PageListeOP = () => {
           <div style={{ ...styles.modalContent, maxWidth: 500 }}>
             <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#E45C1010' }}>
               <h2 style={{ margin: 0, fontSize: 18, color: '#E45C10' }}>Changer le statut</h2>
-              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showStatutModal.op.numero}</div>
+              <div style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{showStatutModal.op.numero}</div>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nouveau statut *</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Nouveau statut *</label>
                 <select
                   value={actionForm.nouveauStatut || ''}
                   onChange={(e) => setActionForm({ ...actionForm, nouveauStatut: e.target.value })}
@@ -1716,7 +1716,7 @@ const PageListeOP = () => {
                 </select>
               </div>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date *</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Date *</label>
                 <input
                   type="date"
                   value={actionForm.date}
@@ -1726,7 +1726,7 @@ const PageListeOP = () => {
               </div>
               {['DIFFERE_CF', 'DIFFERE_AC', 'REJETE_CF', 'REJETE_AC'].includes(actionForm.nouveauStatut) && (
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Motif *</label>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Motif *</label>
                   <textarea
                     value={actionForm.motif}
                     onChange={(e) => setActionForm({ ...actionForm, motif: e.target.value })}
@@ -2213,7 +2213,7 @@ const PageListeOP = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>Modifier l'OP</h2>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
                 </div>
                 <button 
                   onClick={handlePrintOP}
@@ -2227,7 +2227,7 @@ const PageListeOP = () => {
               
               {/* Type d'OP */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>TYPE D'OP</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>TYPE D'OP</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[
                     { value: 'PROVISOIRE', label: 'Provisoire', color: '#F2B635' },
@@ -2246,7 +2246,7 @@ const PageListeOP = () => {
                         background: editForm.type === type.value ? type.color : '#ECE2CE',
                         color: editForm.type === type.value ? 'white' : '#555',
                         fontWeight: 600,
-                        fontSize: 12,
+                        fontSize: 13,
                         cursor: 'pointer'
                       }}
                     >
@@ -2259,7 +2259,7 @@ const PageListeOP = () => {
               {/* Bénéficiaire */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, marginBottom: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
                   <Autocomplete
                     options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
                     value={editForm.beneficiaireId ? { value: editForm.beneficiaireId, label: editBeneficiaire?.nom || '' } : null}
@@ -2268,7 +2268,7 @@ const PageListeOP = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N°CC</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N°CC</label>
                   <input 
                     type="text" 
                     value={editBeneficiaire?.ncc || ''} 
@@ -2280,7 +2280,7 @@ const PageListeOP = () => {
 
               {/* Mode de règlement */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
                 <div style={{ display: 'flex', gap: 24 }}>
                   {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => (
                     <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
@@ -2299,7 +2299,7 @@ const PageListeOP = () => {
               {/* RIB si virement */}
               {editForm.modeReglement === 'VIREMENT' && (
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RIB</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RIB</label>
                   {!editBeneficiaire ? (
                     <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', color: '#adb5bd', fontStyle: 'italic' }}>
                       Sélectionnez un bénéficiaire
@@ -2310,7 +2310,7 @@ const PageListeOP = () => {
                     </div>
                   ) : editRibs.length === 1 ? (
                     <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }}>
-                      {editRibs[0].banque && <span style={{ background: '#E45C1010', color: '#E45C10', padding: '2px 8px', borderRadius: 4, marginRight: 8, fontSize: 11 }}>{editRibs[0].banque}</span>}
+                      {editRibs[0].banque && <span style={{ background: '#E45C1010', color: '#E45C10', padding: '2px 8px', borderRadius: 4, marginRight: 8, fontSize: 12 }}>{editRibs[0].banque}</span>}
                       {editRibs[0].numero}
                     </div>
                   ) : (
@@ -2329,7 +2329,7 @@ const PageListeOP = () => {
 
               {/* Objet */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE</label>
                 <textarea
                   value={editForm.objet || ''}
                   onChange={(e) => setEditForm({ ...editForm, objet: e.target.value })}
@@ -2339,7 +2339,7 @@ const PageListeOP = () => {
 
               {/* Pièces justificatives */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
                 <textarea
                   value={editForm.piecesJustificatives || ''}
                   onChange={(e) => setEditForm({ ...editForm, piecesJustificatives: e.target.value })}
@@ -2350,16 +2350,16 @@ const PageListeOP = () => {
               {/* Montant et Ligne budgétaire */}
               <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, marginBottom: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) 🔐</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) 🔐</label>
                   <MontantInput
                     value={editForm.montant || ''}
                     onChange={(val) => setEditForm({ ...editForm, montant: val })}
                     style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right', marginBottom: 0, fontSize: 16, fontWeight: 600 }}
                   />
-                  <span style={{ fontSize: 10, color: '#F2B635' }}>Protégé par mot de passe</span>
+                  <span style={{ fontSize: 11, color: '#F2B635' }}>Protégé par mot de passe</span>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
                   <Autocomplete
                     options={(editBudget?.lignes || []).map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}`, searchFields: [l.code, l.libelle] }))}
                     value={editForm.ligneBudgetaire ? { value: editForm.ligneBudgetaire, label: `${editForm.ligneBudgetaire}${editLigne ? ' - ' + editLigne.libelle : ''}` } : null}
@@ -2373,19 +2373,19 @@ const PageListeOP = () => {
               {editForm.ligneBudgetaire && (
                 <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 16 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#6c757d' }}>Dotation budgétaire</span>
+                    <span style={{ fontSize: 13, color: '#6c757d' }}>Dotation budgétaire</span>
                     <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(dotation)}</span>
                     
-                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements antérieurs</span>
+                    <span style={{ fontSize: 13, color: '#6c757d' }}>Engagements antérieurs</span>
                     <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsAnterieurs)}</span>
                     
-                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagement actuel</span>
+                    <span style={{ fontSize: 13, color: '#6c757d' }}>Engagement actuel</span>
                     <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: '#E45C10' }}>+{formatMontant(engagementActuel)}</span>
                     
-                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements cumulés</span>
+                    <span style={{ fontSize: 13, color: '#6c757d' }}>Engagements cumulés</span>
                     <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsCumules)}</span>
                     
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Disponible budgétaire</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Disponible budgétaire</span>
                     <span style={{ 
                       fontSize: 14, 
                       fontFamily: 'monospace', 
@@ -2397,7 +2397,7 @@ const PageListeOP = () => {
                     </span>
                   </div>
                   {disponible < 0 && editForm.type !== 'ANNULATION' && (
-                    <div style={{ marginTop: 12, padding: 8, background: '#c6282815', borderRadius: 4, color: '#c62828', fontSize: 12, fontWeight: 600 }}>
+                    <div style={{ marginTop: 12, padding: 8, background: '#c6282815', borderRadius: 4, color: '#c62828', fontSize: 13, fontWeight: 600 }}>
                       Budget insuffisant
                     </div>
                   )}
@@ -2407,7 +2407,7 @@ const PageListeOP = () => {
               {/* Date et TVA */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>DATE DE CRÉATION</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>DATE DE CRÉATION</label>
                   <input
                     type="date"
                     value={editForm.dateCreation || ''}
@@ -2417,7 +2417,7 @@ const PageListeOP = () => {
                 </div>
                 {['DIRECT', 'DEFINITIF'].includes(editForm.type) && (
                   <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>TVA RÉCUPÉRABLE</label>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>TVA RÉCUPÉRABLE</label>
                     <div style={{ display: 'flex', gap: 16, alignItems: 'center', height: 44 }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                         <input type="radio" checked={editForm.tvaRecuperable === true} onChange={() => setEditForm({ ...editForm, tvaRecuperable: true })} />
@@ -2465,12 +2465,12 @@ const PageListeOP = () => {
           <div style={{ ...styles.modalContent, maxWidth: 750 }}>
             <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#E45C1010' }}>
               <h2 style={{ margin: 0, fontSize: 18, color: '#E45C10' }}>Gérer le circuit</h2>
-              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showCircuitModal.numero} • {showCircuitModal.objet?.substring(0, 50)}...</div>
+              <div style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{showCircuitModal.numero} • {showCircuitModal.objet?.substring(0, 50)}...</div>
             </div>
             <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
               {/* Statut actuel */}
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Statut actuel</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Statut actuel</label>
                 <select
                   value={circuitForm.statut || ''}
                   onChange={(e) => setCircuitForm({ ...circuitForm, statut: e.target.value })}
@@ -2492,45 +2492,45 @@ const PageListeOP = () => {
 
               {/* Section CF - Transmission et Visa */}
               <div style={{ background: '#F2B63520', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#F2B635' }}>CONTRÔLEUR FINANCIER (CF)</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#F2B635' }}>CONTRÔLEUR FINANCIER (CF)</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date transmission CF</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date transmission CF</label>
                     <input
                       type="date"
                       value={circuitForm.dateTransmissionCF || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateTransmissionCF: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Bordereau transmission CF</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>N° Bordereau transmission CF</label>
                     <input
                       type="text"
                       value={circuitForm.bordereauCF || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, bordereauCF: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="BT-CF-2026-001"
                     />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date visa CF</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date visa CF</label>
                     <input
                       type="date"
                       value={circuitForm.dateVisaCF || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateVisaCF: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Visa CF</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>N° Visa CF</label>
                     <input
                       type="text"
                       value={circuitForm.numeroVisaCF || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, numeroVisaCF: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="VISA-CF-2026-001"
                     />
                   </div>
@@ -2539,26 +2539,26 @@ const PageListeOP = () => {
 
               {/* Section Différé CF - Toujours visible pour correction */}
               <div style={{ background: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#F2B63520' : '#F6F4F1', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '2px solid #F2B635' : '1px dashed #ddd' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#E45C10' : '#999' }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#E45C10' : '#999' }}>
                   DIFFÉRÉ CF {circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '(renseigné)' : '(optionnel)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date différé</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date différé</label>
                     <input
                       type="date"
                       value={circuitForm.dateDiffereCF || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateDiffereCF: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Motif du différé</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Motif du différé</label>
                     <input
                       type="text"
                       value={circuitForm.motifDiffereCF || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, motifDiffereCF: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="Pièces manquantes, erreur de calcul..."
                     />
                   </div>
@@ -2567,45 +2567,45 @@ const PageListeOP = () => {
 
               {/* Section AC - Transmission et Paiement */}
               <div style={{ background: '#E8F0D8', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#2e7d32' }}>AGENT COMPTABLE (AC)</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#2e7d32' }}>AGENT COMPTABLE (AC)</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date transmission AC</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date transmission AC</label>
                     <input
                       type="date"
                       value={circuitForm.dateTransmissionAC || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateTransmissionAC: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Bordereau transmission AC</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>N° Bordereau transmission AC</label>
                     <input
                       type="text"
                       value={circuitForm.bordereauAC || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, bordereauAC: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="BT-AC-2026-001"
                     />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date paiement</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date paiement</label>
                     <input
                       type="date"
                       value={circuitForm.datePaiement || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, datePaiement: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Référence paiement</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Référence paiement</label>
                     <input
                       type="text"
                       value={circuitForm.referencePaiement || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, referencePaiement: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="VIR-2026-001"
                     />
                   </div>
@@ -2614,26 +2614,26 @@ const PageListeOP = () => {
 
               {/* Section Différé AC - Toujours visible pour correction */}
               <div style={{ background: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#F2B63520' : '#F6F4F1', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '2px solid #F2B635' : '1px dashed #ddd' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#E45C10' : '#999' }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#E45C10' : '#999' }}>
                   DIFFÉRÉ AC {circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '(renseigné)' : '(optionnel)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date différé</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date différé</label>
                     <input
                       type="date"
                       value={circuitForm.dateDiffereAC || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateDiffereAC: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Motif du différé</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Motif du différé</label>
                     <input
                       type="text"
                       value={circuitForm.motifDiffereAC || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, motifDiffereAC: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="RIB incorrect, montant erroné..."
                     />
                   </div>
@@ -2642,25 +2642,25 @@ const PageListeOP = () => {
 
               {/* Section Rejet - Toujours visible pour correction */}
               <div style={{ background: circuitForm.dateRejet || circuitForm.motifRejet ? '#c6282815' : '#F6F4F1', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateRejet || circuitForm.motifRejet ? '2px solid #c62828' : '1px dashed #ddd' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateRejet || circuitForm.motifRejet ? '#c62828' : '#999' }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 12, color: circuitForm.dateRejet || circuitForm.motifRejet ? '#c62828' : '#999' }}>
                   REJET {circuitForm.dateRejet || circuitForm.motifRejet ? '(renseigné)' : '(optionnel)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date rejet</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date rejet</label>
                     <input
                       type="date"
                       value={circuitForm.dateRejet || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateRejet: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Rejeté par</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Rejeté par</label>
                     <select
                       value={circuitForm.rejetePar || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, rejetePar: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     >
                       <option value="">--</option>
                       <option value="CF">CF</option>
@@ -2668,18 +2668,18 @@ const PageListeOP = () => {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Motif du rejet</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Motif du rejet</label>
                     <input
                       type="text"
                       value={circuitForm.motifRejet || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, motifRejet: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="Dépense non éligible..."
                     />
                   </div>
                 </div>
                 {(circuitForm.dateRejet || circuitForm.motifRejet) && (
-                  <div style={{ marginTop: 12, padding: 10, background: '#FDFCFA', borderRadius: 4, fontSize: 12, color: '#c62828' }}>
+                  <div style={{ marginTop: 12, padding: 10, background: '#FDFCFA', borderRadius: 4, fontSize: 13, color: '#c62828' }}>
                     Le rejet libère le budget engagé. Pour annuler le rejet, videz les champs ci-dessus.
                   </div>
                 )}
@@ -2687,24 +2687,24 @@ const PageListeOP = () => {
 
               {/* Section Archive */}
               <div style={{ background: '#F6F4F1', padding: 16, borderRadius: 8 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#8A7D6B' }}>ARCHIVAGE</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#8A7D6B' }}>ARCHIVAGE</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date archivage</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Date archivage</label>
                     <input
                       type="date"
                       value={circuitForm.dateArchivage || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, dateArchivage: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Boîte / Classeur d'archive</label>
+                    <label style={{ display: 'block', fontSize: 11, color: '#6c757d', marginBottom: 4 }}>N° Boîte / Classeur d'archive</label>
                     <input
                       type="text"
                       value={circuitForm.boiteArchive || ''}
                       onChange={(e) => setCircuitForm({ ...circuitForm, boiteArchive: e.target.value })}
-                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 13 }}
                       placeholder="BOX-IDA-2026-001"
                     />
                   </div>
@@ -2777,24 +2777,24 @@ const PageListeOP = () => {
                     {/* Numéro + Bénéficiaire + Montant */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #ECE2CE' }}>
                       <div>
-                        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#223300', marginBottom: 3 }}>{drawerOp.numero}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#223300', marginBottom: 3 }}>{drawerOp.numero}</div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: '#223300' }}>{drawerOp.beneficiaireNom || ben?.nom || 'N/A'}</div>
-                        <div style={{ fontSize: 12, color: '#8A7D6B', marginTop: 2 }}>{drawerOp.objet || '-'}</div>
+                        <div style={{ fontSize: 13, color: '#8A7D6B', marginTop: 2 }}>{drawerOp.objet || '-'}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 18, fontWeight: 800, color: '#4B5D16', fontFeatureSettings: "'tnum'" }}>{formatMontant(drawerOp.montant)}</div>
-                        <div style={{ fontSize: 11, color: '#8A7D6B' }}>FCFA</div>
+                        <div style={{ fontSize: 12, color: '#8A7D6B' }}>FCFA</div>
                       </div>
                     </div>
 
                     {/* Mini Frise */}
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Circuit de validation</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Circuit de validation</div>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, marginBottom: 10 }}>
                       {steps.map((step, i) => {
                         const dotStyle = {
                           width: 28, height: 28, borderRadius: '50%',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700,
+                          fontSize: 12, fontWeight: 700,
                           border: '2.5px solid',
                           ...(step.state === 'done' ? { background: '#4B5D16', borderColor: '#4B5D16', color: 'white' } :
                              step.state === 'current' ? { background: '#4B5D16', borderColor: '#4B5D16', color: 'white', boxShadow: '0 0 0 4px rgba(75,93,22,0.15)' } :
@@ -2814,8 +2814,8 @@ const PageListeOP = () => {
                           <React.Fragment key={i}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto' }}>
                               <div style={dotStyle}>{dotContent}</div>
-                              <div style={{ fontSize: 8.5, fontWeight: 600, color: ['done', 'current'].includes(step.state) ? '#223300' : '#8A7D6B', marginTop: 4, textAlign: 'center', maxWidth: 52, lineHeight: '1.2' }}>{step.label}</div>
-                              {step.date && <div style={{ fontSize: 8, color: '#4B5D16', fontWeight: 500 }}>{formatDate(step.date)}</div>}
+                              <div style={{ fontSize: 10, fontWeight: 600, color: ['done', 'current'].includes(step.state) ? '#223300' : '#8A7D6B', marginTop: 4, textAlign: 'center', maxWidth: 52, lineHeight: '1.2' }}>{step.label}</div>
+                              {step.date && <div style={{ fontSize: 9, color: '#4B5D16', fontWeight: 500 }}>{formatDate(step.date)}</div>}
                             </div>
                             {i < steps.length - 1 && (
                               <div style={{ flex: 1, height: 2.5, background: steps[i + 1]?.state === 'done' || steps[i + 1]?.state === 'current' ? '#4B5D16' : steps[i + 1]?.state === 'deferred' ? '#F2B635' : steps[i + 1]?.state === 'rejected' ? '#c62828' : '#ECE2CE', minWidth: 10, margin: '13px 2px 0' }} />
@@ -2828,7 +2828,7 @@ const PageListeOP = () => {
                     {/* Message d'alerte */}
                     {msg && (
                       <div style={{
-                        padding: '11px 14px', borderRadius: 10, fontSize: 12, marginTop: 10,
+                        padding: '11px 14px', borderRadius: 10, fontSize: 13, marginTop: 10,
                         display: 'flex', alignItems: 'flex-start', gap: 9,
                         background: msg.type === 'warning' ? '#fef3cd' : msg.type === 'danger' ? '#fee2e2' : msg.type === 'success' ? '#E8F0D8' : '#E8F0D8',
                         color: msg.type === 'warning' ? '#b8860b' : msg.type === 'danger' ? '#c62828' : msg.type === 'success' ? '#4B5D16' : '#4B5D16'
@@ -2839,7 +2839,7 @@ const PageListeOP = () => {
                         {msg.type === 'info' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4B5D16" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>}
                         <div>
                           {msg.title && <><strong>{msg.title}</strong>{msg.date ? ` — ${msg.date}` : ''}<br/></>}
-                          <span style={{ fontSize: 12 }}>{msg.text}</span>
+                          <span style={{ fontSize: 13 }}>{msg.text}</span>
                         </div>
                       </div>
                     )}
@@ -2848,7 +2848,7 @@ const PageListeOP = () => {
                     <div style={{ height: 1, background: '#ECE2CE', margin: '16px 0' }} />
 
                     {/* Informations compactes */}
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Informations</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Informations</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                       {[
                         { label: 'Type', value: drawerOp.type },
@@ -2859,7 +2859,7 @@ const PageListeOP = () => {
                         { label: 'Disponible', value: formatMontant(drawerOp.disponible || 0), mono: true, color: (drawerOp.disponible || 0) >= 0 ? '#4B5D16' : '#c62828' }
                       ].map((item, i) => (
                         <div key={i} style={{ padding: '9px 0', borderBottom: '1px solid #ECE2CE' }}>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
                           <div style={{ fontSize: 13, fontWeight: item.mono ? 600 : 500, color: item.color || '#223300', marginTop: 2, fontFamily: item.mono ? 'monospace' : 'inherit' }}>{item.value}</div>
                         </div>
                       ))}
