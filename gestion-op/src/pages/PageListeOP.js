@@ -27,9 +27,6 @@ const PageListeOP = () => {
   const [actionForm, setActionForm] = useState({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' });
   const [showPaiementModal, setShowPaiementModal] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(null);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importData, setImportData] = useState([]);
-  const [importError, setImportError] = useState('');
   const [showStatutModal, setShowStatutModal] = useState(null); // { op, nouveauStatut } - pour changement manuel de statut
   const [showEditModal, setShowEditModal] = useState(null); // OP à modifier
   const [editForm, setEditForm] = useState({});
@@ -167,10 +164,10 @@ const PageListeOP = () => {
     return true;
   });
 
-  // Provisoires à régulariser (sans DEFINITIF ou ANNULATION liés)
+  // Provisoires à régulariser (provisoires payés sans DEFINITIF ou ANNULATION liés)
   const provisoiresARegulariser = opsExercice.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    if (['REJETE_CF', 'REJETE_AC', 'ARCHIVE'].includes(op.statut)) return false;
+    if (op.statut !== 'PAYE') return false;
     const hasRegularisation = opsExercice.some(o => 
       (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
       o.opProvisoireId === op.id
@@ -949,28 +946,6 @@ const PageListeOP = () => {
             </span>
           </button>
         ))}
-        
-        {/* Bouton Importer des OP */}
-        <button
-          onClick={() => setShowImportModal(true)}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 9,
-            border: '1.5px dashed #E45C10',
-            background: '#E45C1008',
-            color: '#E45C10',
-            fontWeight: 600,
-            fontSize: 12,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginLeft: 'auto'
-          }}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E45C10" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Importer des OP
-        </button>
       </div>
 
       {/* Onglets sources */}
@@ -1265,194 +1240,6 @@ const PageListeOP = () => {
           </div>
         )}
       </div>
-
-      {/* Modal Import OP */}
-      {showImportModal && (
-        <div style={styles.modal} onClick={() => { setShowImportModal(false); setImportData([]); setImportError(''); }}>
-          <div style={{ ...styles.modalContent, maxWidth: 900 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #ECE2CE', background: '#E45C10', color: 'white' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>Importer des OP depuis Excel/CSV</h2>
-            </div>
-            <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
-              <div style={{ marginBottom: 20, padding: 16, background: '#E45C1010', borderRadius: 8, fontSize: 13 }}>
-                <strong>Format attendu (colonnes) :</strong><br/>
-                Type | Bénéficiaire (NCC) | Objet | Ligne Budgétaire | Montant | Date Création
-              </div>
-              
-              <input 
-                type="file" 
-                accept=".csv,.xlsx,.xls"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  
-                  const reader = new FileReader();
-                  reader.onload = (evt) => {
-                    try {
-                      const text = evt.target.result;
-                      const lines = text.split('\n').filter(l => l.trim());
-                      const headers = lines[0].split(/[;,\t]/);
-                      
-                      const data = lines.slice(1).map((line, idx) => {
-                        const cols = line.split(/[;,\t]/);
-                        return {
-                          idx: idx + 1,
-                          type: (cols[0] || '').trim().toUpperCase(),
-                          beneficiaire: (cols[1] || '').trim(),
-                          objet: (cols[2] || '').trim(),
-                          ligneBudgetaire: (cols[3] || '').trim(),
-                          montant: parseFloat((cols[4] || '0').replace(/[^\d.-]/g, '')) || 0,
-                          dateCreation: (cols[5] || new Date().toISOString().split('T')[0]).trim(),
-                          valid: true,
-                          error: ''
-                        };
-                      }).filter(d => d.type || d.beneficiaire || d.montant);
-                      
-                      // Validation
-                      data.forEach(d => {
-                        if (!['PROVISOIRE', 'DIRECT', 'DEFINITIF', 'ANNULATION'].includes(d.type)) {
-                          d.valid = false;
-                          d.error = 'Type invalide';
-                        }
-                        if (!d.beneficiaire) {
-                          d.valid = false;
-                          d.error = 'Bénéficiaire manquant';
-                        }
-                        if (!d.montant || d.montant <= 0) {
-                          d.valid = false;
-                          d.error = 'Montant invalide';
-                        }
-                      });
-                      
-                      setImportData(data);
-                      setImportError('');
-                    } catch (err) {
-                      setImportError('Erreur de lecture du fichier : ' + err.message);
-                      setImportData([]);
-                    }
-                  };
-                  reader.readAsText(file);
-                }}
-                style={{ marginBottom: 16 }}
-              />
-              
-              {importError && (
-                <div style={{ padding: 12, background: '#c6282815', color: '#c62828', borderRadius: 6, marginBottom: 16 }}>
-                  {importError}
-                </div>
-              )}
-              
-              {importData.length > 0 && (
-                <>
-                  <div style={{ marginBottom: 12, fontSize: 13 }}>
-                    <strong>{importData.length}</strong> lignes détectées — 
-                    <span style={{ color: '#2e7d32' }}> {importData.filter(d => d.valid).length} valides</span> / 
-                    <span style={{ color: '#c62828' }}> {importData.filter(d => !d.valid).length} erreurs</span>
-                  </div>
-                  
-                  <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          <th style={{ ...styles.th, width: 40 }}>#</th>
-                          <th style={{ ...styles.th, width: 80 }}>Type</th>
-                          <th style={styles.th}>Bénéficiaire</th>
-                          <th style={styles.th}>Objet</th>
-                          <th style={{ ...styles.th, width: 70 }}>Ligne</th>
-                          <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>Montant</th>
-                          <th style={{ ...styles.th, width: 100 }}>Statut</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importData.map(d => (
-                          <tr key={d.idx} style={{ background: d.valid ? 'transparent' : '#fff8f8' }}>
-                            <td style={styles.td}>{d.idx}</td>
-                            <td style={styles.td}>{d.type}</td>
-                            <td style={styles.td}>{d.beneficiaire}</td>
-                            <td style={{ ...styles.td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.objet}</td>
-                            <td style={styles.td}>{d.ligneBudgetaire}</td>
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(d.montant)}</td>
-                            <td style={styles.td}>
-                              {d.valid ? (
-                                <span style={{ color: '#2e7d32', fontSize: 12 }}>OK</span>
-                              ) : (
-                                <span style={{ color: '#c62828', fontSize: 11 }}>{d.error}</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                    <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>
-                      Annuler
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        const validOps = importData.filter(d => d.valid);
-                        if (validOps.length === 0) {
-                          alert('Aucun OP valide à importer');
-                          return;
-                        }
-                        
-                        if (!window.confirm(`Importer ${validOps.length} OP ?`)) return;
-                        
-                        try {
-                          for (const d of validOps) {
-                            // Trouver le bénéficiaire par NCC ou nom
-                            const ben = beneficiaires.find(b => 
-                              b.ncc === d.beneficiaire || 
-                              b.nom.toLowerCase().includes(d.beneficiaire.toLowerCase())
-                            );
-                            
-                            // Générer le numéro
-                            const sigleProjet = projet?.sigle || 'PROJET';
-                            const sigleSrc = sources.find(s => s.id === activeSource)?.sigle || 'SRC';
-                            const annee = exerciceActif?.annee || new Date().getFullYear();
-                            const existants = ops.filter(o => o.sourceId === (activeSource === 'ALL' ? sources[0]?.id : activeSource) && o.exerciceId === exerciceActif?.id);
-                            const nextNum = existants.length + 1;
-                            const numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSrc}/${annee}`;
-                            
-                            const opData = {
-                              numero,
-                              type: d.type,
-                              beneficiaireId: ben?.id || null,
-                              beneficiaireNom: ben?.nom || d.beneficiaire,
-                              objet: d.objet,
-                              ligneBudgetaire: d.ligneBudgetaire,
-                              montant: d.montant,
-                              dateCreation: d.dateCreation,
-                              statut: 'EN_COURS',
-                              sourceId: activeSource === 'ALL' ? sources[0]?.id : activeSource,
-                              exerciceId: exerciceActif?.id,
-                              createdAt: new Date().toISOString(),
-                              importedAt: new Date().toISOString()
-                            };
-                            
-                            await addDoc(collection(db, 'ops'), opData);
-                          }
-                          
-                          alert(`${validOps.length} OP importés avec succès !`);
-                          setShowImportModal(false);
-                          setImportData([]);
-                        } catch (err) {
-                          alert('Erreur import : ' + err.message);
-                        }
-                      }}
-                      disabled={importData.filter(d => d.valid).length === 0}
-                      style={{ ...styles.button, background: importData.filter(d => d.valid).length === 0 ? '#ccc' : '#2e7d32' }}
-                    >
-                      Importer {importData.filter(d => d.valid).length} OP
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal Détail OP */}
       {showDetail && (
