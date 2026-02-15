@@ -99,6 +99,10 @@ const PageBordereaux = () => {
   const [editBtId, setEditBtId] = useState(null);
   const [editBtNumero, setEditBtNumero] = useState('');
 
+  // Password Modal
+  const [pwdModal, setPwdModal] = useState(null); // { resolve }
+  const [pwdInput, setPwdInput] = useState('');
+  const [pwdError, setPwdError] = useState('');
   // === REFS pour dates ===
   const dateRefs = useRef({});
   const setDateRef = (key, el) => { if (el) dateRefs.current['_el_' + key] = el; };
@@ -125,7 +129,12 @@ const PageBordereaux = () => {
 
   // === HELPERS ===
   const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
-  const checkPwd = () => { const p = window.prompt('Mot de passe requis :'); if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; } return true; };
+  const checkPwd = () => new Promise((resolve) => { setPwdModal({ resolve }); setPwdInput(''); setPwdError(''); });
+  const handlePwdSubmit = () => {
+    if (pwdInput !== (projet?.motDePasseAdmin || 'admin123')) { setPwdError('Mot de passe incorrect'); return; }
+    pwdModal.resolve(true); setPwdModal(null); setPwdInput(''); setPwdError('');
+  };
+  const handlePwdCancel = () => { pwdModal.resolve(false); setPwdModal(null); setPwdInput(''); setPwdError(''); };
 
   const filterBordereaux = (btList) => btList.filter(bt => {
     if (!searchBT) return true;
@@ -206,7 +215,7 @@ const PageBordereaux = () => {
   };
 
   const handleAnnulerTransmission = async (bt) => {
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     if (!window.confirm(`Annuler la transmission de ${bt.numero} ?`)) return;
     setSaving(true);
     try {
@@ -223,7 +232,7 @@ const PageBordereaux = () => {
     setSaving(false);
   };
 
-  const handleEnterEditBT = (bt) => { if (bt.statut === 'ENVOYE' && !checkPwd()) return; setEditingBT(bt.id); };
+  const handleEnterEditBT = async (bt) => { if (bt.statut === 'ENVOYE' && !(await checkPwd())) return; setEditingBT(bt.id); };
 
   const handleAddOpToBT = async (bt, opId) => {
     try {
@@ -248,7 +257,7 @@ const PageBordereaux = () => {
   };
 
   const handleDeleteBordereau = async (bt) => {
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     if (!window.confirm(`Supprimer ${bt.numero} ?`)) return;
     try {
       const ps = bt.type === 'CF' ? 'EN_COURS' : 'VISE_CF';
@@ -261,8 +270,8 @@ const PageBordereaux = () => {
   };
 
   // === MODIFIER N° BORDEREAU (protégé par mot de passe admin) ===
-  const handleStartEditBtNumero = (bt) => {
-    if (!checkPwd()) return;
+  const handleStartEditBtNumero = async (bt) => {
+    if (!(await checkPwd())) return;
     setEditBtId(bt.id);
     setEditBtNumero(bt.numero || '');
   };
@@ -293,7 +302,7 @@ const PageBordereaux = () => {
     const d = readDate('retourCF');
     if (!d) { alert('Date requise.'); return; }
     if ((resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && !motifRetour.trim()) { alert('Motif obligatoire.'); return; }
-    if (resultatCF === 'REJETE' && !checkPwd()) return;
+    if (resultatCF === 'REJETE' && !(await checkPwd())) return;
     const lab = resultatCF === 'VISE' ? 'Visé' : resultatCF === 'DIFFERE' ? 'Différé' : 'Rejeté';
     if (!window.confirm(`Marquer ${selectedOps.length} OP comme "${lab}" ?`)) return;
     setSaving(true);
@@ -319,7 +328,7 @@ const PageBordereaux = () => {
   };
 
   const handleAnnulerRetour = async (opId, statut) => {
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     const lab = statut === 'VISE_CF' ? 'visa' : statut === 'DIFFERE_CF' ? 'différé CF' : statut === 'REJETE_CF' ? 'rejet CF' : statut === 'DIFFERE_AC' ? 'différé AC' : 'rejet AC';
     const retour = ['DIFFERE_AC', 'REJETE_AC'].includes(statut) ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
     if (!window.confirm(`Annuler le ${lab} ? → "${retour}"`)) return;
@@ -337,7 +346,7 @@ const PageBordereaux = () => {
     if (!motifRetourAC.trim()) { alert('Motif obligatoire.'); return; }
     const d = readDate('retourAC');
     if (!d) { alert('Date requise.'); return; }
-    if (resultatAC === 'REJETE' && !checkPwd()) return;
+    if (resultatAC === 'REJETE' && !(await checkPwd())) return;
     const lab = resultatAC === 'DIFFERE' ? 'Différé AC' : 'Rejeté AC';
     if (!window.confirm(`Marquer comme "${lab}" ?`)) return;
     setSaving(true);
@@ -382,7 +391,7 @@ const PageBordereaux = () => {
     const op = ops.find(o => o.id === opId);
     const p = op?.paiements || [];
     if (p.length === 0) return;
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     const der = p[p.length - 1];
     if (!window.confirm(`Annuler paiement ${formatMontant(der.montant)} F du ${der.date} ?`)) return;
     setSaving(true);
@@ -400,7 +409,7 @@ const PageBordereaux = () => {
   // === ARCHIVAGE ===
   const handleArchiverDirect = async (opId, boite) => {
     if (!boite || !boite.trim()) { alert('Renseignez la boîte d\'archivage.'); return; }
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     if (!window.confirm(`Archiver dans "${boite}" ?`)) return;
     setSaving(true);
     try {
@@ -422,7 +431,7 @@ const PageBordereaux = () => {
   };
 
   const handleDesarchiver = async (opId) => {
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     if (!window.confirm('Désarchiver ?')) return;
     setSaving(true);
     try {
@@ -435,7 +444,7 @@ const PageBordereaux = () => {
   };
 
   const handleModifierBoite = async (opId) => {
-    if (!checkPwd()) return;
+    if (!(await checkPwd())) return;
     const nv = window.prompt('Nouvelle boîte d\'archivage :');
     if (!nv || !nv.trim()) return;
     try {
@@ -623,17 +632,17 @@ const PageBordereaux = () => {
               <div style={{ display: 'flex', gap: 4, marginLeft: 8 }} onClick={e => e.stopPropagation()}>
                 <IBtn icon={Ic.printer(P.cfBlue)} title="Imprimer" bg="#e3f2fd" color="#1565c0" onClick={() => handlePrintBordereau(bt)} />
                 <IBtn icon={Ic.edit("#6a1b9a")} title="Modifier le numéro" bg="#f3e5f5" color="#6a1b9a" onClick={() => handleStartEditBtNumero(bt)} />
-                {bt.statut === 'ENVOYE' && <IBtn icon={Ic.undo()} title="Annuler la transmission" bg="#fff3e0" color="#e65100" onClick={() => handleAnnulerTransmission(bt)} disabled={saving} />}
+                {bt.statut === 'ENVOYE' && <IBtn icon={Ic.undo()} title="Annuler la transmission" bg="#fff3e0" color={P.orange} onClick={() => handleAnnulerTransmission(bt)} disabled={saving} />}
                 <IBtn icon={Ic.trash(P.red)} title="Supprimer le bordereau" bg="#ffebee" color="#c62828" onClick={() => handleDeleteBordereau(bt)} />
               </div>
             </div>
             {/* Détail déplié */}
             {isExp && <div style={{ border: '1px solid #0891b2', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: 16, background: 'white' }}>
               {/* Transmission */}
-              {isPrep && <div style={{ background: '#fef3cd', borderRadius: 8, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              {isPrep && <div style={{ background: `${P.gold}15`, borderRadius: 10, padding: 14, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', border: `1px solid ${P.gold}30` }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#b45309' }}>Date :</span>
-                <input type="date" defaultValue={bt.dateTransmission || ''} ref={el => setDateRef('trans_' + bt.id, el)} style={{ ...styles.input, marginBottom: 0, width: 170 }} />
-                <button onClick={() => handleTransmettre(bt)} disabled={saving} style={{ background: '#2e7d32', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>✓ Transmettre</button>
+                <input type="date" defaultValue={bt.dateTransmission || ''} ref={el => setDateRef('trans_' + bt.id, el)} style={{ ...styles.input, marginBottom: 0, width: 170, background: P.inputBg, border: `1.5px solid ${P.bgSection}`, borderRadius: 10 }} />
+                <button onClick={() => handleTransmettre(bt)} disabled={saving} style={{ background: P.acGreen, color: 'white', border: 'none', borderRadius: 10, padding: '10px 20px', cursor: 'pointer', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, boxShadow: `0 2px 8px ${P.acGreen}30` }}>{Ic.send('#fff', 14)} Transmettre</button>
               </div>}
               {/* Icônes Modifier / Annuler / Valider */}
               <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
@@ -692,7 +701,7 @@ const PageBordereaux = () => {
   const renderSuivi = (differes, rejetes, type = 'CF', subTab, setSubTab) => {
     return <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <STab active={subTab === 'DIFFERES'} label="Différés" count={differes.length} color="#e65100" onClick={() => { setSubTab('DIFFERES'); setSelectedOps([]); }} />
+        <STab active={subTab === 'DIFFERES'} label="Différés" count={differes.length} color={P.orange} onClick={() => { setSubTab('DIFFERES'); setSelectedOps([]); }} />
         <STab active={subTab === 'REJETES'} label="Rejetés" count={rejetes.length} color="#c62828" onClick={() => { setSubTab('REJETES'); setSelectedOps([]); }} />
       </div>
       <div style={{ marginBottom: 12 }}><input type="text" placeholder="Rechercher..." value={searchSuivi} onChange={e => setSearchSuivi(e.target.value)} style={{ ...styles.input, maxWidth: 400, marginBottom: 0 }} /></div>
@@ -712,7 +721,7 @@ const PageBordereaux = () => {
               <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
               <td style={{ ...styles.td, fontSize: 13 }}>{op.dateDiffere || '-'}</td>
               <td style={{ ...styles.td, fontSize: 12 }}>{op.motifDiffere || '-'}</td>
-              <td style={styles.td} onClick={e => e.stopPropagation()}><IBtn icon={Ic.undo()} title="Annuler" bg="#fff3e0" color="#e65100" onClick={() => handleAnnulerRetour(op.id, type === 'CF' ? 'DIFFERE_CF' : 'DIFFERE_AC')} /></td>
+              <td style={styles.td} onClick={e => e.stopPropagation()}><IBtn icon={Ic.undo()} title="Annuler" bg="#fff3e0" color={P.orange} onClick={() => handleAnnulerRetour(op.id, type === 'CF' ? 'DIFFERE_CF' : 'DIFFERE_AC')} /></td>
             </tr>;
           })}</tbody></table>
         </div>
@@ -809,9 +818,12 @@ const PageBordereaux = () => {
               })}
             </tbody></table>
           </div>}
-          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#e3f2fd', borderRadius: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
-            <button onClick={() => handleCreateBordereau('CF')} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, background: '#1565c0', width: '100%' }}>{saving ? '...' : 'Créer le bordereau'}</button>
+          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: '16px 20px', background: `linear-gradient(135deg, ${P.cfBlue}08, ${P.cfBlue}04)`, borderRadius: 12, border: `1px solid ${P.cfBlue}20`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: P.sidebarDark }}>{selectedOps.length} OP sélectionnés</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: P.cfBlue }}>{formatMontant(totalSelected)} F</span>
+            </div>
+            <button onClick={() => handleCreateBordereau('CF')} disabled={saving} style={{ padding: '12px 28px', border: 'none', borderRadius: 10, background: P.cfBlue, color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 12px ${P.cfBlue}40`, display: 'flex', alignItems: 'center', gap: 8 }}>{saving ? '...' : <>{Ic.send('#fff')} Créer le bordereau</>}</button>
           </div>}
         </div>}
 
@@ -820,7 +832,7 @@ const PageBordereaux = () => {
 
         {/* Retour CF - sélection + drawer */}
         {subTabCF === 'RETOUR' && <div style={styles.card}>
-          <h3 style={{ margin: '0 0 6px', color: '#e65100' }}>OP transmis au CF ({opsTransmisCF.length})</h3>
+          <h3 style={{ margin: '0 0 6px', color: P.orange }}>OP transmis au CF ({opsTransmisCF.length})</h3>
           <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>Sélectionnez puis cliquez ✓ pour ouvrir le panneau retour.</p>
           <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
           {filterOpsBySearch(opsTransmisCF, searchBT).length === 0 ? <Empty text="Aucun OP" /> :
@@ -879,14 +891,17 @@ const PageBordereaux = () => {
                   <td style={{ ...styles.td, fontSize: 12, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
                   <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
                   <td style={{ ...styles.td, fontSize: 13 }}>{op.dateVisaCF || '-'}</td>
-                  <td style={styles.td} onClick={e => e.stopPropagation()}><IBtn icon={Ic.undo()} title="Annuler le visa CF" bg="#fff3e0" color="#e65100" onClick={() => handleAnnulerRetour(op.id, 'VISE_CF')} /></td>
+                  <td style={styles.td} onClick={e => e.stopPropagation()}><IBtn icon={Ic.undo()} title="Annuler le visa CF" bg="#fff3e0" color={P.orange} onClick={() => handleAnnulerRetour(op.id, 'VISE_CF')} /></td>
                 </tr>;
               })}
             </tbody></table>
           </div>}
-          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#e8f5e9', borderRadius: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
-            <button onClick={() => handleCreateBordereau('AC')} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, background: '#2e7d32', width: '100%' }}>{saving ? '...' : 'Créer le bordereau'}</button>
+          {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: '16px 20px', background: `linear-gradient(135deg, ${P.acGreen}08, ${P.acGreen}04)`, borderRadius: 12, border: `1px solid ${P.acGreen}20`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: P.sidebarDark }}>{selectedOps.length} OP sélectionnés</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: P.acGreen }}>{formatMontant(totalSelected)} F</span>
+            </div>
+            <button onClick={() => handleCreateBordereau('AC')} disabled={saving} style={{ padding: '12px 28px', border: 'none', borderRadius: 10, background: P.acGreen, color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 12px ${P.acGreen}40`, display: 'flex', alignItems: 'center', gap: 8 }}>{saving ? '...' : <>{Ic.send('#fff')} Créer le bordereau</>}</button>
           </div>}
         </div>}
 
@@ -974,7 +989,7 @@ const PageBordereaux = () => {
                   <td style={{ ...styles.td, fontSize: 13 }}>{op.dateArchivage || '-'}</td>
                   <td style={{ ...styles.td, display: 'flex', gap: 4 }}>
                     <IBtn icon={Ic.edit()} title="Modifier la boîte" bg="#F0EBE0" color={P.archKaki} onClick={() => handleModifierBoite(op.id)} />
-                    <IBtn icon={Ic.undo()} title="Désarchiver" bg="#fff3e0" color="#e65100" onClick={() => handleDesarchiver(op.id)} />
+                    <IBtn icon={Ic.undo()} title="Désarchiver" bg="#fff3e0" color={P.orange} onClick={() => handleDesarchiver(op.id)} />
                   </td>
                 </tr>
               ))}
@@ -1001,15 +1016,15 @@ const PageBordereaux = () => {
                   <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{formatMontant(op.montant)} F</span>
                 </div>;
               })}
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#e65100', marginTop: 8, textAlign: 'right' }}>Total : {formatMontant(totalSelected)} F</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: P.orange, marginTop: 8, textAlign: 'right' }}>Total : {formatMontant(totalSelected)} F</div>
             </div>
 
             {/* Décision */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: P.labelMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Décision</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {[{ v: 'VISE', l: '✅ Visé', c: '#2e7d32', bg: '#e8f5e9' }, { v: 'DIFFERE', l: '⏸ Différé', c: '#e65100', bg: '#fff3e0' }, { v: 'REJETE', l: '✕ Rejeté', c: '#c62828', bg: '#ffebee' }].map(o => (
-                  <button key={o.v} onClick={() => setResultatCF(o.v)} style={{ flex: 1, padding: '12px 8px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: resultatCF === o.v ? `3px solid ${o.c}` : '2px solid #ddd', background: resultatCF === o.v ? o.bg : 'white', color: resultatCF === o.v ? o.c : '#999' }}>{o.l}</button>
+                {[{ v: 'VISE', l: 'Visé', c: '#2e7d32', bg: '#e8f5e9', icon: Ic.check }, { v: 'DIFFERE', l: 'Différé', c: P.orange, bg: '#fff3e0', icon: Ic.clock }, { v: 'REJETE', l: 'Rejeté', c: P.red, bg: '#ffebee', icon: Ic.x }].map(o => (
+                  <button key={o.v} onClick={() => setResultatCF(o.v)} style={{ flex: 1, padding: '12px 8px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: resultatCF === o.v ? `3px solid ${o.c}` : `2px solid ${P.bgSection}`, background: resultatCF === o.v ? o.bg : P.bgCard, color: resultatCF === o.v ? o.c : P.labelMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}>{o.icon(resultatCF === o.v ? o.c : P.labelMuted, 16)} {o.l}</button>
                 ))}
               </div>
             </div>
@@ -1027,7 +1042,7 @@ const PageBordereaux = () => {
 
             {resultatCF === 'REJETE' && <p style={{ fontSize: 12, color: '#c62828', marginBottom: 8 }}>⚠ Confirmé par mot de passe.</p>}
 
-            <button onClick={handleRetourCF} disabled={saving} style={{ width: '100%', padding: 14, border: 'none', borderRadius: 8, background: resultatCF === 'VISE' ? '#2e7d32' : resultatCF === 'DIFFERE' ? '#e65100' : '#c62828', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 8 }}>{saving ? '...' : `Valider (${selectedOps.length} OP)`}</button>
+            <button onClick={handleRetourCF} disabled={saving} style={{ width: '100%', padding: 14, border: 'none', borderRadius: 10, background: resultatCF === 'VISE' ? P.acGreen : resultatCF === 'DIFFERE' ? P.orange : P.red, color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 4px 12px rgba(0,0,0,0.15)` }}>{saving ? '...' : <>{Ic.check('#fff')} Valider ({selectedOps.length} OP)</>}</button>
           </div>
         </div>
       </>}
@@ -1099,7 +1114,7 @@ const PageBordereaux = () => {
                     <div><span style={{ fontSize: 13, fontWeight: 500 }}>{p.date}</span><span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>{p.reference || 'Sans réf.'}</span></div>
                     <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#6a1b9a' }}>{formatMontant(p.montant)} F</span>
                   </div>)}
-                  <button onClick={() => handleAnnulerPaiement(op.id)} disabled={saving} style={{ marginTop: 6, padding: '6px 14px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>↩ Annuler dernier paiement</button>
+                  <button onClick={() => handleAnnulerPaiement(op.id)} disabled={saving} style={{ marginTop: 6, padding: '6px 14px', background: '#ffebee', color: P.red, border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>{Ic.undo(P.red, 12)} Annuler dernier paiement</button>
                 </div>}
 
                 {/* Nouveau paiement */}
@@ -1126,8 +1141,8 @@ const PageBordereaux = () => {
                 {op.statut === 'TRANSMIS_AC' && <div style={{ borderTop: '1px solid #ECE2CE', paddingTop: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: P.labelMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Autre décision</div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                    {[{ v: 'DIFFERE', l: '⏸ Différer', c: '#b45309', bg: '#fef3cd' }, { v: 'REJETE', l: '✕ Rejeter', c: '#dc2626', bg: '#fee2e2' }].map(o => (
-                      <button key={o.v} onClick={() => setResultatAC(o.v)} style={{ flex: 1, padding: '10px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: resultatAC === o.v ? `3px solid ${o.c}` : '2px solid #e2ecec', background: resultatAC === o.v ? o.bg : 'white', color: resultatAC === o.v ? o.c : '#a0bfbf' }}>{o.l}</button>
+                    {[{ v: 'DIFFERE', l: 'Différer', c: '#b45309', bg: '#fef3cd', icon: Ic.clock }, { v: 'REJETE', l: 'Rejeter', c: '#dc2626', bg: '#fee2e2', icon: Ic.x }].map(o => (
+                      <button key={o.v} onClick={() => setResultatAC(o.v)} style={{ flex: 1, padding: '10px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: resultatAC === o.v ? `3px solid ${o.c}` : `2px solid ${P.bgSection}`, background: resultatAC === o.v ? o.bg : P.bgCard, color: resultatAC === o.v ? o.c : P.labelMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s' }}>{o.icon(resultatAC === o.v ? o.c : P.labelMuted, 16)} {o.l}</button>
                     ))}
                   </div>
                   <div style={{ marginBottom: 10 }}><label style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: 'block' }}>Date</label>
@@ -1143,12 +1158,12 @@ const PageBordereaux = () => {
                 {/* Annuler transmission AC */}
                 {op.statut === 'TRANSMIS_AC' && paiem.length === 0 && <div style={{ borderTop: '1px solid #ECE2CE', paddingTop: 12, marginTop: 12 }}>
                   <button onClick={async () => {
-                    if (!checkPwd()) return;
+                    if (!(await checkPwd())) return;
                     if (!window.confirm("Annuler la transmission AC ?")) return;
                     setSaving(true);
                     try { await updateDoc(doc(db, 'ops', op.id), { statut: 'VISE_CF', dateTransmissionAC: null, bordereauAC: null, updatedAt: new Date().toISOString() }); alert('Annulée.'); setDrawerPaiement(null); } catch (e) { alert('Erreur : ' + e.message); }
                     setSaving(false);
-                  }} disabled={saving} style={{ width: '100%', padding: 10, border: '1px solid #ffe0b2', borderRadius: 8, background: '#fff3e0', color: '#e65100', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>↩ Annuler la transmission AC</button>
+                  }} disabled={saving} style={{ width: '100%', padding: 10, border: `1px solid ${P.orange}30`, borderRadius: 10, background: `${P.orange}08`, color: P.orange, fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{Ic.undo(P.orange)} Annuler la transmission AC</button>
                 </div>}
 
                 {/* Archiver */}
@@ -1162,6 +1177,33 @@ const PageBordereaux = () => {
                 </div>}
               </>;
             })()}
+          </div>
+        </div>
+      </>}
+
+      {/* ===== MODALE MOT DE PASSE ===== */}
+      {pwdModal && <>
+        <div onClick={handlePwdCancel} style={{ position: 'fixed', inset: 0, background: 'rgba(34,51,0,0.3)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: P.bgCard, borderRadius: 16, width: 380, boxShadow: '0 16px 48px rgba(34,51,0,0.18)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: `1px solid ${P.bgSection}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${P.orange}12`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Ic.shield(P.orange, 20)}</div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: P.sidebarDark }}>Confirmation requise</h3>
+                <p style={{ margin: 0, fontSize: 12, color: P.labelMuted }}>Saisissez le mot de passe administrateur</p>
+              </div>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <input type="password" value={pwdInput} onChange={e => { setPwdInput(e.target.value); setPwdError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') handlePwdSubmit(); if (e.key === 'Escape') handlePwdCancel(); }}
+                placeholder="Mot de passe..."
+                autoFocus
+                style={{ width: '100%', padding: '12px 14px', border: `2px solid ${pwdError ? P.red : P.bgSection}`, borderRadius: 10, fontSize: 14, background: P.inputBg, boxSizing: 'border-box', outline: 'none' }} />
+              {pwdError && <div style={{ marginTop: 8, padding: '8px 12px', background: '#ffebee', borderRadius: 8, fontSize: 12, color: P.red, fontWeight: 600 }}>{pwdError}</div>}
+              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                <button onClick={handlePwdCancel} style={{ flex: 1, padding: '12px', border: `1.5px solid ${P.bgSection}`, borderRadius: 10, background: P.bgCard, color: P.labelMuted, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Annuler</button>
+                <button onClick={handlePwdSubmit} style={{ flex: 1, padding: '12px', border: 'none', borderRadius: 10, background: P.olive, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: `0 2px 8px ${P.olive}30` }}>Confirmer</button>
+              </div>
+            </div>
           </div>
         </div>
       </>}
