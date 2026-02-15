@@ -54,27 +54,27 @@ const PageListeOP = () => {
 
   // Couleurs par type
   const typeColors = {
-    PROVISOIRE: '#ff9800',
-    DIRECT: '#2196f3',
-    DEFINITIF: '#4caf50',
-    ANNULATION: '#f44336'
+    PROVISOIRE: '#F2B635',
+    DIRECT: '#E45C10',
+    DEFINITIF: '#2e7d32',
+    ANNULATION: '#c62828'
   };
 
   // Couleurs par statut
   const statutConfig = {
-    EN_COURS: { bg: '#e3f2fd', color: '#1565c0', label: 'En cours', icon: '🔵' },
-    TRANSMIS_CF: { bg: '#fff3e0', color: '#e65100', label: 'Transmis CF', icon: '📤' },
-    DIFFERE_CF: { bg: '#fff8e1', color: '#f9a825', label: 'Différé CF', icon: '⏸️' },
-    RETOURNE_CF: { bg: '#e1f5fe', color: '#0277bd', label: 'Retourné CF', icon: '↩️' },
-    VISE_CF: { bg: '#e8f5e9', color: '#2e7d32', label: 'Visé CF', icon: '✅' },
-    REJETE_CF: { bg: '#ffebee', color: '#c62828', label: 'Rejeté CF', icon: '❌' },
-    TRANSMIS_AC: { bg: '#f3e5f5', color: '#7b1fa2', label: 'Transmis AC', icon: '📤' },
-    DIFFERE_AC: { bg: '#fff8e1', color: '#f9a825', label: 'Différé AC', icon: '⏸️' },
-    RETOURNE_AC: { bg: '#e1f5fe', color: '#0277bd', label: 'Retourné AC', icon: '↩️' },
-    PAYE_PARTIEL: { bg: '#fff3e0', color: '#ef6c00', label: 'Payé partiel', icon: '💰' },
-    PAYE: { bg: '#e0f2f1', color: '#00695c', label: 'Payé', icon: '💰' },
-    REJETE_AC: { bg: '#ffebee', color: '#c62828', label: 'Rejeté AC', icon: '❌' },
-    ARCHIVE: { bg: '#eceff1', color: '#546e7a', label: 'Archivé', icon: '📦' }
+    EN_COURS: { bg: '#E8F0D8', color: '#4B5D16', label: 'En cours', icon: '' },
+    TRANSMIS_CF: { bg: '#E45C1015', color: '#E45C10', label: 'Transmis CF', icon: '' },
+    DIFFERE_CF: { bg: '#F2B63520', color: '#b8860b', label: 'Différé CF', icon: '' },
+    RETOURNE_CF: { bg: '#0277bd15', color: '#0277bd', label: 'Retourné CF', icon: '' },
+    VISE_CF: { bg: '#E8F0D8', color: '#2e7d32', label: 'Visé CF', icon: '' },
+    REJETE_CF: { bg: '#c6282815', color: '#c62828', label: 'Rejeté CF', icon: '' },
+    TRANSMIS_AC: { bg: '#7b1fa215', color: '#7b1fa2', label: 'Transmis AC', icon: '' },
+    DIFFERE_AC: { bg: '#F2B63520', color: '#b8860b', label: 'Différé AC', icon: '' },
+    RETOURNE_AC: { bg: '#0277bd15', color: '#0277bd', label: 'Retourné AC', icon: '' },
+    PAYE_PARTIEL: { bg: '#E45C1015', color: '#ef6c00', label: 'Payé partiel', icon: '' },
+    PAYE: { bg: '#00695c15', color: '#00695c', label: 'Payé', icon: '' },
+    REJETE_AC: { bg: '#c6282815', color: '#c62828', label: 'Rejeté AC', icon: '' },
+    ARCHIVE: { bg: '#F6F4F1', color: '#8A7D6B', label: 'Archivé', icon: '' }
   };
 
   // === CONSTRUCTION DE LA FRISE DU CIRCUIT ===
@@ -485,14 +485,14 @@ const PageListeOP = () => {
       warningMsg += ` Le budget de ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire} sera libéré.`;
     }
     if (['TRANSMIS_CF', 'VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE'].includes(op.statut)) {
-      warningMsg += ` ⚠️ Attention : cet OP est déjà en cours de traitement !`;
+      warningMsg += ` Attention : cet OP est déjà en cours de traitement !`;
     }
     
     setShowPasswordModal({
       title: 'Supprimer un OP',
       description: `Supprimer définitivement l'OP ${op.numero} (${statutConfig[op.statut]?.label || op.statut}) ?`,
       warningMessage: warningMsg,
-      confirmText: '🗑️ Confirmer la suppression',
+      confirmText: 'Confirmer la suppression',
       confirmColor: '#c62828',
       action: async () => {
         try {
@@ -542,7 +542,7 @@ const PageListeOP = () => {
         title: `Changer le statut en ${statutConfig[nouveauStatut]?.label}`,
         description: `L'OP ${op.numero} sera marqué comme rejeté.`,
         warningMessage: `Le rejet va libérer ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire}.`,
-        confirmText: '✓ Confirmer',
+        confirmText: 'Confirmer',
         confirmColor: '#c62828',
         action: async () => {
           await saveStatutChange(op, nouveauStatut, date, motif);
@@ -670,8 +670,8 @@ const PageListeOP = () => {
         title: 'Confirmer les modifications',
         description: `Modification de l'OP ${op.numero}`,
         warningMessage: warningMsg,
-        confirmText: '✓ Confirmer la modification',
-        confirmColor: '#f57f17',
+        confirmText: 'Confirmer la modification',
+        confirmColor: '#F2B635',
         action: async () => {
           await saveEditChanges(op);
           setShowPasswordModal(null);
@@ -795,7 +795,7 @@ const PageListeOP = () => {
         title: `Rejeter l'OP ${op.numero}`,
         description: `L'OP sera marqué comme rejeté par le ${nouveauStatut === 'REJETE_CF' ? 'CF' : 'AC'}.`,
         warningMessage: `Le rejet va libérer ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire}.`,
-        confirmText: '❌ Confirmer le rejet',
+        confirmText: 'Confirmer le rejet',
         confirmColor: '#c62828',
         action: async () => {
           await saveCircuitChanges(op);
@@ -847,14 +847,14 @@ const PageListeOP = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f4c3a" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: '#E8F0D8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B5D16" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
           </div>
-          <h1 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: '#0f4c3a' }}>Liste des Ordres de Paiement</h1>
+          <h1 style={{ fontSize: 19, fontWeight: 800, margin: 0, color: '#223300' }}>Liste des Ordres de Paiement</h1>
           {currentExercice && (
             <span style={{ 
-              background: showAnterieur ? '#fff3e0' : '#e8f5e9', 
-              color: showAnterieur ? '#e65100' : '#2e7d32', 
+              background: showAnterieur ? '#F2B63520' : '#E8F0D8', 
+              color: showAnterieur ? '#E45C10' : '#4B5D16', 
               padding: '4px 14px', 
               borderRadius: 20, 
               fontWeight: 700,
@@ -865,11 +865,11 @@ const PageListeOP = () => {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleExport} style={{ padding: '8px 16px', borderRadius: 9, border: '1.5px solid #e0e4e8', background: '#fff', fontSize: 12, fontWeight: 600, color: '#2e7d32', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <button onClick={handleExport} style={{ padding: '8px 16px', borderRadius: 9, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FDFCFA', fontSize: 12, fontWeight: 600, color: '#4B5D16', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4B5D16" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export Excel
           </button>
-          <button onClick={() => setCurrentPage('nouvelOp')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: '#0f4c3a', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => setCurrentPage('nouvelOp')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: '#4B5D16', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nouvel OP
           </button>
@@ -877,8 +877,8 @@ const PageListeOP = () => {
       </div>
 
       {/* Sélecteur d'exercice */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, padding: '9px 14px', background: '#fff', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontWeight: 500, color: '#666' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, padding: '9px 14px', background: '#FDFCFA', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontWeight: 500, color: '#8A7D6B' }}>
           <input 
             type="checkbox" 
             checked={showAnterieur}
@@ -886,7 +886,7 @@ const PageListeOP = () => {
               setShowAnterieur(e.target.checked);
               if (!e.target.checked) setSelectedExercice(exerciceActif?.id);
             }}
-            style={{ width: 16, height: 16, accentColor: '#0f4c3a' }}
+            style={{ width: 16, height: 16, accentColor: '#4B5D16' }}
           />
           Exercices antérieurs
         </label>
@@ -894,7 +894,7 @@ const PageListeOP = () => {
           <select
             value={selectedExercice || ''}
             onChange={(e) => setSelectedExercice(e.target.value)}
-            style={{ padding: '5px 10px', borderRadius: 8, border: '1.5px solid #e0e4e8', fontSize: 12, width: 140, background: '#fafbfc', fontFamily: 'inherit', outline: 'none' }}
+            style={{ padding: '5px 10px', borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', fontSize: 12, width: 140, background: '#FFFDF5', fontFamily: 'inherit', outline: 'none' }}
           >
             {exercices.map(ex => (
               <option key={ex.id} value={ex.id}>
@@ -904,8 +904,9 @@ const PageListeOP = () => {
           </select>
         )}
         {showAnterieur && (
-          <span style={{ fontSize: 11, color: '#e65100', fontStyle: 'italic' }}>
-            ⚠️ Consultation seule
+          <span style={{ fontSize: 11, color: '#E45C10', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E45C10" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Consultation seule
           </span>
         )}
       </div>
@@ -924,7 +925,7 @@ const PageListeOP = () => {
               padding: '8px 14px',
               borderRadius: 9,
               border: 'none',
-              background: activeTab === tab.key ? '#0f4c3a' : '#fff',
+              background: activeTab === tab.key ? '#4B5D16' : '#fff',
               color: activeTab === tab.key ? 'white' : '#666',
               fontWeight: 600,
               fontSize: 12,
@@ -932,12 +933,12 @@ const PageListeOP = () => {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              boxShadow: activeTab === tab.key ? '0 2px 8px rgba(15,76,58,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: activeTab === tab.key ? '0 2px 8px rgba(75,93,22,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
               transition: 'all 0.15s'
             }}
           >
             {tab.icon} {tab.label} <span style={{ 
-              background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#f0f0f0',
+              background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#ECE2CE',
               padding: '1px 7px',
               borderRadius: 20,
               fontSize: 10,
@@ -955,9 +956,9 @@ const PageListeOP = () => {
           style={{
             padding: '8px 14px',
             borderRadius: 9,
-            border: '1.5px dashed #1565c0',
-            background: '#e3f2fd',
-            color: '#1565c0',
+            border: '1.5px dashed #E45C10',
+            background: '#E45C1008',
+            color: '#E45C10',
             fontWeight: 600,
             fontSize: 12,
             cursor: 'pointer',
@@ -967,21 +968,21 @@ const PageListeOP = () => {
             marginLeft: 'auto'
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1565c0" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E45C10" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Importer des OP
         </button>
       </div>
 
       {/* Onglets sources */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid #e2ecec' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid #ECE2CE' }}>
         <button
           onClick={() => setActiveSource('ALL')}
           style={{
             padding: '10px 18px',
             border: 'none',
-            borderBottom: activeSource === 'ALL' ? '3px solid #0f4c3a' : '3px solid transparent',
+            borderBottom: activeSource === 'ALL' ? '3px solid #4B5D16' : '3px solid transparent',
             background: 'transparent',
-            color: activeSource === 'ALL' ? '#0f4c3a' : '#999',
+            color: activeSource === 'ALL' ? '#4B5D16' : '#999',
             fontWeight: 700,
             fontSize: 12.5,
             cursor: 'pointer',
@@ -1017,10 +1018,10 @@ const PageListeOP = () => {
       </div>
 
       {/* Filtres */}
-      <div style={{ background: '#fff', padding: '12px 16px', borderRadius: 12, marginBottom: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+      <div style={{ background: '#FDFCFA', padding: '12px 16px', borderRadius: 12, marginBottom: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 130px 150px 105px 105px', gap: 10, alignItems: 'end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8aafaf', textTransform: 'uppercase', letterSpacing: 0.8 }}>Recherche</label>
+            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Recherche</label>
             <div style={{ position: 'relative' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
@@ -1028,16 +1029,16 @@ const PageListeOP = () => {
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 placeholder="N°, bénéficiaire, objet..."
-                style={{ ...styles.input, marginBottom: 0, paddingLeft: 28, borderRadius: 8, border: '1.5px solid #e0e4e8', background: '#fafbfc', fontSize: 12 }}
+                style={{ ...styles.input, marginBottom: 0, paddingLeft: 28, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
               />
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8aafaf', textTransform: 'uppercase', letterSpacing: 0.8 }}>Type</label>
+            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Type</label>
             <select
               value={filters.type}
               onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid #e0e4e8', background: '#fafbfc', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
             >
               <option value="">Tous</option>
               <option value="PROVISOIRE">Provisoire</option>
@@ -1047,11 +1048,11 @@ const PageListeOP = () => {
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8aafaf', textTransform: 'uppercase', letterSpacing: 0.8 }}>Statut</label>
+            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Statut</label>
             <select
               value={filters.statut}
               onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid #e0e4e8', background: '#fafbfc', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
             >
               <option value="">Tous</option>
               {Object.entries(statutConfig).map(([key, val]) => (
@@ -1060,13 +1061,13 @@ const PageListeOP = () => {
             </select>
           </div>
           <div style={{ position: 'relative' }}>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8aafaf', textTransform: 'uppercase', letterSpacing: 0.8 }}>Ligne budgétaire</label>
+            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Ligne budgétaire</label>
             <input
               type="text"
               placeholder="Rechercher / Filtrer..."
               value={filters.ligneBudgetaire}
               onChange={(e) => setFilters({ ...filters, ligneBudgetaire: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid #e0e4e8', background: '#fafbfc', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
               list="lignesBudgetairesList"
             />
             <datalist id="lignesBudgetairesList">
@@ -1076,46 +1077,46 @@ const PageListeOP = () => {
             </datalist>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8aafaf', textTransform: 'uppercase', letterSpacing: 0.8 }}>Du</label>
+            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Du</label>
             <input
               type="date"
               value={filters.dateDebut}
               onChange={(e) => setFilters({ ...filters, dateDebut: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid #e0e4e8', background: '#fafbfc', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8aafaf', textTransform: 'uppercase', letterSpacing: 0.8 }}>Au</label>
+            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.8 }}>Au</label>
             <input
               type="date"
               value={filters.dateFin}
               onChange={(e) => setFilters({ ...filters, dateFin: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid #e0e4e8', background: '#fafbfc', fontSize: 12 }}
+              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFDF5', fontSize: 12 }}
             />
           </div>
         </div>
       </div>
 
       {/* Tableau */}
-      <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
-        <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f4f4' }}>
-          <span style={{ fontSize: 12, color: '#8aafaf' }}>
-            <strong style={{ color: '#0f4c3a' }}>{totaux.count}</strong> OP — Montant : <strong style={{ color: '#0c3d4d', fontFamily: 'monospace' }}>{formatMontant(totaux.montant)}</strong>
+      <div style={{ background: '#FDFCFA', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
+        <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F6F4F1' }}>
+          <span style={{ fontSize: 12, color: '#8A7D6B' }}>
+            <strong style={{ color: '#4B5D16' }}>{totaux.count}</strong> OP — Montant : <strong style={{ color: '#223300', fontFamily: 'monospace' }}>{formatMontant(totaux.montant)}</strong>
             {totaux.paye > 0 && <> — Payé : <strong style={{ color: '#00695c', fontFamily: 'monospace' }}>{formatMontant(totaux.paye)}</strong></>}
           </span>
           {(filters.type || filters.statut || filters.search || filters.ligneBudgetaire || filters.dateDebut || filters.dateFin) && (
             <button 
               onClick={() => setFilters({ type: '', statut: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '' })}
-              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #e0e4e8', background: '#fafafa', fontSize: 11, color: '#999', cursor: 'pointer' }}
+              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(34,51,0,0.08)', background: '#F6F4F1', fontSize: 11, color: '#999', cursor: 'pointer' }}
             >
-              ✕ Effacer filtres
+              Effacer filtres
             </button>
           )}
         </div>
 
         {filteredOps.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>
-            <div style={{ fontSize: 44, marginBottom: 12 }}>📭</div>
+          <div style={{ textAlign: 'center', padding: 60, color: '#8A7D6B' }}>
+            <div style={{ marginBottom: 12, opacity: 0.4 }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#8A7D6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg></div>
             <div style={{ fontSize: 13 }}>Aucun OP trouvé</div>
           </div>
         ) : (
@@ -1123,19 +1124,19 @@ const PageListeOP = () => {
             <table style={styles.table}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
-                  {activeSource === 'ALL' && <th style={{ ...styles.th, width: 55, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Source</th>}
-                  <th style={{ ...styles.th, width: 140, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>N° OP</th>
-                  <th style={{ ...styles.th, width: 70, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Type</th>
-                  <th style={{ ...styles.th, width: 140, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Bénéficiaire</th>
-                  <th style={{ ...styles.th, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Objet</th>
-                  <th style={{ ...styles.th, width: 60, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Ligne</th>
-                  <th style={{ ...styles.th, width: 95, textAlign: 'right', background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Dotation</th>
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Montant</th>
-                  {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 70, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Ancienneté</th>}
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Eng. ant.</th>
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Disponible</th>
-                  <th style={{ ...styles.th, width: 95, background: '#f5fafa', color: '#8aafaf', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #e2ecec' }}>Statut</th>
-                  <th style={{ ...styles.th, width: 38, textAlign: 'center', background: '#f5fafa', borderBottom: '2px solid #e2ecec' }}></th>
+                  {activeSource === 'ALL' && <th style={{ ...styles.th, width: 55, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Source</th>}
+                  <th style={{ ...styles.th, width: 140, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>N° OP</th>
+                  <th style={{ ...styles.th, width: 70, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Type</th>
+                  <th style={{ ...styles.th, width: 140, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Bénéficiaire</th>
+                  <th style={{ ...styles.th, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Objet</th>
+                  <th style={{ ...styles.th, width: 60, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Ligne</th>
+                  <th style={{ ...styles.th, width: 95, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Dotation</th>
+                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Montant</th>
+                  {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 70, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Ancienneté</th>}
+                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Eng. ant.</th>
+                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Disponible</th>
+                  <th style={{ ...styles.th, width: 95, background: '#F6F4F1', color: '#8A7D6B', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.8, borderBottom: '2px solid #ECE2CE' }}>Statut</th>
+                  <th style={{ ...styles.th, width: 38, textAlign: 'center', background: '#F6F4F1', borderBottom: '2px solid #ECE2CE' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1145,8 +1146,8 @@ const PageListeOP = () => {
                   const isRejet = op.isRejetLine;
                   
                   const statutObj = isRejet
-                    ? { bg: '#ffebee', color: '#c62828', label: 'Rejet', icon: '↩' }
-                    : (statutConfig[op.statut] || { bg: '#f5f5f5', color: '#666', label: op.statut });
+                    ? { bg: '#c6282815', color: '#c62828', label: 'Rejet', icon: '↩' }
+                    : (statutConfig[op.statut] || { bg: '#F6F4F1', color: '#666', label: op.statut });
                   const anciennete = getAnciennete(op.dateCreation);
                   
                   // Dotation sauvegardée au moment de la création de l'OP
@@ -1161,9 +1162,9 @@ const PageListeOP = () => {
                   }
                   
                   return (
-                    <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: isRejet ? 'default' : 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#f0faf8' : 'transparent', transition: 'background 0.1s' }} onClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
+                    <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: isRejet ? 'default' : 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#E8F0D8' : 'transparent', transition: 'background 0.1s' }} onClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
                       {activeSource === 'ALL' && (
-                        <td style={{ ...styles.td, borderBottom: '1px solid #f0f4f4' }}>
+                        <td style={{ ...styles.td, borderBottom: '1px solid #F6F4F1' }}>
                           <span style={{ 
                             background: source?.couleur || '#666', 
                             color: 'white', 
@@ -1176,12 +1177,12 @@ const PageListeOP = () => {
                           </span>
                         </td>
                       )}
-                      <td style={{ ...styles.td, fontFamily: '"SF Mono","Fira Code",monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#c62828' : '#0c3d4d', borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, fontFamily: '"SF Mono","Fira Code",monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#c62828' : '#223300', borderBottom: '1px solid #F6F4F1' }}>
                         {isRejet ? op.displayNumero : op.numero}
                       </td>
-                      <td style={{ ...styles.td, borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, borderBottom: '1px solid #F6F4F1' }}>
                         <span style={{
-                          background: isRejet ? '#ffebee' : `${typeColors[op.type]}18`,
+                          background: isRejet ? '#c6282815' : `${typeColors[op.type]}18`,
                           color: isRejet ? '#c62828' : typeColors[op.type],
                           padding: '2px 7px',
                           borderRadius: 4,
@@ -1192,22 +1193,22 @@ const PageListeOP = () => {
                           {isRejet ? 'REJET' : op.type}
                         </span>
                       </td>
-                      <td style={{ ...styles.td, fontSize: 11, fontWeight: 500, color: '#333', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderBottom: '1px solid #f0f4f4' }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
-                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#8aafaf', borderBottom: '1px solid #f0f4f4' }} title={op.objet}>
+                      <td style={{ ...styles.td, fontSize: 11, fontWeight: 500, color: '#333', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderBottom: '1px solid #F6F4F1' }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
+                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#8A7D6B', borderBottom: '1px solid #F6F4F1' }} title={op.objet}>
                         {op.objet || '-'}
                       </td>
-                      <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace', color: '#666', borderBottom: '1px solid #f0f4f4' }}>{op.ligneBudgetaire || '-'}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5, color: '#999', borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace', color: '#666', borderBottom: '1px solid #F6F4F1' }}>{op.ligneBudgetaire || '-'}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5, color: '#999', borderBottom: '1px solid #F6F4F1' }}>
                         {formatMontant(dotationLigne)}
                       </td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: isRejet ? '#c62828' : '#0c3d4d', borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: isRejet ? '#c62828' : '#223300', borderBottom: '1px solid #F6F4F1' }}>
                         {isRejet ? '-' + formatMontant(op.montant) : formatMontant(op.montant)}
                       </td>
                       {activeTab === 'A_REGULARISER' && (
-                        <td style={{ ...styles.td, borderBottom: '1px solid #f0f4f4' }}>
+                        <td style={{ ...styles.td, borderBottom: '1px solid #F6F4F1' }}>
                           <span style={{
-                            background: anciennete > 30 ? '#ffebee' : anciennete > 15 ? '#fff3e0' : '#e8f5e9',
-                            color: anciennete > 30 ? '#c62828' : anciennete > 15 ? '#e65100' : '#2e7d32',
+                            background: anciennete > 30 ? '#c6282815' : anciennete > 15 ? '#F2B63520' : '#E8F0D8',
+                            color: anciennete > 30 ? '#c62828' : anciennete > 15 ? '#E45C10' : '#2e7d32',
                             padding: '2px 8px',
                             borderRadius: 4,
                             fontSize: 10.5,
@@ -1217,13 +1218,13 @@ const PageListeOP = () => {
                           </span>
                         </td>
                       )}
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 10.5, color: '#666', borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 10.5, color: '#666', borderBottom: '1px solid #F6F4F1' }}>
                         {formatMontant(op.engagementAnterieur || 0)}
                       </td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32', borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: (op.disponible || 0) < 0 ? '#c62828' : '#2e7d32', borderBottom: '1px solid #F6F4F1' }}>
                         {formatMontant(op.disponible)}
                       </td>
-                      <td style={{ ...styles.td, borderBottom: '1px solid #f0f4f4' }}>
+                      <td style={{ ...styles.td, borderBottom: '1px solid #F6F4F1' }}>
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -1240,15 +1241,15 @@ const PageListeOP = () => {
                           {statutObj.label}
                         </span>
                       </td>
-                      <td style={{ ...styles.td, textAlign: 'center', padding: '8px 4px', borderBottom: '1px solid #f0f4f4' }} onClick={(e) => e.stopPropagation()}>
+                      <td style={{ ...styles.td, textAlign: 'center', padding: '8px 4px', borderBottom: '1px solid #F6F4F1' }} onClick={(e) => e.stopPropagation()}>
                         {!isRejet && <button
                           onClick={() => setDrawerOp(op)}
                           title="Aperçu du circuit"
                           style={{
                             width: 28, height: 28, borderRadius: 7,
-                            border: drawerOp?.id === op.id ? 'none' : '1.5px solid #d1e0e0',
-                            background: drawerOp?.id === op.id ? '#0891b2' : 'white',
-                            color: drawerOp?.id === op.id ? 'white' : '#8aafaf',
+                            border: drawerOp?.id === op.id ? 'none' : '1.5px solid #ECE2CE',
+                            background: drawerOp?.id === op.id ? '#4B5D16' : 'white',
+                            color: drawerOp?.id === op.id ? 'white' : '#8A7D6B',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             cursor: 'pointer', transition: 'all 0.15s', padding: 0
                           }}
@@ -1269,12 +1270,12 @@ const PageListeOP = () => {
       {showImportModal && (
         <div style={styles.modal} onClick={() => { setShowImportModal(false); setImportData([]); setImportError(''); }}>
           <div style={{ ...styles.modalContent, maxWidth: 900 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #e9ecef', background: '#1565c0', color: 'white' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>📥 Importer des OP depuis Excel/CSV</h2>
+            <div style={{ padding: 20, borderBottom: '1px solid #ECE2CE', background: '#E45C10', color: 'white' }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>Importer des OP depuis Excel/CSV</h2>
             </div>
             <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
-              <div style={{ marginBottom: 20, padding: 16, background: '#e3f2fd', borderRadius: 8, fontSize: 13 }}>
-                <strong>📋 Format attendu (colonnes) :</strong><br/>
+              <div style={{ marginBottom: 20, padding: 16, background: '#E45C1010', borderRadius: 8, fontSize: 13 }}>
+                <strong>Format attendu (colonnes) :</strong><br/>
                 Type | Bénéficiaire (NCC) | Objet | Ligne Budgétaire | Montant | Date Création
               </div>
               
@@ -1336,8 +1337,8 @@ const PageListeOP = () => {
               />
               
               {importError && (
-                <div style={{ padding: 12, background: '#ffebee', color: '#c62828', borderRadius: 6, marginBottom: 16 }}>
-                  ⚠️ {importError}
+                <div style={{ padding: 12, background: '#c6282815', color: '#c62828', borderRadius: 6, marginBottom: 16 }}>
+                  {importError}
                 </div>
               )}
               
@@ -1373,9 +1374,9 @@ const PageListeOP = () => {
                             <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(d.montant)}</td>
                             <td style={styles.td}>
                               {d.valid ? (
-                                <span style={{ color: '#2e7d32', fontSize: 12 }}>✓ OK</span>
+                                <span style={{ color: '#2e7d32', fontSize: 12 }}>OK</span>
                               ) : (
-                                <span style={{ color: '#c62828', fontSize: 11 }}>⚠️ {d.error}</span>
+                                <span style={{ color: '#c62828', fontSize: 11 }}>{d.error}</span>
                               )}
                             </td>
                           </tr>
@@ -1433,7 +1434,7 @@ const PageListeOP = () => {
                             await addDoc(collection(db, 'ops'), opData);
                           }
                           
-                          alert(`✅ ${validOps.length} OP importés avec succès !`);
+                          alert(`${validOps.length} OP importés avec succès !`);
                           setShowImportModal(false);
                           setImportData([]);
                         } catch (err) {
@@ -1443,7 +1444,7 @@ const PageListeOP = () => {
                       disabled={importData.filter(d => d.valid).length === 0}
                       style={{ ...styles.button, background: importData.filter(d => d.valid).length === 0 ? '#ccc' : '#2e7d32' }}
                     >
-                      ✓ Importer {importData.filter(d => d.valid).length} OP
+                      Importer {importData.filter(d => d.valid).length} OP
                     </button>
                   </div>
                 </>
@@ -1457,8 +1458,8 @@ const PageListeOP = () => {
       {showDetail && (
         <div style={styles.modal} onClick={() => setShowDetail(null)}>
           <div style={{ ...styles.modalContent, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: sources.find(s => s.id === showDetail.sourceId)?.couleur || '#0f4c3a', color: 'white' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>📋 {showDetail.numero}</h2>
+            <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: sources.find(s => s.id === showDetail.sourceId)?.couleur || '#4B5D16', color: 'white' }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>{showDetail.numero}</h2>
             </div>
             <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
               {(() => {
@@ -1549,8 +1550,8 @@ const PageListeOP = () => {
                     </div>
                     
                     {/* Section Budget / Engagements */}
-                    <div style={{ background: '#e3f2fd', padding: 16, borderRadius: 8 }}>
-                      <label style={{ fontSize: 11, color: '#1565c0', fontWeight: 600, marginBottom: 12, display: 'block' }}>📊 SITUATION BUDGÉTAIRE (Ligne {showDetail.ligneBudgetaire})</label>
+                    <div style={{ background: '#E45C1010', padding: 16, borderRadius: 8 }}>
+                      <label style={{ fontSize: 11, color: '#E45C10', fontWeight: 600, marginBottom: 12, display: 'block' }}>📊 SITUATION BUDGÉTAIRE (Ligne {showDetail.ligneBudgetaire})</label>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
                         <div>
                           <div style={{ color: '#6c757d', fontSize: 11 }}>Dotation</div>
@@ -1558,7 +1559,7 @@ const PageListeOP = () => {
                         </div>
                         <div>
                           <div style={{ color: '#6c757d', fontSize: 11 }}>Engagements antérieurs</div>
-                          <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#e65100' }}>{formatMontant(engagementsAnterieurs)}</div>
+                          <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#E45C10' }}>{formatMontant(engagementsAnterieurs)}</div>
                         </div>
                         <div>
                           <div style={{ color: '#6c757d', fontSize: 11 }}>Disponible avant cet OP</div>
@@ -1586,7 +1587,7 @@ const PageListeOP = () => {
                         </div>
                         <div>
                           <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>RESTE</label>
-                          <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: (showDetail.montant - (showDetail.totalPaye || 0)) > 0 ? '#e65100' : '#2e7d32' }}>
+                          <div style={{ marginTop: 4, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: (showDetail.montant - (showDetail.totalPaye || 0)) > 0 ? '#E45C10' : '#2e7d32' }}>
                             {formatMontant(showDetail.montant - (showDetail.totalPaye || 0))}
                           </div>
                         </div>
@@ -1594,12 +1595,12 @@ const PageListeOP = () => {
                     </div>
                     
                     {/* Dates du circuit */}
-                    <div style={{ background: '#fafafa', padding: 16, borderRadius: 8 }}>
+                    <div style={{ background: '#F6F4F1', padding: 16, borderRadius: 8 }}>
                       <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600, marginBottom: 12, display: 'block' }}>📅 SUIVI DU CIRCUIT</label>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, fontSize: 12 }}>
                         {/* Colonne CF */}
-                        <div style={{ background: '#fff3e0', padding: 12, borderRadius: 6 }}>
-                          <div style={{ fontWeight: 600, color: '#e65100', marginBottom: 8 }}>Contrôleur Financier</div>
+                        <div style={{ background: '#F2B63520', padding: 12, borderRadius: 6 }}>
+                          <div style={{ fontWeight: 600, color: '#E45C10', marginBottom: 8 }}>Contrôleur Financier</div>
                           <div style={{ display: 'grid', gap: 6 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <span style={{ color: '#6c757d', fontSize: 10 }}>Transmission</span>
@@ -1619,7 +1620,7 @@ const PageListeOP = () => {
                         </div>
                         
                         {/* Colonne AC */}
-                        <div style={{ background: '#f3e5f5', padding: 12, borderRadius: 6 }}>
+                        <div style={{ background: '#7b1fa215', padding: 12, borderRadius: 6 }}>
                           <div style={{ fontWeight: 600, color: '#7b1fa2', marginBottom: 8 }}>Agent Comptable</div>
                           <div style={{ display: 'grid', gap: 6 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1642,8 +1643,8 @@ const PageListeOP = () => {
                       
                       {/* Ligne Archivage */}
                       {(showDetail.dateArchivage || showDetail.boiteArchive) && (
-                        <div style={{ marginTop: 12, background: '#eceff1', padding: 12, borderRadius: 6 }}>
-                          <div style={{ fontWeight: 600, color: '#546e7a', marginBottom: 8 }}>📦 Archivage</div>
+                        <div style={{ marginTop: 12, background: '#F6F4F1', padding: 12, borderRadius: 6 }}>
+                          <div style={{ fontWeight: 600, color: '#8A7D6B', marginBottom: 8 }}>Archivage</div>
                           <div style={{ display: 'flex', gap: 24 }}>
                             <div>
                               <span style={{ color: '#6c757d', fontSize: 10 }}>Date : </span>
@@ -1687,8 +1688,8 @@ const PageListeOP = () => {
 
                     {/* Motif retour */}
                     {(showDetail.statut === 'RETOURNE_CF' || showDetail.statut === 'RETOURNE_AC') && (
-                      <div style={{ background: '#e1f5fe', padding: 16, borderRadius: 8 }}>
-                        <label style={{ fontSize: 11, color: '#0277bd', fontWeight: 600 }}>↩️ MOTIF DU RETOUR</label>
+                      <div style={{ background: '#0277bd15', padding: 16, borderRadius: 8 }}>
+                        <label style={{ fontSize: 11, color: '#0277bd', fontWeight: 600 }}>MOTIF DU RETOUR</label>
                         <div style={{ marginTop: 4 }}>{showDetail.motifRetourCF || showDetail.motifRetourAC}</div>
                         <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
                           Date: {showDetail.dateRetourCF || showDetail.dateRetourAC}
@@ -1698,8 +1699,8 @@ const PageListeOP = () => {
 
                     {/* Motif différé */}
                     {(showDetail.statut === 'DIFFERE_CF' || showDetail.statut === 'DIFFERE_AC') && (
-                      <div style={{ background: '#fff8e1', padding: 16, borderRadius: 8 }}>
-                        <label style={{ fontSize: 11, color: '#f9a825', fontWeight: 600 }}>⏸️ MOTIF DU DIFFÉRÉ</label>
+                      <div style={{ background: '#F2B63520', padding: 16, borderRadius: 8 }}>
+                        <label style={{ fontSize: 11, color: '#f9a825', fontWeight: 600 }}>MOTIF DU DIFFÉRÉ</label>
                         <div style={{ marginTop: 4 }}>{showDetail.motifDiffereCF || showDetail.motifDiffereAC}</div>
                         <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>
                           Date: {showDetail.dateDiffereCF || showDetail.dateDiffereAC}
@@ -1709,8 +1710,8 @@ const PageListeOP = () => {
 
                     {/* Motif rejet */}
                     {(showDetail.statut === 'REJETE_CF' || showDetail.statut === 'REJETE_AC') && showDetail.motifRejet && (
-                      <div style={{ background: '#ffebee', padding: 16, borderRadius: 8 }}>
-                        <label style={{ fontSize: 11, color: '#c62828', fontWeight: 600 }}>❌ MOTIF DU REJET</label>
+                      <div style={{ background: '#c6282815', padding: 16, borderRadius: 8 }}>
+                        <label style={{ fontSize: 11, color: '#c62828', fontWeight: 600 }}>MOTIF DU REJET</label>
                         <div style={{ marginTop: 4, color: '#c62828' }}>{showDetail.motifRejet}</div>
                         <div style={{ fontSize: 12, color: '#c62828', marginTop: 4 }}>
                           Date: {showDetail.dateRejet} - Par: {showDetail.rejetePar}
@@ -1725,19 +1726,19 @@ const PageListeOP = () => {
                 );
               })()}
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button 
                   onClick={() => { handleOpenEdit(showDetail); setShowDetail(null); }} 
-                  style={{ ...styles.buttonSecondary, background: '#fff8e1', color: '#f57f17' }}
+                  style={{ ...styles.buttonSecondary, background: '#F2B63520', color: '#F2B635' }}
                 >
-                  ✏️ Modifier
+                  Modifier
                 </button>
                 <button 
                   onClick={() => { handleDeleteWithPassword(showDetail); }} 
-                  style={{ ...styles.buttonSecondary, background: '#ffebee', color: '#c62828' }}
+                  style={{ ...styles.buttonSecondary, background: '#c6282815', color: '#c62828' }}
                 >
-                  🗑️ Supprimer
+                  Supprimer
                 </button>
               </div>
               <button onClick={() => setShowDetail(null)} style={styles.buttonSecondary}>Fermer</button>
@@ -1750,8 +1751,8 @@ const PageListeOP = () => {
       {showPaiementModal && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#e0f2f1' }}>
-              <h2 style={{ margin: 0, fontSize: 18, color: '#00695c' }}>💰 Enregistrer un paiement</h2>
+            <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#E8F0D8' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#00695c' }}>Enregistrer un paiement</h2>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 20 }}>
@@ -1766,7 +1767,7 @@ const PageListeOP = () => {
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Reste à payer</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#e65100' }}>{formatMontant(showPaiementModal.montant - (showPaiementModal.totalPaye || 0))}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#E45C10' }}>{formatMontant(showPaiementModal.montant - (showPaiementModal.totalPaye || 0))}</div>
                   </div>
                 </div>
               </div>
@@ -1801,10 +1802,10 @@ const PageListeOP = () => {
                 />
               </div>
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => { setShowPaiementModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' }); }} style={styles.buttonSecondary}>Annuler</button>
               <button onClick={handlePaiement} style={{ ...styles.button, background: '#00695c' }}>
-                💰 Enregistrer le paiement
+                Enregistrer le paiement
               </button>
             </div>
           </div>
@@ -1817,11 +1818,11 @@ const PageListeOP = () => {
           <div style={{ ...styles.modalContent, maxWidth: 450 }}>
             <div style={{ 
               padding: 24, 
-              borderBottom: '1px solid #e9ecef', 
-              background: showTransmissionModal.destination === 'CF' ? '#fff3e0' : '#f3e5f5' 
+              borderBottom: '1px solid #ECE2CE', 
+              background: showTransmissionModal.destination === 'CF' ? '#F2B63520' : '#7b1fa215' 
             }}>
-              <h2 style={{ margin: 0, fontSize: 18, color: showTransmissionModal.destination === 'CF' ? '#e65100' : '#7b1fa2' }}>
-                📤 Transmettre {showTransmissionModal.destination === 'CF' ? 'au CF' : 'à l\'AC'}
+              <h2 style={{ margin: 0, fontSize: 18, color: showTransmissionModal.destination === 'CF' ? '#E45C10' : '#7b1fa2' }}>
+                Transmettre {showTransmissionModal.destination === 'CF' ? 'au CF' : 'à l\'AC'}
               </h2>
               <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showTransmissionModal.op.numero}</div>
             </div>
@@ -1849,10 +1850,10 @@ const PageListeOP = () => {
                 <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - référence du bordereau de transmission</span>
               </div>
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => { setShowTransmissionModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' }); }} style={styles.buttonSecondary}>Annuler</button>
-              <button onClick={handleConfirmTransmission} style={{ ...styles.button, background: showTransmissionModal.destination === 'CF' ? '#e65100' : '#7b1fa2' }}>
-                📤 Confirmer la transmission
+              <button onClick={handleConfirmTransmission} style={{ ...styles.button, background: showTransmissionModal.destination === 'CF' ? '#E45C10' : '#7b1fa2' }}>
+                Confirmer la transmission
               </button>
             </div>
           </div>
@@ -1863,8 +1864,8 @@ const PageListeOP = () => {
       {showArchiveModal && (
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 450 }}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#eceff1' }}>
-              <h2 style={{ margin: 0, fontSize: 18, color: '#546e7a' }}>📦 Archiver l'OP</h2>
+            <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#F6F4F1' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#8A7D6B' }}>Archiver l'OP</h2>
               <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showArchiveModal.numero}</div>
             </div>
             <div style={{ padding: 24 }}>
@@ -1889,10 +1890,10 @@ const PageListeOP = () => {
                 <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - pour faciliter la recherche physique</span>
               </div>
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => { setShowArchiveModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' }); }} style={styles.buttonSecondary}>Annuler</button>
-              <button onClick={handleConfirmArchive} style={{ ...styles.button, background: '#546e7a' }}>
-                📦 Confirmer l'archivage
+              <button onClick={handleConfirmArchive} style={{ ...styles.button, background: '#8A7D6B' }}>
+                Confirmer l'archivage
               </button>
             </div>
           </div>
@@ -1903,8 +1904,8 @@ const PageListeOP = () => {
       {showStatutModal && (
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 500 }}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
-              <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>🔄 Changer le statut</h2>
+            <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#E45C1010' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#E45C10' }}>Changer le statut</h2>
               <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showStatutModal.op.numero}</div>
             </div>
             <div style={{ padding: 24 }}>
@@ -1916,16 +1917,16 @@ const PageListeOP = () => {
                   style={styles.input}
                 >
                   <option value="">-- Sélectionner --</option>
-                  <option value="TRANSMIS_CF">📤 Transmis CF</option>
-                  <option value="DIFFERE_CF">⏸️ Différé CF</option>
-                  <option value="VISE_CF">✅ Visé CF</option>
-                  <option value="REJETE_CF">❌ Rejeté CF</option>
-                  <option value="TRANSMIS_AC">📤 Transmis AC</option>
-                  <option value="DIFFERE_AC">⏸️ Différé AC</option>
-                  <option value="PAYE_PARTIEL">💰 Payé partiel</option>
-                  <option value="PAYE">💰 Payé</option>
-                  <option value="REJETE_AC">❌ Rejeté AC</option>
-                  <option value="ARCHIVE">📦 Archivé</option>
+                  <option value="TRANSMIS_CF"> Transmis CF</option>
+                  <option value="DIFFERE_CF"> Différé CF</option>
+                  <option value="VISE_CF"> Visé CF</option>
+                  <option value="REJETE_CF"> Rejeté CF</option>
+                  <option value="TRANSMIS_AC"> Transmis AC</option>
+                  <option value="DIFFERE_AC"> Différé AC</option>
+                  <option value="PAYE_PARTIEL"> Payé partiel</option>
+                  <option value="PAYE"> Payé</option>
+                  <option value="REJETE_AC"> Rejeté AC</option>
+                  <option value="ARCHIVE"> Archivé</option>
                 </select>
               </div>
               <div style={{ marginBottom: 16 }}>
@@ -1949,15 +1950,15 @@ const PageListeOP = () => {
                 </div>
               )}
               {['REJETE_CF', 'REJETE_AC'].includes(actionForm.nouveauStatut) && (
-                <div style={{ marginTop: 16, padding: 12, background: '#fff3e0', borderRadius: 8, fontSize: 13 }}>
-                  ⚠️ Le rejet libérera le budget engagé.
+                <div style={{ marginTop: 16, padding: 12, background: '#F2B63520', borderRadius: 8, fontSize: 13 }}>
+                  Le rejet libérera le budget engagé.
                 </div>
               )}
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => { setShowStatutModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' }); }} style={styles.buttonSecondary}>Annuler</button>
-              <button onClick={handleChangeStatut} style={{ ...styles.button, background: '#1565c0' }}>
-                ✓ Appliquer
+              <button onClick={handleChangeStatut} style={{ ...styles.button, background: '#E45C10' }}>
+                Appliquer
               </button>
             </div>
           </div>
@@ -2248,7 +2249,7 @@ const PageListeOP = () => {
 </head>
 <body>
 <div class="toolbar">
-  <button class="btn-print" onclick="window.print()">🖨️ Imprimer</button>
+  <button class="btn-print" onclick="window.print()">Imprimer</button>
   <button class="btn-pdf" onclick="window.print()">📄 Exporter PDF</button>
   <span class="toolbar-title">Aperçu – OP ${showEditModal.numero}</span>
 </div>
@@ -2422,17 +2423,17 @@ const PageListeOP = () => {
         return (
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 750 }}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: editSource?.couleur || '#0f4c3a' }}>
+            <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: editSource?.couleur || '#4B5D16' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>✏️ Modifier l'OP</h2>
+                  <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>Modifier l'OP</h2>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
                 </div>
                 <button 
                   onClick={handlePrintOP}
                   style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
                 >
-                  🖨️ Imprimer
+                  Imprimer
                 </button>
               </div>
             </div>
@@ -2443,10 +2444,10 @@ const PageListeOP = () => {
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>TYPE D'OP</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[
-                    { value: 'PROVISOIRE', label: 'Provisoire', color: '#ff9800' },
-                    { value: 'DIRECT', label: 'Direct', color: '#2196f3' },
-                    { value: 'DEFINITIF', label: 'Définitif', color: '#4caf50' },
-                    { value: 'ANNULATION', label: 'Annulation', color: '#f44336' }
+                    { value: 'PROVISOIRE', label: 'Provisoire', color: '#F2B635' },
+                    { value: 'DIRECT', label: 'Direct', color: '#1565c0' },
+                    { value: 'DEFINITIF', label: 'Définitif', color: '#2e7d32' },
+                    { value: 'ANNULATION', label: 'Annulation', color: '#c62828' }
                   ].map(type => (
                     <button
                       key={type.value}
@@ -2456,7 +2457,7 @@ const PageListeOP = () => {
                         padding: '8px 16px',
                         borderRadius: 6,
                         border: 'none',
-                        background: editForm.type === type.value ? type.color : '#f0f0f0',
+                        background: editForm.type === type.value ? type.color : '#ECE2CE',
                         color: editForm.type === type.value ? 'white' : '#555',
                         fontWeight: 600,
                         fontSize: 12,
@@ -2518,12 +2519,12 @@ const PageListeOP = () => {
                       Sélectionnez un bénéficiaire
                     </div>
                   ) : editRibs.length === 0 ? (
-                    <div style={{ ...styles.input, marginBottom: 0, background: '#fff3e0', color: '#e65100' }}>
-                      ⚠️ Aucun RIB enregistré
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#F2B63520', color: '#E45C10' }}>
+                      Aucun RIB enregistré
                     </div>
                   ) : editRibs.length === 1 ? (
                     <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }}>
-                      {editRibs[0].banque && <span style={{ background: '#e3f2fd', color: '#1565c0', padding: '2px 8px', borderRadius: 4, marginRight: 8, fontSize: 11 }}>{editRibs[0].banque}</span>}
+                      {editRibs[0].banque && <span style={{ background: '#E45C1010', color: '#E45C10', padding: '2px 8px', borderRadius: 4, marginRight: 8, fontSize: 11 }}>{editRibs[0].banque}</span>}
                       {editRibs[0].numero}
                     </div>
                   ) : (
@@ -2569,7 +2570,7 @@ const PageListeOP = () => {
                     onChange={(val) => setEditForm({ ...editForm, montant: val })}
                     style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right', marginBottom: 0, fontSize: 16, fontWeight: 600 }}
                   />
-                  <span style={{ fontSize: 10, color: '#f57f17' }}>⚠️ Protégé par mot de passe</span>
+                  <span style={{ fontSize: 10, color: '#F2B635' }}>Protégé par mot de passe</span>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
@@ -2593,7 +2594,7 @@ const PageListeOP = () => {
                     <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsAnterieurs)}</span>
                     
                     <span style={{ fontSize: 12, color: '#6c757d' }}>Engagement actuel</span>
-                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: '#e65100' }}>+{formatMontant(engagementActuel)}</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: '#E45C10' }}>+{formatMontant(engagementActuel)}</span>
                     
                     <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements cumulés</span>
                     <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsCumules)}</span>
@@ -2610,8 +2611,8 @@ const PageListeOP = () => {
                     </span>
                   </div>
                   {disponible < 0 && editForm.type !== 'ANNULATION' && (
-                    <div style={{ marginTop: 12, padding: 8, background: '#ffebee', borderRadius: 4, color: '#c62828', fontSize: 12, fontWeight: 600 }}>
-                      ⚠️ Budget insuffisant
+                    <div style={{ marginTop: 12, padding: 8, background: '#c6282815', borderRadius: 4, color: '#c62828', fontSize: 12, fontWeight: 600 }}>
+                      Budget insuffisant
                     </div>
                   )}
                 </div>
@@ -2653,17 +2654,17 @@ const PageListeOP = () => {
                 )}
               </div>
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
               <button 
                 onClick={() => { handleDeleteWithPassword(showEditModal); }} 
-                style={{ ...styles.buttonSecondary, background: '#ffebee', color: '#c62828' }}
+                style={{ ...styles.buttonSecondary, background: '#c6282815', color: '#c62828' }}
               >
-                🗑️ Supprimer
+                Supprimer
               </button>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={() => { setShowEditModal(null); setEditForm({}); }} style={styles.buttonSecondary}>Annuler</button>
-                <button onClick={handleSaveEdit} style={{ ...styles.button, background: editSource?.couleur || '#0f4c3a' }}>
-                  ✓ Enregistrer
+                <button onClick={handleSaveEdit} style={{ ...styles.button, background: editSource?.couleur || '#4B5D16' }}>
+                  Enregistrer
                 </button>
               </div>
             </div>
@@ -2676,8 +2677,8 @@ const PageListeOP = () => {
       {showCircuitModal && (
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 750 }}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#e3f2fd' }}>
-              <h2 style={{ margin: 0, fontSize: 18, color: '#1565c0' }}>📋 Gérer le circuit</h2>
+            <div style={{ padding: 24, borderBottom: '1px solid #ECE2CE', background: '#E45C1010' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#E45C10' }}>Gérer le circuit</h2>
               <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showCircuitModal.numero} • {showCircuitModal.objet?.substring(0, 50)}...</div>
             </div>
             <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
@@ -2689,23 +2690,23 @@ const PageListeOP = () => {
                   onChange={(e) => setCircuitForm({ ...circuitForm, statut: e.target.value })}
                   style={{ ...styles.input, fontWeight: 600, fontSize: 14 }}
                 >
-                  <option value="EN_COURS">🔵 En cours</option>
-                  <option value="TRANSMIS_CF">📤 Transmis CF</option>
-                  <option value="DIFFERE_CF">⏸️ Différé CF</option>
-                  <option value="VISE_CF">✅ Visé CF</option>
-                  <option value="REJETE_CF">❌ Rejeté CF</option>
-                  <option value="TRANSMIS_AC">📤 Transmis AC</option>
-                  <option value="DIFFERE_AC">⏸️ Différé AC</option>
-                  <option value="PAYE_PARTIEL">💰 Payé partiel</option>
-                  <option value="PAYE">💰 Payé</option>
-                  <option value="REJETE_AC">❌ Rejeté AC</option>
-                  <option value="ARCHIVE">📦 Archivé</option>
+                  <option value="EN_COURS"> En cours</option>
+                  <option value="TRANSMIS_CF"> Transmis CF</option>
+                  <option value="DIFFERE_CF"> Différé CF</option>
+                  <option value="VISE_CF"> Visé CF</option>
+                  <option value="REJETE_CF"> Rejeté CF</option>
+                  <option value="TRANSMIS_AC"> Transmis AC</option>
+                  <option value="DIFFERE_AC"> Différé AC</option>
+                  <option value="PAYE_PARTIEL"> Payé partiel</option>
+                  <option value="PAYE"> Payé</option>
+                  <option value="REJETE_AC"> Rejeté AC</option>
+                  <option value="ARCHIVE"> Archivé</option>
                 </select>
               </div>
 
               {/* Section CF - Transmission et Visa */}
-              <div style={{ background: '#fff8e1', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#f57f17' }}>📤 CONTRÔLEUR FINANCIER (CF)</label>
+              <div style={{ background: '#F2B63520', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#F2B635' }}>CONTRÔLEUR FINANCIER (CF)</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date transmission CF</label>
@@ -2751,9 +2752,9 @@ const PageListeOP = () => {
               </div>
 
               {/* Section Différé CF - Toujours visible pour correction */}
-              <div style={{ background: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#fff3e0' : '#fafafa', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '2px solid #ff9800' : '1px dashed #ddd' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#e65100' : '#999' }}>
-                  ⏸️ DIFFÉRÉ CF {circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '(renseigné)' : '(optionnel)'}
+              <div style={{ background: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#F2B63520' : '#F6F4F1', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '2px solid #F2B635' : '1px dashed #ddd' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#E45C10' : '#999' }}>
+                  DIFFÉRÉ CF {circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '(renseigné)' : '(optionnel)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
                   <div>
@@ -2779,8 +2780,8 @@ const PageListeOP = () => {
               </div>
 
               {/* Section AC - Transmission et Paiement */}
-              <div style={{ background: '#e8f5e9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#2e7d32' }}>💰 AGENT COMPTABLE (AC)</label>
+              <div style={{ background: '#E8F0D8', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#2e7d32' }}>AGENT COMPTABLE (AC)</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date transmission AC</label>
@@ -2826,9 +2827,9 @@ const PageListeOP = () => {
               </div>
 
               {/* Section Différé AC - Toujours visible pour correction */}
-              <div style={{ background: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#fff3e0' : '#fafafa', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '2px solid #ff9800' : '1px dashed #ddd' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#e65100' : '#999' }}>
-                  ⏸️ DIFFÉRÉ AC {circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '(renseigné)' : '(optionnel)'}
+              <div style={{ background: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#F2B63520' : '#F6F4F1', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '2px solid #F2B635' : '1px dashed #ddd' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#E45C10' : '#999' }}>
+                  DIFFÉRÉ AC {circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '(renseigné)' : '(optionnel)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
                   <div>
@@ -2854,9 +2855,9 @@ const PageListeOP = () => {
               </div>
 
               {/* Section Rejet - Toujours visible pour correction */}
-              <div style={{ background: circuitForm.dateRejet || circuitForm.motifRejet ? '#ffebee' : '#fafafa', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateRejet || circuitForm.motifRejet ? '2px solid #f44336' : '1px dashed #ddd' }}>
+              <div style={{ background: circuitForm.dateRejet || circuitForm.motifRejet ? '#c6282815' : '#F6F4F1', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateRejet || circuitForm.motifRejet ? '2px solid #c62828' : '1px dashed #ddd' }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateRejet || circuitForm.motifRejet ? '#c62828' : '#999' }}>
-                  ❌ REJET {circuitForm.dateRejet || circuitForm.motifRejet ? '(renseigné)' : '(optionnel)'}
+                  REJET {circuitForm.dateRejet || circuitForm.motifRejet ? '(renseigné)' : '(optionnel)'}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 12 }}>
                   <div>
@@ -2892,15 +2893,15 @@ const PageListeOP = () => {
                   </div>
                 </div>
                 {(circuitForm.dateRejet || circuitForm.motifRejet) && (
-                  <div style={{ marginTop: 12, padding: 10, background: '#fff', borderRadius: 4, fontSize: 12, color: '#c62828' }}>
-                    ⚠️ Le rejet libère le budget engagé. Pour annuler le rejet, videz les champs ci-dessus.
+                  <div style={{ marginTop: 12, padding: 10, background: '#FDFCFA', borderRadius: 4, fontSize: 12, color: '#c62828' }}>
+                    Le rejet libère le budget engagé. Pour annuler le rejet, videz les champs ci-dessus.
                   </div>
                 )}
               </div>
 
               {/* Section Archive */}
-              <div style={{ background: '#eceff1', padding: 16, borderRadius: 8 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#546e7a' }}>📦 ARCHIVAGE</label>
+              <div style={{ background: '#F6F4F1', padding: 16, borderRadius: 8 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#8A7D6B' }}>ARCHIVAGE</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date archivage</label>
@@ -2924,17 +2925,17 @@ const PageListeOP = () => {
                 </div>
               </div>
             </div>
-            <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ padding: 24, borderTop: '1px solid #ECE2CE', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
               <button 
                 onClick={() => { setShowPaiementModal(showCircuitModal); setShowCircuitModal(null); setActionForm({ ...actionForm, montant: String(showCircuitModal.montant - (showCircuitModal.totalPaye || 0)) }); }} 
-                style={{ ...styles.buttonSecondary, background: '#e0f2f1', color: '#00695c' }}
+                style={{ ...styles.buttonSecondary, background: '#E8F0D8', color: '#00695c' }}
               >
-                💰 Ajouter paiement
+                Ajouter paiement
               </button>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button onClick={() => { setShowCircuitModal(null); setCircuitForm({}); }} style={styles.buttonSecondary}>Annuler</button>
-                <button onClick={handleSaveCircuit} style={{ ...styles.button, background: '#1565c0' }}>
-                  ✓ Enregistrer
+                <button onClick={handleSaveCircuit} style={{ ...styles.button, background: '#E45C10' }}>
+                  Enregistrer
                 </button>
               </div>
             </div>
@@ -2954,22 +2955,22 @@ const PageListeOP = () => {
           {/* Panneau latéral */}
           <div style={{
             position: 'fixed', top: 0, right: 0, bottom: 0, width: 400,
-            background: 'white', zIndex: 100,
+            background: '#FDFCFA', zIndex: 100,
             boxShadow: '-8px 0 32px rgba(12,74,94,0.12)',
             borderRadius: '20px 0 0 20px',
             display: 'flex', flexDirection: 'column',
             animation: 'slideIn 0.3s ease'
           }}>
             {/* Header */}
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid #edf3f3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0c3d4d', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#0891b2" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #ECE2CE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#223300', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#4B5D16" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                 Aperçu OP
               </h3>
               <button onClick={() => setDrawerOp(null)} style={{
                 width: 30, height: 30, borderRadius: 8, border: 'none',
-                background: '#f0f5f5', cursor: 'pointer', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', color: '#5f8a8b'
+                background: '#F6F4F1', cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', color: '#8A7D6B'
               }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
               </button>
@@ -2988,20 +2989,20 @@ const PageListeOP = () => {
                 return (
                   <>
                     {/* Numéro + Bénéficiaire + Montant */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #edf3f3' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #ECE2CE' }}>
                       <div>
-                        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0c3d4d', marginBottom: 3 }}>{drawerOp.numero}</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#0c3d4d' }}>{drawerOp.beneficiaireNom || ben?.nom || 'N/A'}</div>
-                        <div style={{ fontSize: 12, color: '#5f8a8b', marginTop: 2 }}>{drawerOp.objet || '-'}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#223300', marginBottom: 3 }}>{drawerOp.numero}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#223300' }}>{drawerOp.beneficiaireNom || ben?.nom || 'N/A'}</div>
+                        <div style={{ fontSize: 12, color: '#8A7D6B', marginTop: 2 }}>{drawerOp.objet || '-'}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#0891b2', fontFeatureSettings: "'tnum'" }}>{formatMontant(drawerOp.montant)}</div>
-                        <div style={{ fontSize: 11, color: '#5f8a8b' }}>FCFA</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#4B5D16', fontFeatureSettings: "'tnum'" }}>{formatMontant(drawerOp.montant)}</div>
+                        <div style={{ fontSize: 11, color: '#8A7D6B' }}>FCFA</div>
                       </div>
                     </div>
 
                     {/* Mini Frise */}
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#5f8a8b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Circuit de validation</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Circuit de validation</div>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, marginBottom: 10 }}>
                       {steps.map((step, i) => {
                         const dotStyle = {
@@ -3009,29 +3010,29 @@ const PageListeOP = () => {
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 11, fontWeight: 700,
                           border: '2.5px solid',
-                          ...(step.state === 'done' ? { background: '#0d9488', borderColor: '#0d9488', color: 'white' } :
-                             step.state === 'current' ? { background: '#0891b2', borderColor: '#0891b2', color: 'white', boxShadow: '0 0 0 4px rgba(8,145,178,0.15)' } :
-                             step.state === 'deferred' ? { background: '#f59e0b', borderColor: '#f59e0b', color: 'white' } :
-                             step.state === 'rejected' ? { background: '#dc2626', borderColor: '#dc2626', color: 'white' } :
-                             { background: '#f5fafa', borderColor: '#d1e0e0', color: '#a0bfbf' })
+                          ...(step.state === 'done' ? { background: '#4B5D16', borderColor: '#4B5D16', color: 'white' } :
+                             step.state === 'current' ? { background: '#4B5D16', borderColor: '#4B5D16', color: 'white', boxShadow: '0 0 0 4px rgba(75,93,22,0.15)' } :
+                             step.state === 'deferred' ? { background: '#F2B635', borderColor: '#F2B635', color: 'white' } :
+                             step.state === 'rejected' ? { background: '#c62828', borderColor: '#c62828', color: 'white' } :
+                             { background: '#F6F4F1', borderColor: '#ECE2CE', color: '#c4b9a8' })
                         };
                         const dotContent = step.state === 'done' ? '✓' :
                                           step.state === 'rejected' ? '✕' :
                                           step.state === 'deferred' ? '⏸' :
                                           step.state === 'current' ? '●' : '○';
-                        const connectorColor = step.state === 'done' ? '#0d9488' :
-                                              step.state === 'deferred' ? '#f59e0b' :
-                                              step.state === 'rejected' ? '#dc2626' : '#e2ecec';
+                        const connectorColor = step.state === 'done' ? '#4B5D16' :
+                                              step.state === 'deferred' ? '#F2B635' :
+                                              step.state === 'rejected' ? '#c62828' : '#ECE2CE';
 
                         return (
                           <React.Fragment key={i}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto' }}>
                               <div style={dotStyle}>{dotContent}</div>
-                              <div style={{ fontSize: 8.5, fontWeight: 600, color: ['done', 'current'].includes(step.state) ? '#0c3d4d' : '#5f8a8b', marginTop: 4, textAlign: 'center', maxWidth: 52, lineHeight: '1.2' }}>{step.label}</div>
-                              {step.date && <div style={{ fontSize: 8, color: '#0891b2', fontWeight: 500 }}>{formatDate(step.date)}</div>}
+                              <div style={{ fontSize: 8.5, fontWeight: 600, color: ['done', 'current'].includes(step.state) ? '#223300' : '#8A7D6B', marginTop: 4, textAlign: 'center', maxWidth: 52, lineHeight: '1.2' }}>{step.label}</div>
+                              {step.date && <div style={{ fontSize: 8, color: '#4B5D16', fontWeight: 500 }}>{formatDate(step.date)}</div>}
                             </div>
                             {i < steps.length - 1 && (
-                              <div style={{ flex: 1, height: 2.5, background: steps[i + 1]?.state === 'done' || steps[i + 1]?.state === 'current' ? '#0d9488' : steps[i + 1]?.state === 'deferred' ? '#f59e0b' : steps[i + 1]?.state === 'rejected' ? '#dc2626' : '#e2ecec', minWidth: 10, margin: '13px 2px 0' }} />
+                              <div style={{ flex: 1, height: 2.5, background: steps[i + 1]?.state === 'done' || steps[i + 1]?.state === 'current' ? '#4B5D16' : steps[i + 1]?.state === 'deferred' ? '#F2B635' : steps[i + 1]?.state === 'rejected' ? '#c62828' : '#ECE2CE', minWidth: 10, margin: '13px 2px 0' }} />
                             )}
                           </React.Fragment>
                         );
@@ -3043,13 +3044,13 @@ const PageListeOP = () => {
                       <div style={{
                         padding: '11px 14px', borderRadius: 10, fontSize: 12, marginTop: 10,
                         display: 'flex', alignItems: 'flex-start', gap: 9,
-                        background: msg.type === 'warning' ? '#fef3cd' : msg.type === 'danger' ? '#fee2e2' : msg.type === 'success' ? '#d5f5f0' : '#e6f6f9',
-                        color: msg.type === 'warning' ? '#b45309' : msg.type === 'danger' ? '#dc2626' : msg.type === 'success' ? '#0d9488' : '#0891b2'
+                        background: msg.type === 'warning' ? '#fef3cd' : msg.type === 'danger' ? '#fee2e2' : msg.type === 'success' ? '#E8F0D8' : '#E8F0D8',
+                        color: msg.type === 'warning' ? '#b8860b' : msg.type === 'danger' ? '#c62828' : msg.type === 'success' ? '#4B5D16' : '#4B5D16'
                       }}>
-                        {msg.type === 'warning' && <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>}
-                        {msg.type === 'danger' && <span style={{ fontSize: 14, flexShrink: 0 }}>🚫</span>}
-                        {msg.type === 'success' && <span style={{ fontSize: 14, flexShrink: 0 }}>✅</span>}
-                        {msg.type === 'info' && <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>}
+                        {msg.type === 'warning' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b8860b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>}
+                        {msg.type === 'danger' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>}
+                        {msg.type === 'success' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4B5D16" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg></span>}
+                        {msg.type === 'info' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4B5D16" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>}
                         <div>
                           {msg.title && <><strong>{msg.title}</strong>{msg.date ? ` — ${msg.date}` : ''}<br/></>}
                           <span style={{ fontSize: 12 }}>{msg.text}</span>
@@ -3058,10 +3059,10 @@ const PageListeOP = () => {
                     )}
 
                     {/* Séparateur */}
-                    <div style={{ height: 1, background: '#edf3f3', margin: '16px 0' }} />
+                    <div style={{ height: 1, background: '#ECE2CE', margin: '16px 0' }} />
 
                     {/* Informations compactes */}
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#5f8a8b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Informations</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Informations</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                       {[
                         { label: 'Type', value: drawerOp.type },
@@ -3069,11 +3070,11 @@ const PageListeOP = () => {
                         { label: 'Ligne budgétaire', value: drawerOp.ligneBudgetaire || '-', mono: true },
                         { label: 'Mode règlement', value: drawerOp.modeReglement || '-' },
                         { label: 'Eng. antérieur', value: formatMontant(drawerOp.engagementAnterieur || 0), mono: true },
-                        { label: 'Disponible', value: formatMontant(drawerOp.disponible || 0), mono: true, color: (drawerOp.disponible || 0) >= 0 ? '#0d9488' : '#dc2626' }
+                        { label: 'Disponible', value: formatMontant(drawerOp.disponible || 0), mono: true, color: (drawerOp.disponible || 0) >= 0 ? '#4B5D16' : '#c62828' }
                       ].map((item, i) => (
-                        <div key={i} style={{ padding: '9px 0', borderBottom: '1px solid #edf3f3' }}>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: '#5f8a8b', textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
-                          <div style={{ fontSize: 13, fontWeight: item.mono ? 600 : 500, color: item.color || '#0c3d4d', marginTop: 2, fontFamily: item.mono ? 'monospace' : 'inherit' }}>{item.value}</div>
+                        <div key={i} style={{ padding: '9px 0', borderBottom: '1px solid #ECE2CE' }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: '#8A7D6B', textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
+                          <div style={{ fontSize: 13, fontWeight: item.mono ? 600 : 500, color: item.color || '#223300', marginTop: 2, fontFamily: item.mono ? 'monospace' : 'inherit' }}>{item.value}</div>
                         </div>
                       ))}
                     </div>
@@ -3084,7 +3085,7 @@ const PageListeOP = () => {
                       style={{
                         width: '100%', padding: 12, border: 'none', borderRadius: 10,
                         fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                        fontFamily: 'inherit', background: '#0891b2', color: 'white',
+                        fontFamily: 'inherit', background: '#4B5D16', color: 'white',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                         marginTop: 20
                       }}
