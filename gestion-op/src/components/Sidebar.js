@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LOGO_PIF2 } from '../utils/logos';
 
-// ===================== PALETTE PIF2 — Mindful No.193 =====================
-const accent = '#4B5D16';
-const sidebarBg = '#223300';
-const accentBg = 'rgba(75, 93, 22, 0.15)';
-const EXPANDED = 256;
-const COLLAPSED = 72;
+const accent = '#3D4A2C';
+const accentBg = '#EAEDD8';
+const EXPANDED = 240;
+const COLLAPSED = 68;
 
 // ===================== ICÔNES SVG (Lucide-style, trait fin) =====================
 const I = {
-  dashboard: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>,
+  dashboard: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
   nouvelOp: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>,
   consulterOp: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   ops: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
@@ -57,8 +55,8 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick }) => {
         margin: collapsed ? '2px 10px' : '2px 12px',
         height: 44, borderRadius: 12, cursor: 'pointer',
         justifyContent: collapsed ? 'center' : 'flex-start',
-        background: active ? accentBg : isH ? 'rgba(255,255,255,0.06)' : 'transparent',
-        transition: 'all 0.2s ease', position: 'relative',
+        background: active ? accentBg : isH ? '#fafafa' : 'transparent',
+        transition: 'all 0.15s ease', position: 'relative',
       }}
     >
       <div style={{
@@ -67,29 +65,27 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick }) => {
         background: active ? accent : 'transparent',
         transition: 'all 0.2s ease',
       }}>
-        {I[icon]?.(active ? '#fff' : isH ? '#E8F0D8' : 'rgba(255,255,255,0.4)')}
+        {I[icon]?.(active ? '#fff' : isH ? accent : '#999')}
       </div>
       {!collapsed && (
         <span style={{
           fontSize: 13.5, fontWeight: active ? 700 : 500,
-          color: active ? '#fff' : isH ? '#E8F0D8' : 'rgba(255,255,255,0.55)',
+          color: active ? accent : isH ? '#333' : '#666',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          transition: 'color 0.2s', letterSpacing: 0.1,
+          transition: 'color 0.15s',
         }}>{label}</span>
       )}
       {collapsed && isH && (
         <div style={{
           position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
-          marginLeft: 12, padding: '8px 14px', background: sidebarBg, color: '#fff',
+          marginLeft: 10, padding: '7px 14px', background: '#333', color: '#fff',
           borderRadius: 8, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-          zIndex: 100, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', pointerEvents: 'none',
-          border: `1px solid ${accent}`,
+          zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', pointerEvents: 'none',
         }}>
           {label}
           <div style={{
             position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%) rotate(45deg)',
-            width: 8, height: 8, background: sidebarBg,
-            borderLeft: `1px solid ${accent}`, borderBottom: `1px solid ${accent}`,
+            width: 8, height: 8, background: '#333',
           }}/>
         </div>
       )}
@@ -116,61 +112,58 @@ const Sidebar = () => {
   return (
     <div style={{
       width: w, minWidth: w, height: '100vh', position: 'fixed',
-      background: sidebarBg, color: '#fff',
+      background: '#fff', color: '#333',
       display: 'flex', flexDirection: 'column',
-      transition: 'width 0.3s cubic-bezier(.4,0,.2,1), min-width 0.3s cubic-bezier(.4,0,.2,1)',
+      transition: 'width 0.25s cubic-bezier(.4,0,.2,1), min-width 0.25s cubic-bezier(.4,0,.2,1)',
       overflow: 'hidden',
-      boxShadow: '4px 0 32px rgba(34,51,0,0.15)',
+      boxShadow: '4px 0 24px rgba(0,0,0,0.03)',
       zIndex: 10,
     }}>
 
-      {/* ── Bouton replier/déplier ── */}
+      {/* ── Bouton replier/déplier (flottant bord droit) ── */}
       <button onClick={() => setCollapsed(c => !c)} style={{
-        position: 'absolute', top: 30, right: -14,
+        position: 'absolute', top: 28, right: -14,
         width: 28, height: 28, borderRadius: '50%',
-        border: '2px solid #ECE2CE', background: '#FDFCFA',
+        border: '1px solid #eee', background: '#fff',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 20, boxShadow: '0 2px 10px rgba(34,51,0,0.12)',
+        zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
       }} title={collapsed ? 'Déplier' : 'Replier'}>
-        <span style={{ display: 'flex', transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}>
-          {I.chevron(accent)}
+        <span style={{ display: 'flex', transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}>
+          {I.chevron('#888')}
         </span>
       </button>
 
       {/* ── Logo PIF2 ── */}
       <div style={{
-        padding: collapsed ? '22px 0' : '22px 20px',
+        padding: collapsed ? '18px 0' : '18px 20px',
         display: 'flex', alignItems: 'center', gap: 12,
         justifyContent: collapsed ? 'center' : 'flex-start',
-        minHeight: 76,
+        minHeight: 70,
       }}>
         <div style={{
-          width: 42, height: 42, borderRadius: 12,
-          background: 'rgba(255,255,255,0.95)',
+          width: 40, height: 40, borderRadius: 12,
+          background: '#fff', border: '1.5px solid #EAEDD8',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', flexShrink: 0, padding: 3,
+          overflow: 'hidden', flexShrink: 0,
         }}>
-          <img src={LOGO_PIF2} alt="PIF2" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+          <img src={LOGO_PIF2} alt="PIF2" style={{ width: 40, height: 40, objectFit: 'contain' }} />
         </div>
         {!collapsed && (
           <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: 19, fontWeight: 800, color: '#fff', letterSpacing: -0.5, lineHeight: 1.1 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: accent, letterSpacing: -0.5, lineHeight: 1.1 }}>
               {projet?.sigle || 'PIF 2'}
             </div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3, letterSpacing: 1, textTransform: 'uppercase' }}>Ordres de Paiement</div>
+            <div style={{ fontSize: 10, color: '#b0b0b0', marginTop: 2, letterSpacing: 0.5 }}>Ordres de Paiement</div>
           </div>
         )}
       </div>
-
-      {/* ── Séparateur ── */}
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: collapsed ? '0 14px 4px' : '0 20px 4px' }} />
 
       {/* ── Menu ── */}
       <nav style={{ flex: 1, padding: '4px 0', overflowY: 'auto', overflowX: 'hidden' }}>
         {items.map((item, idx) => {
           if (item.section) {
-            if (collapsed) return <div key={'s' + idx} style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '10px 14px' }}/>;
-            return <div key={'s' + idx} style={{ padding: '22px 26px 6px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: 2, textTransform: 'uppercase' }}>{item.section}</div>;
+            if (collapsed) return <div key={'s' + idx} style={{ height: 1, background: '#f0f0f0', margin: '10px 14px' }}/>;
+            return <div key={'s' + idx} style={{ padding: '20px 24px 6px', fontSize: 9, fontWeight: 700, color: '#c5c5c5', letterSpacing: 1.5 }}>{item.section}</div>;
           }
           return (
             <NavItem key={item.id} id={item.id} icon={item.icon} label={item.label}
@@ -184,12 +177,12 @@ const Sidebar = () => {
       {exerciceActif && (
         <div style={{ padding: collapsed ? '12px 0' : '12px 22px', textAlign: collapsed ? 'center' : 'left' }}>
           {collapsed ? (
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{String(exerciceActif.annee).slice(-2)}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: accent }}>{String(exerciceActif.annee).slice(-2)}</div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent, boxShadow: '0 0 8px rgba(75,93,22,0.5)' }}/>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Exercice</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{exerciceActif.annee}</span>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6B7D52', boxShadow: '0 0 6px rgba(107,125,82,0.4)' }}/>
+              <span style={{ fontSize: 11, color: '#aaa' }}>Exercice</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: accent }}>{exerciceActif.annee}</span>
             </div>
           )}
         </div>
@@ -198,37 +191,36 @@ const Sidebar = () => {
       {/* ── User + Déconnexion ── */}
       <div style={{
         padding: collapsed ? '14px 0' : '14px 14px',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
+        borderTop: '1px solid #f5f5f5',
         display: 'flex', flexDirection: 'column', gap: 10,
         alignItems: collapsed ? 'center' : 'stretch',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? 0 : '0 4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: accent, border: '2px solid rgba(255,255,255,0.15)',
+            width: 34, height: 34, borderRadius: '50%',
+            background: `linear-gradient(135deg, ${accent}, #5A6B48)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0,
           }}>{(user?.email || 'U')[0].toUpperCase()}</div>
           {!collapsed && (
             <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#444', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
             </div>
           )}
         </div>
         {!collapsed ? (
           <button onClick={handleLogout} style={{
-            width: '100%', padding: '8px 10px', borderRadius: 8,
-            border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)',
-            fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
+            width: '100%', padding: '7px 10px', borderRadius: 8,
+            border: 'none', background: '#f5f5f5',
+            fontSize: 11, fontWeight: 600, color: '#999', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
-            transition: 'all 0.2s',
-          }}>{I.logout('rgba(255,255,255,0.4)')} Déconnexion</button>
+          }}>{I.logout('#999')} Déconnexion</button>
         ) : (
           <button onClick={handleLogout} title="Déconnexion" style={{
             width: 38, height: 34, borderRadius: 8, margin: '0 auto',
-            border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>{I.logout('rgba(255,255,255,0.4)')}</button>
+            border: 'none', background: '#f5f5f5', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{I.logout('#999')}</button>
         )}
       </div>
     </div>
