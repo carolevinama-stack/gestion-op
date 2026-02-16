@@ -12,17 +12,17 @@ const PageParametres = () => {
   const isAdmin = ['ADMIN'].includes(userProfile?.role);
 
   const tabs = [
-    { id: 'projet', label: '🏛️ Projet' },
-    { id: 'sources', label: '🏦 Sources' },
-    { id: 'exercices', label: '📅 Exercices' },
-    { id: 'lignes', label: '📝 Lignes budgétaires' },
+    { id: 'projet', label: 'Projet' },
+    { id: 'sources', label: 'Sources' },
+    { id: 'exercices', label: 'Exercices' },
+    { id: 'lignes', label: 'Lignes budgétaires' },
   ];
-  if (isAdmin) tabs.push({ id: 'utilisateurs', label: '👥 Utilisateurs' });
-  if (isAdmin) tabs.push({ id: 'maintenance', label: '🔧 Maintenance' });
+  if (isAdmin) tabs.push({ id: 'utilisateurs', label: 'Utilisateurs' });
+  if (isAdmin) tabs.push({ id: 'maintenance', label: 'Maintenance' });
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>⚙️ Paramètres</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Paramètres</h1>
       
       {/* Onglets */}
       <div style={styles.tabs}>
@@ -87,7 +87,7 @@ const TabProjet = () => {
   const handleSave = async () => {
     // Vérifier la correspondance des mots de passe si un nouveau est défini
     if (form.adminPassword && form.adminPassword !== confirmPassword) {
-      alert('❌ Les mots de passe ne correspondent pas');
+      alert('Les mots de passe ne correspondent pas');
       return;
     }
     
@@ -181,9 +181,9 @@ const TabProjet = () => {
         </div>
       </div>
 
-      <div style={{ ...styles.card, background: '#fff8e1', border: '2px solid #f9a825' }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #f9a825', color: '#f57f17' }}>
-          🔐 Sécurité administrative
+      <div style={{ ...styles.card, background: '#fff8e1', border: '2px solid #E8B931' }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid #E8B931', color: '#C5961F' }}>
+          Sécurité administrative
         </h3>
         
         <div style={{ marginBottom: 16 }}>
@@ -201,7 +201,7 @@ const TabProjet = () => {
               onClick={() => setShowPassword(!showPassword)}
               style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
             >
-              {showPassword ? '🙈' : '👁️'}
+              {showPassword ? 'Masquer' : 'Afficher'}
             </button>
           </div>
         </div>
@@ -215,15 +215,15 @@ const TabProjet = () => {
             placeholder="Confirmer le mot de passe" 
           />
           {form.adminPassword && confirmPassword && form.adminPassword !== confirmPassword && (
-            <span style={{ color: '#c62828', fontSize: 12 }}>❌ Les mots de passe ne correspondent pas</span>
+            <span style={{ color: '#C43E3E', fontSize: 12 }}>Les mots de passe ne correspondent pas</span>
           )}
           {form.adminPassword && confirmPassword && form.adminPassword === confirmPassword && (
-            <span style={{ color: '#2e7d32', fontSize: 12 }}>✅ Mots de passe identiques</span>
+            <span style={{ color: '#2e7d32', fontSize: 12 }}>Mots de passe identiques</span>
           )}
         </div>
         
         <div style={{ background: 'white', padding: 12, borderRadius: 8, fontSize: 13, color: '#555' }}>
-          <strong style={{ color: '#f57f17' }}>ℹ️ Ce mot de passe protège les actions sensibles :</strong>
+          <strong style={{ color: '#C5961F' }}>Ce mot de passe protège les actions sensibles :</strong>
           <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
             <li>Modifier / Supprimer / Rejeter un OP</li>
             <li>Révision budgétaire</li>
@@ -247,10 +247,10 @@ const TabSources = () => {
   const { sources, setSources } = useAppContext();
   const [showModal, setShowModal] = useState(false);
   const [editSource, setEditSource] = useState(null);
-  const [form, setForm] = useState({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#0f4c3a' });
+  const [form, setForm] = useState({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#1B6B2E' });
 
   const openNew = () => {
-    setForm({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#0f4c3a' });
+    setForm({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#1B6B2E' });
     setEditSource(null);
     setShowModal(true);
   };
@@ -296,7 +296,7 @@ const TabSources = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <p style={{ color: '#6c757d', margin: 0 }}>{sources.length} source(s) configurée(s)</p>
-        <button onClick={openNew} style={styles.button}>➕ Nouvelle source</button>
+        <button onClick={openNew} style={styles.button}>+ Nouvelle source</button>
       </div>
 
       <div style={styles.card}>
@@ -318,11 +318,11 @@ const TabSources = () => {
                 <tr key={source.id}>
                   <td style={styles.td}><strong>{source.nom}</strong></td>
                   <td style={styles.td}>{source.sigle}</td>
-                  <td style={styles.td}><span style={{ ...styles.badge, background: source.compteDebiter === 'BAILLEUR' ? '#e8f5e9' : '#e3f2fd', color: source.compteDebiter === 'BAILLEUR' ? '#2e7d32' : '#1565c0' }}>{source.compteDebiter}</span></td>
+                  <td style={styles.td}><span style={{ ...styles.badge, background: source.compteDebiter === 'BAILLEUR' ? '#e8f5e9' : '#E8F5E9', color: source.compteDebiter === 'BAILLEUR' ? '#2e7d32' : '#1B6B2E' }}>{source.compteDebiter}</span></td>
                   <td style={styles.td}><div style={{ width: 30, height: 30, borderRadius: 6, background: source.couleur }}></div></td>
                   <td style={{ ...styles.td, textAlign: 'center' }}>
-                    <button onClick={() => openEdit(source)} style={{ ...styles.buttonSecondary, padding: '6px 12px', marginRight: 8 }}>✏️</button>
-                    <button onClick={() => handleDelete(source)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#c62828' }}>🗑️</button>
+                    <button onClick={() => openEdit(source)} style={{ ...styles.buttonSecondary, padding: '6px 12px', marginRight: 8 }}>Modifier</button>
+                    <button onClick={() => handleDelete(source)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#C43E3E' }}>Suppr</button>
                   </td>
                 </tr>
               ))}
@@ -335,7 +335,7 @@ const TabSources = () => {
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>{editSource ? '✏️ Modifier la source' : '➕ Nouvelle source'}</h2>
+              <h2 style={{ margin: 0, fontSize: 18 }}>{editSource ? 'Modifier la source' : 'Nouvelle source'}</h2>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
@@ -414,7 +414,7 @@ const TabExercices = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <p style={{ color: '#6c757d', margin: 0 }}>{exercices.length} exercice(s)</p>
-        <button onClick={() => { setForm({ annee: new Date().getFullYear() + 1, actif: false }); setShowModal(true); }} style={styles.button}>➕ Nouvel exercice</button>
+        <button onClick={() => { setForm({ annee: new Date().getFullYear() + 1, actif: false }); setShowModal(true); }} style={styles.button}>+ Nouvel exercice</button>
       </div>
 
       <div style={styles.card}>
@@ -435,7 +435,7 @@ const TabExercices = () => {
                   <td style={styles.td}><strong style={{ fontSize: 18 }}>{ex.annee}</strong></td>
                   <td style={styles.td}>
                     <span style={{ ...styles.badge, background: ex.actif ? '#e8f5e9' : '#f5f5f5', color: ex.actif ? '#2e7d32' : '#6c757d' }}>
-                      {ex.actif ? '✅ Actif' : 'Inactif'}
+                      {ex.actif ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
                   <td style={{ ...styles.td, textAlign: 'center' }}>
@@ -454,7 +454,7 @@ const TabExercices = () => {
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 400 }}>
             <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>➕ Nouvel exercice</h2>
+              <h2 style={{ margin: 0, fontSize: 18 }}>+ Nouvel exercice</h2>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
@@ -583,7 +583,7 @@ const TabLignes = () => {
     <div>
       <div style={{ ...styles.card, background: '#e8f5e9', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 24 }}>📚</span>
+          
           <div>
             <strong style={{ color: '#2e7d32' }}>Bibliothèque de référence</strong>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
@@ -596,17 +596,18 @@ const TabLignes = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <p style={{ color: '#6c757d', margin: 0 }}>{lignesBudgetaires.length} ligne(s) dans la bibliothèque</p>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => setShowImportModal(true)} style={{ ...styles.buttonSecondary, background: '#e3f2fd', color: '#1565c0' }}>
-            📥 Importer CSV/Excel
+          <button onClick={() => setShowImportModal(true)} style={{ ...styles.buttonSecondary, background: '#E8F5E9', color: '#3B6B8A' }}>
+
+            Importer CSV/Excel
           </button>
-          <button onClick={() => setShowModal(true)} style={styles.button}>➕ Nouvelle ligne</button>
+          <button onClick={() => setShowModal(true)} style={styles.button}>+ Nouvelle ligne</button>
         </div>
       </div>
 
       <div style={styles.card}>
         {lignesBudgetaires.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 50, marginBottom: 16 }}>📋</div>
+            <div style={{ fontSize: 14, color: '#888' }}>Aucune ligne budgétaire</div>
             <p style={{ color: '#6c757d', marginBottom: 16 }}>Aucune ligne budgétaire dans la bibliothèque</p>
             <p style={{ color: '#adb5bd', fontSize: 13 }}>Importez un fichier CSV ou ajoutez des lignes manuellement</p>
           </div>
@@ -632,7 +633,7 @@ const TabLignes = () => {
                       {isUsed ? (
                         <span style={{ ...styles.badge, background: '#f5f5f5', color: '#9e9e9e' }}>Utilisée</span>
                       ) : (
-                        <button onClick={() => handleDelete(ligne)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#c62828' }}>🗑️</button>
+                        <button onClick={() => handleDelete(ligne)} style={{ ...styles.buttonSecondary, padding: '6px 12px', background: '#ffebee', color: '#C43E3E' }}>Suppr</button>
                       )}
                     </td>
                   </tr>
@@ -648,7 +649,7 @@ const TabLignes = () => {
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 500 }}>
             <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#f8f9fa' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>➕ Nouvelle ligne budgétaire</h2>
+              <h2 style={{ margin: 0, fontSize: 18 }}>+ Nouvelle ligne budgétaire</h2>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
@@ -674,12 +675,12 @@ const TabLignes = () => {
       {showImportModal && (
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: 700 }}>
-            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#1565c0', color: 'white' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>📥 Importer la nomenclature</h2>
+            <div style={{ padding: 24, borderBottom: '1px solid #e9ecef', background: '#3B6B8A', color: 'white' }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>Importer la nomenclature</h2>
             </div>
             <div style={{ padding: 24 }}>
-              <div style={{ background: '#e3f2fd', padding: 16, borderRadius: 8, marginBottom: 20 }}>
-                <strong style={{ color: '#1565c0' }}>Format attendu :</strong>
+              <div style={{ background: '#E8F5E9', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                <strong style={{ color: '#3B6B8A' }}>Format attendu :</strong>
                 <p style={{ margin: '8px 0 0', fontSize: 13, color: '#555' }}>
                   Fichier CSV avec 2 colonnes : <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Code</code> et <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Libellé</code>
                   <br />Séparateur : virgule (,) ou point-virgule (;)
@@ -732,7 +733,7 @@ const TabLignes = () => {
                 disabled={importing || importData.length === 0}
                 style={{ 
                   ...styles.button, 
-                  background: '#1565c0',
+                  background: '#3B6B8A',
                   opacity: importing || importData.length === 0 ? 0.6 : 1 
                 }}
               >
@@ -775,8 +776,8 @@ const TabMaintenance = () => {
   const showMsg = (text, type = 'success') => { setMessage({ text, type }); setTimeout(() => setMessage(null), 5000); };
 
   const checkPwd = () => {
-    const p = window.prompt('🔒 Mot de passe admin requis :');
-    if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('❌ Mot de passe incorrect'); return false; }
+    const p = window.prompt('Mot de passe admin requis :');
+    if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; }
     return true;
   };
 
@@ -789,7 +790,7 @@ const TabMaintenance = () => {
     if (purgeConfirm !== 'SUPPRIMER') { alert('Tapez exactement SUPPRIMER pour confirmer.'); return; }
 
     const exLabel = purgeScope === 'tout' ? 'TOUS LES EXERCICES' : exercices.find(e => e.id === purgeExercice)?.annee;
-    if (!window.confirm(`⚠️ DERNIÈRE CONFIRMATION :\n\nSupprimer tous les OP et bordereaux de ${exLabel} ?\n\nCette action est IRRÉVERSIBLE.`)) return;
+    if (!window.confirm(`DERNIÈRE CONFIRMATION :\n\nSupprimer tous les OP et bordereaux de ${exLabel} ?\n\nCette action est IRRÉVERSIBLE.`)) return;
 
     setSaving(true);
     try {
@@ -826,7 +827,7 @@ const TabMaintenance = () => {
         }
       }
 
-      showMsg(`✅ Purge terminée : ${opsToDelete.length} OP et ${btsToDelete.length} bordereaux supprimés.`);
+      showMsg(`Purge terminée : ${opsToDelete.length} OP et ${btsToDelete.length} bordereaux supprimés.`);
       setPurgeConfirm('');
     } catch (e) { alert('Erreur : ' + e.message); }
     setSaving(false);
@@ -893,7 +894,7 @@ const TabMaintenance = () => {
     XLSX.utils.book_append_sheet(wb, wsLeg, 'LÉGENDE');
 
     XLSX.writeFile(wb, 'Canevas_Import_OP_Complet.xlsx');
-    showMsg('✅ Canevas téléchargé !');
+    showMsg('Canevas téléchargé !');
   };
 
   // ================================================================
@@ -995,8 +996,8 @@ const TabMaintenance = () => {
         }
       }
 
-      let msg = `✅ ${imported} OP importés avec succès !`;
-      if (errors.length > 0) msg += `\n\n⚠️ ${errors.length} erreur(s) :\n` + errors.slice(0, 10).join('\n');
+      let msg = `${imported} OP importés avec succès !`;
+      if (errors.length > 0) msg += `\n\n${errors.length} erreur(s) :\n` + errors.slice(0, 10).join('\n');
       if (errors.length > 10) msg += `\n... et ${errors.length - 10} autres.`;
       alert(msg);
       showMsg(`${imported} OP importés.`);
@@ -1027,7 +1028,7 @@ const TabMaintenance = () => {
           fixed++;
         }
       }
-      showMsg(`✅ ${fixed} compteurs recalés pour ${sources.length} source(s).`);
+      showMsg(`${fixed} compteurs recalés pour ${sources.length} source(s).`);
     } catch (e) { alert('Erreur : ' + e.message); }
     setSaving(false);
   };
@@ -1060,7 +1061,7 @@ const TabMaintenance = () => {
         const newNumero = op.numero.replace(/N°\d+\//, `N°${String(maxNum).padStart(4, '0')}/`);
         await updateDoc(doc(db, 'ops', op.id), { numero: newNumero, updatedAt: new Date().toISOString() });
       }
-      showMsg(`✅ ${opsToFix.length} doublon(s) corrigé(s) pour ${dup.numero}`);
+      showMsg(`${opsToFix.length} doublon(s) corrigé(s) pour ${dup.numero}`);
       // Rafraîchir
       handleDetecterDoublons();
     } catch (e) { alert('Erreur : ' + e.message); }
@@ -1084,17 +1085,17 @@ const TabMaintenance = () => {
   return (
     <div style={{ padding: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <span style={{ fontSize: 28 }}>🔧</span>
+        
         <div>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Outils de maintenance</h2>
-          <p style={{ margin: 0, fontSize: 12, color: '#c62828' }}>⚠️ Zone sensible — Mot de passe admin requis pour chaque action</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#C43E3E' }}>Zone sensible — Mot de passe admin requis pour chaque action</p>
         </div>
       </div>
 
       {message && (
         <div style={{ padding: 14, borderRadius: 10, marginBottom: 16, fontSize: 13, fontWeight: 600,
           background: message.type === 'success' ? '#e8f5e9' : '#ffebee',
-          color: message.type === 'success' ? '#2e7d32' : '#c62828',
+          color: message.type === 'success' ? '#2e7d32' : '#C43E3E',
           border: `1px solid ${message.type === 'success' ? '#a5d6a7' : '#ef9a9a'}` }}>
           {message.text}
         </div>
@@ -1102,23 +1103,23 @@ const TabMaintenance = () => {
 
       {/* Sélection outil */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        {btnTool('purge', '🗑️', 'Purge', 'Supprimer OP & bordereaux', '#c62828')}
-        {btnTool('import', '📥', 'Import OP', 'Importer depuis Excel', '#1565c0')}
-        {btnTool('compteurs', '🔄', 'Recaler compteurs', 'Corriger la numérotation', '#e65100')}
-        {btnTool('doublons', '🔍', 'Doublons', 'Détecter et corriger', '#6a1b9a')}
+        {btnTool('purge', '', 'Purge', 'Supprimer OP & bordereaux', '#C43E3E')}
+        {btnTool('import', '', 'Import OP', 'Importer depuis Excel', '#3B6B8A')}
+        {btnTool('compteurs', '', 'Recaler compteurs', 'Corriger la numérotation', '#C5961F')}
+        {btnTool('doublons', 'Doublons', 'Détecter et corriger', '#C5961F')}
       </div>
 
       {/* === PURGE === */}
       {tool === 'purge' && (
         <div style={cardStyle}>
-          <h3 style={{ color: '#c62828', margin: '0 0 16px' }}>🗑️ Purge des données</h3>
+          <h3 style={{ color: '#C43E3E', margin: '0 0 16px' }}>Purge des données</h3>
           <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
               <input type="radio" checked={purgeScope === 'exercice'} onChange={() => setPurgeScope('exercice')} /> Par exercice
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
               <input type="radio" checked={purgeScope === 'tout'} onChange={() => setPurgeScope('tout')} />
-              <span style={{ color: '#c62828', fontWeight: 700 }}>Tout purger ⚠️</span>
+              <span style={{ color: '#C43E3E', fontWeight: 700 }}>Tout purger </span>
             </label>
           </div>
           {purgeScope === 'exercice' && (
@@ -1128,7 +1129,7 @@ const TabMaintenance = () => {
             </select>
           )}
           <div style={{ marginTop: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#c62828' }}>Tapez SUPPRIMER pour confirmer :</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#C43E3E' }}>Tapez SUPPRIMER pour confirmer :</label>
             <input value={purgeConfirm} onChange={e => setPurgeConfirm(e.target.value)}
               placeholder="SUPPRIMER" style={{ ...styles.input, width: 200, marginTop: 4, fontFamily: 'monospace', fontWeight: 700, letterSpacing: 2 }} />
           </div>
@@ -1138,13 +1139,13 @@ const TabMaintenance = () => {
             </div>
           )}
           {purgeScope === 'tout' && (
-            <div style={{ fontSize: 12, color: '#c62828', fontWeight: 700, marginTop: 8 }}>
-              ⚠️ {ops.length} OP + {bordereaux.length} bordereaux seront supprimés DÉFINITIVEMENT
+            <div style={{ fontSize: 12, color: '#C43E3E', fontWeight: 700, marginTop: 8 }}>
+              {ops.length} OP + {bordereaux.length} bordereaux seront supprimés DÉFINITIVEMENT
             </div>
           )}
           <button onClick={handlePurge} disabled={saving || purgeConfirm !== 'SUPPRIMER'}
-            style={{ ...styles.button, marginTop: 16, background: '#c62828', opacity: purgeConfirm !== 'SUPPRIMER' ? 0.4 : 1 }}>
-            {saving ? 'Suppression en cours...' : '🗑️ Exécuter la purge'}
+            style={{ ...styles.button, marginTop: 16, background: '#C43E3E', opacity: purgeConfirm !== 'SUPPRIMER' ? 0.4 : 1 }}>
+            {saving ? 'Suppression en cours...' : 'Exécuter la purge'}
           </button>
         </div>
       )}
@@ -1152,22 +1153,22 @@ const TabMaintenance = () => {
       {/* === IMPORT === */}
       {tool === 'import' && (
         <div style={cardStyle}>
-          <h3 style={{ color: '#1565c0', margin: '0 0 16px' }}>📥 Import OP depuis Excel</h3>
+          <h3 style={{ color: '#3B6B8A', margin: '0 0 16px' }}>Import OP depuis Excel</h3>
 
           {/* Étape 1 : Canevas */}
-          <div style={{ background: '#e3f2fd', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>📋 Étape 1 : Télécharger le canevas</p>
+          <div style={{ background: '#E8F5E9', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>Étape 1 : Télécharger le canevas</p>
             <p style={{ margin: '0 0 12px', fontSize: 12, color: '#555' }}>
               Un onglet par source ({sources.map(s => s.sigle).join(', ')}) + onglet EXEMPLE + LÉGENDE
             </p>
-            <button onClick={handleDownloadCanevas} style={{ ...styles.button, background: '#1565c0', fontSize: 13 }}>
-              📥 Télécharger le canevas Excel
+            <button onClick={handleDownloadCanevas} style={{ ...styles.button, background: '#3B6B8A', fontSize: 13 }}>
+              Télécharger le canevas Excel
             </button>
           </div>
 
           {/* Étape 2 : Sélection exercice */}
           <div style={{ marginBottom: 16 }}>
-            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>📅 Étape 2 : Exercice de destination</p>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>Étape 2 : Exercice de destination</p>
             <select value={importExercice} onChange={e => setImportExercice(e.target.value)} style={{ ...styles.input, width: 200 }}>
               <option value="">-- Exercice --</option>
               {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
@@ -1176,14 +1177,14 @@ const TabMaintenance = () => {
 
           {/* Étape 3 : Upload */}
           <div style={{ marginBottom: 16 }}>
-            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>📂 Étape 3 : Charger le fichier rempli</p>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>Étape 3 : Charger le fichier rempli</p>
             <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} style={{ fontSize: 13 }} />
           </div>
 
           {/* Prévisualisation */}
           {importPreview && (
             <div style={{ background: '#f8f9fa', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-              <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700 }}>📊 Aperçu : {importPreview.total} OP trouvés</p>
+              <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700 }}>Aperçu : {importPreview.total} OP trouvés</p>
               {importPreview.parSource.map((s, i) => (
                 <div key={i} style={{ fontSize: 12, color: '#333' }}>• {s.sigle} : {s.count} OP</div>
               ))}
@@ -1192,8 +1193,8 @@ const TabMaintenance = () => {
 
           {importPreview && importExercice && (
             <button onClick={handleImport} disabled={saving}
-              style={{ ...styles.button, background: '#2e7d32', fontSize: 14 }}>
-              {saving ? 'Import en cours...' : `✅ Importer ${importPreview.total} OP`}
+              style={{ ...styles.button, background: '#3B6B8A', fontSize: 14 }}>
+              {saving ? 'Import en cours...' : `Importer ${importPreview.total} OP`}
             </button>
           )}
         </div>
@@ -1202,7 +1203,7 @@ const TabMaintenance = () => {
       {/* === COMPTEURS === */}
       {tool === 'compteurs' && (
         <div style={cardStyle}>
-          <h3 style={{ color: '#e65100', margin: '0 0 16px' }}>🔄 Recaler les compteurs de bordereaux</h3>
+          <h3 style={{ color: '#C5961F', margin: '0 0 16px' }}>Recaler les compteurs de bordereaux</h3>
           <p style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
             Remet les compteurs en cohérence avec le plus grand numéro de bordereau existant pour chaque source.
           </p>
@@ -1211,8 +1212,8 @@ const TabMaintenance = () => {
             {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
           </select>
           <button onClick={handleRecalerCompteurs} disabled={saving || !compteurExercice}
-            style={{ ...styles.button, marginTop: 12, background: '#e65100' }}>
-            {saving ? 'Recalage en cours...' : '🔄 Recaler les compteurs'}
+            style={{ ...styles.button, marginTop: 12, background: '#C5961F' }}>
+            {saving ? 'Recalage en cours...' : 'Recaler les compteurs'}
           </button>
         </div>
       )}
@@ -1220,25 +1221,25 @@ const TabMaintenance = () => {
       {/* === DOUBLONS === */}
       {tool === 'doublons' && (
         <div style={cardStyle}>
-          <h3 style={{ color: '#6a1b9a', margin: '0 0 16px' }}>🔍 Détection et correction des doublons</h3>
+          <h3 style={{ color: '#C5961F', margin: '0 0 16px' }}>Détection et correction des doublons</h3>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
             <select value={doublonExercice} onChange={e => setDoublonExercice(e.target.value)} style={{ ...styles.input, width: 200, marginBottom: 0 }}>
               <option value="">-- Exercice --</option>
               {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
             </select>
             <button onClick={handleDetecterDoublons} disabled={!doublonExercice}
-              style={{ ...styles.button, background: '#6a1b9a', marginBottom: 0 }}>
-              🔍 Scanner
+              style={{ ...styles.button, background: '#C5961F', marginBottom: 0 }}>
+              Scanner
             </button>
           </div>
           {doublons !== null && (
             doublons.length === 0 ? (
-              <div style={{ padding: 20, textAlign: 'center', color: '#2e7d32', fontWeight: 600 }}>✅ Aucun doublon détecté !</div>
+              <div style={{ padding: 20, textAlign: 'center', color: '#2e7d32', fontWeight: 600 }}>Aucun doublon détecté !</div>
             ) : (
               <div>
-                <p style={{ fontSize: 13, color: '#c62828', fontWeight: 600, marginBottom: 12 }}>⚠️ {doublons.length} doublon(s) détecté(s)</p>
+                <p style={{ fontSize: 13, color: '#C43E3E', fontWeight: 600, marginBottom: 12 }}>{doublons.length} doublon(s) détecté(s)</p>
                 {doublons.map((dup, i) => (
-                  <div key={i} style={{ padding: 12, background: '#fce4ec', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={i} style={{ padding: 12, background: '#FFEBEE', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{dup.numero}</span>
                       <span style={{ fontSize: 12, color: '#666', marginLeft: 8 }}>× {dup.count} exemplaires</span>
@@ -1247,7 +1248,7 @@ const TabMaintenance = () => {
                       </div>
                     </div>
                     <button onClick={() => handleFixDoublon(dup)} disabled={saving}
-                      style={{ ...styles.button, background: '#6a1b9a', padding: '6px 14px', fontSize: 12 }}>
+                      style={{ ...styles.button, background: '#C5961F', padding: '6px 14px', fontSize: 12 }}>
                       Corriger
                     </button>
                   </div>
