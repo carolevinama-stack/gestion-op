@@ -92,13 +92,13 @@ const PageDashboard = () => {
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
     return {
-      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#1B6B2E", ops: transfert_cf },
+      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#3B6B8A", ops: transfert_cf },
       transfert_ac: { label: "À transférer à l'AC", icon: "→", color: "#2e7d32", ops: transfert_ac },
       differe: { label: "Différés", icon: "!", color: "#C5961F", ops: differe },
-      attente_cf: { label: "Attente CF", icon: "○", color: "#2E9940", ops: attente_cf },
-      annuler: { label: "À annuler", icon: "×", color: "#DC3545", ops: annuler },
+      attente_cf: { label: "Attente CF", icon: "○", color: "#D4722A", ops: attente_cf },
+      annuler: { label: "À annuler", icon: "×", color: "#C43E3E", ops: annuler },
       regulariser: { label: "À régulariser", icon: "~", color: "#C5961F", ops: regulariser },
-      solder: { label: "À solder", icon: "•", color: "#1B6B2E", ops: solder },
+      solder: { label: "À solder", icon: "•", color: "#3B6B8A", ops: solder },
     };
   }, [allOpsExercice]);
 
@@ -130,10 +130,10 @@ const PageDashboard = () => {
       {/* ====== 4 CARTES KPI ====== */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#1B6B2E', accent: '#e8f5e9' },
+          { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#3B6B8A', accent: '#EDF2F7' },
           { icon: 'E', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP`, color: '#C5961F', accent: '#fff3e0' },
-          { icon: 'R', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#DC3545', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
-          { icon: '%', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#1B6B2E', accent: '#E8F5E9', isPercent: true },
+          { icon: 'R', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#C43E3E', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
+          { icon: '%', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#D4722A', accent: '#FFF3E8', isPercent: true },
         ].map((card, i) => (
           <div key={i} style={{ background: 'white', borderRadius: 14, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: card.color }} />
@@ -184,7 +184,7 @@ const PageDashboard = () => {
                     </div>
                     <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px' }}>
                       <div style={{ fontSize: 10, color: '#999' }}>Disponible</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: src.disponible >= 0 ? '#2e7d32' : '#DC3545' }}>{formatMontant(src.disponible)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: src.disponible >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(src.disponible)}</div>
                     </div>
                   </div>
                   <div style={{ fontSize: 10, color: '#bbb', marginTop: 6, textAlign: 'center' }}>
@@ -278,7 +278,7 @@ const PageDashboard = () => {
                         <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
                           {formatMontant(op.montantPaye || 0)}
                         </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#DC3545' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#C43E3E' }}>
                           {formatMontant(op.montant - (op.montantPaye || 0))}
                         </td>
                       </>
@@ -299,7 +299,7 @@ const PageDashboard = () => {
                         <span style={{
                           fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
                           background: op._jours > 7 ? '#ffebee' : '#f5f5f5',
-                          color: op._jours > 7 ? '#DC3545' : '#999'
+                          color: op._jours > 7 ? '#C43E3E' : '#999'
                         }}>
                           {op._jours}j
                         </span>
