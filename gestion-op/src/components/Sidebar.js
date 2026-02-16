@@ -55,22 +55,22 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick }) => {
         margin: collapsed ? '2px 10px' : '2px 12px',
         height: 44, borderRadius: 12, cursor: 'pointer',
         justifyContent: collapsed ? 'center' : 'flex-start',
-        background: active ? accentBg : isH ? '#fafafa' : 'transparent',
+        background: active ? 'rgba(255,255,255,0.15)' : isH ? 'rgba(255,255,255,0.08)' : 'transparent',
         transition: 'all 0.15s ease', position: 'relative',
       }}
     >
       <div style={{
         width: 38, height: 38, borderRadius: 10, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: active ? accent : 'transparent',
+        background: active ? 'rgba(255,255,255,0.2)' : 'transparent',
         transition: 'all 0.2s ease',
       }}>
-        {I[icon]?.(active ? '#fff' : isH ? accent : '#999')}
+        {I[icon]?.(active ? '#fff' : isH ? '#e0e0e0' : 'rgba(255,255,255,0.55)')}
       </div>
       {!collapsed && (
         <span style={{
           fontSize: 13.5, fontWeight: active ? 700 : 500,
-          color: active ? accent : isH ? '#333' : '#666',
+          color: active ? '#fff' : isH ? '#e0e0e0' : 'rgba(255,255,255,0.7)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           transition: 'color 0.15s',
         }}>{label}</span>
@@ -112,7 +112,7 @@ const Sidebar = () => {
   return (
     <div style={{
       width: w, minWidth: w, height: '100vh', position: 'fixed',
-      background: '#fff', color: '#333',
+      background: '#5D6C57', color: '#fff',
       display: 'flex', flexDirection: 'column',
       transition: 'width 0.25s cubic-bezier(.4,0,.2,1), min-width 0.25s cubic-bezier(.4,0,.2,1)',
       overflow: 'hidden',
@@ -124,12 +124,12 @@ const Sidebar = () => {
       <button onClick={() => setCollapsed(c => !c)} style={{
         position: 'absolute', top: 28, right: -14,
         width: 28, height: 28, borderRadius: '50%',
-        border: '1px solid #eee', background: '#fff',
+        border: '1px solid rgba(255,255,255,0.15)', background: '#5D6C57',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }} title={collapsed ? 'Déplier' : 'Replier'}>
         <span style={{ display: 'flex', transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}>
-          {I.chevron('#888')}
+          {I.chevron('#fff')}
         </span>
       </button>
 
@@ -142,7 +142,7 @@ const Sidebar = () => {
       }}>
         <div style={{
           width: 40, height: 40, borderRadius: 12,
-          background: '#fff', border: '1.5px solid #EAEDD8',
+          background: 'rgba(255,255,255,0.9)', border: '1.5px solid rgba(255,255,255,0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden', flexShrink: 0,
         }}>
@@ -150,10 +150,10 @@ const Sidebar = () => {
         </div>
         {!collapsed && (
           <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: accent, letterSpacing: -0.5, lineHeight: 1.1 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: -0.5, lineHeight: 1.1 }}>
               {projet?.sigle || 'PIF 2'}
             </div>
-            <div style={{ fontSize: 10, color: '#b0b0b0', marginTop: 2, letterSpacing: 0.5 }}>Ordres de Paiement</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2, letterSpacing: 0.5 }}>Ordres de Paiement</div>
           </div>
         )}
       </div>
@@ -162,8 +162,8 @@ const Sidebar = () => {
       <nav style={{ flex: 1, padding: '4px 0', overflowY: 'auto', overflowX: 'hidden' }}>
         {items.map((item, idx) => {
           if (item.section) {
-            if (collapsed) return <div key={'s' + idx} style={{ height: 1, background: '#f0f0f0', margin: '10px 14px' }}/>;
-            return <div key={'s' + idx} style={{ padding: '20px 24px 6px', fontSize: 9, fontWeight: 700, color: '#c5c5c5', letterSpacing: 1.5 }}>{item.section}</div>;
+            if (collapsed) return <div key={'s' + idx} style={{ height: 1, background: 'rgba(255,255,255,0.1)', margin: '10px 14px' }}/>;
+            return <div key={'s' + idx} style={{ padding: '20px 24px 6px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 }}>{item.section}</div>;
           }
           return (
             <NavItem key={item.id} id={item.id} icon={item.icon} label={item.label}
@@ -177,12 +177,12 @@ const Sidebar = () => {
       {exerciceActif && (
         <div style={{ padding: collapsed ? '12px 0' : '12px 22px', textAlign: collapsed ? 'center' : 'left' }}>
           {collapsed ? (
-            <div style={{ fontSize: 14, fontWeight: 800, color: accent }}>{String(exerciceActif.annee).slice(-2)}</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{String(exerciceActif.annee).slice(-2)}</div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#6B7D52', boxShadow: '0 0 6px rgba(107,125,82,0.4)' }}/>
-              <span style={{ fontSize: 11, color: '#aaa' }}>Exercice</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: accent }}>{exerciceActif.annee}</span>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C99A2B', boxShadow: '0 0 6px rgba(201,154,43,0.4)' }}/>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Exercice</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{exerciceActif.annee}</span>
             </div>
           )}
         </div>
@@ -191,36 +191,36 @@ const Sidebar = () => {
       {/* ── User + Déconnexion ── */}
       <div style={{
         padding: collapsed ? '14px 0' : '14px 14px',
-        borderTop: '1px solid #f5f5f5',
+        borderTop: '1px solid rgba(255,255,255,0.1)',
         display: 'flex', flexDirection: 'column', gap: 10,
         alignItems: collapsed ? 'center' : 'stretch',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <div style={{
             width: 34, height: 34, borderRadius: '50%',
-            background: `linear-gradient(135deg, ${accent}, #6E7F68)`,
+            background: 'rgba(255,255,255,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0,
           }}>{(user?.email || 'U')[0].toUpperCase()}</div>
           {!collapsed && (
             <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#444', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
             </div>
           )}
         </div>
         {!collapsed ? (
           <button onClick={handleLogout} style={{
             width: '100%', padding: '7px 10px', borderRadius: 8,
-            border: 'none', background: '#f5f5f5',
-            fontSize: 11, fontWeight: 600, color: '#999', cursor: 'pointer',
+            border: 'none', background: 'rgba(255,255,255,0.08)',
+            fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
-          }}>{I.logout('#999')} Déconnexion</button>
+          }}>{I.logout('rgba(255,255,255,0.5)')} Déconnexion</button>
         ) : (
           <button onClick={handleLogout} title="Déconnexion" style={{
             width: 38, height: 34, borderRadius: 8, margin: '0 auto',
-            border: 'none', background: '#f5f5f5', cursor: 'pointer',
+            border: 'none', background: 'rgba(255,255,255,0.08)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>{I.logout('#999')}</button>
+          }}>{I.logout('rgba(255,255,255,0.5)')}</button>
         )}
       </div>
     </div>
