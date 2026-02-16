@@ -92,13 +92,13 @@ const PageDashboard = () => {
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
     return {
-      transfert_cf: { label: "À transférer au CF", icon: "📤", color: "#1B6B2E", ops: transfert_cf },
-      transfert_ac: { label: "À transférer à l'AC", icon: "📨", color: "#2e7d32", ops: transfert_ac },
-      differe: { label: "Différés", icon: "⚠️", color: "#C5961F", ops: differe },
-      attente_cf: { label: "Attente CF", icon: "🕐", color: "#2E9940", ops: attente_cf },
-      annuler: { label: "À annuler", icon: "🗑️", color: "#DC3545", ops: annuler },
-      regulariser: { label: "À régulariser", icon: "📝", color: "#C5961F", ops: regulariser },
-      solder: { label: "À solder", icon: "💰", color: "#1B6B2E", ops: solder },
+      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#1B6B2E", ops: transfert_cf },
+      transfert_ac: { label: "À transférer à l'AC", icon: "→", color: "#2e7d32", ops: transfert_ac },
+      differe: { label: "Différés", icon: "!", color: "#C5961F", ops: differe },
+      attente_cf: { label: "Attente CF", icon: "○", color: "#2E9940", ops: attente_cf },
+      annuler: { label: "À annuler", icon: "×", color: "#DC3545", ops: annuler },
+      regulariser: { label: "À régulariser", icon: "~", color: "#C5961F", ops: regulariser },
+      solder: { label: "À solder", icon: "•", color: "#1B6B2E", ops: solder },
     };
   }, [allOpsExercice]);
 
@@ -130,10 +130,10 @@ const PageDashboard = () => {
       {/* ====== 4 CARTES KPI ====== */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { icon: '💰', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#1B6B2E', accent: '#e8f5e9' },
-          { icon: '📝', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP`, color: '#C5961F', accent: '#fff3e0' },
-          { icon: '✅', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#DC3545', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
-          { icon: '📊', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#1B6B2E', accent: '#E8F5E9', isPercent: true },
+          { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#1B6B2E', accent: '#e8f5e9' },
+          { icon: 'E', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP`, color: '#C5961F', accent: '#fff3e0' },
+          { icon: 'R', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#DC3545', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
+          { icon: '%', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#1B6B2E', accent: '#E8F5E9', isPercent: true },
         ].map((card, i) => (
           <div key={i} style={{ background: 'white', borderRadius: 14, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: card.color }} />
@@ -143,7 +143,7 @@ const PageDashboard = () => {
                 <div style={{ fontSize: 24, fontWeight: 800, color: card.color, fontFamily: 'monospace', letterSpacing: -0.5 }}>{card.value}</div>
                 <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{card.sub}</div>
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{card.icon}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: card.color }}>{card.icon}</div>
             </div>
             {card.isPercent && (
               <div style={{ marginTop: 12, background: '#eee', borderRadius: 10, height: 6, overflow: 'hidden' }}>
@@ -157,7 +157,7 @@ const PageDashboard = () => {
       {/* ====== EXÉCUTION PAR SOURCE ====== */}
       <div style={{ background: 'white', borderRadius: 14, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 18 }}>🏦</span> Exécution budgétaire par source
+          Exécution budgétaire par source
         </h3>
         {sourceStats.length === 0 ? (
           <p style={{ color: '#6c757d', fontSize: 13 }}>Aucune source configurée</p>
@@ -229,7 +229,7 @@ const PageDashboard = () => {
         <div className="op-list" style={{ maxHeight: 340, overflowY: 'auto' }}>
           {selectedOps.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#999', fontSize: 13 }}>
-              ✅ Aucun OP dans cette catégorie
+              Aucun OP dans cette catégorie
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
