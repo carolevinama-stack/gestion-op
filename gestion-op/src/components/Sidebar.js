@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LOGO_PIF2 } from '../utils/logos';
 
-const accent = '#3D4A2C';
+const accent = '#5D6C57';
 const accentBg = '#EAEDD8';
 const EXPANDED = 240;
 const COLLAPSED = 68;
@@ -198,7 +198,7 @@ const Sidebar = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <div style={{
             width: 34, height: 34, borderRadius: '50%',
-            background: `linear-gradient(135deg, ${accent}, #5A6B48)`,
+            background: `linear-gradient(135deg, ${accent}, #6E7F68)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0,
           }}>{(user?.email || 'U')[0].toUpperCase()}</div>
