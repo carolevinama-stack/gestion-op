@@ -99,7 +99,15 @@ const PageAdmin = () => {
       // Nettoyer l'app secondaire
       try { await deleteApp(secondaryApp); } catch (e) {}
 
-      showMessage(`✅ Utilisateur ${createForm.nom} créé avec succès ! Mot de passe temporaire : ${createForm.password}`);
+      // Envoyer automatiquement un email de réinitialisation
+      try {
+        const mainAuth = getAuth();
+        await sendPasswordResetEmail(mainAuth, createForm.email.trim().toLowerCase());
+        showMessage(`✅ ${createForm.nom} créé ! Un email de réinitialisation a été envoyé à ${createForm.email}.`);
+      } catch (e) {
+        // Le compte est créé même si l'email échoue
+        showMessage(`✅ ${createForm.nom} créé, mais l'email n'a pas pu être envoyé. Utilisez "Réinitialiser" pour réessayer.`, 'warning');
+      }
       setShowCreateModal(false);
       setCreateForm({ email: '', nom: '', role: 'OPERATEUR', password: '' });
       await loadUsers();
@@ -167,8 +175,7 @@ const PageAdmin = () => {
     if (!confirm) return;
 
     try {
-      const { getAuth: getMainAuth } = await import('firebase/auth');
-      const mainAuth = getMainAuth();
+      const mainAuth = getAuth();
       await sendPasswordResetEmail(mainAuth, userDoc.email);
       showMessage(`✅ Email de réinitialisation envoyé à ${userDoc.email}`);
     } catch (error) {
@@ -455,7 +462,7 @@ const PageAdmin = () => {
                   </button>
                 </div>
                 <p style={{ fontSize: 11, color: '#f57f17', marginTop: 6 }}>
-                  ⚠️ Notez ce mot de passe et communiquez-le à l'utilisateur. Il devra le changer à sa première connexion.
+                  ⚠️ Un mot de passe temporaire est nécessaire pour créer le compte. Un email de réinitialisation sera envoyé automatiquement à l'utilisateur.
                 </p>
               </div>
             </div>
