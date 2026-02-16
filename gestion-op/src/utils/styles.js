@@ -1,5 +1,6 @@
 export const styles = {
   container: { minHeight: '100vh', background: '#F7F5F2' },
+  main: { marginLeft: 'var(--sidebar-w, 240px)', flex: 1, padding: 26, transition: 'margin-left 0.25s cubic-bezier(.4,0,.2,1)' },
   pageContainer: { padding: '24px 30px', maxWidth: 1300, margin: '0 auto' },
   title: { fontSize: 22, fontWeight: 700, color: '#1B6B2E', marginBottom: 16 },
   sidebar: { width: 260, background: '#1B6B2E', color: 'white', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed' },
