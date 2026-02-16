@@ -121,7 +121,7 @@ const PageDashboard = () => {
 
       {/* ====== HEADER ====== */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Bonjour{prenom ? `, ${prenom}` : ''} 👋</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Bonjour{prenom ? `, ${prenom}` : ''}</h1>
         <p style={{ color: '#6c757d', fontSize: 13, margin: '6px 0 0', textTransform: 'capitalize' }}>
           {today} — Exercice {exerciceActif?.annee || 'Non défini'}
         </p>
