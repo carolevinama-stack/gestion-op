@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from './firebase';
-import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { styles } from './utils/styles';
 
@@ -102,6 +102,17 @@ export default function App() {
     }
   };
 
+  const handleForgotPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') return { success: false, error: 'Aucun compte associé à cet e-mail.' };
+      if (error.code === 'auth/invalid-email') return { success: false, error: 'Adresse e-mail invalide.' };
+      return { success: false, error: 'Erreur. Veuillez réessayer.' };
+    }
+  };
+
   // Auth loading
   if (authLoading) {
     return (
@@ -119,7 +130,7 @@ export default function App() {
 
   // Not logged in
   if (!user) {
-    return <LoginPage onLogin={handleLogin} error={authError} />;
+    return <LoginPage onLogin={handleLogin} onForgotPassword={handleForgotPassword} error={authError} />;
   }
 
   // Logged in - wrap in AppProvider
