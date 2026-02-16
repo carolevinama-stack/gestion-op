@@ -30,8 +30,11 @@ function AppLayout() {
         <Sidebar />
         <main style={styles.main}>
           <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 40, marginBottom: 20 }}>⏳</div>
-            <p>Chargement des données...</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#5D6C57', opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` }} />)}
+            </div>
+            <p style={{ fontSize: 13, color: '#8A7D6B', marginTop: 16 }}>Chargement des données...</p>
+            <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }`}</style>
           </div>
         </main>
       </div>
