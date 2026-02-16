@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, runTransaction, getDoc, setDoc } from 'firebase/firestore';
@@ -53,18 +53,6 @@ const ToastContainer = React.memo(({ toasts, onRemove }) => (
     ))}
   </div>
 ));
-
-// ============================================================
-// CONFIRM BUTTON (double-clic, fit-content — remplace confirm + mdp)
-// ============================================================
-const ConfirmBtn = ({ label, confirmLabel, icon, bg, color, onConfirm, disabled, full }) => {
-  const [c, setC] = useState(false);
-  useEffect(() => { if (c) { const t = setTimeout(() => setC(false), 3000); return () => clearTimeout(t); } }, [c]);
-  return <button onClick={() => { if (c) { onConfirm(); setC(false); } else setC(true); }} disabled={disabled}
-    style={{ padding: '5px 10px', border: 'none', borderRadius: 6, background: c ? P.red : bg, color: c ? '#fff' : color, fontWeight: 600, fontSize: 11, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, transition: 'all 0.2s', opacity: disabled ? 0.5 : 1, whiteSpace: 'nowrap', width: full ? '100%' : 'fit-content', justifyContent: full ? 'center' : undefined }}>
-    {c ? <>{confirmLabel || 'Confirmer ?'}</> : <>{icon} {label}</>}
-  </button>;
-};
 
 // ============================================================
 // COMPOSANT PRINCIPAL
@@ -122,6 +110,12 @@ const PageBordereaux = () => {
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), type === 'error' ? 5000 : 3000);
   }, []);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+  // Confirmation modal (async promise — pas de mot de passe)
+  const [confirmModal, setConfirmModal] = useState(null);
+  const confirm = (message) => new Promise(resolve => { setConfirmModal({ message, resolve }); });
+  const handleConfirmOk = () => { confirmModal.resolve(true); setConfirmModal(null); };
+  const handleConfirmCancel = () => { confirmModal.resolve(false); setConfirmModal(null); };
 
   // === REFS pour dates ===
   const dateRefs = useRef({});
@@ -200,6 +194,7 @@ const PageBordereaux = () => {
       return !op || !eligibleStatuts.includes(op.statut) || (op[bf] && op[bf] !== '');
     });
     if (dejaUtilises.length > 0) { toast(`${dejaUtilises.length} OP déjà utilisé(s). Rafraîchissez.`, 'error'); setSelectedOps([]); return; }
+    if (!(await confirm(`Créer un bordereau — ${selectedOps.length} OP — ${formatMontant(totalSelected)} F ?`))) return;
     setSaving(true);
     try {
       const num = await genererNumeroBTTransaction(typeBT);
@@ -214,6 +209,8 @@ const PageBordereaux = () => {
   const handleTransmettre = async (bt) => {
     const d = readDate('trans_' + bt.id);
     if (!d) { toast('Saisissez une date.', 'warning'); return; }
+    const lab = bt.type === 'CF' ? 'au CF' : "à l'AC";
+    if (!(await confirm(`Transmettre ${bt.numero} ${lab} ?`))) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'bordereaux', bt.id), { dateTransmission: d, statut: 'ENVOYE', updatedAt: new Date().toISOString() });
@@ -226,6 +223,7 @@ const PageBordereaux = () => {
   };
 
   const handleAnnulerTransmission = async (bt) => {
+    if (!(await confirm(`Annuler la transmission de ${bt.numero} ?`))) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'bordereaux', bt.id), { dateTransmission: null, statut: 'EN_COURS', updatedAt: new Date().toISOString() });
@@ -255,6 +253,7 @@ const PageBordereaux = () => {
 
   const handleRemoveOpFromBT = async (bt, opId) => {
     if (bt.opsIds.length <= 1) { toast('Minimum 1 OP.', 'warning'); return; }
+    if (!(await confirm('Retirer cet OP du bordereau ?'))) return;
     try {
       const nIds = bt.opsIds.filter(id => id !== opId);
       const nT = nIds.reduce((s, id) => s + (ops.find(x => x.id === id)?.montant || 0), 0);
@@ -265,6 +264,7 @@ const PageBordereaux = () => {
   };
 
   const handleDeleteBordereau = async (bt) => {
+    if (!(await confirm(`Supprimer le bordereau ${bt.numero} ?`))) return;
     try {
       const ps = bt.type === 'CF' ? 'EN_COURS' : 'VISE_CF';
       const bf = bt.type === 'CF' ? 'bordereauCF' : 'bordereauAC';
@@ -306,6 +306,8 @@ const PageBordereaux = () => {
     const d = readDate('retourCF');
     if (!d) { toast('Date requise.', 'warning'); return; }
     if ((resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && !motifRetour.trim()) { toast('Motif obligatoire.', 'warning'); return; }
+    const lab = resultatCF === 'VISE' ? 'Visé' : resultatCF === 'DIFFERE' ? 'Différé' : 'Rejeté';
+    if (!(await confirm(`Marquer ${selectedOps.length} OP comme "${lab}" ?`))) return;
     setSaving(true);
     try {
       let upd = { updatedAt: new Date().toISOString() };
@@ -327,7 +329,9 @@ const PageBordereaux = () => {
   };
 
   const handleAnnulerRetour = async (opId, statut) => {
+    const lab = statut === 'VISE_CF' ? 'visa CF' : statut === 'DIFFERE_CF' ? 'différé CF' : statut === 'REJETE_CF' ? 'rejet CF' : statut === 'DIFFERE_AC' ? 'différé AC' : 'rejet AC';
     const retour = ['DIFFERE_AC', 'REJETE_AC'].includes(statut) ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
+    if (!(await confirm(`Annuler le ${lab} ?`))) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'ops', opId), { statut: retour, dateVisaCF: null, dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString() });
@@ -342,6 +346,8 @@ const PageBordereaux = () => {
     if (!motifRetourAC.trim()) { toast('Motif obligatoire.', 'warning'); return; }
     const d = readDate('retourAC');
     if (!d) { toast('Date requise.', 'warning'); return; }
+    const labAC = resultatAC === 'DIFFERE' ? 'Différé AC' : 'Rejeté AC';
+    if (!(await confirm(`Marquer comme "${labAC}" ?`))) return;
     setSaving(true);
     try {
       let upd = { updatedAt: new Date().toISOString() };
@@ -365,6 +371,7 @@ const PageBordereaux = () => {
     const deja = paiem.reduce((s, p) => s + (p.montant || 0), 0);
     const reste = (op.montant || 0) - deja;
     if (m > reste + 1) { toast(`Dépasse le reste (${formatMontant(reste)} F).`, 'warning'); return; }
+    if (!(await confirm(`Paiement ${formatMontant(m)} F ?`))) return;
     const nP = [...paiem, { date: d, montant: m, reference: paiementReference.trim(), createdAt: new Date().toISOString() }];
     const tot = nP.reduce((s, p) => s + (p.montant || 0), 0);
     const solde = (op.montant || 0) - tot < 1;
@@ -382,6 +389,8 @@ const PageBordereaux = () => {
     const op = ops.find(o => o.id === opId);
     const p = op?.paiements || [];
     if (p.length === 0) return;
+    const der = p[p.length - 1];
+    if (!(await confirm(`Annuler le paiement de ${formatMontant(der.montant)} F du ${der.date} ?`))) return;
     setSaving(true);
     try {
       const nP = p.slice(0, -1);
@@ -397,6 +406,7 @@ const PageBordereaux = () => {
   // === ARCHIVAGE ===
   const handleArchiverDirect = async (opId, boite) => {
     if (!boite || !boite.trim()) { toast('Renseignez la boîte.', 'warning'); return; }
+    if (!(await confirm(`Archiver dans "${boite}" ?`))) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'ops', opId), { statut: 'ARCHIVE', boiteArchivage: boite.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString() });
@@ -407,6 +417,7 @@ const PageBordereaux = () => {
 
   const handleArchiver = async () => {
     if (selectedOps.length === 0 || !boiteArchivage.trim()) return;
+    if (!(await confirm(`Archiver ${selectedOps.length} OP dans "${boiteArchivage}" ?`))) return;
     setSaving(true);
     try {
       for (const opId of selectedOps) await updateDoc(doc(db, 'ops', opId), { statut: 'ARCHIVE', boiteArchivage: boiteArchivage.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString() });
@@ -416,6 +427,7 @@ const PageBordereaux = () => {
   };
 
   const handleDesarchiver = async (opId) => {
+    if (!(await confirm('Désarchiver cet OP ?'))) return;
     setSaving(true);
     try {
       const op = ops.find(o => o.id === opId);
@@ -430,6 +442,7 @@ const PageBordereaux = () => {
   const handleAnnulerPaye = async (opId) => {
     const op = ops.find(o => o.id === opId);
     const prev = op?.type === 'ANNULATION' ? 'VISE_CF' : (op?.totalPaye > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC');
+    if (!(await confirm(`Annuler "À archiver" → ${prev === 'VISE_CF' ? 'Visé CF' : 'Transmis AC'} ?`))) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'ops', opId), { statut: prev, updatedAt: new Date().toISOString() });
@@ -457,6 +470,7 @@ const PageBordereaux = () => {
   const handleReintroduire = async (opIds, type = 'CF') => {
     const d = readDate('reintro');
     if (!d) { toast('Date requise.', 'warning'); return; }
+    if (!(await confirm(`Réintroduire ${opIds.length} OP ?`))) return;
     setSaving(true);
     try {
       for (const opId of opIds) {
@@ -952,7 +966,7 @@ const PageBordereaux = () => {
                   <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
                   <td style={{ ...styles.td, fontSize: 12 }}>{op.datePaiement || op.dateVisaCF || '-'}</td>
                   <td style={styles.td} onClick={e => e.stopPropagation()}>
-                    <ConfirmBtn label="↩" confirmLabel="Sûr ?" bg={P.cfPale} color={P.cf} onConfirm={() => handleAnnulerPaye(op.id)} disabled={saving} />
+                    <IBtn icon="↩" title="Annuler" bg={P.cfPale} color={P.cf} onClick={() => handleAnnulerPaye(op.id)} disabled={saving} />
                   </td>
                 </tr>;
               })}
@@ -991,7 +1005,7 @@ const PageBordereaux = () => {
                   <td style={{ ...styles.td, fontSize: 12 }}>{op.dateArchivage || '-'}</td>
                   <td style={{ ...styles.td, display: 'flex', gap: 4 }}>
                     <IBtn icon="✏️" title="Modifier la boîte" bg={P.archPale} color={P.arch} onClick={() => handleModifierBoite(op.id)} />
-                    <ConfirmBtn label="↩" confirmLabel="Sûr ?" bg={P.cfPale} color={P.cf} onConfirm={() => handleDesarchiver(op.id)} disabled={saving} />
+                    <IBtn icon="↩" title="Désarchiver" bg={P.cfPale} color={P.cf} onClick={() => handleDesarchiver(op.id)} disabled={saving} />
                   </td>
                 </tr>
               ))}
@@ -1116,7 +1130,7 @@ const PageBordereaux = () => {
                     <div><span style={{ fontSize: 12, fontWeight: 500 }}>{p.date}</span><span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{p.reference || 'Sans réf.'}</span></div>
                     <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: P.pay }}>{formatMontant(p.montant)} F</span>
                   </div>)}
-                  <ConfirmBtn label="↩ Annuler dernier" confirmLabel="Confirmer ?" bg={P.redPale} color={P.red} onConfirm={() => handleAnnulerPaiement(op.id)} disabled={saving} />
+                  <button onClick={() => handleAnnulerPaiement(op.id)} disabled={saving} style={{ marginTop: 6, padding: '5px 10px', background: P.redPale, color: P.red, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, width: 'fit-content' }}>↩ Annuler dernier</button>
                 </div>}
 
                 {/* Nouveau paiement */}
@@ -1159,12 +1173,12 @@ const PageBordereaux = () => {
 
                 {/* Annuler transmission AC */}
                 {op.statut === 'TRANSMIS_AC' && paiem.length === 0 && <div style={{ borderTop: `1px solid ${P.acPale}`, paddingTop: 12, marginTop: 12 }}>
-                  <ConfirmBtn label="↩ Annuler transmission AC" confirmLabel="Confirmer ?" bg={P.cfPale} color={P.cf} full
-                    onConfirm={async () => {
+                  <button onClick={async () => {
+                      if (!(await confirm('Annuler la transmission AC ?'))) return;
                       setSaving(true);
                       try { await updateDoc(doc(db, 'ops', op.id), { statut: 'VISE_CF', dateTransmissionAC: null, bordereauAC: null, updatedAt: new Date().toISOString() }); toast('Transmission AC annulée'); setDrawerPaiement(null); } catch (e) { toast('Erreur : ' + e.message, 'error'); }
                       setSaving(false);
-                    }} disabled={saving} />
+                    }} disabled={saving} style={{ width: '100%', padding: '8px 10px', border: 'none', borderRadius: 8, background: P.cfPale, color: P.cf, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>↩ Annuler transmission AC</button>
                 </div>}
 
                 {/* Archiver */}
@@ -1178,6 +1192,18 @@ const PageBordereaux = () => {
                 </div>}
               </>;
             })()}
+          </div>
+        </div>
+      </>}
+
+      {/* ===== MODAL CONFIRMATION ===== */}
+      {confirmModal && <>
+        <div onClick={handleConfirmCancel} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(34,51,0,0.25)', zIndex: 200 }} />
+        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: P.bgCard, borderRadius: 14, padding: '28px 32px', zIndex: 210, boxShadow: '0 8px 40px rgba(34,51,0,0.18)', minWidth: 320, maxWidth: 420, textAlign: 'center' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: P.sidebarDark, marginBottom: 24, lineHeight: 1.5 }}>{confirmModal.message}</div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button onClick={handleConfirmCancel} style={{ padding: '8px 24px', borderRadius: 8, border: `1px solid ${P.bgSection}`, background: 'white', color: P.labelMuted, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Annuler</button>
+            <button onClick={handleConfirmOk} style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: P.cf, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Confirmer</button>
           </div>
         </div>
       </>}
