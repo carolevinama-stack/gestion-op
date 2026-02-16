@@ -18,7 +18,7 @@ const inputStyle = {
   width: '100%', padding: '12px 14px', border: '1.5px solid #e0e0e0', borderRadius: 10,
   fontSize: 13, background: '#fff', outline: 'none', transition: 'border 0.2s', fontFamily: 'inherit',
 };
-const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: '#1B6B2E', marginBottom: 6, letterSpacing: 0.5 };
+const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: '#3B6B8A', marginBottom: 6, letterSpacing: 0.5 };
 
 const LoginPage = ({ onLogin, onForgotPassword, error }) => {
   const [email, setEmail] = useState('');
@@ -73,7 +73,7 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
         <div style={{ width: '100%', maxWidth: 360 }}>
           {!showForgot ? (
             <form onSubmit={handleSubmit}>
-              <h2 style={{ fontSize: 22, color: '#1B6B2E', fontWeight: 700, margin: '0 0 4px' }}>Se connecter</h2>
+              <h2 style={{ fontSize: 22, color: '#3B6B8A', fontWeight: 700, margin: '0 0 4px' }}>Se connecter</h2>
               <p style={{ fontSize: 13, color: '#888', marginBottom: 28 }}>Entrez vos identifiants pour continuer</p>
               {error && (
                 <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FFEBEE', color: '#DC3545', fontSize: 12, fontWeight: 600, marginBottom: 16 }}>{error}</div>
@@ -81,13 +81,13 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
               <label style={labelStyle}>ADRESSE E-MAIL</label>
               <div style={{ marginBottom: 18 }}>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nom@exemple.com" required style={inputStyle} autoFocus
-                  onFocus={e => e.target.style.borderColor='#1B6B2E'} onBlur={e => e.target.style.borderColor='#e0e0e0'} />
+                  onFocus={e => e.target.style.borderColor='#3B6B8A'} onBlur={e => e.target.style.borderColor='#e0e0e0'} />
               </div>
               <label style={labelStyle}>MOT DE PASSE</label>
               <div style={{ position: 'relative', marginBottom: 8 }}>
                 <input type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
                   style={{ ...inputStyle, paddingRight: 44 }}
-                  onFocus={e => e.target.style.borderColor='#1B6B2E'} onBlur={e => e.target.style.borderColor='#e0e0e0'} />
+                  onFocus={e => e.target.style.borderColor='#3B6B8A'} onBlur={e => e.target.style.borderColor='#e0e0e0'} />
                 <button type="button" onClick={() => setShowPwd(!showPwd)} tabIndex={-1}
                   style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
                   title={showPwd ? 'Masquer' : 'Afficher'}>
@@ -101,13 +101,13 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
                 </button>
               </div>
               <button type="submit" disabled={loading}
-                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#1B6B2E', color: '#fff', fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#3B6B8A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Connexion...' : 'Se connecter'}
               </button>
             </form>
           ) : (
             <>
-              <h2 style={{ fontSize: 22, color: '#1B6B2E', fontWeight: 700, margin: '0 0 4px' }}>Mot de passe oublié</h2>
+              <h2 style={{ fontSize: 22, color: '#3B6B8A', fontWeight: 700, margin: '0 0 4px' }}>Mot de passe oublié</h2>
               <p style={{ fontSize: 13, color: '#888', marginBottom: 28 }}>Saisissez votre e-mail pour recevoir un lien de réinitialisation</p>
               {forgotMessage && (
                 <div style={{ padding: '10px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, marginBottom: 16,
@@ -119,10 +119,10 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
               <div style={{ marginBottom: 24 }}>
                 <input type="email" value={forgotEmail} onChange={e => { setForgotEmail(e.target.value); setForgotMessage(null); }}
                   onKeyDown={e => { if (e.key === 'Enter') handleForgotPassword(); }} placeholder="nom@exemple.com" style={inputStyle} autoFocus
-                  onFocus={e => e.target.style.borderColor='#1B6B2E'} onBlur={e => e.target.style.borderColor='#e0e0e0'} />
+                  onFocus={e => e.target.style.borderColor='#3B6B8A'} onBlur={e => e.target.style.borderColor='#e0e0e0'} />
               </div>
               <button onClick={handleForgotPassword} disabled={forgotLoading}
-                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#1B6B2E', color: '#fff', fontSize: 14, fontWeight: 700, cursor: forgotLoading ? 'not-allowed' : 'pointer', marginBottom: 14, opacity: forgotLoading ? 0.7 : 1 }}>
+                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#3B6B8A', color: '#fff', fontSize: 14, fontWeight: 700, cursor: forgotLoading ? 'not-allowed' : 'pointer', marginBottom: 14, opacity: forgotLoading ? 0.7 : 1 }}>
                 {forgotLoading ? 'Envoi...' : 'Envoyer le lien'}
               </button>
               <button onClick={() => { setShowForgot(false); setForgotMessage(null); }}
