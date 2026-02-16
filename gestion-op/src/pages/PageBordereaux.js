@@ -22,7 +22,7 @@ const STab = React.memo(({ active, label, count, color, onClick }) => (
 ));
 // Petite icône bouton
 const IBtn = React.memo(({ icon, title, bg, color, onClick, disabled }) => (
-  <button onClick={onClick} disabled={disabled} title={title} style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: bg || '#E8F5E9', color: color || '#2E9940', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700, opacity: disabled ? 0.5 : 1, transition: 'all 0.15s', padding: 0 }}>{icon}</button>
+  <button onClick={onClick} disabled={disabled} title={title} style={{ width: 30, height: 30, borderRadius: 7, border: 'none', background: bg || '#E8F5E9', color: color || '#D4722A', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700, opacity: disabled ? 0.5 : 1, transition: 'all 0.15s', padding: 0 }}>{icon}</button>
 ));
 
 // ============================================================
@@ -479,8 +479,8 @@ const PageBordereaux = () => {
   @media print{.tb{display:none!important}body{background:#fff!important}.pg{box-shadow:none!important;margin:0!important}}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Century Gothic','Trebuchet MS',sans-serif;font-size:11px;background:#e0e0e0}
-  .tb{background:#1B6B2E;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}
-  .tb button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#2E9940;color:white}
+  .tb{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}
+  .tb button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#D4722A;color:white}
   .tb span{color:rgba(255,255,255,0.7);margin-left:auto;font-size:12px}
   .pg{width:297mm;min-height:210mm;margin:20px auto;background:white;padding:12mm 15mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}
   .hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
@@ -491,7 +491,7 @@ const PageBordereaux = () => {
   .hd-right{width:15%;text-align:center}
   .hd-right img{max-width:75px;margin:0 auto;display:block}
   .hd-right .dev{font-size:9px;font-style:italic;margin-top:2px;text-align:center}
-  .fin{text-align:center;font-style:italic;font-size:10px;color:#1B6B2E;margin:8px 0 15px}
+  .fin{text-align:center;font-style:italic;font-size:10px;color:#3B6B8A;margin:8px 0 15px}
   .dw{display:flex;justify-content:flex-end;margin-bottom:20px}
   .db{text-align:left;font-size:11px;line-height:1.8}
   .bt-title{text-align:center;font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:20px}
@@ -566,8 +566,8 @@ const PageBordereaux = () => {
           return <div key={bt.id} style={{ marginBottom: 2 }}>
             {/* Ligne compacte */}
             <div onClick={() => { setExpandedBT(isExp ? null : bt.id); setEditingBT(null); setShowAddOps(null); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: isExp ? '#E8F5E9' : isPrep ? '#fffde7' : 'white', borderRadius: isExp ? '10px 10px 0 0' : 10, border: isExp ? '1px solid #2E9940' : isPrep ? '1px dashed #E8B931' : '1px solid #e0e0e0', borderBottom: isExp ? 'none' : undefined, cursor: 'pointer' }}>
-              <span style={{ fontSize: 11, color: '#2E9940', transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: isExp ? '#E8F5E9' : isPrep ? '#fffde7' : 'white', borderRadius: isExp ? '10px 10px 0 0' : 10, border: isExp ? '1px solid #D4722A' : isPrep ? '1px dashed #E8B931' : '1px solid #e0e0e0', borderBottom: isExp ? 'none' : undefined, cursor: 'pointer' }}>
+              <span style={{ fontSize: 11, color: '#D4722A', transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, minWidth: 200 }} onClick={e => e.stopPropagation()}>
                 {editBtId === bt.id ? (
                   <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
@@ -577,30 +577,30 @@ const PageBordereaux = () => {
                   </span>
                 ) : bt.numero}
               </span>
-              <span style={{ fontSize: 12, color: '#2E9940', minWidth: 90 }}>{bt.dateTransmission || bt.dateCreation}</span>
-              <Badge bg={isPrep ? '#fef3cd' : '#E8F5E9'} color={isPrep ? '#C5961F' : '#2E9940'}>{isPrep ? 'En cours' : 'Transmis'}</Badge>
-              <span style={{ fontSize: 12, color: '#2E9940' }}>{bt.nbOps} OP</span>
+              <span style={{ fontSize: 12, color: '#D4722A', minWidth: 90 }}>{bt.dateTransmission || bt.dateCreation}</span>
+              <Badge bg={isPrep ? '#fef3cd' : '#E8F5E9'} color={isPrep ? '#C5961F' : '#D4722A'}>{isPrep ? 'En cours' : 'Transmis'}</Badge>
+              <span style={{ fontSize: 12, color: '#D4722A' }}>{bt.nbOps} OP</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, marginLeft: 'auto' }}>{formatMontant(bt.totalMontant)} F</span>
               <div style={{ display: 'flex', gap: 4, marginLeft: 8 }} onClick={e => e.stopPropagation()}>
-                <IBtn icon="⎙" title="Imprimer" bg="#E8F5E9" color="#1B6B2E" onClick={() => handlePrintBordereau(bt)} />
+                <IBtn icon="⎙" title="Imprimer" bg="#E8F5E9" color="#3B6B8A" onClick={() => handlePrintBordereau(bt)} />
                 <IBtn icon="#" title="Modifier le numéro" bg="#FFF8E1" color="#C5961F" onClick={() => handleStartEditBtNumero(bt)} />
                 {bt.statut === 'ENVOYE' && <IBtn icon="↩" title="Annuler la transmission" bg="#fff3e0" color="#C5961F" onClick={() => handleAnnulerTransmission(bt)} disabled={saving} />}
-                <IBtn icon="×" title="Supprimer le bordereau" bg="#ffebee" color="#DC3545" onClick={() => handleDeleteBordereau(bt)} />
+                <IBtn icon="×" title="Supprimer le bordereau" bg="#ffebee" color="#C43E3E" onClick={() => handleDeleteBordereau(bt)} />
               </div>
             </div>
             {/* Détail déplié */}
-            {isExp && <div style={{ border: '1px solid #2E9940', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: 16, background: 'white' }}>
+            {isExp && <div style={{ border: '1px solid #D4722A', borderTop: 'none', borderRadius: '0 0 10px 10px', padding: 16, background: 'white' }}>
               {/* Transmission */}
               {isPrep && <div style={{ background: '#fef3cd', borderRadius: 8, padding: 12, marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#C5961F' }}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission || ''} ref={el => setDateRef('trans_' + bt.id, el)} style={{ ...styles.input, marginBottom: 0, width: 170 }} />
-                <button onClick={() => handleTransmettre(bt)} disabled={saving} style={{ background: '#2e7d32', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>✓ Transmettre</button>
+                <button onClick={() => handleTransmettre(bt)} disabled={saving} style={{ background: '#3B6B8A', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>✓ Transmettre</button>
               </div>}
               {/* Icônes Modifier / Annuler / Valider */}
               <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
                 {!isEdit && <IBtn icon="✎" title="Modifier" bg="#f5f5f5" color="#666" onClick={() => handleEnterEditBT(bt)} />}
                 {isEdit && <>
-                  <IBtn icon="✕" title="Annuler les modifications" bg="#ffebee" color="#DC3545" onClick={() => { setEditingBT(null); setShowAddOps(null); }} />
+                  <IBtn icon="✕" title="Annuler les modifications" bg="#ffebee" color="#C43E3E" onClick={() => { setEditingBT(null); setShowAddOps(null); }} />
                   <IBtn icon="✓" title="Valider les modifications" bg="#e8f5e9" color="#2e7d32" onClick={() => setEditingBT(null)} />
                 </>}
               </div>
@@ -615,7 +615,7 @@ const PageBordereaux = () => {
                   <td style={{ ...styles.td, fontSize: 11 }}>{getBen(op)}</td>
                   <td style={{ ...styles.td, fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet || '-'}</td>
                   <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatMontant(op.montant)}</td>
-                  {isEdit && <td style={{ ...styles.td, textAlign: 'center' }}><IBtn icon="✕" title="Retirer" bg="#ffebee" color="#DC3545" onClick={() => handleRemoveOpFromBT(bt, op.id)} /></td>}
+                  {isEdit && <td style={{ ...styles.td, textAlign: 'center' }}><IBtn icon="✕" title="Retirer" bg="#ffebee" color="#C43E3E" onClick={() => handleRemoveOpFromBT(bt, op.id)} /></td>}
                 </tr>)}
               </tbody></table>
               {/* Ajouter OP en mode édition */}
@@ -654,7 +654,7 @@ const PageBordereaux = () => {
     return <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <STab active={subTab === 'DIFFERES'} label="Différés" count={differes.length} color="#C5961F" onClick={() => { setSubTab('DIFFERES'); setSelectedOps([]); }} />
-        <STab active={subTab === 'REJETES'} label="Rejetés" count={rejetes.length} color="#DC3545" onClick={() => { setSubTab('REJETES'); setSelectedOps([]); }} />
+        <STab active={subTab === 'REJETES'} label="Rejetés" count={rejetes.length} color="#C43E3E" onClick={() => { setSubTab('REJETES'); setSelectedOps([]); }} />
       </div>
       <div style={{ marginBottom: 12 }}><input type="text" placeholder="Rechercher..." value={searchSuivi} onChange={e => setSearchSuivi(e.target.value)} style={{ ...styles.input, maxWidth: 400, marginBottom: 0 }} /></div>
 
@@ -695,10 +695,10 @@ const PageBordereaux = () => {
             <tr key={op.id} style={{ background: '#fef2f2' }}>
               <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 600, fontSize: 10 }}>{op.numero}</td>
               <td style={{ ...styles.td, fontSize: 12 }}>{getBen(op)}</td>
-              <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#DC3545' }}>{formatMontant(op.montant)}</td>
+              <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#C43E3E' }}>{formatMontant(op.montant)}</td>
               <td style={{ ...styles.td, fontSize: 12 }}>{op.dateRejet || '-'}</td>
               <td style={{ ...styles.td, fontSize: 11 }}>{op.motifRejet || '-'}</td>
-              <td style={styles.td}><IBtn icon="↩" title="Annuler le rejet" bg="#ffebee" color="#DC3545" onClick={() => handleAnnulerRetour(op.id, type === 'CF' ? 'REJETE_CF' : 'REJETE_AC')} /></td>
+              <td style={styles.td}><IBtn icon="↩" title="Annuler le rejet" bg="#ffebee" color="#C43E3E" onClick={() => handleAnnulerRetour(op.id, type === 'CF' ? 'REJETE_CF' : 'REJETE_AC')} /></td>
             </tr>
           ))}</tbody></table>
         </div>}
@@ -711,9 +711,7 @@ const PageBordereaux = () => {
   // ================================================================
   return (
     <div>
-      <div style={{ background: '#1B6B2E', color: 'white', padding: '20px 24px', borderRadius: '10px 10px 0 0' }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Circuit de validation</h1>
-      </div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, color: '#3B6B8A', margin: '0 0 8px' }}>Circuit de validation</h1>
       {/* Sources */}
       <div style={{ display: 'flex', gap: 8, padding: '16px 0', flexWrap: 'wrap' }}>
         {sources.map(src => (
@@ -723,7 +721,7 @@ const PageBordereaux = () => {
       </div>
       {/* Onglets principaux */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {[{ k: 'CF', l: 'Contrôle Financier', c: '#1B6B2E' }, { k: 'AC', l: 'Agent Comptable', c: '#2e7d32' }, { k: 'ARCHIVES', l: 'Archives', c: '#5D6A55' }].map(t => (
+        {[{ k: 'CF', l: 'Contrôle Financier', c: '#3B6B8A' }, { k: 'AC', l: 'Agent Comptable', c: '#3B6B8A' }, { k: 'ARCHIVES', l: 'Archives', c: '#5D6A55' }].map(t => (
           <button key={t.k} onClick={() => chgTab(t.k)} style={{ flex: 1, padding: '14px 12px', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, background: mainTab === t.k ? t.c : '#e0e0e0', color: mainTab === t.k ? 'white' : '#666', borderRadius: 8 }}>{t.l}</button>
         ))}
       </div>
@@ -731,15 +729,15 @@ const PageBordereaux = () => {
       {/* ===== CF ===== */}
       {mainTab === 'CF' && <div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-          <STab active={subTabCF === 'NOUVEAU'} label="Nouveau BT" count={opsEligiblesCF.length} color="#1B6B2E" onClick={() => chgSub(setSubTabCF, 'NOUVEAU')} />
+          <STab active={subTabCF === 'NOUVEAU'} label="Nouveau BT" count={opsEligiblesCF.length} color="#3B6B8A" onClick={() => chgSub(setSubTabCF, 'NOUVEAU')} />
           <STab active={subTabCF === 'BORDEREAUX'} label="Bordereaux" count={bordereauCF.length} color="#155A25" onClick={() => chgSub(setSubTabCF, 'BORDEREAUX')} />
           <STab active={subTabCF === 'RETOUR'} label="Retour CF" count={opsTransmisCF.length} color="#C5961F" onClick={() => chgSub(setSubTabCF, 'RETOUR')} />
-          <STab active={subTabCF === 'SUIVI'} label="Suivi" count={opsDifferesCF.length + opsRejetesCF.length} color="#DC3545" onClick={() => chgSub(setSubTabCF, 'SUIVI')} />
+          <STab active={subTabCF === 'SUIVI'} label="Suivi" count={opsDifferesCF.length + opsRejetesCF.length} color="#C43E3E" onClick={() => chgSub(setSubTabCF, 'SUIVI')} />
         </div>
 
         {/* Nouveau BT CF */}
         {subTabCF === 'NOUVEAU' && <div style={styles.card}>
-          <h3 style={{ margin: '0 0 16px', color: '#1B6B2E' }}>Sélectionner les OP pour un bordereau au CF</h3>
+          <h3 style={{ margin: '0 0 16px', color: '#3B6B8A' }}>Sélectionner les OP pour un bordereau au CF</h3>
           <input type="text" placeholder="Rechercher OP..." value={searchBT} onChange={e => setSearchBT(e.target.value)} style={{ ...styles.input, marginBottom: 12, maxWidth: 400 }} />
           {filterOpsBySearch(opsEligiblesCF, searchBT).length === 0 ? <Empty text="Aucun OP" /> :
           <div style={{ maxHeight: 450, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 8 }}>
@@ -763,7 +761,7 @@ const PageBordereaux = () => {
           </div>}
           {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#E8F5E9', borderRadius: 8 }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
-            <button onClick={() => handleCreateBordereau('CF')} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, background: '#1B6B2E', width: '100%' }}>{saving ? '...' : 'Créer le bordereau'}</button>
+            <button onClick={() => handleCreateBordereau('CF')} disabled={saving} style={{ ...styles.button, padding: '12px 24px', fontSize: 14, background: '#3B6B8A' }}>{saving ? '...' : 'Créer le bordereau'}</button>
           </div>}
         </div>}
 
@@ -809,7 +807,7 @@ const PageBordereaux = () => {
           <STab active={subTabAC === 'NOUVEAU'} label="Nouveau BT" count={opsEligiblesAC.length} color="#2e7d32" onClick={() => chgSub(setSubTabAC, 'NOUVEAU')} />
           <STab active={subTabAC === 'BORDEREAUX'} label="Bordereaux" count={bordereauAC.length} color="#155A25" onClick={() => chgSub(setSubTabAC, 'BORDEREAUX')} />
           <STab active={subTabAC === 'PAIEMENT'} label="Paiements" count={opsTransmisAC.length} color="#C5961F" onClick={() => chgSub(setSubTabAC, 'PAIEMENT')} />
-          <STab active={subTabAC === 'SUIVI'} label="Suivi" count={opsDifferesAC.length + opsRejetesAC.length} color="#DC3545" onClick={() => chgSub(setSubTabAC, 'SUIVI')} />
+          <STab active={subTabAC === 'SUIVI'} label="Suivi" count={opsDifferesAC.length + opsRejetesAC.length} color="#C43E3E" onClick={() => chgSub(setSubTabAC, 'SUIVI')} />
         </div>
 
         {/* Nouveau BT AC */}
@@ -838,7 +836,7 @@ const PageBordereaux = () => {
           </div>}
           {selectedOps.length > 0 && <div style={{ marginTop: 16, padding: 16, background: '#e8f5e9', borderRadius: 8 }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{selectedOps.length} OP — {formatMontant(totalSelected)} F</div>
-            <button onClick={() => handleCreateBordereau('AC')} disabled={saving} style={{ ...styles.button, padding: '14px', fontSize: 15, background: '#2e7d32', width: '100%' }}>{saving ? '...' : 'Créer le bordereau'}</button>
+            <button onClick={() => handleCreateBordereau('AC')} disabled={saving} style={{ ...styles.button, padding: '12px 24px', fontSize: 14, background: '#3B6B8A' }}>{saving ? '...' : 'Créer le bordereau'}</button>
           </div>}
         </div>}
 
@@ -862,7 +860,7 @@ const PageBordereaux = () => {
                 <span style={{ fontSize: 12, flex: 1 }}>{getBen(op)}</span>
                 {tot > 0 && <Badge bg="#FFF8E1" color="#C5961F">{Math.round(tot / (op.montant || 1) * 100)}%</Badge>}
                 <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12 }}>{formatMontant(op.montant)} F</span>
-                {tot > 0 && <span style={{ fontSize: 11, color: reste > 0 ? '#DC3545' : '#2e7d32' }}>Reste {formatMontant(reste)}</span>}
+                {tot > 0 && <span style={{ fontSize: 11, color: reste > 0 ? '#C43E3E' : '#2e7d32' }}>Reste {formatMontant(reste)}</span>}
                 <span style={{ color: '#C5961F', fontSize: 14 }}>→</span>
               </div>;
             })}
@@ -946,7 +944,7 @@ const PageBordereaux = () => {
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
             {/* Liste des OP sélectionnés */}
             <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #E8F5E9' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#2E9940', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>OP sélectionnés</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#D4722A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>OP sélectionnés</div>
               {selectedOps.map(opId => { const op = ops.find(o => o.id === opId); if (!op) return null;
                 return <div key={opId} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#fff3e0', borderRadius: 6, marginBottom: 3, fontSize: 11 }}>
                   <span><strong style={{ fontFamily: 'monospace' }}>{op.numero}</strong> — {getBen(op)}</span>
@@ -958,9 +956,9 @@ const PageBordereaux = () => {
 
             {/* Décision */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#2E9940', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Décision</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#D4722A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Décision</div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {[{ v: 'VISE', l: 'Visé', c: '#2e7d32', bg: '#e8f5e9' }, { v: 'DIFFERE', l: 'Différé', c: '#C5961F', bg: '#fff3e0' }, { v: 'REJETE', l: 'Rejeté', c: '#DC3545', bg: '#ffebee' }].map(o => (
+                {[{ v: 'VISE', l: 'Visé', c: '#2e7d32', bg: '#e8f5e9' }, { v: 'DIFFERE', l: 'Différé', c: '#C5961F', bg: '#fff3e0' }, { v: 'REJETE', l: 'Rejeté', c: '#C43E3E', bg: '#ffebee' }].map(o => (
                   <button key={o.v} onClick={() => setResultatCF(o.v)} style={{ flex: 1, padding: '12px 8px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: resultatCF === o.v ? `3px solid ${o.c}` : '2px solid #ddd', background: resultatCF === o.v ? o.bg : 'white', color: resultatCF === o.v ? o.c : '#999' }}>{o.l}</button>
                 ))}
               </div>
@@ -973,13 +971,13 @@ const PageBordereaux = () => {
 
             {/* Motif */}
             {(resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && <div style={{ marginBottom: 12 }}>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#DC3545' }}>Motif (obligatoire) *</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: '#C43E3E' }}>Motif (obligatoire) *</label>
               <textarea value={motifRetour} onChange={e => setMotifRetour(e.target.value)} placeholder="Motif..." style={{ ...styles.input, minHeight: 80, resize: 'vertical', marginBottom: 0 }} />
             </div>}
 
-            {resultatCF === 'REJETE' && <p style={{ fontSize: 11, color: '#DC3545', marginBottom: 8 }}>⚠ Confirmé par mot de passe.</p>}
+            {resultatCF === 'REJETE' && <p style={{ fontSize: 11, color: '#C43E3E', marginBottom: 8 }}>⚠ Confirmé par mot de passe.</p>}
 
-            <button onClick={handleRetourCF} disabled={saving} style={{ width: '100%', padding: 14, border: 'none', borderRadius: 8, background: resultatCF === 'VISE' ? '#2e7d32' : resultatCF === 'DIFFERE' ? '#C5961F' : '#DC3545', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 8 }}>{saving ? '...' : `Valider (${selectedOps.length} OP)`}</button>
+            <button onClick={handleRetourCF} disabled={saving} style={{ width: '100%', padding: 14, border: 'none', borderRadius: 8, background: resultatCF === 'VISE' ? '#2e7d32' : resultatCF === 'DIFFERE' ? '#C5961F' : '#C43E3E', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 8 }}>{saving ? '...' : `Valider (${selectedOps.length} OP)`}</button>
           </div>
         </div>
       </>}
@@ -995,7 +993,7 @@ const PageBordereaux = () => {
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
             {/* Liste des OP */}
             <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #E8F5E9' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#2E9940', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>OP sélectionnés</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#D4722A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>OP sélectionnés</div>
               {selectedOps.map(opId => { const op = ops.find(o => o.id === opId); if (!op) return null;
                 return <div key={opId} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#E8F5E9', borderRadius: 6, marginBottom: 3, fontSize: 11 }}>
                   <span><strong style={{ fontFamily: 'monospace' }}>{op.numero}</strong> — {getBen(op)}</span>
@@ -1019,8 +1017,8 @@ const PageBordereaux = () => {
         <div onClick={() => setDrawerPaiement(null)} style={overlayS} />
         <div style={drawerS}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid #E8F5E9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#155A25', margin: 0 }}>Gestion OP</h3>
-            <button onClick={() => setDrawerPaiement(null)} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#E8F5E9', cursor: 'pointer', color: '#2E9940', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2C5A7A', margin: 0 }}>Gestion OP</h3>
+            <button onClick={() => setDrawerPaiement(null)} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#E8F5E9', cursor: 'pointer', color: '#D4722A', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
             {(() => {
@@ -1033,25 +1031,25 @@ const PageBordereaux = () => {
               return <>
                 {/* Info OP */}
                 <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #E8F5E9' }}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#155A25' }}>{op.numero}</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#155A25', marginTop: 2 }}>{getBen(op)}</div>
-                  <div style={{ fontSize: 12, color: '#2E9940', marginTop: 2 }}>{op.objet || '-'}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#C5961F', marginTop: 8 }}>{formatMontant(op.montant)} <span style={{ fontSize: 12, color: '#2E9940', fontWeight: 500 }}>FCFA</span></div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#2C5A7A' }}>{op.numero}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#2C5A7A', marginTop: 2 }}>{getBen(op)}</div>
+                  <div style={{ fontSize: 12, color: '#D4722A', marginTop: 2 }}>{op.objet || '-'}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#C5961F', marginTop: 8 }}>{formatMontant(op.montant)} <span style={{ fontSize: 12, color: '#D4722A', fontWeight: 500 }}>FCFA</span></div>
                   <div style={{ marginTop: 10, background: '#f0f0f0', borderRadius: 6, height: 8, overflow: 'hidden' }}><div style={{ width: `${pct}%`, height: '100%', background: pct >= 100 ? '#2e7d32' : '#C5961F', borderRadius: 6 }} /></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4 }}>
                     <span style={{ color: '#C5961F', fontWeight: 600 }}>Payé : {formatMontant(tot)} ({pct}%)</span>
-                    <span style={{ color: reste > 0 ? '#DC3545' : '#2e7d32', fontWeight: 600 }}>Reste : {formatMontant(reste)}</span>
+                    <span style={{ color: reste > 0 ? '#C43E3E' : '#2e7d32', fontWeight: 600 }}>Reste : {formatMontant(reste)}</span>
                   </div>
                 </div>
 
                 {/* Historique paiements */}
                 {paiem.length > 0 && <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#2E9940', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Historique</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#D4722A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Historique</div>
                   {paiem.map((p, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: i % 2 === 0 ? '#FFF8E1' : 'white', borderRadius: 6, marginBottom: 2 }}>
                     <div><span style={{ fontSize: 12, fontWeight: 500 }}>{p.date}</span><span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{p.reference || 'Sans réf.'}</span></div>
                     <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, color: '#C5961F' }}>{formatMontant(p.montant)} F</span>
                   </div>)}
-                  <button onClick={() => handleAnnulerPaiement(op.id)} disabled={saving} style={{ marginTop: 6, padding: '6px 14px', background: '#ffebee', color: '#DC3545', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>↩ Annuler dernier paiement</button>
+                  <button onClick={() => handleAnnulerPaiement(op.id)} disabled={saving} style={{ marginTop: 6, padding: '6px 14px', background: '#ffebee', color: '#C43E3E', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>↩ Annuler dernier paiement</button>
                 </div>}
 
                 {/* Nouveau paiement */}
@@ -1072,24 +1070,24 @@ const PageBordereaux = () => {
                 </div>}
 
                 {/* OP soldé */}
-                {isSolde && <div style={{ background: '#E8F5E9', borderRadius: 8, padding: 10, textAlign: 'center', color: '#2E9940', fontWeight: 700, fontSize: 13, marginBottom: 16 }}>OP entièrement soldé</div>}
+                {isSolde && <div style={{ background: '#E8F5E9', borderRadius: 8, padding: 10, textAlign: 'center', color: '#D4722A', fontWeight: 700, fontSize: 13, marginBottom: 16 }}>OP entièrement soldé</div>}
 
                 {/* Différer / Rejeter */}
                 {op.statut === 'TRANSMIS_AC' && <div style={{ borderTop: '1px solid #E8F5E9', paddingTop: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#2E9940', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Autre décision</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#D4722A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Autre décision</div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                    {[{ v: 'DIFFERE', l: 'Différer', c: '#C5961F', bg: '#fef3cd' }, { v: 'REJETE', l: '✕ Rejeter', c: '#DC3545', bg: '#fee2e2' }].map(o => (
+                    {[{ v: 'DIFFERE', l: 'Différer', c: '#C5961F', bg: '#fef3cd' }, { v: 'REJETE', l: '✕ Rejeter', c: '#C43E3E', bg: '#fee2e2' }].map(o => (
                       <button key={o.v} onClick={() => setResultatAC(o.v)} style={{ flex: 1, padding: '10px', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', border: resultatAC === o.v ? `3px solid ${o.c}` : '2px solid #E8F5E9', background: resultatAC === o.v ? o.bg : 'white', color: resultatAC === o.v ? o.c : '#A5D6A7' }}>{o.l}</button>
                     ))}
                   </div>
                   <div style={{ marginBottom: 10 }}><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Date</label>
                     <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el => setDateRef('retourAC', el)} style={iStyle} />
                   </div>
-                  <div style={{ marginBottom: 10 }}><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: '#DC3545' }}>Motif (obligatoire) *</label>
+                  <div style={{ marginBottom: 10 }}><label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: '#C43E3E' }}>Motif (obligatoire) *</label>
                     <textarea value={motifRetourAC} onChange={e => setMotifRetourAC(e.target.value)} placeholder="Motif..." style={{ ...styles.input, minHeight: 60, resize: 'vertical', marginBottom: 0 }} />
                   </div>
-                  {resultatAC === 'REJETE' && <p style={{ fontSize: 11, color: '#DC3545', marginBottom: 8 }}>⚠ Confirmé par mot de passe.</p>}
-                  <button onClick={handleRetourAC} disabled={saving} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 8, background: resultatAC === 'DIFFERE' ? '#E8B931' : '#DC3545', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{saving ? '...' : 'Valider'}</button>
+                  {resultatAC === 'REJETE' && <p style={{ fontSize: 11, color: '#C43E3E', marginBottom: 8 }}>⚠ Confirmé par mot de passe.</p>}
+                  <button onClick={handleRetourAC} disabled={saving} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 8, background: resultatAC === 'DIFFERE' ? '#E8B931' : '#C43E3E', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>{saving ? '...' : 'Valider'}</button>
                 </div>}
 
                 {/* Annuler transmission AC */}
