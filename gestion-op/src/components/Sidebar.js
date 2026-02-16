@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LOGO_PIF2 } from '../utils/logos';
 
-const accent = '#5D6C57';
-const accentBg = '#EAEDD8';
+const accent = '#2E7D32';
+const accentBg = '#E8F5E9';
 const EXPANDED = 240;
 const COLLAPSED = 68;
 
@@ -112,7 +112,7 @@ const Sidebar = () => {
   return (
     <div style={{
       width: w, minWidth: w, height: '100vh', position: 'fixed',
-      background: '#5D6C57', color: '#fff',
+      background: '#2E7D32', color: '#fff',
       display: 'flex', flexDirection: 'column',
       transition: 'width 0.25s cubic-bezier(.4,0,.2,1), min-width 0.25s cubic-bezier(.4,0,.2,1)',
       overflow: 'hidden',
@@ -124,9 +124,9 @@ const Sidebar = () => {
       <button onClick={() => setCollapsed(c => !c)} style={{
         position: 'absolute', top: 28, right: -14,
         width: 28, height: 28, borderRadius: '50%',
-        border: '1px solid rgba(255,255,255,0.15)', background: '#5D6C57',
+        border: '1px solid rgba(255,255,255,0.15)', background: '#2E7D32',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
       }} title={collapsed ? 'Déplier' : 'Replier'}>
         <span style={{ display: 'flex', transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}>
           {I.chevron('#fff')}
@@ -180,7 +180,7 @@ const Sidebar = () => {
             <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{String(exerciceActif.annee).slice(-2)}</div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C99A2B', boxShadow: '0 0 6px rgba(201,154,43,0.4)' }}/>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf50', boxShadow: '0 0 6px rgba(76,175,80,0.4)' }}/>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Exercice</span>
               <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{exerciceActif.annee}</span>
             </div>
