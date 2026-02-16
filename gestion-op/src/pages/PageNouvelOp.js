@@ -10,13 +10,13 @@ import Autocomplete from '../components/Autocomplete';
 
 // ==================== TOAST SYSTEM ====================
 const TOAST_STYLES = {
-  success: { bg: 'linear-gradient(135deg, #f0faf5 0%, #fff 100%)', iconBg: '#e8f5e9', iconBorder: '#2E994020' },
-  error: { bg: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)', iconBg: '#ffebee', iconBorder: '#DC354520' },
+  success: { bg: 'linear-gradient(135deg, #f0faf5 0%, #fff 100%)', iconBg: '#e8f5e9', iconBorder: '#D4722A20' },
+  error: { bg: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)', iconBg: '#ffebee', iconBorder: '#C43E3E20' },
   warning: { bg: 'linear-gradient(135deg, #fffbf0 0%, #fff 100%)', iconBg: '#fff3e0', iconBorder: '#ff980020' },
 };
 const ToastIcon = ({ type }) => {
   if (type === 'success') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>;
-  if (type === 'error') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC3545" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+  if (type === 'error') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C43E3E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C5961F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 };
 const ToastNotif = ({ toast, onDone }) => {
@@ -42,7 +42,7 @@ const ToastNotif = ({ toast, onDone }) => {
         <ToastIcon type={toast.type} />
       </div>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#1B6B2E', marginBottom: 2 }}>{toast.title}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#3B6B8A', marginBottom: 2 }}>{toast.title}</div>
         {toast.message && <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>{toast.message}</div>}
       </div>
     </div>
@@ -50,7 +50,7 @@ const ToastNotif = ({ toast, onDone }) => {
 };
 
 // ==================== PAGE NOUVEL OP ====================
-const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#2E9940', DEFINITIF: '#2E9940', ANNULATION: '#DC3545' };
+const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D4722A', ANNULATION: '#C43E3E' };
 const PageNouvelOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
   const defaultForm = { type: 'PROVISOIRE', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '' };
@@ -302,7 +302,7 @@ const PageNouvelOp = () => {
   };
 
   // === STYLES ===
-  const accent = currentSourceObj?.couleur || '#1B6B2E';
+  const accent = currentSourceObj?.couleur || '#3B6B8A';
   const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d', letterSpacing: 0.3 };
   const fieldStyle = { padding: '10px 14px', background: '#f8f9fa', borderRadius: 8, fontSize: 13, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box' };
   const editFieldStyle = { ...fieldStyle, background: '#fffde7', border: `1.5px solid ${accent}40` };
@@ -350,7 +350,7 @@ const PageNouvelOp = () => {
 
       {!exerciceActif ? (
         <div style={{ maxWidth: 1020, margin: '0 auto', background: 'white', borderRadius: 12, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 14, color: '#DC3545', fontWeight: 700 }}>Attention</div>
+          <div style={{ fontSize: 14, color: '#C43E3E', fontWeight: 700 }}>Attention</div>
           <p style={{ color: '#C5961F', fontWeight: 600 }}>Aucun exercice actif</p>
           <p style={{ color: '#6c757d' }}>Veuillez définir un exercice actif dans les <span style={{ color: accent, cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Paramètres</span></p>
         </div>
@@ -383,7 +383,7 @@ const PageNouvelOp = () => {
               {/* OP Provisoire inline (ANNULATION/DEFINITIF) */}
               {['ANNULATION', 'DEFINITIF'].includes(form.type) && (
                 <div style={{ flex: '0 0 auto' }}>
-                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: form.type === 'ANNULATION' ? '#DC3545' : '#2e7d32' }}>OP PROV. *</label>
+                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32' }}>OP PROV. *</label>
                   <Autocomplete
                     options={opProvisoiresDisponibles.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
                     value={form.opProvisoireId ? opProvisoiresDisponibles.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || (form.opProvisoireNumero ? { value: '', label: form.opProvisoireNumero } : null) : (form.opProvisoireNumero ? { value: '', label: form.opProvisoireNumero } : null)}
@@ -394,7 +394,7 @@ const PageNouvelOp = () => {
                     onInputChange={(text) => { if (!opProvisoiresDisponibles.find(o => o.id === form.opProvisoireId)) setForm({ ...form, opProvisoireNumero: text, opProvisoireId: '' }); }}
                     placeholder="N° ou sélectionner..."
                     noOptionsMessage="Saisir le N° manuellement"
-                    accentColor={form.type === 'ANNULATION' ? '#DC3545' : '#2e7d32'}
+                    accentColor={form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32'}
                     style={{ minWidth: 200 }}
                   />
                 </div>
@@ -459,7 +459,7 @@ const PageNouvelOp = () => {
                     <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', background: '#fff3e0', color: '#C5961F', border: '1.5px solid #ffe0b2', fontSize: 12 }}>Aucun RIB</div>
                   ) : beneficiaireRibs.length === 1 ? (
                     <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
-                      {beneficiaireRibs[0].banque && <span style={{ background: '#E8F5E9', color: '#1B6B2E', padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{beneficiaireRibs[0].banque}</span>}
+                      {beneficiaireRibs[0].banque && <span style={{ background: '#E8F5E9', color: '#3B6B8A', padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{beneficiaireRibs[0].banque}</span>}
                       <span style={{ fontSize: 12 }}>{beneficiaireRibs[0].numero}</span>
                     </div>
                   ) : (
@@ -530,10 +530,10 @@ const PageNouvelOp = () => {
                     <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getEngagementsCumules())}</span>
                     <div style={{ gridColumn: '1 / -1', height: 1, background: '#d0d8d3', margin: '4px 0' }} />
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>Disponible</span>
-                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#DC3545' }}>{formatMontant(getDisponible())}</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(getDisponible())}</span>
                   </div>
                   {getDisponible() < 0 && form.type !== 'ANNULATION' && (
-                    <div style={{ marginTop: 10, padding: 8, background: '#ffebee', borderRadius: 6, color: '#DC3545', fontSize: 11, fontWeight: 600 }}>Budget insuffisant</div>
+                    <div style={{ marginTop: 10, padding: 8, background: '#ffebee', borderRadius: 6, color: '#C43E3E', fontSize: 11, fontWeight: 600 }}>Budget insuffisant</div>
                   )}
                 </div>
                 <div>
@@ -576,7 +576,7 @@ const PageNouvelOp = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                     <div>
                       <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant payé (provisoire)</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#1B6B2E' }}>{formatMontant(mtPaye)} F</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#D4722A' }}>{formatMontant(mtPaye)} F</div>
                     </div>
                     <div>
                       <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant définitif</div>
@@ -585,7 +585,7 @@ const PageNouvelOp = () => {
                     <div>
                       <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Écart</div>
                       {mtDef > 0 ? (
-                        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: ecart > 0 ? '#DC3545' : ecart < 0 ? '#C5961F' : '#2e7d32' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: ecart > 0 ? '#C43E3E' : ecart < 0 ? '#C5961F' : '#2e7d32' }}>
                           {ecart > 0 ? '+' + formatMontant(ecart) + ' F' : ecart < 0 ? formatMontant(ecart) + ' F' : '0 F'}
                           <div style={{ fontSize: 9, fontWeight: 400, marginTop: 2 }}>
                             {ecart > 0 ? 'Trop perçu → reversement' : ecart < 0 ? 'Complément à payer' : 'Aucun écart'}
