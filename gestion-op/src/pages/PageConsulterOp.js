@@ -10,16 +10,16 @@ import Autocomplete from '../components/Autocomplete';
 
 // ===================== PALETTE PIF2 =====================
 const P = {
-  bgApp: '#F6F4F1',
-  bgCard: '#FDFCFA',
-  bgSection: '#ECE2CE',
-  sidebarDark: '#223300',
-  olive: '#4B5D16',
-  olivePale: '#E8F0D8',
-  gold: '#F2B635',
-  orange: '#E45C10',
-  labelMuted: '#8A7D6B',
-  inputBg: '#FFFDF5',
+  bgApp: '#F7F5F2',
+  bgCard: '#FFFFFF',
+  bgSection: '#EDE9E3',
+  sidebarDark: '#155A25',
+  olive: '#D4722A',
+  olivePale: '#E8F5E9',
+  gold: '#E8B931',
+  orange: '#E8B931',
+  labelMuted: '#888',
+  inputBg: '#FFFFFF',
 };
 
 // ===================== ICÔNES SVG =====================
@@ -51,13 +51,13 @@ const Icons = {
 // ==================== TOAST SYSTEM ====================
 const TOAST_STYLES = {
   success: { bg: `linear-gradient(135deg, ${P.olivePale} 0%, ${P.bgCard} 100%)`, iconBg: P.olivePale, iconBorder: `${P.olive}20` },
-  error: { bg: `linear-gradient(135deg, #fff5f5 0%, ${P.bgCard} 100%)`, iconBg: '#ffebee', iconBorder: '#f4433620' },
+  error: { bg: `linear-gradient(135deg, #fff5f5 0%, ${P.bgCard} 100%)`, iconBg: '#ffebee', iconBorder: '#C43E3E20' },
   warning: { bg: `linear-gradient(135deg, #fffbf0 0%, ${P.bgCard} 100%)`, iconBg: '#fff3e0', iconBorder: '#ff980020' },
 };
 const ToastIcon = ({ type }) => {
   if (type === 'success') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>;
-  if (type === 'error') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c62828" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e65100" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+  if (type === 'error') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C43E3E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C5961F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 };
 const ToastNotif = ({ toast, onDone }) => {
   const [leaving, setLeaving] = useState(false);
@@ -82,7 +82,7 @@ const ToastNotif = ({ toast, onDone }) => {
 
 // ==================== SECTION TITLE ====================
 const SectionTitle = ({ icon, label, accent }) => (
-  <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+  <div style={{ fontSize: 12, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
     <div style={{ width: 28, height: 28, borderRadius: 8, background: accent + '12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
     {label}
   </div>
@@ -127,16 +127,16 @@ const SourceCard = ({ source, active, onClick }) => {
 const statutConfig = {
   EN_COURS: { bg: P.bgSection, color: P.olive, label: 'En cours' },
   TRANSMIS_CF: { bg: P.orange + '15', color: P.orange, label: 'Transmis CF' },
-  DIFFERE_CF: { bg: P.gold + '20', color: '#b8860b', label: 'Différé CF' },
-  RETOURNE_CF: { bg: '#0277bd15', color: '#0277bd', label: 'Retourné CF' },
+  DIFFERE_CF: { bg: P.gold + '20', color: '#C5961F', label: 'Différé CF' },
+  RETOURNE_CF: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Retourné CF' },
   VISE_CF: { bg: P.olivePale, color: '#2e7d32', label: 'Visé CF' },
-  REJETE_CF: { bg: '#c6282815', color: '#c62828', label: 'Rejeté CF' },
-  TRANSMIS_AC: { bg: '#7b1fa215', color: '#7b1fa2', label: 'Transmis AC' },
-  PAYE: { bg: '#00695c15', color: '#00695c', label: 'Payé' },
-  REJETE_AC: { bg: '#c6282815', color: '#c62828', label: 'Rejeté AC' },
+  REJETE_CF: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté CF' },
+  TRANSMIS_AC: { bg: '#C5961F15', color: '#C5961F', label: 'Transmis AC' },
+  PAYE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Payé' },
+  REJETE_AC: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté AC' },
   ARCHIVE: { bg: P.bgSection, color: P.labelMuted, label: 'Archivé' },
 };
-const typeColors = { PROVISOIRE: P.gold, DIRECT: '#1565c0', DEFINITIF: '#2e7d32', ANNULATION: '#c62828' };
+const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A', ANNULATION: '#C43E3E' };
 
 const PageConsulterOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage } = useAppContext();
@@ -445,14 +445,14 @@ const PageConsulterOp = () => {
     const codeImputationComplet = (src?.codeImputation || '') + ' ' + (selectedOp.ligneBudgetaire || '');
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
-    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ${selectedOp.numero}</title><style>@page{size:A4;margin:10mm}@media print{.toolbar{display:none!important}body{background:#fff!important;padding:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Century Gothic','Trebuchet MS',sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}.toolbar{background:#1a1a2e;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#2196F3;color:#fff}.btn-pdf{background:#4CAF50;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:8mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;border-right:1px solid #000}.header-logo img{max-height:75px;max-width:100%}.header-center{width:56%;padding:6px;text-align:center;border-right:1px solid #000}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}.op-title-section{text-align:center;padding:6px 10px;border-bottom:1px solid #000}.exercice-type-line{display:flex;justify-content:space-between;align-items:center}.exercice-type-line>div:first-child{width:25%;text-align:left;font-size:11px}.exercice-type-line>div:nth-child(2){width:50%;text-align:center}.exercice-type-line>div:last-child{width:25%;text-align:right}.op-title{font-weight:bold;text-decoration:underline;font-size:11px}.op-numero{font-size:10px;margin-top:2px}.body-content{padding:12px 15px;border-bottom:1px solid #000}.type-red{color:#c00;font-weight:bold;font-style:italic}.field{margin-bottom:8px}.field-title{text-decoration:underline;font-size:10px;margin-bottom:6px}.field-value{font-weight:bold}.field-large{margin:15px 0;min-height:45px;line-height:1.6;word-wrap:break-word}.checkbox-line{display:flex;align-items:center;margin-bottom:8px}.checkbox-label{min-width:230px}.checkbox-options{display:flex;gap:50px}.check-item{display:flex;align-items:center;gap:6px}.box{width:18px;height:14px;border:1px solid #000;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.budget-section{margin-top:15px}.budget-row{display:flex;align-items:center;margin-bottom:8px}.budget-row .col-left{width:33.33%}.budget-row .col-center{width:33.33%}.budget-row .col-right{width:33.33%}.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}.acquit-section{display:flex}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:110px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}.acquit-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.acquit-date{font-size:9px;text-align:left}</style></head><body><div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ${selectedOp.numero}</span></div><div class="page-container"><div class="inner-frame"><div class="header"><div class="header-logo"><img src="${LOGO_PIF2}" alt="PIF2" /></div><div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div><div class="header-right"><div style="text-align:center;"><img src="${ARMOIRIE}" alt="Armoirie" style="max-height:50px;max-width:60px;margin-bottom:3px;" /><div>Union – Discipline – Travail</div></div></div></div><div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>${exerciceActif?.annee || ''}</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N°${selectedOp.numero}</div></div><div class="type-red">${selectedOp.type}</div></div></div><div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${ben?.nom || ''}</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${ben?.ncc || ''}</span></div><div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span><span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span></div></div><div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">${selectedOp.modeReglement === 'ESPECES' ? 'x' : ''}</span></span><span class="check-item">CHEQUE <span class="box">${selectedOp.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span><span class="check-item">VIREMENT <span class="box">${selectedOp.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span></div></div><div class="field">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : ''}</span></div><div class="field-large">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.objet || ''}</span></div><div class="field-large">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.piecesJustificatives || ''}</span></div><div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div></div><div class="col-right"></div></div><div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">${codeImputationComplet.trim()}</div></div><div class="col-right"></div></div><table class="budget-table"><tr><td class="col-letter">A</td><td class="col-label">Dotation budgétaire</td><td class="col-amount">${formatMontant(getDotation())}</td><td class="col-empty"></td></tr><tr><td class="col-letter">B</td><td class="col-label">Engagements antérieurs</td><td class="col-amount">${formatMontant(engagementsCumules)}</td><td class="col-empty"></td></tr><tr><td class="col-letter">C</td><td class="col-label">Engagement actuel</td><td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td><td class="col-empty"></td></tr><tr><td class="col-letter">D</td><td class="col-label">Engagements cumulés (B + C)</td><td class="col-amount">${formatMontant(engagementsCumules + engagementActuel)}</td><td class="col-empty"></td></tr><tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">${formatMontant(getDotation() - engagementsCumules - engagementActuel)}</td><td class="col-empty"></td></tr></table></div></div><div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div><div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA AGENT<br/>COMPTABLE</div><div class="sig-content"></div></div></div><div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div><div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>`;
+    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ${selectedOp.numero}</title><style>@page{size:A4;margin:10mm}@media print{.toolbar{display:none!important}body{background:#fff!important;padding:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Century Gothic','Trebuchet MS',sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:8mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;border-right:1px solid #000}.header-logo img{max-height:75px;max-width:100%}.header-center{width:56%;padding:6px;text-align:center;border-right:1px solid #000}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}.op-title-section{text-align:center;padding:6px 10px;border-bottom:1px solid #000}.exercice-type-line{display:flex;justify-content:space-between;align-items:center}.exercice-type-line>div:first-child{width:25%;text-align:left;font-size:11px}.exercice-type-line>div:nth-child(2){width:50%;text-align:center}.exercice-type-line>div:last-child{width:25%;text-align:right}.op-title{font-weight:bold;text-decoration:underline;font-size:11px}.op-numero{font-size:10px;margin-top:2px}.body-content{padding:12px 15px;border-bottom:1px solid #000}.type-red{color:#c00;font-weight:bold;font-style:italic}.field{margin-bottom:8px}.field-title{text-decoration:underline;font-size:10px;margin-bottom:6px}.field-value{font-weight:bold}.field-large{margin:15px 0;min-height:45px;line-height:1.6;word-wrap:break-word}.checkbox-line{display:flex;align-items:center;margin-bottom:8px}.checkbox-label{min-width:230px}.checkbox-options{display:flex;gap:50px}.check-item{display:flex;align-items:center;gap:6px}.box{width:18px;height:14px;border:1px solid #000;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.budget-section{margin-top:15px}.budget-row{display:flex;align-items:center;margin-bottom:8px}.budget-row .col-left{width:33.33%}.budget-row .col-center{width:33.33%}.budget-row .col-right{width:33.33%}.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}.acquit-section{display:flex}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:110px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}.acquit-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.acquit-date{font-size:9px;text-align:left}</style></head><body><div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ${selectedOp.numero}</span></div><div class="page-container"><div class="inner-frame"><div class="header"><div class="header-logo"><img src="${LOGO_PIF2}" alt="PIF2" /></div><div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div><div class="header-right"><div style="text-align:center;"><img src="${ARMOIRIE}" alt="Armoirie" style="max-height:50px;max-width:60px;margin-bottom:3px;" /><div>Union – Discipline – Travail</div></div></div></div><div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>${exerciceActif?.annee || ''}</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N°${selectedOp.numero}</div></div><div class="type-red">${selectedOp.type}</div></div></div><div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${ben?.nom || ''}</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${ben?.ncc || ''}</span></div><div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span><span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span></div></div><div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">${selectedOp.modeReglement === 'ESPECES' ? 'x' : ''}</span></span><span class="check-item">CHEQUE <span class="box">${selectedOp.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span><span class="check-item">VIREMENT <span class="box">${selectedOp.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span></div></div><div class="field">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : ''}</span></div><div class="field-large">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.objet || ''}</span></div><div class="field-large">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.piecesJustificatives || ''}</span></div><div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div></div><div class="col-right"></div></div><div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">${codeImputationComplet.trim()}</div></div><div class="col-right"></div></div><table class="budget-table"><tr><td class="col-letter">A</td><td class="col-label">Dotation budgétaire</td><td class="col-amount">${formatMontant(getDotation())}</td><td class="col-empty"></td></tr><tr><td class="col-letter">B</td><td class="col-label">Engagements antérieurs</td><td class="col-amount">${formatMontant(engagementsCumules)}</td><td class="col-empty"></td></tr><tr><td class="col-letter">C</td><td class="col-label">Engagement actuel</td><td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td><td class="col-empty"></td></tr><tr><td class="col-letter">D</td><td class="col-label">Engagements cumulés (B + C)</td><td class="col-amount">${formatMontant(engagementsCumules + engagementActuel)}</td><td class="col-empty"></td></tr><tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">${formatMontant(getDotation() - engagementsCumules - engagementActuel)}</td><td class="col-empty"></td></tr></table></div></div><div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div><div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA AGENT<br/>COMPTABLE</div><div class="sig-content"></div></div></div><div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div><div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>`;
     const printWindow = window.open('', '_blank', 'width=900,height=700');
     printWindow.document.write(printContent);
     printWindow.document.close();
   };
 
   // === STYLES ===
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
+  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: P.labelMuted, letterSpacing: 0.3 };
   const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 13, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
   const editFieldStyle = { ...fieldStyle, background: P.inputBg, border: `1.5px solid ${accent}40` };
   const isReadOnly = selectedOp && !isEditMode;
@@ -518,7 +518,7 @@ const PageConsulterOp = () => {
       )}
 
       {/* Sources fixées */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 100, flexShrink: 0, background: P.bgApp, borderBottom: `1px solid ${P.bgSection}`, padding: '16px 0 12px', boxShadow: '0 2px 8px rgba(34,51,0,0.04)' }}>
+      <div style={{ flexShrink: 0, marginBottom: 4 }}>
         <div style={{ maxWidth: 1020, margin: '0 auto' }}>
           <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>{Icons.wallet(P.labelMuted)} SOURCE DE FINANCEMENT</label>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -552,7 +552,7 @@ const PageConsulterOp = () => {
                       <button onClick={goToPrev} title="OP précédent" style={{ padding: '3px 8px', background: P.bgApp, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(34,51,0,0.08)', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.chevronUp(accent)}</button>
                       <button onClick={goToNext} title="OP suivant" style={{ padding: '3px 8px', background: P.bgApp, cursor: 'pointer', border: 'none', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.chevronDown(accent)}</button>
                     </div>
-                    <span style={{ fontSize: 12, color: P.labelMuted, whiteSpace: 'nowrap', marginLeft: 4 }}>{selectedOp ? `${currentIndex + 1}/${opsSource.length}` : `${opsSource.length}`}</span>
+                    <span style={{ fontSize: 11, color: P.labelMuted, whiteSpace: 'nowrap', marginLeft: 4 }}>{selectedOp ? `${currentIndex + 1}/${opsSource.length}` : `${opsSource.length}`}</span>
                   </div>
                   {showDropdown && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: P.bgCard, border: '1.5px solid rgba(34,51,0,0.08)', borderTop: 'none', borderRadius: '0 0 10px 10px', maxHeight: 300, overflowY: 'auto', zIndex: 1000, boxShadow: '0 8px 24px rgba(34,51,0,0.08)', minWidth: 380 }}>
@@ -568,10 +568,10 @@ const PageConsulterOp = () => {
                             onMouseOut={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? accent + '0a' : 'transparent'; }}>
                             <div>
                               <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13, color: P.sidebarDark }}>{op.numero}</div>
-                              <div style={{ fontSize: 12, color: P.labelMuted, marginTop: 2 }}>{ben?.nom || 'N/A'} — {(op.objet || '').substring(0, 40)}{(op.objet || '').length > 40 ? '...' : ''}</div>
+                              <div style={{ fontSize: 11, color: P.labelMuted, marginTop: 2 }}>{ben?.nom || 'N/A'} — {(op.objet || '').substring(0, 40)}{(op.objet || '').length > 40 ? '...' : ''}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: accent, fontSize: 13 }}>{formatMontant(op.montant)} F</div>
+                              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: accent, fontSize: 12 }}>{formatMontant(op.montant)} F</div>
                               <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700, background: tc + '18', color: tc }}>{op.type}</span>
                             </div>
                           </div>
@@ -589,9 +589,9 @@ const PageConsulterOp = () => {
                       {editNumero !== null ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                           <input value={editNumero} onChange={e => setEditNumero(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveNumero(); if (e.key === 'Escape') setEditNumero(null); }}
-                            style={{ padding: '6px 8px', border: `1.5px solid ${accent}40`, borderRadius: 8, fontFamily: 'monospace', fontWeight: 700, fontSize: 13, background: P.inputBg, width: 220, color: P.sidebarDark }} autoFocus />
-                          <button onClick={handleSaveNumero} style={{ border: 'none', background: '#2e7d32', color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>✓</button>
-                          <button onClick={() => setEditNumero(null)} style={{ border: 'none', background: P.labelMuted, color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                            style={{ padding: '6px 8px', border: `1.5px solid ${accent}40`, borderRadius: 8, fontFamily: 'monospace', fontWeight: 700, fontSize: 12, background: P.inputBg, width: 200, color: P.sidebarDark }} autoFocus />
+                          <button onClick={handleSaveNumero} style={{ border: 'none', background: '#3B6B8A', color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>✓</button>
+                          <button onClick={() => setEditNumero(null)} style={{ border: 'none', background: P.labelMuted, color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
                         </div>
                       ) : (
                         <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', color: P.sidebarDark }}>
@@ -610,36 +610,28 @@ const PageConsulterOp = () => {
                             setForm({ ...form, type: newType, opProvisoireId: '', opProvisoireNumero: '',
                               tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(newType) ? null : form.tvaRecuperable });
                           }}
-                          style={{ padding: '8px 12px', border: `1.5px solid ${(typeColors[form.type] || P.labelMuted)}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || P.labelMuted, cursor: 'pointer', background: P.bgCard, outline: 'none' }}>
+                          style={{ padding: '5px 8px', border: `1.5px solid ${(typeColors[form.type] || P.labelMuted)}40`, borderRadius: 8, fontWeight: 700, fontSize: 11, color: typeColors[form.type] || P.labelMuted, cursor: 'pointer', background: P.bgCard, outline: 'none' }}>
                           <option value="PROVISOIRE">Provisoire</option>
                           <option value="DIRECT">Direct</option>
                           <option value="DEFINITIF">Définitif</option>
                           <option value="ANNULATION">Annulation</option>
                         </select>
                       ) : (
-                        <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: (typeColors[selectedOp.type] || P.labelMuted) + '15', color: typeColors[selectedOp.type] || P.labelMuted, display: 'inline-block' }}>{selectedOp.type}</span>
+                        <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: (typeColors[selectedOp.type] || P.labelMuted) + '15', color: typeColors[selectedOp.type] || P.labelMuted, display: 'inline-block' }}>{selectedOp.type}</span>
                       )}
                     </div>
 
                     {/* DATE */}
                     <div style={{ flex: '0 0 auto' }}>
                       <label style={labelStyle}>DATE</label>
-                      <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{selectedOp.dateCreation || ''}</span>
+                      <span style={{ padding: '6px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{selectedOp.dateCreation || ''}</span>
                     </div>
-
-                    {/* CONFECTIONNÉ PAR */}
-                    {selectedOp.creePar && (
-                      <div style={{ flex: '0 0 auto' }}>
-                        <label style={labelStyle}>CONFECTIONNÉ PAR</label>
-                        <span style={{ padding: '6px 10px', background: P.olivePale, border: `1px solid ${P.olive}20`, borderRadius: 8, fontSize: 12, fontWeight: 600, display: 'inline-block', whiteSpace: 'nowrap', color: P.olive }}>{selectedOp.creePar}</span>
-                      </div>
-                    )}
 
                     {/* OP PROVISOIRE inline */}
                     {['ANNULATION', 'DEFINITIF'].includes(isEditMode ? form.type : selectedOp.type) && (
                       <div style={{ flex: '0 0 auto' }}>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: (isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#c62828' : '#2e7d32' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh((isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#c62828' : '#2e7d32')} OP PROV.</span>
+                        <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: (isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#C43E3E' : '#2e7d32' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh((isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#C43E3E' : '#2e7d32')} OP PROV.</span>
                         </label>
                         {isEditMode ? (
                           <Autocomplete
@@ -652,11 +644,11 @@ const PageConsulterOp = () => {
                             onInputChange={(text) => { if (!opProvisoiresDisponibles.find(o => o.id === form.opProvisoireId)) setForm({ ...form, opProvisoireNumero: text, opProvisoireId: '' }); }}
                             placeholder="N° ou sélectionner..."
                             noOptionsMessage="Saisir le N° manuellement"
-                            accentColor={(isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#c62828' : '#2e7d32'}
+                            accentColor={(isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#C43E3E' : '#2e7d32'}
                             style={{ minWidth: 200 }}
                           />
                         ) : (
-                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#c6282810' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#c6282825' : P.olive + '20'}` }}>
+                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}` }}>
                             {selectedOp.opProvisoireNumero || '—'}
                           </span>
                         )}
@@ -667,7 +659,7 @@ const PageConsulterOp = () => {
                     {statutInfo && (
                       <div style={{ flex: '0 0 auto', marginLeft: 'auto' }}>
                         <label style={labelStyle}>STATUT</label>
-                        <span style={{ padding: '5px 12px', borderRadius: 8, background: statutInfo.bg, color: statutInfo.color, fontWeight: 700, fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap' }}>{statutInfo.label}</span>
+                        <span style={{ padding: '5px 12px', borderRadius: 8, background: statutInfo.bg, color: statutInfo.color, fontWeight: 700, fontSize: 10, display: 'inline-block', whiteSpace: 'nowrap' }}>{statutInfo.label}</span>
                       </div>
                     )}
                   </>
@@ -688,25 +680,25 @@ const PageConsulterOp = () => {
                           {isEditMode ? (
                             <Autocomplete options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))} value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null} onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })} placeholder="Rechercher..." accentColor={accent} />
                           ) : (
-                            <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600, color: P.sidebarDark }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
+                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600, color: P.sidebarDark }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
                           <div style={{ minWidth: 90 }}>
                             <label style={labelStyle}>N°CC</label>
-                            <div style={{ ...fieldStyle, height: 42, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 13 }}>{selectedBeneficiaire?.ncc || ''}</div>
+                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 12 }}>{selectedBeneficiaire?.ncc || ''}</div>
                           </div>
                           <div>
                             <label style={labelStyle}>RÈGLEMENT</label>
-                            <div style={{ display: 'flex', gap: 4, height: 42, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: 4, height: 38, alignItems: 'center' }}>
                               {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => {
                                 const active = form.modeReglement === mode;
                                 return (
-                                  <div key={mode} onClick={() => isEditMode && setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 42, borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default', boxSizing: 'border-box' }}>
-                                    <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />}
+                                  <div key={mode} onClick={() => isEditMode && setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 10px', height: 38, borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default', boxSizing: 'border-box' }}>
+                                    <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
                                     </div>
-                                    <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{mode}</span>
+                                    <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{mode}</span>
                                   </div>
                                 );
                               })}
@@ -720,13 +712,13 @@ const PageConsulterOp = () => {
                           <div style={{ gridColumn: '1 / 3' }}>
                             <label style={labelStyle}>RIB</label>
                             {isEditMode && beneficiaireRibs.length > 1 ? (
-                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 13, width: 'auto' }}>
+                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: 'auto' }}>
                                 {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
                               </select>
                             ) : (
                               <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
-                                {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{selectedRib.banque}</span>}
-                                <span style={{ fontSize: 13, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
+                                <span style={{ fontSize: 12, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
                               </div>
                             )}
                           </div>
@@ -746,7 +738,7 @@ const PageConsulterOp = () => {
                         <div>
                           <label style={labelStyle}>PIÈCES JUSTIFICATIVES</label>
                           {isEditMode ? <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 13, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
+                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 12, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
                         </div>
                       </div>
                     </div>
@@ -767,7 +759,7 @@ const PageConsulterOp = () => {
                         </div>
                         <div>
                           <label style={labelStyle}>LIBELLÉ</label>
-                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 13, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
+                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 12, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
                         </div>
                       </div>
 
@@ -775,20 +767,20 @@ const PageConsulterOp = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, alignItems: 'start' }}>
                         <div style={{ gridColumn: '1 / 3', background: P.bgApp, padding: 14, borderRadius: 12, border: `1px solid ${P.bgSection}` }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px' }}>
-                            <span style={{ fontSize: 13, color: P.labelMuted }}>Dotation</span>
-                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
-                            <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. antérieurs</span>
-                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
-                            <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. actuel</span>
-                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
-                            <span style={{ fontSize: 13, color: P.labelMuted }}>Engag. cumulés</span>
-                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
+                            <span style={{ fontSize: 11, color: P.labelMuted }}>Dotation</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
+                            <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. antérieurs</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsAnterieurs())}</span>
+                            <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. actuel</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : P.orange }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
+                            <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. cumulés</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getEngagementsCumules())}</span>
                             <div style={{ gridColumn: '1 / -1', height: 1, background: P.bgSection, margin: '4px 0' }} />
-                            <span style={{ fontSize: 13, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
-                            <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#c62828' }}>{formatMontant(getDisponible())}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
+                            <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(getDisponible())}</span>
                           </div>
                           {getDisponible() < 0 && form.type !== 'ANNULATION' && (
-                            <div style={{ marginTop: 10, padding: 8, background: '#c6282810', borderRadius: 8, color: '#c62828', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.warning('#c62828')} Budget insuffisant</div>
+                            <div style={{ marginTop: 10, padding: 8, background: '#C43E3E10', borderRadius: 8, color: '#C43E3E', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.warning('#C43E3E')} Budget insuffisant</div>
                           )}
                         </div>
                         {/* Col 3 : TVA + Motif rejet/différé */}
@@ -800,19 +792,19 @@ const PageConsulterOp = () => {
                                 {[{ val: true, lbl: 'OUI' }, { val: false, lbl: 'NON' }].map(opt => {
                                   const active = form.tvaRecuperable === opt.val;
                                   return (
-                                    <div key={opt.lbl} onClick={() => isEditMode && setForm({ ...form, tvaRecuperable: opt.val })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default' }}>
-                                      <div style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: accent }} />}
+                                    <div key={opt.lbl} onClick={() => isEditMode && setForm({ ...form, tvaRecuperable: opt.val })} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, border: `1.5px solid ${active ? accent : 'rgba(34,51,0,0.08)'}`, background: active ? accent + '08' : P.bgCard, cursor: isEditMode ? 'pointer' : 'default' }}>
+                                      <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : P.labelMuted}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
                                       </div>
-                                      <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{opt.lbl}</span>
+                                      <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : P.labelMuted }}>{opt.lbl}</span>
                                     </div>
                                   );
                                 })}
                                 {form.tvaRecuperable && (
                                   isEditMode ? (
-                                    <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 13, textAlign: 'right', width: 110, padding: '6px 10px' }} placeholder="0" />
+                                    <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 11, textAlign: 'right', width: 100, padding: '4px 8px' }} placeholder="0" />
                                   ) : (
-                                    selectedOp.montantTVA ? <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: P.sidebarDark }}>{formatMontant(selectedOp.montantTVA)} F</span> : null
+                                    selectedOp.montantTVA ? <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 600, color: P.sidebarDark }}>{formatMontant(selectedOp.montantTVA)} F</span> : null
                                   )
                                 )}
                               </div>
@@ -820,16 +812,16 @@ const PageConsulterOp = () => {
                           )}
                           {/* Motif rejet */}
                           {selectedOp.motifRejet && (
-                            <div style={{ padding: 12, background: '#c6282808', borderRadius: 10, border: '1.5px solid #c6282825' }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#c62828', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.xCircle('#c62828')} MOTIF DU REJET</div>
-                              <div style={{ fontSize: 13, color: '#c62828', lineHeight: 1.5 }}>{selectedOp.motifRejet}</div>
+                            <div style={{ padding: 12, background: '#C43E3E08', borderRadius: 10, border: '1.5px solid #C43E3E25' }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#C43E3E', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.xCircle('#C43E3E')} MOTIF DU REJET</div>
+                              <div style={{ fontSize: 12, color: '#C43E3E', lineHeight: 1.5 }}>{selectedOp.motifRejet}</div>
                             </div>
                           )}
                           {/* Observation différé */}
                           {selectedOp.observationDiffere && (
                             <div style={{ padding: 12, background: P.gold + '10', borderRadius: 10, border: `1.5px solid ${P.gold}30` }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#b8860b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.clock('#b8860b')} OBSERVATION — DIFFÉRÉ</div>
-                              <div style={{ fontSize: 13, color: '#b8860b', lineHeight: 1.5 }}>{selectedOp.observationDiffere}</div>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#C5961F', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.clock('#C5961F')} OBSERVATION — DIFFÉRÉ</div>
+                              <div style={{ fontSize: 12, color: '#C5961F', lineHeight: 1.5 }}>{selectedOp.observationDiffere}</div>
                             </div>
                           )}
                         </div>
