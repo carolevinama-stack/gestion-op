@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from './firebase';
-import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { styles } from './utils/styles';
 
@@ -12,6 +12,7 @@ import PageParametres from './pages/PageParametres';
 import PageBeneficiaires from './pages/PageBeneficiaires';
 import PageBudget from './pages/PageBudget';
 import PageHistoriqueBudget from './pages/PageHistoriqueBudget';
+import PageLignesBudgetaires from './pages/PageLignesBudgetaires';
 import PageNouvelOp from './pages/PageNouvelOp';
 import PageConsulterOp from './pages/PageConsulterOp';
 import PageBordereaux from './pages/PageBordereaux';
@@ -28,13 +29,10 @@ function AppLayout() {
     return (
       <div style={styles.container}>
         <Sidebar />
-        <main style={{ ...styles.main, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2E9940', opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` }} />)}
-            </div>
-            <div style={{ fontSize: 11, color: '#888', letterSpacing: 2, marginTop: 16 }}>Chargement des données...</div>
-            <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }`}</style>
+        <main style={styles.main}>
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <div style={{ fontSize: 40, marginBottom: 20 }}>⏳</div>
+            <p>Chargement des données...</p>
           </div>
         </main>
       </div>
@@ -61,6 +59,7 @@ function AppLayout() {
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
         {currentPage === 'budget' && <PageBudget />}
         {currentPage === 'historique' && <PageHistoriqueBudget />}
+        {currentPage === 'lignes' && <PageLignesBudgetaires />}
         {currentPage === 'ops' && <PageListeOP />}
         {currentPage === 'nouvelOp' && <PageNouvelOp />}
         {currentPage === 'consulterOp' && <PageConsulterOp />}
@@ -102,27 +101,13 @@ export default function App() {
     }
   };
 
-  const handleForgotPassword = async (email) => {
-    try {
-      await sendPasswordResetEmail(auth, email);
-      return { success: true };
-    } catch (error) {
-      if (error.code === 'auth/user-not-found') return { success: false, error: 'Aucun compte associé à cet e-mail.' };
-      if (error.code === 'auth/invalid-email') return { success: false, error: 'Adresse e-mail invalide.' };
-      return { success: false, error: 'Erreur. Veuillez réessayer.' };
-    }
-  };
-
   // Auth loading
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F5F2' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2E9940', opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` }} />)}
-          </div>
-          <div style={{ fontSize: 11, color: '#888', letterSpacing: 2, marginTop: 16 }}>Chargement</div>
-          <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }`}</style>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f4c3a' }}>
+        <div style={{ textAlign: 'center', color: 'white' }}>
+          <div style={{ fontSize: 50, marginBottom: 20 }}>🌳</div>
+          <div>Chargement...</div>
         </div>
       </div>
     );
@@ -130,7 +115,7 @@ export default function App() {
 
   // Not logged in
   if (!user) {
-    return <LoginPage onLogin={handleLogin} onForgotPassword={handleForgotPassword} error={authError} />;
+    return <LoginPage onLogin={handleLogin} error={authError} />;
   }
 
   // Logged in - wrap in AppProvider
