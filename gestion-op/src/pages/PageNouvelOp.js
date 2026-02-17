@@ -144,17 +144,14 @@ const PageNouvelOp = () => {
         op.exerciceId === exerciceActif?.id &&
         op.ligneBudgetaire === form.ligneBudgetaire &&
         ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
-        !['REJETE', 'ANNULE'].includes(op.statut)
+        !['REJETE', 'ANNULE', 'TRAITE'].includes(op.statut)
       )
       .reduce((sum, op) => sum + (op.montant || 0), 0);
   };
 
   const getEngagementActuel = () => {
     const montant = parseFloat(form.montant) || 0;
-    if (form.type === 'DEFINITIF' && form.opProvisoireId) {
-      const opProv = ops.find(o => o.id === form.opProvisoireId);
-      return montant - (opProv?.montant || 0);
-    }
+    if (form.type === 'ANNULATION') return -montant;
     return montant;
   };
 
@@ -233,8 +230,11 @@ const PageNouvelOp = () => {
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
       showToast('error', 'Champ obligatoire', 'Veuillez indiquer si la TVA est récupérable (OUI / NON)'); return;
     }
+    if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === true && (!form.montantTVA || parseFloat(form.montantTVA) === 0)) {
+      showToast('error', 'Champ obligatoire', 'TVA récupérable : veuillez saisir le montant de la TVA'); return;
+    }
     if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId && !form.opProvisoireNumero.trim()) {
-      showToast('error', 'Champ obligatoire', `Veuillez renseigner le N° d'OP Provisoire à ${form.type === 'ANNULATION' ? 'annuler' : 'régulariser'}`); return;
+      showToast('error', 'Champ obligatoire', `Veuillez sélectionner ou saisir le N° d'OP Provisoire à ${form.type === 'ANNULATION' ? 'annuler' : 'régulariser'}`); return;
     }
     if (form.type !== 'ANNULATION' && getDisponible() < 0) {
       showToast('error', 'Budget insuffisant', `Disponible : ${formatMontant(getDisponible())} FCFA`); return;
@@ -242,6 +242,39 @@ const PageNouvelOp = () => {
 
     setSaving(true);
     try {
+      // === Vérification temps réel du budget depuis Firestore ===
+      if (form.type !== 'ANNULATION') {
+        const opsSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('sourceId', '==', activeSource),
+          where('exerciceId', '==', exerciceActif.id)
+        ));
+        const engagementsReels = opsSnap.docs
+          .map(d => d.data())
+          .filter(op =>
+            op.ligneBudgetaire === form.ligneBudgetaire &&
+            ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
+            !['REJETE', 'ANNULE', 'TRAITE'].includes(op.statut)
+          )
+          .reduce((sum, op) => sum + (op.montant || 0), 0);
+
+        let engagementActuel = parseFloat(form.montant) || 0;
+
+        const dotation = getDotation();
+        const disponibleReel = dotation - engagementsReels - engagementActuel;
+
+        if (disponibleReel < 0) {
+          showToast('error', 'Budget insuffisant (vérification temps réel)', `Disponible réel : ${formatMontant(dotation - engagementsReels)} FCFA. Votre montant dépasse de ${formatMontant(Math.abs(disponibleReel))} FCFA.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Avertissement si OP provisoire saisi manuellement (hors base)
+      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId && form.opProvisoireNumero.trim()) {
+        showToast('warning', 'OP Provisoire hors système', `Le N° ${form.opProvisoireNumero} a été saisi manuellement. Les engagements ne seront pas ajustés automatiquement.`);
+      }
+
       const sigleProjet = projet?.sigle || 'PROJET';
       const sigleSource = currentSourceObj?.sigle || 'OP';
       const annee = exerciceActif?.annee || new Date().getFullYear();
