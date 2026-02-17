@@ -28,8 +28,8 @@ function AppLayout() {
     return (
       <div style={styles.container}>
         <Sidebar />
-        <main style={styles.main}>
-          <div style={{ textAlign: 'center', padding: 60 }}>
+        <main style={{ ...styles.main, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          <div style={{ textAlign: 'center' }}>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2E9940', opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` }} />)}
             </div>
