@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV } from '../utils/formatters';
 import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -34,8 +34,6 @@ const Icon = {
   barChart: (color = P.textMuted, size = 40) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   search: (color = P.textMuted, size = 14) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   gear: (color = P.textSec, size = 18) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-  upload: (color = P.blue, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-  list: (color = P.green, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
 };
 
 // ==================== TOAST ====================
@@ -61,25 +59,9 @@ const ToastNotif = ({ toast, onDone }) => {
   );
 };
 
-// ==================== CONFIRM MODAL ====================
-const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, onCancel, icon }) => (
-  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10002 }}>
-    <div style={{ background: 'white', borderRadius: 16, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-      <div style={{ padding: '20px 28px', background: confirmColor || P.red, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
-        {icon}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>{title}</span>
-      </div>
-      <div style={{ padding: '24px 28px' }}><p style={{ margin: 0, fontSize: 14, color: P.text, lineHeight: 1.6 }}>{message}</p></div>
-      <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
-        <button className="bud-btn" onClick={onCancel} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-        <button className="bud-btn" onClick={onConfirm} style={{ background: confirmColor || P.red, color: 'white', padding: '10px 20px' }}>{confirmLabel}</button>
-      </div>
-    </div>
-  </div>
-);
-
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
-  const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, setLignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
+  const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
   const activeSource = activeBudgetSource || sources[0]?.id || null;
   const setActiveSource = (sourceId) => setActiveBudgetSource(sourceId);
 
@@ -88,7 +70,6 @@ const PageBudget = () => {
   const [showModal, setShowModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
-  const [showLignesModal, setShowLignesModal] = useState(false);
   const [selectedLigne, setSelectedLigne] = useState('');
   const [budgetLignes, setBudgetLignes] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -98,14 +79,6 @@ const PageBudget = () => {
   const [dateNotification, setDateNotification] = useState('');
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [toasts, setToasts] = useState([]);
-  const [confirmState, setConfirmState] = useState(null);
-
-  // Lignes modal state
-  const [ligneForm, setLigneForm] = useState({ code: '', libelle: '' });
-  const [showLigneFormModal, setShowLigneFormModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importData, setImportData] = useState([]);
-  const [importing, setImporting] = useState(false);
 
   const PASSWORD_CORRECTION = 'admin';
 
@@ -223,87 +196,6 @@ const PageBudget = () => {
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
   };
 
-  // ===== LIGNES BUDGÉTAIRES MANAGEMENT =====
-  const handleSaveLigne = async () => {
-    if (!ligneForm.code || !ligneForm.libelle) { showToast('error', 'Champs obligatoires', 'Code et libellé requis'); return; }
-    if (lignesBudgetaires.find(l => l.code === ligneForm.code)) { showToast('warning', 'Doublon', 'Ce code existe déjà'); return; }
-    try {
-      const docRef = await addDoc(collection(db, 'lignesBudgetaires'), ligneForm);
-      setLignesBudgetaires([...lignesBudgetaires, { id: docRef.id, ...ligneForm }].sort((a, b) => a.code.localeCompare(b.code)));
-      setLigneForm({ code: '', libelle: '' }); setShowLigneFormModal(false);
-      showToast('success', 'Ligne ajoutée');
-    } catch (error) { showToast('error', 'Erreur', 'Erreur lors de la sauvegarde'); }
-  };
-
-  const handleDeleteLigne = (ligne) => {
-    const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
-    if (isUsed) { showToast('error', 'Suppression impossible', 'Ligne utilisée dans un budget'); return; }
-    setConfirmState({ type: 'deleteLigne', ligne });
-  };
-  const confirmDeleteLigne = async () => {
-    const ligne = confirmState.ligne;
-    setConfirmState(null);
-    try { await deleteDoc(doc(db, 'lignesBudgetaires', ligne.id)); setLignesBudgetaires(lignesBudgetaires.filter(l => l.id !== ligne.id)); showToast('success', 'Ligne supprimée'); }
-    catch (e) { showToast('error', 'Erreur', e.message); }
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (['xlsx', 'xls'].includes(ext)) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const XLSX = await import('xlsx');
-          const wb = XLSX.read(event.target.result, { type: 'array' });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
-          parseRows(rows);
-        } catch (err) { showToast('error', 'Erreur', 'Impossible de lire le fichier Excel'); }
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target.result;
-        const lines = text.split('\n').filter(line => line.trim());
-        const separator = lines[0]?.includes(';') ? ';' : ',';
-        const rows = lines.map(l => l.split(separator).map(c => c.trim().replace(/^["']|["']$/g, '')));
-        parseRows(rows);
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const parseRows = (rows) => {
-    const startIndex = rows[0] && (String(rows[0][0]).toLowerCase().includes('code') || String(rows[0][0]).toLowerCase().includes('ligne')) ? 1 : 0;
-    const parsed = [];
-    for (let i = startIndex; i < rows.length; i++) {
-      const cols = rows[i];
-      if (cols && cols.length >= 2 && String(cols[0]).trim() && String(cols[1]).trim()) {
-        const code = String(cols[0]).trim(), libelle = String(cols[1]).trim();
-        if (!lignesBudgetaires.find(l => l.code === code) && !parsed.find(p => p.code === code)) {
-          parsed.push({ code, libelle });
-        }
-      }
-    }
-    setImportData(parsed);
-  };
-
-  const handleImportLignes = async () => {
-    if (importData.length === 0) { showToast('warning', 'Rien à importer'); return; }
-    setImporting(true);
-    try {
-      const newLignes = [];
-      for (const ligne of importData) { const docRef = await addDoc(collection(db, 'lignesBudgetaires'), ligne); newLignes.push({ id: docRef.id, ...ligne }); }
-      setLignesBudgetaires([...lignesBudgetaires, ...newLignes].sort((a, b) => a.code.localeCompare(b.code)));
-      setShowImportModal(false); setImportData([]);
-      showToast('success', `${newLignes.length} ligne(s) importée(s)`);
-    } catch (error) { showToast('error', 'Erreur', "Erreur lors de l'importation"); }
-    setImporting(false);
-  };
-
   // Styles
   const thStyle = { padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase', background: '#FAFAF8' };
   const tdStyle = { padding: '12px 16px', borderBottom: `1px solid ${P.border}`, fontSize: 14 };
@@ -324,23 +216,15 @@ const PageBudget = () => {
         {toasts.map(t => <ToastNotif key={t.uid} toast={t} onDone={() => removeToast(t.uid)} />)}
       </div>
 
-      {/* Confirm modal */}
-      {confirmState?.type === 'deleteLigne' && (
-        <ConfirmModal title="Supprimer la ligne" message={`Supprimer "${confirmState.ligne.code} — ${confirmState.ligne.libelle}" de la bibliothèque ?`}
-          confirmLabel="Supprimer" confirmColor={P.red} icon={Icon.trash('white', 16)}
-          onCancel={() => setConfirmState(null)} onConfirm={confirmDeleteLigne} />
-      )}
-
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icon.wallet(P.green)}</div>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: P.text }}>Budget</h1>
         </div>
-        <button className="bud-btn" onClick={() => setShowLignesModal(true)}
-          style={{ background: P.bg, color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 16px', fontSize: 13 }}>
-          {Icon.gear(P.textSec, 16)} Lignes budgétaires
-          <span style={{ background: P.greenLight, color: P.green, padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700, marginLeft: 4 }}>{lignesBudgetaires.length}</span>
+        <button onClick={() => setCurrentPage('lignes')} title="Lignes budgétaires"
+          style={{ width: 44, height: 44, borderRadius: 12, background: P.bg, border: `1.5px solid ${P.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+          {Icon.gear(P.textSec, 22)}
         </button>
       </div>
 
@@ -524,7 +408,7 @@ const PageBudget = () => {
                 </div>
                 {lignesBudgetaires.length === 0 && (
                   <p style={{ fontSize: 12, color: P.red, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {Icon.alert(P.red, 14)} Aucune ligne. <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setShowModal(false); setShowLignesModal(true); }}>Gérer les lignes</span>
+                    {Icon.alert(P.red, 14)} Aucune ligne. <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setShowModal(false); setCurrentPage('lignes'); }}>Gérer les lignes</span>
                   </p>
                 )}
               </div>
@@ -617,141 +501,6 @@ const PageBudget = () => {
         </div>
       )}
 
-      {/* ==================== MODAL LIGNES BUDGÉTAIRES (BIBLIOTHÈQUE) ==================== */}
-      {showLignesModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
-          <div style={{ background: 'white', borderRadius: 16, width: 750, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-            <div style={{ padding: '20px 28px', background: P.green, borderRadius: '16px 16px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {Icon.gear('white', 18)}
-                <span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Bibliothèque des lignes budgétaires</span>
-                <span style={{ background: 'rgba(255,255,255,0.25)', color: 'white', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{lignesBudgetaires.length}</span>
-              </div>
-              <button onClick={() => setShowLignesModal(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8 }}>{Icon.x('white')}</button>
-            </div>
-
-            <div style={{ padding: '24px 28px' }}>
-              {/* Info */}
-              <div style={{ background: P.greenLight, padding: 14, borderRadius: 10, marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-                {Icon.list(P.green, 18)}
-                <div><span style={{ fontSize: 13, fontWeight: 600, color: P.green }}>Bibliothèque de référence</span><span style={{ fontSize: 12, color: P.textSec, marginLeft: 8 }}>— Importez votre nomenclature une fois, réutilisez-la pour chaque budget.</span></div>
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16 }}>
-                <button className="bud-btn" onClick={() => setShowImportModal(true)} style={{ background: P.blueLight, color: P.blue, padding: '10px 16px' }}>
-                  {Icon.upload(P.blue, 14)} Importer CSV/Excel
-                </button>
-                <button className="bud-btn" onClick={() => { setLigneForm({ code: '', libelle: '' }); setShowLigneFormModal(true); }} style={{ background: P.green, color: 'white', padding: '10px 16px' }}>
-                  {Icon.plus('white', 14)} Nouvelle ligne
-                </button>
-              </div>
-
-              {/* Table */}
-              {lignesBudgetaires.length === 0 ? (
-                <div style={{ padding: 40, textAlign: 'center', color: P.textMuted }}>
-                  {Icon.barChart(P.textMuted, 36)}
-                  <p style={{ marginTop: 12, fontSize: 14 }}>Aucune ligne budgétaire</p>
-                  <p style={{ fontSize: 12, color: P.textMuted }}>Importez un fichier ou ajoutez manuellement</p>
-                </div>
-              ) : (
-                <div style={{ maxHeight: 400, overflowY: 'auto', borderRadius: 10, border: `1px solid ${P.border}` }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ position: 'sticky', top: 0 }}>
-                      <tr><th style={thStyle}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, textAlign: 'center', width: 100 }}>Actions</th></tr>
-                    </thead>
-                    <tbody>
-                      {lignesBudgetaires.map(ligne => {
-                        const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
-                        return (
-                          <tr key={ligne.id} className="bud-row" style={{ transition: 'background 0.15s' }}>
-                            <td style={tdStyle}><code style={{ background: P.greenLight, color: P.green, padding: '4px 12px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>{ligne.code}</code></td>
-                            <td style={{ ...tdStyle, fontSize: 13 }}>{ligne.libelle}</td>
-                            <td style={{ ...tdStyle, textAlign: 'center' }}>
-                              {isUsed ? (
-                                <span style={{ background: '#f5f5f5', color: P.textMuted, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Utilisée</span>
-                              ) : (
-                                <button className="bud-btn" onClick={() => handleDeleteLigne(ligne)} style={{ background: P.redLight, color: P.red, padding: '4px 10px' }}>{Icon.trash(P.red, 13)}</button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div style={{ padding: '16px 28px 24px', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="bud-btn" onClick={() => setShowLignesModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Fermer</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sub-modal: Nouvelle ligne */}
-      {showLigneFormModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
-          <div style={{ background: 'white', borderRadius: 16, width: 500, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 28px', background: P.green, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
-              {Icon.plus('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Nouvelle ligne budgétaire</span>
-            </div>
-            <div style={{ padding: '24px 28px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
-                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>CODE *</label><input value={ligneForm.code} onChange={e => setLigneForm({ ...ligneForm, code: e.target.value })} style={{ ...inputStyle, background: P.goldLight }} placeholder="Ex: 6221" /></div>
-                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>LIBELLÉ *</label><input value={ligneForm.libelle} onChange={e => setLigneForm({ ...ligneForm, libelle: e.target.value })} style={{ ...inputStyle, background: P.goldLight }} placeholder="Ex: Personnel temporaire" /></div>
-              </div>
-            </div>
-            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
-              <button className="bud-btn" onClick={() => setShowLigneFormModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={handleSaveLigne} style={{ background: P.green, color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Ajouter</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sub-modal: Import CSV/Excel */}
-      {showImportModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
-          <div style={{ background: 'white', borderRadius: 16, width: 700, maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-            <div style={{ padding: '20px 28px', background: P.blue, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
-              {Icon.upload('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Importer la nomenclature</span>
-            </div>
-            <div style={{ padding: '24px 28px' }}>
-              <div style={{ background: P.blueLight, padding: 16, borderRadius: 10, marginBottom: 20 }}>
-                <strong style={{ color: P.blue, fontSize: 13 }}>Format attendu (CSV ou Excel)</strong>
-                <p style={{ margin: '8px 0 0', fontSize: 12, color: P.textSec }}>2 colonnes : <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Code</code> et <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Libellé</code></p>
-                <p style={{ margin: '4px 0 0', fontSize: 11, color: P.textMuted }}>Exemple : <code>6221;Personnel temporaire</code></p>
-              </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>SÉLECTIONNER UN FICHIER</label>
-                <input type="file" accept=".csv,.txt,.xls,.xlsx" onChange={handleFileUpload} style={{ padding: 12, border: `2px dashed ${P.border}`, borderRadius: 10, width: '100%', boxSizing: 'border-box', fontSize: 13 }} />
-              </div>
-              {importData.length > 0 && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                    {Icon.check(P.green, 14)} <strong style={{ color: P.green, fontSize: 13 }}>{importData.length} ligne(s) prête(s)</strong>
-                  </div>
-                  <div style={{ maxHeight: 250, overflowY: 'auto', border: `1px solid ${P.border}`, borderRadius: 8 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead style={{ position: 'sticky', top: 0 }}><tr><th style={thStyle}>Code</th><th style={thStyle}>Libellé</th></tr></thead>
-                      <tbody>{importData.map((l, i) => (<tr key={i}><td style={tdStyle}><code style={{ background: P.greenLight, color: P.green, padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>{l.code}</code></td><td style={{ ...tdStyle, fontSize: 13 }}>{l.libelle}</td></tr>))}</tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
-              <button className="bud-btn" onClick={() => { setShowImportModal(false); setImportData([]); }} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={handleImportLignes} disabled={importing || importData.length === 0}
-                style={{ background: P.blue, color: 'white', padding: '10px 20px', opacity: importing || importData.length === 0 ? 0.5 : 1 }}>
-                {Icon.check('white', 14)} {importing ? 'Importation...' : `Importer ${importData.length} ligne(s)`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
