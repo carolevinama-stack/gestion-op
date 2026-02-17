@@ -150,9 +150,7 @@ const PageNouvelOp = () => {
   };
 
   const getEngagementActuel = () => {
-    const montant = parseFloat(form.montant) || 0;
-    if (form.type === 'ANNULATION') return -montant;
-    return montant;
+    return parseFloat(form.montant) || 0;
   };
 
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
@@ -205,12 +203,17 @@ const PageNouvelOp = () => {
     if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' }); return; }
     const op = ops.find(o => o.id === opId);
     if (op) {
-      setForm({
+      const updates = {
         ...form, opProvisoireId: opId, opProvisoireNumero: op.numero,
-        beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire, objet: op.objet,
-        montant: form.type === 'ANNULATION' ? String(op.montant) : form.montant,
+        beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire,
         modeReglement: op.modeReglement || 'VIREMENT'
-      });
+      };
+      if (form.type === 'ANNULATION') {
+        updates.montant = String(-(op.montant || 0));
+        updates.objet = `Annulation OP ${op.numero} - ${op.objet || ''}`;
+        updates.piecesJustificatives = `OP ${op.numero}`;
+      }
+      setForm(updates);
     }
   };
 
@@ -424,7 +427,7 @@ const PageNouvelOp = () => {
                       if (option?.value) { handleSelectOpProvisoire(option.value); }
                       else { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: option?.label || '' }); }
                     }}
-                    onInputChange={(text) => { if (!opProvisoiresDisponibles.find(o => o.id === form.opProvisoireId)) setForm({ ...form, opProvisoireNumero: text, opProvisoireId: '' }); }}
+                    onInputChange={(text) => { if (!form.opProvisoireId) setForm({ ...form, opProvisoireNumero: text }); }}
                     placeholder="N° ou sélectionner..."
                     noOptionsMessage="Saisir le N° manuellement"
                     accentColor={form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32'}
