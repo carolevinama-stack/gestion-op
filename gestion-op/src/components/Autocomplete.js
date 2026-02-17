@@ -1,20 +1,16 @@
 import React from 'react';
 import Select from 'react-select';
-import CreatableSelect from 'react-select/creatable';
 
 // ==================== COMPOSANT AUTOCOMPLETE ====================
 const Autocomplete = ({ 
   options, 
   value, 
   onChange, 
-  onInputChange,
   placeholder = 'Rechercher...', 
   isDisabled = false,
   isClearable = true,
   isMulti = false,
-  creatable = false,
   noOptionsMessage = 'Aucun résultat',
-  formatCreateLabel,
   accentColor = '#0f4c3a'
 }) => {
   const customStyles = {
@@ -48,17 +44,20 @@ const Autocomplete = ({
     multiValue: (base) => ({
       ...base,
       backgroundColor: `${accentColor}15`,
-      borderRadius: 6
+      borderRadius: 6,
+      border: `1px solid ${accentColor}30`
     }),
     multiValueLabel: (base) => ({
       ...base,
       color: accentColor,
       fontWeight: 600,
-      fontSize: 12
+      fontSize: 12,
+      padding: '3px 6px'
     }),
     multiValueRemove: (base) => ({
       ...base,
       color: accentColor,
+      cursor: 'pointer',
       '&:hover': { backgroundColor: `${accentColor}30`, color: '#dc3545' }
     }),
     menu: (base) => ({
@@ -100,26 +99,20 @@ const Autocomplete = ({
     })
   };
 
-  const Component = creatable ? CreatableSelect : Select;
-
   return (
-    <Component
+    <Select
       options={options}
       value={value}
       onChange={onChange}
-      onInputChange={onInputChange}
       placeholder={placeholder}
       isDisabled={isDisabled}
       isClearable={isClearable}
       isSearchable={true}
       isMulti={isMulti}
       noOptionsMessage={() => noOptionsMessage}
-      formatCreateLabel={formatCreateLabel || ((input) => `Saisir : "${input}"`)}
       styles={customStyles}
       filterOption={(option, inputValue) => {
         if (!inputValue) return true;
-        // Ne pas filtrer les options créées manuellement
-        if (option.data?.__isNew__) return true;
         const search = inputValue.toLowerCase();
         const label = (option.label || '').toLowerCase();
         const searchFields = option.data?.searchFields || [];
