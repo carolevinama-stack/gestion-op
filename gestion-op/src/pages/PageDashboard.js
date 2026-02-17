@@ -11,7 +11,7 @@ const joursDepuis = (dateStr) => {
   return Math.floor((now - d) / (1000 * 60 * 60 * 24));
 };
 
-const thStyle = { padding: '10px 16px', fontSize: 10, fontWeight: 700, color: '#999', letterSpacing: 0.5 };
+const thStyle = { padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#999', letterSpacing: 0.5 };
 
 const PageDashboard = () => {
   const { exerciceActif, budgets, ops, sources, beneficiaires, userProfile } = useAppContext();
@@ -50,7 +50,7 @@ const PageDashboard = () => {
 
   // === 7 CATÉGORIES D'ALERTES ===
   const alertes = useMemo(() => {
-    // À transférer au CF : statut EN_COURS ou CREE (ancien statut)
+    // À transférer au CF : statut EN_COURS
     const transfert_cf = allOpsExercice
       .filter(op => ['EN_COURS', 'CREE'].includes(op.statut) && op.type !== 'ANNULATION')
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
@@ -92,13 +92,13 @@ const PageDashboard = () => {
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
     return {
-      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#2E9940", ops: transfert_cf },
+      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#555", ops: transfert_cf },
       transfert_ac: { label: "À transférer à l'AC", icon: "→", color: "#2e7d32", ops: transfert_ac },
       differe: { label: "Différés", icon: "!", color: "#C5961F", ops: differe },
       attente_cf: { label: "Attente CF", icon: "○", color: "#D4722A", ops: attente_cf },
       annuler: { label: "À annuler", icon: "×", color: "#C43E3E", ops: annuler },
       regulariser: { label: "À régulariser", icon: "~", color: "#C5961F", ops: regulariser },
-      solder: { label: "À solder", icon: "•", color: "#2E9940", ops: solder },
+      solder: { label: "À solder", icon: "•", color: "#555", ops: solder },
     };
   }, [allOpsExercice]);
 
@@ -121,7 +121,7 @@ const PageDashboard = () => {
 
       {/* ====== HEADER ====== */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, color: '#1B6B2E' }}>Bonjour{prenom ? `, ${prenom}` : ''}</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#1B6B2E' }}>Bonjour{prenom ? `, ${prenom}` : ''}</h1>
         <p style={{ color: '#6c757d', fontSize: 13, margin: '6px 0 0', textTransform: 'capitalize' }}>
           {today} — Exercice {exerciceActif?.annee || 'Non défini'}
         </p>
@@ -139,11 +139,11 @@ const PageDashboard = () => {
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: card.color }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 12, color: '#6c757d', fontWeight: 600, marginBottom: 8 }}>{card.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: card.color, fontFamily: 'monospace', letterSpacing: -0.5 }}>{card.value}</div>
-                <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{card.sub}</div>
+                <div style={{ fontSize: 13, color: '#6c757d', fontWeight: 600, marginBottom: 8 }}>{card.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: card.color, fontFamily: 'monospace', letterSpacing: -0.5 }}>{card.value}</div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{card.sub}</div>
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: card.color }}>{card.icon}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: card.color }}>{card.icon}</div>
             </div>
             {card.isPercent && (
               <div style={{ marginTop: 12, background: '#eee', borderRadius: 10, height: 6, overflow: 'hidden' }}>
@@ -156,7 +156,7 @@ const PageDashboard = () => {
 
       {/* ====== EXÉCUTION PAR SOURCE ====== */}
       <div style={{ background: 'white', borderRadius: 14, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
           Exécution budgétaire par source
         </h3>
         {sourceStats.length === 0 ? (
@@ -172,18 +172,18 @@ const PageDashboard = () => {
                       <div style={{ width: 12, height: 12, borderRadius: 4, background: src.couleur || '#1B6B2E' }} />
                       <span style={{ fontSize: 14, fontWeight: 700 }}>{src.sigle || src.nom}</span>
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: src.couleur || '#1B6B2E' }}>{pct}%</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: src.couleur || '#1B6B2E' }}>{pct}%</span>
                   </div>
                   <div style={{ background: '#f0f0f0', borderRadius: 8, height: 12, overflow: 'hidden', marginBottom: 10 }}>
                     <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: 8, background: `linear-gradient(90deg, ${src.couleur || '#1B6B2E'}99, ${src.couleur || '#1B6B2E'})` }} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px' }}>
-                      <div style={{ fontSize: 10, color: '#999' }}>Engagé</div>
+                      <div style={{ fontSize: 11, color: '#999' }}>Engagé</div>
                       <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: '#333' }}>{formatMontant(src.engagement)}</div>
                     </div>
                     <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px' }}>
-                      <div style={{ fontSize: 10, color: '#999' }}>Disponible</div>
+                      <div style={{ fontSize: 11, color: '#999' }}>Disponible</div>
                       <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: src.disponible >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(src.disponible)}</div>
                     </div>
                   </div>
@@ -206,7 +206,7 @@ const PageDashboard = () => {
             const isActive = activeAlert === key;
             return (
               <div key={key} onClick={() => setActiveAlert(key)} style={{
-                padding: '13px 16px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                padding: '13px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                 color: isActive ? a.color : '#999',
                 borderBottom: isActive ? `2px solid ${a.color}` : '2px solid transparent',
                 marginBottom: -2, transition: 'all 0.2s',
@@ -257,10 +257,10 @@ const PageDashboard = () => {
                 {selectedOps.map((op, i) => (
                   <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3' }}>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
                         {(op.numero || '').split('/')[0] || `N°${op.numero}`}
                       </div>
-                      <div style={{ fontSize: 10, color: '#bbb' }}>
+                      <div style={{ fontSize: 11, color: '#bbb' }}>
                         {getSourceSigle(op.sourceId)} • {op.dateCreation || ''}
                       </div>
                     </td>
@@ -297,14 +297,14 @@ const PageDashboard = () => {
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       {op._jours ? (
                         <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
+                          fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
                           background: op._jours > 7 ? '#ffebee' : '#f5f5f5',
                           color: op._jours > 7 ? '#C43E3E' : '#999'
                         }}>
                           {op._jours}j
                         </span>
                       ) : op.observationDiffere ? (
-                        <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: '#fff3e0', color: '#C5961F' }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: '#fff3e0', color: '#C5961F' }}>
                           {op.observationDiffere}
                         </span>
                       ) : (
