@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 
 // ==================== PALETTE ====================
 const P = {
@@ -147,37 +148,62 @@ const PageBeneficiaires = () => {
     setForm({ ...form, ribs: updatedRibs });
   };
 
-  // Import CSV
+  // Import CSV ou Excel
+  const parseRows = (rows) => {
+    const parsed = [];
+    rows.forEach((cols, index) => {
+      if (index === 0) {
+        const first = (cols[0] || '').toString().toLowerCase().trim();
+        if (['nom', 'name', 'beneficiaire', 'raison sociale'].includes(first)) return;
+      }
+      const nom = (cols[0] || '').toString().trim().toUpperCase();
+      if (nom) {
+        const exists = beneficiaires.find(b => b.nom === nom);
+        if (!exists) {
+          const ribVal = (cols[2] || '').toString().trim();
+          parsed.push({ nom, ncc: (cols[1] || '').toString().trim(), ribs: ribVal ? [{ banque: '', numero: ribVal }] : [] });
+        }
+      }
+    });
+    return parsed;
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target.result;
-      const lines = text.split('\n').filter(line => line.trim());
-      const firstLine = lines[0] || '';
-      let separator = ';';
-      if (firstLine.includes('\t')) separator = '\t';
-      else if (firstLine.split(',').length > firstLine.split(';').length) separator = ',';
+    const ext = file.name.split('.').pop().toLowerCase();
 
-      const parsed = [];
-      lines.forEach((line, index) => {
-        const cols = line.split(separator).map(c => c.trim().replace(/^["']|["']$/g, ''));
-        if (index === 0) {
-          const first = cols[0]?.toLowerCase();
-          if (['nom', 'name', 'beneficiaire', 'raison sociale'].includes(first)) return;
+    if (['xlsx', 'xls'].includes(ext)) {
+      // Excel
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const wb = XLSX.read(event.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          setImportData(parseRows(rows));
+        } catch (err) {
+          console.error('Erreur lecture Excel:', err);
+          showToast('error', 'Erreur', 'Impossible de lire le fichier Excel');
         }
-        if (cols[0]) {
-          const nom = cols[0].toUpperCase();
-          const exists = beneficiaires.find(b => b.nom === nom);
-          if (!exists) {
-            parsed.push({ nom, ncc: cols[1] || '', ribs: cols[2] ? [{ banque: '', numero: cols[2] }] : [] });
-          }
-        }
-      });
-      setImportData(parsed);
-    };
-    reader.readAsText(file);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // CSV / TXT
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        const firstLine = lines[0] || '';
+        let separator = ';';
+        if (firstLine.includes('\t')) separator = '\t';
+        else if (firstLine.split(',').length > firstLine.split(';').length) separator = ',';
+
+        const rows = lines.map(line => line.split(separator).map(c => c.trim().replace(/^["']|["']$/g, '')));
+        setImportData(parseRows(rows));
+      };
+      reader.readAsText(file);
+    }
   };
 
   const handleImport = async () => {
@@ -335,8 +361,9 @@ const PageBeneficiaires = () => {
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', color: P.textMuted, padding: 60, fontSize: 14 }}>Aucun bénéficiaire trouvé</div>
         ) : (
+          <div style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
               <tr style={{ background: '#FAFAF8' }}>
                 <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>Nom / Raison sociale</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>NCC</th>
@@ -394,6 +421,7 @@ const PageBeneficiaires = () => {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -443,18 +471,23 @@ const PageBeneficiaires = () => {
                 {(form.ribs || []).length > 0 && (
                   <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {form.ribs.map((rib, index) => (
-                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'white', padding: '10px 14px', borderRadius: 8, border: `1px solid ${P.border}` }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 6, background: P.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {Icon.bank(P.blue, 12)}
-                        </div>
-                        {rib.banque && (
-                          <span style={{ background: P.blueLight, color: P.blue, padding: '3px 10px', borderRadius: 6, fontWeight: 700, fontSize: 11 }}>
-                            {rib.banque}
-                          </span>
-                        )}
-                        <code style={{ flex: 1, fontSize: 12, color: P.text }}>{rib.numero}</code>
+                      <div key={index} style={{ display: 'grid', gridTemplateColumns: '130px 1fr auto', gap: 8, alignItems: 'center', background: 'white', padding: '8px 12px', borderRadius: 8, border: `1px solid ${P.border}` }}>
+                        <input value={rib.banque || ''} 
+                          onChange={e => {
+                            const updated = [...form.ribs];
+                            updated[index] = { ...updated[index], banque: e.target.value };
+                            setForm({ ...form, ribs: updated });
+                          }}
+                          style={{ ...inputStyle, padding: '6px 10px', fontSize: 12 }} placeholder="Banque" />
+                        <input value={rib.numero || ''} 
+                          onChange={e => {
+                            const updated = [...form.ribs];
+                            updated[index] = { ...updated[index], numero: e.target.value };
+                            setForm({ ...form, ribs: updated });
+                          }}
+                          style={{ ...inputStyle, padding: '6px 10px', fontSize: 12, fontFamily: 'monospace' }} placeholder="Numéro RIB" />
                         <button type="button" onClick={() => removeRib(index)} className="ben-btn"
-                          style={{ background: P.redLight, color: P.red, padding: '4px 8px', fontSize: 11 }}>
+                          style={{ background: P.redLight, color: P.red, padding: '6px 8px', fontSize: 11 }}>
                           {Icon.trash(P.red, 13)}
                         </button>
                       </div>
@@ -516,10 +549,10 @@ const PageBeneficiaires = () => {
               <div style={{ background: P.blueLight, padding: 16, borderRadius: 10, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 {Icon.clipboard(P.blue)}
                 <div>
-                  <strong style={{ color: P.blue, fontSize: 13 }}>Format attendu (CSV)</strong>
+                  <strong style={{ color: P.blue, fontSize: 13 }}>Format attendu (CSV ou Excel)</strong>
                   <p style={{ margin: '6px 0 0', fontSize: 12, color: P.textSec, lineHeight: 1.5 }}>
                     3 colonnes : <code style={{ background: 'white', padding: '2px 6px', borderRadius: 4 }}>Nom ; NCC ; RIB</code><br />
-                    Séparateur : virgule, point-virgule ou tabulation. Les doublons sont ignorés.
+                    Fichiers acceptés : .xlsx, .xls, .csv, .txt. Les doublons sont ignorés.
                   </p>
                 </div>
               </div>
