@@ -10,9 +10,9 @@ import Autocomplete from '../components/Autocomplete';
 
 // ==================== TOAST SYSTEM ====================
 const TOAST_STYLES = {
-  success: { bg: 'linear-gradient(135deg, #f0faf5 0%, #fff 100%)', iconBg: '#e8f5e9', iconBorder: '#D4722A20' },
-  error: { bg: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)', iconBg: '#ffebee', iconBorder: '#C43E3E20' },
-  warning: { bg: 'linear-gradient(135deg, #fffbf0 0%, #fff 100%)', iconBg: '#fff3e0', iconBorder: '#ff980020' },
+  success: { bg: 'linear-gradient(135deg, #f0faf5 0%, #fff 100%)', iconBg: '#e8f5e9', iconBorder: '#D4722A20', titleColor: '#2e7d32' },
+  error: { bg: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)', iconBg: '#ffebee', iconBorder: '#C43E3E20', titleColor: '#C43E3E' },
+  warning: { bg: 'linear-gradient(135deg, #fffbf0 0%, #fff 100%)', iconBg: '#fff3e0', iconBorder: '#ff980020', titleColor: '#C5961F' },
 };
 const ToastIcon = ({ type }) => {
   if (type === 'success') return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>;
@@ -31,7 +31,7 @@ const ToastNotif = ({ toast, onDone }) => {
     <div style={{
       background: s.bg, borderRadius: 14, padding: '16px 22px',
       display: 'flex', alignItems: 'center', gap: 14,
-      minWidth: 320, maxWidth: 420,
+      minWidth: 320, maxWidth: 420, pointerEvents: 'auto',
       boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
       animation: leaving ? 'toastOut 0.4s ease-in forwards' : 'toastIn 0.35s ease-out',
     }}>
@@ -42,7 +42,7 @@ const ToastNotif = ({ toast, onDone }) => {
         <ToastIcon type={toast.type} />
       </div>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#2E9940', marginBottom: 2 }}>{toast.title}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: s.titleColor, marginBottom: 2 }}>{toast.title}</div>
         {toast.message && <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>{toast.message}</div>}
       </div>
     </div>
@@ -212,6 +212,9 @@ const PageNouvelOp = () => {
         updates.montant = String(-(op.montant || 0));
         updates.objet = `Annulation OP ${op.numero} - ${op.objet || ''}`;
         updates.piecesJustificatives = `OP ${op.numero}`;
+      } else if (form.type === 'DEFINITIF') {
+        updates.objet = `Régularisation OP ${op.numero} - ${op.objet || ''}`;
+        updates.piecesJustificatives = `OP ${op.numero}`;
       }
       setForm(updates);
     }
@@ -356,11 +359,12 @@ const PageNouvelOp = () => {
         .nouvelop-form *, .nouvelop-form *::before, .nouvelop-form *::after { box-sizing: border-box; }
         .nouvelop-form input, .nouvelop-form select, .nouvelop-form textarea { box-sizing: border-box; }
       `}</style>
-      {toasts.map(t => (
-        <div key={t.uid} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none' }}>
-          <ToastNotif toast={t} onDone={() => removeToast(t.uid)} />
-        </div>
-      ))}
+      {/* Toasts empilés en haut à droite */}
+      <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none' }}>
+        {toasts.map(t => (
+          <ToastNotif key={t.uid} toast={t} onDone={() => removeToast(t.uid)} />
+        ))}
+      </div>
 
       {/* Sources */}
       <div style={{ maxWidth: 1020, margin: '0 auto', marginBottom: 4 }}>
@@ -421,15 +425,26 @@ const PageNouvelOp = () => {
                 <div style={{ flex: '0 0 auto' }}>
                   <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32' }}>OP PROV. *</label>
                   <Autocomplete
+                    creatable
                     options={opProvisoiresDisponibles.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
-                    value={form.opProvisoireId ? opProvisoiresDisponibles.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || (form.opProvisoireNumero ? { value: '', label: form.opProvisoireNumero } : null) : (form.opProvisoireNumero ? { value: '', label: form.opProvisoireNumero } : null)}
+                    value={form.opProvisoireId 
+                      ? opProvisoiresDisponibles.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || null
+                      : form.opProvisoireNumero 
+                        ? { value: '_manual_', label: form.opProvisoireNumero } 
+                        : null
+                    }
                     onChange={(option) => {
-                      if (option?.value) { handleSelectOpProvisoire(option.value); }
-                      else { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: option?.label || '' }); }
+                      if (!option) {
+                        setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' });
+                      } else if (option.__isNew__) {
+                        setForm({ ...form, opProvisoireId: '', opProvisoireNumero: option.label });
+                      } else {
+                        handleSelectOpProvisoire(option.value);
+                      }
                     }}
-                    onInputChange={(text) => { if (!form.opProvisoireId) setForm({ ...form, opProvisoireNumero: text }); }}
-                    placeholder="N° ou sélectionner..."
-                    noOptionsMessage="Saisir le N° manuellement"
+                    placeholder="N° ou saisir manuellement..."
+                    noOptionsMessage="Tapez un N° pour saisir manuellement"
+                    formatCreateLabel={(input) => `Saisir : "${input}"`}
                     accentColor={form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32'}
                     style={{ minWidth: 200 }}
                   />
