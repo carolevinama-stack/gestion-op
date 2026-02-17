@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV } from '../utils/formatters';
 import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -33,6 +33,9 @@ const Icon = {
   alert: (color = P.gold, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   barChart: (color = P.textMuted, size = 40) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   search: (color = P.textMuted, size = 14) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  gear: (color = P.textSec, size = 18) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+  upload: (color = P.blue, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+  list: (color = P.green, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
 };
 
 // ==================== TOAST ====================
@@ -49,25 +52,34 @@ const ToastIcon = ({ type }) => {
 const ToastNotif = ({ toast, onDone }) => {
   const [leaving, setLeaving] = useState(false);
   const s = TOAST_STYLES[toast.type] || TOAST_STYLES.success;
-  useEffect(() => {
-    const t1 = setTimeout(() => setLeaving(true), 3500);
-    const t2 = setTimeout(onDone, 3900);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [onDone]);
+  useEffect(() => { const t1 = setTimeout(() => setLeaving(true), 3500); const t2 = setTimeout(onDone, 3900); return () => { clearTimeout(t1); clearTimeout(t2); }; }, [onDone]);
   return (
     <div style={{ background: s.bg, borderRadius: 14, padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 14, minWidth: 320, maxWidth: 420, pointerEvents: 'auto', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', animation: leaving ? 'toastOut 0.4s ease-in forwards' : 'toastIn 0.35s ease-out' }}>
       <div style={{ width: 38, height: 38, borderRadius: '50%', background: s.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ToastIcon type={toast.type} /></div>
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: s.titleColor, marginBottom: 2 }}>{toast.title}</div>
-        {toast.message && <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>{toast.message}</div>}
-      </div>
+      <div><div style={{ fontSize: 14, fontWeight: 700, color: s.titleColor, marginBottom: 2 }}>{toast.title}</div>{toast.message && <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4 }}>{toast.message}</div>}</div>
     </div>
   );
 };
 
+// ==================== CONFIRM MODAL ====================
+const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, onCancel, icon }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10002 }}>
+    <div style={{ background: 'white', borderRadius: 16, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+      <div style={{ padding: '20px 28px', background: confirmColor || P.red, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
+        {icon}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>{title}</span>
+      </div>
+      <div style={{ padding: '24px 28px' }}><p style={{ margin: 0, fontSize: 14, color: P.text, lineHeight: 1.6 }}>{message}</p></div>
+      <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
+        <button className="bud-btn" onClick={onCancel} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
+        <button className="bud-btn" onClick={onConfirm} style={{ background: confirmColor || P.red, color: 'white', padding: '10px 20px' }}>{confirmLabel}</button>
+      </div>
+    </div>
+  </div>
+);
+
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
-  const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
+  const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, setLignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
   const activeSource = activeBudgetSource || sources[0]?.id || null;
   const setActiveSource = (sourceId) => setActiveBudgetSource(sourceId);
 
@@ -76,6 +88,7 @@ const PageBudget = () => {
   const [showModal, setShowModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [showLignesModal, setShowLignesModal] = useState(false);
   const [selectedLigne, setSelectedLigne] = useState('');
   const [budgetLignes, setBudgetLignes] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -85,6 +98,14 @@ const PageBudget = () => {
   const [dateNotification, setDateNotification] = useState('');
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [confirmState, setConfirmState] = useState(null);
+
+  // Lignes modal state
+  const [ligneForm, setLigneForm] = useState({ code: '', libelle: '' });
+  const [showLigneFormModal, setShowLigneFormModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState([]);
+  const [importing, setImporting] = useState(false);
 
   const PASSWORD_CORRECTION = 'admin';
 
@@ -92,9 +113,7 @@ const PageBudget = () => {
     const uid = Date.now() + Math.random();
     setToasts(prev => [...prev, { uid, type, title, message }]);
   }, []);
-  const removeToast = useCallback((uid) => {
-    setToasts(prev => prev.filter(t => t.uid !== uid));
-  }, []);
+  const removeToast = useCallback((uid) => setToasts(prev => prev.filter(t => t.uid !== uid)), []);
 
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
   const currentExerciceObj = exercices.find(e => e.id === currentExerciceId);
@@ -124,62 +143,28 @@ const PageBudget = () => {
       .reduce((sum, op) => sum + (op.montant || 0), 0);
   };
 
-  const openCreateModal = () => {
-    setBudgetLignes([]);
-    setSelectedLigne('');
-    setNomRevision('Budget Primitif');
-    setDateNotification(new Date().toISOString().split('T')[0]);
-    setShowModal(true);
-  };
-
-  const openCorrectionModal = () => {
-    setPassword('');
-    setShowPasswordModal(true);
-  };
+  const openCreateModal = () => { setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
+  const openCorrectionModal = () => { setPassword(''); setShowPasswordModal(true); };
 
   const verifyPasswordAndEdit = () => {
-    if (password === PASSWORD_CORRECTION) {
-      setShowPasswordModal(false);
-      setBudgetLignes(currentBudget.lignes.map(l => ({ ...l })));
-      setSelectedLigne('');
-      setShowModal(true);
-    } else {
-      showToast('error', 'Mot de passe incorrect');
-    }
+    if (password === PASSWORD_CORRECTION) { setShowPasswordModal(false); setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true); }
+    else { showToast('error', 'Mot de passe incorrect'); }
   };
 
-  const openRevisionModal = () => {
-    setMotifRevision('');
-    setNomRevision('');
-    setDateNotification('');
-    setShowRevisionModal(true);
-  };
+  const openRevisionModal = () => { setMotifRevision(''); setNomRevision(''); setDateNotification(''); setShowRevisionModal(true); };
 
   const createRevision = async () => {
     if (!nomRevision.trim()) { showToast('error', 'Champ obligatoire', 'Veuillez nommer cette révision'); return; }
     if (!dateNotification) { showToast('error', 'Champ obligatoire', 'Veuillez renseigner la date de validation'); return; }
-
     setSaving(true);
     try {
       const newVersion = (latestVersion?.version || 1) + 1;
-      const revisionData = {
-        sourceId: activeSource, exerciceId: currentExerciceId, version: newVersion,
-        nomVersion: nomRevision.trim(), dateNotification,
-        lignes: latestVersion.lignes.map(l => ({ ...l })),
-        motifRevision: motifRevision.trim() || null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-      };
+      const revisionData = { sourceId: activeSource, exerciceId: currentExerciceId, version: newVersion, nomVersion: nomRevision.trim(), dateNotification, lignes: latestVersion.lignes.map(l => ({ ...l })), motifRevision: motifRevision.trim() || null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       const docRef = await addDoc(collection(db, 'budgets'), revisionData);
       setBudgets([...budgets, { id: docRef.id, ...revisionData }]);
       setShowRevisionModal(false);
-      setBudgetLignes(revisionData.lignes);
-      setSelectedLigne('');
-      setSelectedVersion(docRef.id);
-      setShowModal(true);
-    } catch (error) {
-      console.error('Erreur:', error);
-      showToast('error', 'Erreur', 'Erreur lors de la création de la révision');
-    }
+      setBudgetLignes(revisionData.lignes); setSelectedLigne(''); setSelectedVersion(docRef.id); setShowModal(true);
+    } catch (error) { console.error('Erreur:', error); showToast('error', 'Erreur', 'Erreur lors de la création'); }
     setSaving(false);
   };
 
@@ -188,49 +173,28 @@ const PageBudget = () => {
     const ligne = lignesBudgetaires.find(l => l.code === selectedLigne);
     if (!ligne) return;
     if (budgetLignes.find(l => l.code === ligne.code)) { showToast('warning', 'Doublon', 'Cette ligne existe déjà'); return; }
-    setBudgetLignes([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }]);
-    setSelectedLigne('');
+    setBudgetLignes([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }]); setSelectedLigne('');
   };
 
   const removeLigne = (code) => {
     const engagement = getEngagementLigne(code);
-    if (engagement > 0) { showToast('error', 'Suppression impossible', `Engagements de ${formatMontant(engagement)} FCFA sur cette ligne`); return; }
+    if (engagement > 0) { showToast('error', 'Suppression impossible', `Engagements de ${formatMontant(engagement)} FCFA`); return; }
     setBudgetLignes(budgetLignes.filter(l => l.code !== code));
   };
 
-  const updateDotation = (code, dotation) => {
-    setBudgetLignes(budgetLignes.map(l => l.code === code ? { ...l, dotation: parseInt(dotation) || 0 } : l));
-  };
+  const updateDotation = (code, dotation) => setBudgetLignes(budgetLignes.map(l => l.code === code ? { ...l, dotation: parseInt(dotation) || 0 } : l));
 
   const handleSave = async () => {
     if (budgetLignes.length === 0) { showToast('error', 'Budget vide', 'Ajoutez au moins une ligne'); return; }
     const lignesDepassees = budgetLignes.filter(l => { const eng = getEngagementLigne(l.code); return eng > 0 && (l.dotation || 0) < eng; });
-    if (lignesDepassees.length > 0) {
-      showToast('error', 'Dotation insuffisante', `${lignesDepassees.length} ligne(s) ont une dotation inférieure aux engagements`);
-      return;
-    }
-
+    if (lignesDepassees.length > 0) { showToast('error', 'Dotation insuffisante', `${lignesDepassees.length} ligne(s) sous les engagements`); return; }
     setSaving(true);
     try {
       const budgetData = { sourceId: activeSource, exerciceId: currentExerciceId, lignes: budgetLignes, updatedAt: new Date().toISOString() };
-      if (currentBudget && isLatestVersion) {
-        await updateDoc(doc(db, 'budgets', currentBudget.id), budgetData);
-        setBudgets(budgets.map(b => b.id === currentBudget.id ? { ...b, ...budgetData } : b));
-      } else if (!currentBudget) {
-        budgetData.version = 1;
-        budgetData.nomVersion = nomRevision.trim() || 'Budget Primitif';
-        budgetData.dateNotification = dateNotification || new Date().toISOString().split('T')[0];
-        budgetData.createdAt = new Date().toISOString();
-        const docRef = await addDoc(collection(db, 'budgets'), budgetData);
-        setBudgets([...budgets, { id: docRef.id, ...budgetData }]);
-      }
-      setShowModal(false);
-      setSelectedVersion(null);
-      showToast('success', 'Budget enregistré');
-    } catch (error) {
-      console.error('Erreur:', error);
-      showToast('error', 'Erreur', 'Erreur lors de la sauvegarde');
-    }
+      if (currentBudget && isLatestVersion) { await updateDoc(doc(db, 'budgets', currentBudget.id), budgetData); setBudgets(budgets.map(b => b.id === currentBudget.id ? { ...b, ...budgetData } : b)); }
+      else if (!currentBudget) { budgetData.version = 1; budgetData.nomVersion = nomRevision.trim() || 'Budget Primitif'; budgetData.dateNotification = dateNotification || new Date().toISOString().split('T')[0]; budgetData.createdAt = new Date().toISOString(); const docRef = await addDoc(collection(db, 'budgets'), budgetData); setBudgets([...budgets, { id: docRef.id, ...budgetData }]); }
+      setShowModal(false); setSelectedVersion(null); showToast('success', 'Budget enregistré');
+    } catch (error) { console.error('Erreur:', error); showToast('error', 'Erreur', 'Erreur lors de la sauvegarde'); }
     setSaving(false);
   };
 
@@ -254,25 +218,102 @@ const PageBudget = () => {
     if (!currentBudget?.lignes?.length) return;
     const now = new Date().toLocaleDateString('fr-FR');
     let csv = `SUIVI BUDGETAIRE - ${currentSourceObj?.nom || ''}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${getVersionLabel(currentBudget)}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
-    currentBudget.lignes.forEach(l => {
-      const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0';
-      csv += `${l.code};${l.libelle};${l.dotation || 0};${eng};${disp};${taux}\n`;
-    });
+    currentBudget.lignes.forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${l.libelle};${l.dotation || 0};${eng};${disp};${taux}\n`; });
     csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
+  };
+
+  // ===== LIGNES BUDGÉTAIRES MANAGEMENT =====
+  const handleSaveLigne = async () => {
+    if (!ligneForm.code || !ligneForm.libelle) { showToast('error', 'Champs obligatoires', 'Code et libellé requis'); return; }
+    if (lignesBudgetaires.find(l => l.code === ligneForm.code)) { showToast('warning', 'Doublon', 'Ce code existe déjà'); return; }
+    try {
+      const docRef = await addDoc(collection(db, 'lignesBudgetaires'), ligneForm);
+      setLignesBudgetaires([...lignesBudgetaires, { id: docRef.id, ...ligneForm }].sort((a, b) => a.code.localeCompare(b.code)));
+      setLigneForm({ code: '', libelle: '' }); setShowLigneFormModal(false);
+      showToast('success', 'Ligne ajoutée');
+    } catch (error) { showToast('error', 'Erreur', 'Erreur lors de la sauvegarde'); }
+  };
+
+  const handleDeleteLigne = (ligne) => {
+    const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
+    if (isUsed) { showToast('error', 'Suppression impossible', 'Ligne utilisée dans un budget'); return; }
+    setConfirmState({ type: 'deleteLigne', ligne });
+  };
+  const confirmDeleteLigne = async () => {
+    const ligne = confirmState.ligne;
+    setConfirmState(null);
+    try { await deleteDoc(doc(db, 'lignesBudgetaires', ligne.id)); setLignesBudgetaires(lignesBudgetaires.filter(l => l.id !== ligne.id)); showToast('success', 'Ligne supprimée'); }
+    catch (e) { showToast('error', 'Erreur', e.message); }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (['xlsx', 'xls'].includes(ext)) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const XLSX = await import('xlsx');
+          const wb = XLSX.read(event.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          parseRows(rows);
+        } catch (err) { showToast('error', 'Erreur', 'Impossible de lire le fichier Excel'); }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        const separator = lines[0]?.includes(';') ? ';' : ',';
+        const rows = lines.map(l => l.split(separator).map(c => c.trim().replace(/^["']|["']$/g, '')));
+        parseRows(rows);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const parseRows = (rows) => {
+    const startIndex = rows[0] && (String(rows[0][0]).toLowerCase().includes('code') || String(rows[0][0]).toLowerCase().includes('ligne')) ? 1 : 0;
+    const parsed = [];
+    for (let i = startIndex; i < rows.length; i++) {
+      const cols = rows[i];
+      if (cols && cols.length >= 2 && String(cols[0]).trim() && String(cols[1]).trim()) {
+        const code = String(cols[0]).trim(), libelle = String(cols[1]).trim();
+        if (!lignesBudgetaires.find(l => l.code === code) && !parsed.find(p => p.code === code)) {
+          parsed.push({ code, libelle });
+        }
+      }
+    }
+    setImportData(parsed);
+  };
+
+  const handleImportLignes = async () => {
+    if (importData.length === 0) { showToast('warning', 'Rien à importer'); return; }
+    setImporting(true);
+    try {
+      const newLignes = [];
+      for (const ligne of importData) { const docRef = await addDoc(collection(db, 'lignesBudgetaires'), ligne); newLignes.push({ id: docRef.id, ...ligne }); }
+      setLignesBudgetaires([...lignesBudgetaires, ...newLignes].sort((a, b) => a.code.localeCompare(b.code)));
+      setShowImportModal(false); setImportData([]);
+      showToast('success', `${newLignes.length} ligne(s) importée(s)`);
+    } catch (error) { showToast('error', 'Erreur', "Erreur lors de l'importation"); }
+    setImporting(false);
   };
 
   // Styles
   const thStyle = { padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase', background: '#FAFAF8' };
   const tdStyle = { padding: '12px 16px', borderBottom: `1px solid ${P.border}`, fontSize: 14 };
-  const btnStyle = { border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, transition: 'all 0.15s' };
   const inputStyle = { padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${P.border}`, fontSize: 14, width: '100%', boxSizing: 'border-box', outline: 'none' };
 
   return (
     <div>
       <style>{`
-        @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
+        @keyframes toastIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+        @keyframes toastOut { from { opacity:1; } to { opacity:0; transform: translateX(40px); } }
         .bud-row:hover { background: ${P.greenLight} !important; }
         .bud-btn { border: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; transition: all 0.15s; }
         .bud-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -283,12 +324,24 @@ const PageBudget = () => {
         {toasts.map(t => <ToastNotif key={t.uid} toast={t} onDone={() => removeToast(t.uid)} />)}
       </div>
 
+      {/* Confirm modal */}
+      {confirmState?.type === 'deleteLigne' && (
+        <ConfirmModal title="Supprimer la ligne" message={`Supprimer "${confirmState.ligne.code} — ${confirmState.ligne.libelle}" de la bibliothèque ?`}
+          confirmLabel="Supprimer" confirmColor={P.red} icon={Icon.trash('white', 16)}
+          onCancel={() => setConfirmState(null)} onConfirm={confirmDeleteLigne} />
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icon.wallet(P.green)}</div>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: P.text }}>Budget</h1>
         </div>
+        <button className="bud-btn" onClick={() => setShowLignesModal(true)}
+          style={{ background: P.bg, color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 16px', fontSize: 13 }}>
+          {Icon.gear(P.textSec, 16)} Lignes budgétaires
+          <span style={{ background: P.greenLight, color: P.green, padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700, marginLeft: 4 }}>{lignesBudgetaires.length}</span>
+        </button>
       </div>
 
       {/* Sources */}
@@ -328,28 +381,20 @@ const PageBudget = () => {
                   </select>
                 )}
               </div>
-
               {!showAnterieur && exerciceActif && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   {!currentBudget ? (
-                    <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', padding: '10px 18px' }}>
-                      {Icon.plus('white', 14)} Créer le budget initial
-                    </button>
+                    <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', padding: '10px 18px' }}>{Icon.plus('white', 14)} Créer le budget initial</button>
                   ) : (
                     <>
-                      <button className="bud-btn" onClick={openCorrectionModal} style={{ background: P.orangeLight, color: P.orange }}>
-                        {Icon.lock(P.orange, 14)} Correction
-                      </button>
-                      <button className="bud-btn" onClick={openRevisionModal} style={{ background: accent, color: 'white' }}>
-                        {Icon.filePlus('white', 14)} Nouvelle révision
-                      </button>
+                      <button className="bud-btn" onClick={openCorrectionModal} style={{ background: P.orangeLight, color: P.orange }}>{Icon.lock(P.orange, 14)} Correction</button>
+                      <button className="bud-btn" onClick={openRevisionModal} style={{ background: accent, color: 'white' }}>{Icon.filePlus('white', 14)} Nouvelle révision</button>
                     </>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Version info */}
             {currentBudget && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${P.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -376,9 +421,7 @@ const PageBudget = () => {
               { label: 'Disponible', value: totaux.disponible, color: totaux.disponible >= 0 ? P.green : P.red, icon: Icon.check(totaux.disponible >= 0 ? P.green : P.red, 18) },
             ].map((stat, i) => (
               <div key={i} style={{ background: P.card, borderRadius: 12, padding: '20px 24px', border: `1px solid ${P.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: P.textSec, marginBottom: 8 }}>
-                  {stat.icon} {stat.label}
-                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: P.textSec, marginBottom: 8 }}>{stat.icon} {stat.label}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, fontFamily: 'monospace' }}>{formatMontant(stat.value)}</div>
               </div>
             ))}
@@ -387,29 +430,19 @@ const PageBudget = () => {
           {/* Tableau budget */}
           <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>
-                Lignes budgétaires — {currentSourceObj?.nom} ({currentExerciceObj?.annee})
-              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>Lignes budgétaires — {currentSourceObj?.nom} ({currentExerciceObj?.annee})</div>
               {currentBudget?.lignes?.length > 0 && (
-                <button className="bud-btn" onClick={exportSuiviBudgetaire} style={{ background: P.blueLight, color: P.blue }}>
-                  {Icon.download(P.blue, 14)} Exporter
-                </button>
+                <button className="bud-btn" onClick={exportSuiviBudgetaire} style={{ background: P.blueLight, color: P.blue }}>{Icon.download(P.blue, 14)} Exporter</button>
               )}
             </div>
 
             {!currentBudget?.lignes?.length ? (
               <div style={{ textAlign: 'center', padding: 60, color: P.textMuted }}>
                 {Icon.barChart()}
-                <p style={{ marginTop: 12, fontSize: 14 }}>Aucun budget défini pour cette source et cet exercice</p>
-                {lignesBudgetaires.length === 0 && (
-                  <p style={{ fontSize: 13, color: P.textMuted, marginTop: 8 }}>
-                    Importez d'abord vos lignes budgétaires dans les <span style={{ color: accent, cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Paramètres</span>
-                  </p>
-                )}
+                <p style={{ marginTop: 12, fontSize: 14 }}>Aucun budget défini</p>
+                {lignesBudgetaires.length === 0 && <p style={{ fontSize: 13, color: P.textMuted, marginTop: 8 }}>Ajoutez d'abord vos lignes via le bouton {Icon.gear(P.textMuted, 14)} en haut</p>}
                 {!showAnterieur && exerciceActif && lignesBudgetaires.length > 0 && (
-                  <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', marginTop: 16, padding: '10px 20px' }}>
-                    {Icon.plus('white', 14)} Créer le budget initial
-                  </button>
+                  <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', marginTop: 16, padding: '10px 20px' }}>{Icon.plus('white', 14)} Créer le budget initial</button>
                 )}
               </div>
             ) : (
@@ -417,12 +450,9 @@ const PageBudget = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                     <tr>
-                      <th style={thStyle}>Code</th>
-                      <th style={thStyle}>Libellé</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Dotation</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Engagements</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Disponible</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Taux</th>
+                      <th style={thStyle}>Code</th><th style={thStyle}>Libellé</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Dotation</th><th style={{ ...thStyle, textAlign: 'right' }}>Engagements</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Disponible</th><th style={{ ...thStyle, textAlign: 'center' }}>Taux</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -432,9 +462,7 @@ const PageBudget = () => {
                       const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : 0;
                       return (
                         <tr key={ligne.code} className="bud-row" style={{ transition: 'background 0.15s' }}>
-                          <td style={tdStyle}>
-                            <code style={{ background: accent, color: 'white', padding: '4px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>{ligne.code}</code>
-                          </td>
+                          <td style={tdStyle}><code style={{ background: accent, color: 'white', padding: '4px 10px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>{ligne.code}</code></td>
                           <td style={{ ...tdStyle, fontSize: 13 }}>{ligne.libelle}</td>
                           <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>{formatMontant(ligne.dotation)}</td>
                           <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', color: P.gold, fontWeight: 600 }}>{formatMontant(engagement)}</td>
@@ -452,11 +480,7 @@ const PageBudget = () => {
                       <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800 }}>{formatMontant(totaux.dotation)}</td>
                       <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', color: P.gold, fontWeight: 800 }}>{formatMontant(totaux.engagement)}</td>
                       <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: totaux.disponible >= 0 ? P.green : P.red }}>{formatMontant(totaux.disponible)}</td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <span style={{ background: P.blueLight, color: P.blue, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                          {totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : 0}%
-                        </span>
-                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ background: P.blueLight, color: P.blue, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : 0}%</span></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -483,85 +507,49 @@ const PageBudget = () => {
             <div style={{ padding: '24px 28px' }}>
               {!currentBudget && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>NOM DE LA RÉVISION *</label>
-                    <input type="text" value={nomRevision} onChange={e => setNomRevision(e.target.value)} placeholder="Budget Primitif" style={{ ...inputStyle, background: P.goldLight, borderColor: `${accent}40` }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>DATE DE VALIDATION *</label>
-                    <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)} style={{ ...inputStyle, background: P.goldLight, borderColor: `${accent}40` }} />
-                  </div>
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>NOM DE LA RÉVISION *</label><input type="text" value={nomRevision} onChange={e => setNomRevision(e.target.value)} placeholder="Budget Primitif" style={{ ...inputStyle, background: P.goldLight, borderColor: `${accent}40` }} /></div>
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>DATE DE VALIDATION *</label><input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)} style={{ ...inputStyle, background: P.goldLight, borderColor: `${accent}40` }} /></div>
                 </div>
               )}
 
-              {/* Ajouter ligne */}
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, marginBottom: 8, color: P.textSec }}>
-                  {Icon.search(P.textSec)} AJOUTER UNE LIGNE
-                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, marginBottom: 8, color: P.textSec }}>{Icon.search(P.textSec)} AJOUTER UNE LIGNE</label>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <div style={{ flex: 1 }}>
-                    <Autocomplete
-                      options={lignesDisponibles.map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}`, searchFields: [l.code, l.libelle] }))}
+                    <Autocomplete options={lignesDisponibles.map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}`, searchFields: [l.code, l.libelle] }))}
                       value={selectedLigne ? lignesDisponibles.filter(x => x.code === selectedLigne).map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}` }))[0] || null : null}
-                      onChange={(option) => setSelectedLigne(option?.value || '')}
-                      placeholder="Rechercher par code ou libellé..."
-                      noOptionsMessage="Aucune ligne disponible"
-                      accentColor={accent}
-                    />
+                      onChange={(option) => setSelectedLigne(option?.value || '')} placeholder="Rechercher par code ou libellé..." noOptionsMessage="Aucune ligne disponible" accentColor={accent} />
                   </div>
-                  <button className="bud-btn" onClick={addLigne} disabled={!selectedLigne}
-                    style={{ background: accent, color: 'white', opacity: selectedLigne ? 1 : 0.4, padding: '10px 18px' }}>
-                    {Icon.plus('white', 14)} Ajouter
-                  </button>
+                  <button className="bud-btn" onClick={addLigne} disabled={!selectedLigne} style={{ background: accent, color: 'white', opacity: selectedLigne ? 1 : 0.4, padding: '10px 18px' }}>{Icon.plus('white', 14)} Ajouter</button>
                 </div>
                 {lignesBudgetaires.length === 0 && (
                   <p style={{ fontSize: 12, color: P.red, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {Icon.alert(P.red, 14)} Aucune ligne dans la bibliothèque. <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setShowModal(false); setCurrentPage('parametres'); }}>Importer</span>
+                    {Icon.alert(P.red, 14)} Aucune ligne. <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => { setShowModal(false); setShowLignesModal(true); }}>Gérer les lignes</span>
                   </p>
                 )}
               </div>
 
-              {/* Lignes du budget */}
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8, color: P.textSec }}>LIGNES DU BUDGET ({budgetLignes.length})</label>
                 {budgetLignes.length === 0 ? (
-                  <div style={{ padding: 32, background: P.bg, borderRadius: 10, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>
-                    Aucune ligne ajoutée. Sélectionnez une ligne ci-dessus.
-                  </div>
+                  <div style={{ padding: 32, background: P.bg, borderRadius: 10, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>Sélectionnez une ligne ci-dessus.</div>
                 ) : (
                   <div style={{ background: P.bg, borderRadius: 10, overflow: 'hidden', maxHeight: 400, overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead style={{ position: 'sticky', top: 0 }}>
-                        <tr>
-                          <th style={{ ...thStyle, width: 100 }}>Code</th>
-                          <th style={thStyle}>Libellé</th>
-                          <th style={{ ...thStyle, width: 180 }}>Dotation (FCFA)</th>
-                          <th style={{ ...thStyle, width: 120, textAlign: 'right' }}>Engagé</th>
-                          <th style={{ ...thStyle, width: 50 }}></th>
-                        </tr>
+                        <tr><th style={{ ...thStyle, width: 100 }}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, width: 180 }}>Dotation (FCFA)</th><th style={{ ...thStyle, width: 120, textAlign: 'right' }}>Engagé</th><th style={{ ...thStyle, width: 50 }}></th></tr>
                       </thead>
                       <tbody>
                         {budgetLignes.map(ligne => {
                           const engagement = getEngagementLigne(ligne.code);
                           return (
                             <tr key={ligne.code} style={{ background: 'white' }}>
-                              <td style={tdStyle}>
-                                <code style={{ background: accent, color: 'white', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{ligne.code}</code>
-                              </td>
+                              <td style={tdStyle}><code style={{ background: accent, color: 'white', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{ligne.code}</code></td>
                               <td style={{ ...tdStyle, fontSize: 13 }}>{ligne.libelle}</td>
-                              <td style={tdStyle}>
-                                <MontantInput value={ligne.dotation || ''} onChange={(val) => updateDotation(ligne.code, val)} placeholder="0"
-                                  style={{ width: '100%', padding: '8px 10px', border: `1.5px solid ${P.border}`, borderRadius: 6, fontFamily: 'monospace', textAlign: 'right', fontSize: 14, boxSizing: 'border-box', background: P.goldLight }} />
-                              </td>
-                              <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', color: engagement > 0 ? P.gold : P.textMuted, fontSize: 13, fontWeight: 600 }}>
-                                {formatMontant(engagement)}
-                              </td>
+                              <td style={tdStyle}><MontantInput value={ligne.dotation || ''} onChange={(val) => updateDotation(ligne.code, val)} placeholder="0" style={{ width: '100%', padding: '8px 10px', border: `1.5px solid ${P.border}`, borderRadius: 6, fontFamily: 'monospace', textAlign: 'right', fontSize: 14, boxSizing: 'border-box', background: P.goldLight }} /></td>
+                              <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', color: engagement > 0 ? P.gold : P.textMuted, fontSize: 13, fontWeight: 600 }}>{formatMontant(engagement)}</td>
                               <td style={{ ...tdStyle, textAlign: 'center' }}>
-                                <button className="bud-btn" onClick={() => removeLigne(ligne.code)} title={engagement > 0 ? 'Engagements existants' : 'Supprimer'}
-                                  style={{ background: engagement > 0 ? '#f5f5f5' : P.redLight, color: engagement > 0 ? P.textMuted : P.red, padding: '4px 8px', cursor: engagement > 0 ? 'not-allowed' : 'pointer' }}>
-                                  {Icon.trash(engagement > 0 ? P.textMuted : P.red, 13)}
-                                </button>
+                                <button className="bud-btn" onClick={() => removeLigne(ligne.code)} style={{ background: engagement > 0 ? '#f5f5f5' : P.redLight, color: engagement > 0 ? P.textMuted : P.red, padding: '4px 8px', cursor: engagement > 0 ? 'not-allowed' : 'pointer' }}>{Icon.trash(engagement > 0 ? P.textMuted : P.red, 13)}</button>
                               </td>
                             </tr>
                           );
@@ -583,10 +571,7 @@ const PageBudget = () => {
 
             <div style={{ padding: '16px 28px 24px', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button className="bud-btn" onClick={() => { setShowModal(false); setSelectedVersion(null); }} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={handleSave} disabled={saving || budgetLignes.length === 0}
-                style={{ background: accent, color: 'white', padding: '10px 24px', opacity: saving || budgetLignes.length === 0 ? 0.5 : 1 }}>
-                {Icon.check('white', 14)} {saving ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
+              <button className="bud-btn" onClick={handleSave} disabled={saving || budgetLignes.length === 0} style={{ background: accent, color: 'white', padding: '10px 24px', opacity: saving || budgetLignes.length === 0 ? 0.5 : 1 }}>{Icon.check('white', 14)} {saving ? 'Enregistrement...' : 'Enregistrer'}</button>
             </div>
           </div>
         </div>
@@ -596,24 +581,15 @@ const PageBudget = () => {
       {showPasswordModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
           <div style={{ background: 'white', borderRadius: 16, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 28px', background: P.orange, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
-              {Icon.lock('white', 18)}
-              <span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Correction du budget</span>
-            </div>
+            <div style={{ padding: '20px 28px', background: P.orange, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>{Icon.lock('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Correction du budget</span></div>
             <div style={{ padding: '24px 28px' }}>
-              <p style={{ marginBottom: 16, color: P.textSec, fontSize: 13, lineHeight: 1.5 }}>
-                Vous allez modifier le budget actuel. Cette action nécessite un mot de passe administrateur.
-              </p>
+              <p style={{ marginBottom: 16, color: P.textSec, fontSize: 13, lineHeight: 1.5 }}>Cette action nécessite un mot de passe administrateur.</p>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOT DE PASSE</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && verifyPasswordAndEdit()}
-                placeholder="Entrez le mot de passe" style={{ ...inputStyle, background: P.goldLight }} autoFocus />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && verifyPasswordAndEdit()} placeholder="Entrez le mot de passe" style={{ ...inputStyle, background: P.goldLight }} autoFocus />
             </div>
             <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
               <button className="bud-btn" onClick={() => setShowPasswordModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={verifyPasswordAndEdit} style={{ background: P.orange, color: 'white', padding: '10px 20px' }}>
-                {Icon.check('white', 14)} Valider
-              </button>
+              <button className="bud-btn" onClick={verifyPasswordAndEdit} style={{ background: P.orange, color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Valider</button>
             </div>
           </div>
         </div>
@@ -623,41 +599,154 @@ const PageBudget = () => {
       {showRevisionModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
           <div style={{ background: 'white', borderRadius: 16, width: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 28px', background: accent, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
-              {Icon.filePlus('white', 18)}
-              <span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Nouvelle révision budgétaire</span>
-            </div>
+            <div style={{ padding: '20px 28px', background: accent, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>{Icon.filePlus('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Nouvelle révision budgétaire</span></div>
             <div style={{ padding: '24px 28px' }}>
               <div style={{ background: P.orangeLight, padding: 16, borderRadius: 10, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 {Icon.alert(P.orange)}
-                <div>
-                  <strong style={{ color: P.orange, fontSize: 13 }}>Information importante</strong>
-                  <p style={{ margin: '6px 0 0', fontSize: 12, color: P.textSec, lineHeight: 1.5 }}>
-                    Une v{(latestVersion?.version || 1) + 1} sera créée. La version actuelle ({getVersionLabel(latestVersion)}) sera archivée.
-                  </p>
-                </div>
+                <div><strong style={{ color: P.orange, fontSize: 13 }}>Information importante</strong><p style={{ margin: '6px 0 0', fontSize: 12, color: P.textSec, lineHeight: 1.5 }}>Une v{(latestVersion?.version || 1) + 1} sera créée. La version actuelle ({getVersionLabel(latestVersion)}) sera archivée.</p></div>
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>NOM DE LA RÉVISION *</label>
-                <input type="text" value={nomRevision} onChange={(e) => setNomRevision(e.target.value)}
-                  placeholder="Ex: Budget Révisé 1, V2..." style={{ ...inputStyle, background: P.goldLight }} autoFocus />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>DATE DE VALIDATION *</label>
-                <input type="date" value={dateNotification} onChange={(e) => setDateNotification(e.target.value)} style={{ ...inputStyle, background: P.goldLight }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOTIF <span style={{ fontWeight: 400, color: P.textMuted }}>(optionnel)</span></label>
-                <textarea value={motifRevision} onChange={(e) => setMotifRevision(e.target.value)}
-                  placeholder="Ex: Augmentation suite avenant, Report exercice N-1..."
-                  style={{ ...inputStyle, minHeight: 60, resize: 'vertical', background: P.goldLight }} />
-              </div>
+              <div style={{ marginBottom: 16 }}><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>NOM DE LA RÉVISION *</label><input type="text" value={nomRevision} onChange={(e) => setNomRevision(e.target.value)} placeholder="Ex: Budget Révisé 1..." style={{ ...inputStyle, background: P.goldLight }} autoFocus /></div>
+              <div style={{ marginBottom: 16 }}><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>DATE DE VALIDATION *</label><input type="date" value={dateNotification} onChange={(e) => setDateNotification(e.target.value)} style={{ ...inputStyle, background: P.goldLight }} /></div>
+              <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOTIF <span style={{ fontWeight: 400, color: P.textMuted }}>(optionnel)</span></label><textarea value={motifRevision} onChange={(e) => setMotifRevision(e.target.value)} placeholder="Ex: Augmentation suite avenant..." style={{ ...inputStyle, minHeight: 60, resize: 'vertical', background: P.goldLight }} /></div>
             </div>
             <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
               <button className="bud-btn" onClick={() => setShowRevisionModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={createRevision} disabled={saving || !nomRevision.trim() || !dateNotification}
-                style={{ background: accent, color: 'white', padding: '10px 20px', opacity: saving || !nomRevision.trim() || !dateNotification ? 0.5 : 1 }}>
-                {Icon.check('white', 14)} {saving ? 'Création...' : 'Créer la révision'}
+              <button className="bud-btn" onClick={createRevision} disabled={saving || !nomRevision.trim() || !dateNotification} style={{ background: accent, color: 'white', padding: '10px 20px', opacity: saving || !nomRevision.trim() || !dateNotification ? 0.5 : 1 }}>{Icon.check('white', 14)} {saving ? 'Création...' : 'Créer la révision'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL LIGNES BUDGÉTAIRES (BIBLIOTHÈQUE) ==================== */}
+      {showLignesModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+          <div style={{ background: 'white', borderRadius: 16, width: 750, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ padding: '20px 28px', background: P.green, borderRadius: '16px 16px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {Icon.gear('white', 18)}
+                <span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Bibliothèque des lignes budgétaires</span>
+                <span style={{ background: 'rgba(255,255,255,0.25)', color: 'white', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{lignesBudgetaires.length}</span>
+              </div>
+              <button onClick={() => setShowLignesModal(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8 }}>{Icon.x('white')}</button>
+            </div>
+
+            <div style={{ padding: '24px 28px' }}>
+              {/* Info */}
+              <div style={{ background: P.greenLight, padding: 14, borderRadius: 10, marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
+                {Icon.list(P.green, 18)}
+                <div><span style={{ fontSize: 13, fontWeight: 600, color: P.green }}>Bibliothèque de référence</span><span style={{ fontSize: 12, color: P.textSec, marginLeft: 8 }}>— Importez votre nomenclature une fois, réutilisez-la pour chaque budget.</span></div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16 }}>
+                <button className="bud-btn" onClick={() => setShowImportModal(true)} style={{ background: P.blueLight, color: P.blue, padding: '10px 16px' }}>
+                  {Icon.upload(P.blue, 14)} Importer CSV/Excel
+                </button>
+                <button className="bud-btn" onClick={() => { setLigneForm({ code: '', libelle: '' }); setShowLigneFormModal(true); }} style={{ background: P.green, color: 'white', padding: '10px 16px' }}>
+                  {Icon.plus('white', 14)} Nouvelle ligne
+                </button>
+              </div>
+
+              {/* Table */}
+              {lignesBudgetaires.length === 0 ? (
+                <div style={{ padding: 40, textAlign: 'center', color: P.textMuted }}>
+                  {Icon.barChart(P.textMuted, 36)}
+                  <p style={{ marginTop: 12, fontSize: 14 }}>Aucune ligne budgétaire</p>
+                  <p style={{ fontSize: 12, color: P.textMuted }}>Importez un fichier ou ajoutez manuellement</p>
+                </div>
+              ) : (
+                <div style={{ maxHeight: 400, overflowY: 'auto', borderRadius: 10, border: `1px solid ${P.border}` }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead style={{ position: 'sticky', top: 0 }}>
+                      <tr><th style={thStyle}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, textAlign: 'center', width: 100 }}>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {lignesBudgetaires.map(ligne => {
+                        const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
+                        return (
+                          <tr key={ligne.id} className="bud-row" style={{ transition: 'background 0.15s' }}>
+                            <td style={tdStyle}><code style={{ background: P.greenLight, color: P.green, padding: '4px 12px', borderRadius: 6, fontWeight: 700, fontSize: 12 }}>{ligne.code}</code></td>
+                            <td style={{ ...tdStyle, fontSize: 13 }}>{ligne.libelle}</td>
+                            <td style={{ ...tdStyle, textAlign: 'center' }}>
+                              {isUsed ? (
+                                <span style={{ background: '#f5f5f5', color: P.textMuted, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Utilisée</span>
+                              ) : (
+                                <button className="bud-btn" onClick={() => handleDeleteLigne(ligne)} style={{ background: P.redLight, color: P.red, padding: '4px 10px' }}>{Icon.trash(P.red, 13)}</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '16px 28px 24px', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="bud-btn" onClick={() => setShowLignesModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-modal: Nouvelle ligne */}
+      {showLigneFormModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
+          <div style={{ background: 'white', borderRadius: 16, width: 500, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 28px', background: P.green, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
+              {Icon.plus('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Nouvelle ligne budgétaire</span>
+            </div>
+            <div style={{ padding: '24px 28px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>CODE *</label><input value={ligneForm.code} onChange={e => setLigneForm({ ...ligneForm, code: e.target.value })} style={{ ...inputStyle, background: P.goldLight }} placeholder="Ex: 6221" /></div>
+                <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>LIBELLÉ *</label><input value={ligneForm.libelle} onChange={e => setLigneForm({ ...ligneForm, libelle: e.target.value })} style={{ ...inputStyle, background: P.goldLight }} placeholder="Ex: Personnel temporaire" /></div>
+              </div>
+            </div>
+            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
+              <button className="bud-btn" onClick={() => setShowLigneFormModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
+              <button className="bud-btn" onClick={handleSaveLigne} style={{ background: P.green, color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Ajouter</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-modal: Import CSV/Excel */}
+      {showImportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
+          <div style={{ background: 'white', borderRadius: 16, width: 700, maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ padding: '20px 28px', background: P.blue, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
+              {Icon.upload('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Importer la nomenclature</span>
+            </div>
+            <div style={{ padding: '24px 28px' }}>
+              <div style={{ background: P.blueLight, padding: 16, borderRadius: 10, marginBottom: 20 }}>
+                <strong style={{ color: P.blue, fontSize: 13 }}>Format attendu (CSV ou Excel)</strong>
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: P.textSec }}>2 colonnes : <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Code</code> et <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>Libellé</code></p>
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: P.textMuted }}>Exemple : <code>6221;Personnel temporaire</code></p>
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>SÉLECTIONNER UN FICHIER</label>
+                <input type="file" accept=".csv,.txt,.xls,.xlsx" onChange={handleFileUpload} style={{ padding: 12, border: `2px dashed ${P.border}`, borderRadius: 10, width: '100%', boxSizing: 'border-box', fontSize: 13 }} />
+              </div>
+              {importData.length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                    {Icon.check(P.green, 14)} <strong style={{ color: P.green, fontSize: 13 }}>{importData.length} ligne(s) prête(s)</strong>
+                  </div>
+                  <div style={{ maxHeight: 250, overflowY: 'auto', border: `1px solid ${P.border}`, borderRadius: 8 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead style={{ position: 'sticky', top: 0 }}><tr><th style={thStyle}>Code</th><th style={thStyle}>Libellé</th></tr></thead>
+                      <tbody>{importData.map((l, i) => (<tr key={i}><td style={tdStyle}><code style={{ background: P.greenLight, color: P.green, padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>{l.code}</code></td><td style={{ ...tdStyle, fontSize: 13 }}>{l.libelle}</td></tr>))}</tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
+              <button className="bud-btn" onClick={() => { setShowImportModal(false); setImportData([]); }} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
+              <button className="bud-btn" onClick={handleImportLignes} disabled={importing || importData.length === 0}
+                style={{ background: P.blue, color: 'white', padding: '10px 20px', opacity: importing || importData.length === 0 ? 0.5 : 1 }}>
+                {Icon.check('white', 14)} {importing ? 'Importation...' : `Importer ${importData.length} ligne(s)`}
               </button>
             </div>
           </div>
