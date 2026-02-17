@@ -63,6 +63,7 @@ const PageListeOP = () => {
   // Couleurs par statut
   const statutConfig = {
     EN_COURS: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours', icon: '' },
+    CREE: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours', icon: '' },
     TRANSMIS_CF: { bg: '#E8B93115', color: '#E8B931', label: 'Transmis CF', icon: '' },
     DIFFERE_CF: { bg: '#E8B93120', color: '#C5961F', label: 'Différé CF', icon: '' },
     RETOURNE_CF: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Retourné CF', icon: '' },
@@ -74,13 +75,15 @@ const PageListeOP = () => {
     PAYE_PARTIEL: { bg: '#E8B93115', color: '#E8B931', label: 'Payé partiel', icon: '' },
     PAYE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Payé', icon: '' },
     REJETE_AC: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté AC', icon: '' },
-    ARCHIVE: { bg: '#F7F5F2', color: '#888', label: 'Archivé', icon: '' }
+    ARCHIVE: { bg: '#F7F5F2', color: '#888', label: 'Archivé', icon: '' },
+    ANNULE: { bg: '#C43E3E15', color: '#C43E3E', label: 'Annulé', icon: '' },
+    TRAITE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Régularisé', icon: '' }
   };
 
   // === CONSTRUCTION DE LA FRISE DU CIRCUIT ===
   const buildCircuitSteps = (op) => {
     if (!op) return [];
-    const statut = op.statut;
+    const statut = op.statut === 'CREE' ? 'EN_COURS' : op.statut;
     
     // Ordre normal du circuit
     const circuitNormal = [
@@ -147,7 +150,7 @@ const PageListeOP = () => {
     const s = op.statut;
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '';
     
-    if (s === 'EN_COURS') return { type: 'info', text: 'Cet OP est en cours de préparation.' };
+    if (s === 'EN_COURS' || s === 'CREE') return { type: 'info', text: 'Cet OP est en cours de préparation.' };
     if (s === 'TRANSMIS_CF') return { type: 'info', text: `Transmis au Contrôleur Financier le ${formatDate(op.dateTransmissionCF)} — en attente de visa.` };
     if (s === 'DIFFERE_CF') return { type: 'warning', title: 'Différé par le CF', text: op.motifDiffere || op.motifRejet || 'Aucun motif renseigné', date: formatDate(op.dateDiffere || op.updatedAt) };
     if (s === 'REJETE_CF') return { type: 'danger', title: 'Rejeté par le CF', text: op.motifRejet || 'Aucun motif renseigné', date: formatDate(op.dateRejet || op.updatedAt) };
@@ -294,7 +297,7 @@ const PageListeOP = () => {
       // Mettre à jour le cumul pour cette ligne budgétaire
       if (line.isRejetLine) {
         cumulParLigne[lb] = (cumulParLigne[lb] || 0) + line.displayMontant; // négatif
-      } else if (!['REJETE_CF', 'REJETE_AC'].includes(line.statut)) {
+      } else if (!['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(line.statut)) {
         cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (line.montant || 0);
       }
       // Si l'OP est rejeté mais c'est la ligne de création, on compte quand même le montant positif
@@ -371,7 +374,21 @@ const PageListeOP = () => {
         updatedAt: new Date().toISOString()
       };
       await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      let updatedOps = ops.map(o => o.id === op.id ? { ...o, ...updates } : o);
+
+      // Si ANNULATION visée → marquer le provisoire rattaché comme ANNULÉ
+      if (op.type === 'ANNULATION' && op.opProvisoireId) {
+        const annuleUpdates = {
+          statut: 'ANNULE',
+          dateAnnulation: new Date().toISOString().split('T')[0],
+          opAnnulationId: op.id,
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.opProvisoireId), annuleUpdates);
+        updatedOps = updatedOps.map(o => o.id === op.opProvisoireId ? { ...o, ...annuleUpdates } : o);
+      }
+
+      setOps(updatedOps);
     } catch (error) {
       console.error('Erreur:', error);
       alert('Erreur lors du visa');
@@ -583,7 +600,21 @@ const PageListeOP = () => {
       if (nouveauStatut === 'ARCHIVE') updates.dateArchivage = date;
       
       await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      let updatedOps2 = ops.map(o => o.id === op.id ? { ...o, ...updates } : o);
+
+      // Si ANNULATION visée CF → marquer le provisoire rattaché comme ANNULÉ
+      if (nouveauStatut === 'VISE_CF' && op.type === 'ANNULATION' && op.opProvisoireId) {
+        const annuleUpdates = {
+          statut: 'ANNULE',
+          dateAnnulation: date,
+          opAnnulationId: op.id,
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.opProvisoireId), annuleUpdates);
+        updatedOps2 = updatedOps2.map(o => o.id === op.opProvisoireId ? { ...o, ...annuleUpdates } : o);
+      }
+
+      setOps(updatedOps2);
       setShowStatutModal(null);
       setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' });
     } catch (error) {
@@ -834,7 +865,21 @@ const PageListeOP = () => {
       };
       
       await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      let updatedOps3 = ops.map(o => o.id === op.id ? { ...o, ...updates } : o);
+
+      // Si ANNULATION visée CF → marquer le provisoire rattaché comme ANNULÉ
+      if (circuitForm.statut === 'VISE_CF' && op.type === 'ANNULATION' && op.opProvisoireId) {
+        const annuleUpdates = {
+          statut: 'ANNULE',
+          dateAnnulation: circuitForm.dateVisaCF || new Date().toISOString().split('T')[0],
+          opAnnulationId: op.id,
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', op.opProvisoireId), annuleUpdates);
+        updatedOps3 = updatedOps3.map(o => o.id === op.opProvisoireId ? { ...o, ...annuleUpdates } : o);
+      }
+
+      setOps(updatedOps3);
       setShowCircuitModal(null);
       setCircuitForm({});
     } catch (error) {
@@ -1986,7 +2031,7 @@ const PageListeOP = () => {
             o.exerciceId === showEditModal.exerciceId &&
             o.ligneBudgetaire === editForm.ligneBudgetaire &&
             o.id !== showEditModal.id &&
-            !['REJETE_CF', 'REJETE_AC'].includes(o.statut)
+            !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(o.statut)
           )
           .reduce((sum, o) => sum + (o.montant || 0), 0);
         const engagementActuel = parseFloat(editForm.montant) || 0;
