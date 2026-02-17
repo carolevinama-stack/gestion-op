@@ -166,14 +166,14 @@ const PageNouvelOp = () => {
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
   ) : [];
 
-  // OP provisoires pour DEFINITIF : pas déjà régularisé
-  const opProvisoiresDefinitif = ops.filter(op =>
+  // OP provisoires pour DEFINITIF : même bénéficiaire, pas déjà régularisé
+  const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
+    op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
-    op.exerciceId === exerciceActif?.id &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF')
-  );
+  ) : [];
 
 
   // Label pour l'autocomplete (avec badge Extra + année si autre exercice)
@@ -485,25 +485,29 @@ const PageNouvelOp = () => {
               {form.type === 'DEFINITIF' && (
                 <div style={{ flex: '1 1 auto', minWidth: 320 }}>
                   <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#2e7d32' }}>OP PROV. À RÉGULARISER *</label>
-                  {opProvisoiresDefinitif.length > 0 ? (
-                    <div style={{ maxHeight: 150, overflowY: 'auto', border: '1.5px solid #e0e0e0', borderRadius: 8, background: 'white' }}>
-                      {opProvisoiresDefinitif.map(op => {
-                        const checked = (form.opProvisoireIds || []).includes(op.id);
-                        return (
-                          <label key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0', background: checked ? '#e8f5e915' : 'transparent' }}>
-                            <input type="checkbox" checked={checked}
-                              onChange={(e) => handleSelectOpProvisoiresMulti(op.id, e.target.checked)}
-                              style={{ accentColor: '#2e7d32', width: 16, height: 16 }} />
-                            <span style={{ fontSize: 12, fontWeight: checked ? 700 : 400, color: checked ? '#2e7d32' : '#333' }}>
-                              {op.numero} — {beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A'} — {formatMontant(op.montant)} F
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div style={{ padding: '10px 14px', fontSize: 12, color: '#999', background: '#f8f9fa', borderRadius: 8, border: '1.5px solid #e0e0e0' }}>Aucun OP provisoire disponible</div>
-                  )}
+                  <Autocomplete
+                    isMulti
+                    options={opProvisoiresDefinitif.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
+                    value={(form.opProvisoireIds || []).map(id => {
+                      const op = ops.find(o => o.id === id);
+                      return op ? { value: op.id, label: getOpProvLabel(op) } : null;
+                    }).filter(Boolean)}
+                    onChange={(selected) => {
+                      if (!selected || selected.length === 0) {
+                        handleSelectOpProvisoiresMulti(null, false);
+                      } else {
+                        const newIds = selected.map(s => s.value);
+                        const removedId = (form.opProvisoireIds || []).find(id => !newIds.includes(id));
+                        const addedId = newIds.find(id => !(form.opProvisoireIds || []).includes(id));
+                        if (addedId) handleSelectOpProvisoiresMulti(addedId, true);
+                        else if (removedId) handleSelectOpProvisoiresMulti(removedId, false);
+                      }
+                    }}
+                    placeholder={form.beneficiaireId ? "Sélectionner un ou plusieurs OP provisoires..." : "Sélectionner d'abord un bénéficiaire"}
+                    isDisabled={!form.beneficiaireId}
+                    noOptionsMessage="Aucun OP provisoire disponible"
+                    accentColor="#2e7d32"
+                  />
                   <div style={{ marginTop: 6 }}>
                     <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Hors système :</div>
                     <input type="text" value={form.opProvisoireManuel}
