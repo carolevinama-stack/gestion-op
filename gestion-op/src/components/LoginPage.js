@@ -15,10 +15,11 @@ const EyeClosed = () => (
 );
 
 const inputStyle = {
-  width: '100%', padding: '12px 14px', border: '1.5px solid #c8e6c9', borderRadius: 10,
-  fontSize: 13, background: '#fff', outline: 'none', transition: 'border 0.2s', fontFamily: 'inherit',
+  width: '100%', padding: '13px 16px', border: '1.5px solid #c8e6c9', borderRadius: 10,
+  fontSize: 14, background: '#fff', outline: 'none', transition: 'border 0.2s', fontFamily: 'inherit',
+  boxSizing: 'border-box',
 };
-const labelStyle = { display: 'block', fontSize: 10, fontWeight: 700, color: '#1B6B2E', marginBottom: 6, letterSpacing: 0.5 };
+const labelStyle = { display: 'block', fontSize: 12, fontWeight: 700, color: '#1B6B2E', marginBottom: 8, letterSpacing: 0.5 };
 
 const LoginPage = ({ onLogin, onForgotPassword, error }) => {
   const [email, setEmail] = useState('');
@@ -63,48 +64,49 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
         <div style={{ position: 'absolute', bottom: -50, left: -50, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
         {/* Logo encadré */}
         <div style={{
-          background: 'rgba(255,255,255,0.92)', borderRadius: 14, padding: 14,
-          border: '2px solid rgba(255,255,255,0.3)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          background: 'rgba(255,255,255,0.95)', borderRadius: 16, padding: 18,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
           position: 'relative', zIndex: 1,
         }}>
-          <img src={LOGO_PIF2} alt="PIF2" style={{ width: 150, display: 'block' }} />
+          <img src={LOGO_PIF2} alt="PIF2" style={{ width: 200, display: 'block' }} />
         </div>
-        <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, marginTop: 24, textAlign: 'center', position: 'relative', zIndex: 1 }}>Bienvenue</div>
-        <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 8, textAlign: 'center', position: 'relative', zIndex: 1, lineHeight: 1.7 }}>
+        <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, marginTop: 28, textAlign: 'center', position: 'relative', zIndex: 1 }}>Bienvenue</div>
+        <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 8, textAlign: 'center', position: 'relative', zIndex: 1, lineHeight: 1.7 }}>
           Projet d'Investissement Forestier<br />Côte d'Ivoire
         </div>
       </div>
 
       {/* Panneau droit — formulaire */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: '40px 50px' }}>
-        <div style={{ width: '100%', maxWidth: 340 }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: '40px 60px' }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
           {!showForgot ? (
             <form onSubmit={handleSubmit}>
-              <h2 style={{ fontSize: 22, color: '#1B6B2E', fontWeight: 700, margin: '0 0 4px' }}>Se connecter</h2>
-              <p style={{ fontSize: 13, color: '#888', marginBottom: 28 }}>Entrez vos identifiants pour continuer</p>
+              <h2 style={{ fontSize: 20, color: '#1B6B2E', fontWeight: 700, margin: '0 0 6px' }}>Se connecter</h2>
+              <p style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>Entrez vos identifiants pour continuer</p>
               {error && (
-                <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FFEBEE', color: '#C43E3E', fontSize: 12, fontWeight: 600, marginBottom: 16 }}>{error}</div>
+                <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FFEBEE', color: '#C43E3E', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>{error}</div>
               )}
-              <label style={labelStyle}>ADRESSE E-MAIL</label>
-              <div style={{ marginBottom: 18 }}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>ADRESSE E-MAIL</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nom@exemple.com" required style={inputStyle} autoFocus
                   onFocus={e => e.target.style.borderColor='#2E9940'} onBlur={e => e.target.style.borderColor='#c8e6c9'} />
               </div>
-              <label style={labelStyle}>MOT DE PASSE</label>
-              <div style={{ position: 'relative', marginBottom: 8 }}>
-                <input type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="" required
-                  style={{ ...inputStyle, paddingRight: 44 }}
-                  onFocus={e => e.target.style.borderColor='#2E9940'} onBlur={e => e.target.style.borderColor='#c8e6c9'} />
-                <button type="button" onClick={() => setShowPwd(!showPwd)} tabIndex={-1}
-                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
-                  title={showPwd ? 'Masquer' : 'Afficher'}>
-                  {showPwd ? <EyeClosed /> : <EyeOpen />}
-                </button>
+              <div style={{ marginBottom: 10 }}>
+                <label style={labelStyle}>MOT DE PASSE</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPwd ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="" required
+                    style={{ ...inputStyle, paddingRight: 44 }}
+                    onFocus={e => e.target.style.borderColor='#2E9940'} onBlur={e => e.target.style.borderColor='#c8e6c9'} />
+                  <button type="button" onClick={() => setShowPwd(!showPwd)} tabIndex={-1}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
+                    title={showPwd ? 'Masquer' : 'Afficher'}>
+                    {showPwd ? <EyeClosed /> : <EyeOpen />}
+                  </button>
+                </div>
               </div>
-              <div style={{ textAlign: 'right', marginBottom: 24 }}>
+              <div style={{ textAlign: 'right', marginBottom: 20 }}>
                 <button type="button" onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotMessage(null); }}
-                  style={{ background: 'none', border: 'none', fontSize: 12, color: '#2E9940', cursor: 'pointer', fontWeight: 600 }}>
+                  style={{ background: 'none', border: 'none', fontSize: 13, color: '#2E9940', cursor: 'pointer', fontWeight: 600 }}>
                   Mot de passe oublié ?
                 </button>
               </div>
@@ -115,16 +117,16 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
             </form>
           ) : (
             <>
-              <h2 style={{ fontSize: 22, color: '#1B6B2E', fontWeight: 700, margin: '0 0 4px' }}>Mot de passe oublié</h2>
-              <p style={{ fontSize: 13, color: '#888', marginBottom: 28 }}>Saisissez votre e-mail pour recevoir un lien de réinitialisation</p>
+              <h2 style={{ fontSize: 20, color: '#1B6B2E', fontWeight: 700, margin: '0 0 6px' }}>Mot de passe oublié</h2>
+              <p style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>Saisissez votre e-mail pour recevoir un lien de réinitialisation</p>
               {forgotMessage && (
-                <div style={{ padding: '10px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, marginBottom: 16,
+                <div style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, marginBottom: 16,
                   background: forgotMessage.type === 'success' ? '#E8F5E9' : '#FFEBEE',
                   color: forgotMessage.type === 'success' ? '#1B6B2E' : '#C43E3E',
                 }}>{forgotMessage.text}</div>
               )}
-              <label style={labelStyle}>ADRESSE E-MAIL</label>
-              <div style={{ marginBottom: 24 }}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>ADRESSE E-MAIL</label>
                 <input type="email" value={forgotEmail} onChange={e => { setForgotEmail(e.target.value); setForgotMessage(null); }}
                   onKeyDown={e => { if (e.key === 'Enter') handleForgotPassword(); }} placeholder="nom@exemple.com" style={inputStyle} autoFocus
                   onFocus={e => e.target.style.borderColor='#2E9940'} onBlur={e => e.target.style.borderColor='#c8e6c9'} />
@@ -134,7 +136,7 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
                 {forgotLoading ? 'Envoi...' : 'Envoyer le lien'}
               </button>
               <button onClick={() => { setShowForgot(false); setForgotMessage(null); }}
-                style={{ width: '100%', padding: 11, border: '1.5px solid #c8e6c9', borderRadius: 10, background: 'transparent', color: '#888', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ width: '100%', padding: 11, border: '1.5px solid #c8e6c9', borderRadius: 10, background: 'transparent', color: '#666', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                 Retour à la connexion
               </button>
             </>
