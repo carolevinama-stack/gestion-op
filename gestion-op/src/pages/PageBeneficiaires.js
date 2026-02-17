@@ -304,8 +304,8 @@ const PageBeneficiaires = () => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="ben-btn" onClick={() => setShowImportModal(true)} style={{ background: P.blueLight, color: P.blue }}>
-            {Icon.upload(P.blue)} Importer
+          <button className="ben-btn" onClick={() => setShowImportModal(true)} style={{ background: P.orangeLight, color: P.orange }}>
+            {Icon.upload(P.orange)} Importer
           </button>
           <button className="ben-btn" onClick={openNew} style={{ background: P.green, color: 'white' }}>
             {Icon.plus()} Nouveau
@@ -338,10 +338,10 @@ const PageBeneficiaires = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#FAFAF8' }}>
-                <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>Nom / Raison sociale</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>NCC</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>RIB(s)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase', width: 120 }}>Actions</th>
+                <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>Nom / Raison sociale</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>NCC</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase' }}>RIB(s)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: P.textSec, letterSpacing: 0.5, textTransform: 'uppercase', width: 120 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -356,7 +356,7 @@ const PageBeneficiaires = () => {
                     </td>
                     <td style={{ padding: '14px 16px' }}>
                       {ben.ncc ? (
-                        <code style={{ fontSize: 12, background: '#f5f5f5', padding: '3px 8px', borderRadius: 4, color: P.text }}>{ben.ncc}</code>
+                        <code style={{ fontSize: 14, background: '#f5f5f5', padding: '3px 8px', borderRadius: 4, color: P.text }}>{ben.ncc}</code>
                       ) : (
                         <span style={{ color: P.textMuted, fontSize: 12 }}>—</span>
                       )}
@@ -365,13 +365,13 @@ const PageBeneficiaires = () => {
                       {ribs.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {ribs.map((rib, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                               {rib.banque && (
-                                <span style={{ background: P.blueLight, color: P.blue, padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                                <span style={{ background: P.blueLight, color: P.blue, padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 12 }}>
                                   {rib.banque}
                                 </span>
                               )}
-                              <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 11, color: P.text }}>{rib.numero}</code>
+                              <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 13, color: P.text }}>{rib.numero}</code>
                             </div>
                           ))}
                         </div>
@@ -473,7 +473,7 @@ const PageBeneficiaires = () => {
                     <label style={{ display: 'block', fontSize: 10, color: P.textSec, marginBottom: 4, fontWeight: 600 }}>Numéro RIB</label>
                     <input value={newRib.numero} onChange={e => setNewRib({ ...newRib, numero: e.target.value })}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRib(); } }}
-                      style={{ ...inputStyle, padding: '8px 12px', fontSize: 13, fontFamily: 'monospace' }} placeholder="CI005 01012 012345678901 25" />
+                      style={{ ...inputStyle, padding: '8px 12px', fontSize: 13, fontFamily: 'monospace' }} placeholder="" />
                   </div>
                   <button type="button" onClick={addRib} className="ben-btn"
                     style={{ background: P.green, color: 'white', padding: '9px 16px', fontSize: 12 }}>
