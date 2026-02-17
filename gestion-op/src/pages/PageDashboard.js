@@ -92,13 +92,13 @@ const PageDashboard = () => {
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
     return {
-      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#3B6B8A", ops: transfert_cf },
+      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#2E9940", ops: transfert_cf },
       transfert_ac: { label: "À transférer à l'AC", icon: "→", color: "#2e7d32", ops: transfert_ac },
       differe: { label: "Différés", icon: "!", color: "#C5961F", ops: differe },
       attente_cf: { label: "Attente CF", icon: "○", color: "#D4722A", ops: attente_cf },
       annuler: { label: "À annuler", icon: "×", color: "#C43E3E", ops: annuler },
       regulariser: { label: "À régulariser", icon: "~", color: "#C5961F", ops: regulariser },
-      solder: { label: "À solder", icon: "•", color: "#3B6B8A", ops: solder },
+      solder: { label: "À solder", icon: "•", color: "#2E9940", ops: solder },
     };
   }, [allOpsExercice]);
 
@@ -121,7 +121,7 @@ const PageDashboard = () => {
 
       {/* ====== HEADER ====== */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Bonjour{prenom ? `, ${prenom}` : ''}</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, color: '#1B6B2E' }}>Bonjour{prenom ? `, ${prenom}` : ''}</h1>
         <p style={{ color: '#6c757d', fontSize: 13, margin: '6px 0 0', textTransform: 'capitalize' }}>
           {today} — Exercice {exerciceActif?.annee || 'Non défini'}
         </p>
@@ -130,7 +130,7 @@ const PageDashboard = () => {
       {/* ====== 4 CARTES KPI ====== */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#3B6B8A', accent: '#EDF2F7' },
+          { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#2E9940', accent: '#E8F5E9' },
           { icon: 'E', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP`, color: '#C5961F', accent: '#fff3e0' },
           { icon: 'R', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#C43E3E', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
           { icon: '%', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#D4722A', accent: '#FFF3E8', isPercent: true },
