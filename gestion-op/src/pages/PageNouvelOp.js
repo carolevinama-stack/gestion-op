@@ -53,7 +53,7 @@ const ToastNotif = ({ toast, onDone }) => {
 const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D4722A', ANNULATION: '#C43E3E' };
 const PageNouvelOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
-  const defaultForm = { type: 'PROVISOIRE', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '' };
+  const defaultForm = { type: 'PROVISOIRE', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
 
   // Restaurer le brouillon depuis localStorage
   const loadDraft = () => {
@@ -112,7 +112,9 @@ const PageNouvelOp = () => {
         montantTVA: '',
         tvaRecuperable: op.tvaRecuperable === true ? true : op.tvaRecuperable === false ? false : null,
         opProvisoireNumero: '',
-        opProvisoireId: ''
+        opProvisoireId: '',
+        opProvisoireIds: [],
+        opProvisoireManuel: ''
       });
       if (setConsultOpData) setConsultOpData(null);
     }
@@ -164,16 +166,15 @@ const PageNouvelOp = () => {
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
   ) : [];
 
-  // OP provisoires pour DEFINITIF : même bénéficiaire, pas déjà régularisé
-  const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
+  // OP provisoires pour DEFINITIF : pas déjà régularisé
+  const opProvisoiresDefinitif = ops.filter(op =>
     op.type === 'PROVISOIRE' &&
-    op.beneficiaireId === form.beneficiaireId &&
+    op.sourceId === activeSource &&
+    op.exerciceId === exerciceActif?.id &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
-    !ops.find(o => o.opProvisoireId === op.id && o.type === 'DEFINITIF')
-  ) : [];
+    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF')
+  );
 
-  // Sélection selon le type en cours
-  const opProvisoiresDisponibles = form.type === 'ANNULATION' ? opProvisoiresAnnulation : opProvisoiresDefinitif;
 
   // Label pour l'autocomplete (avec badge Extra + année si autre exercice)
   const getOpProvLabel = (op) => {
@@ -199,25 +200,40 @@ const PageNouvelOp = () => {
     return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
   };
 
+  // ANNULATION : sélection unique d'un OP provisoire
   const handleSelectOpProvisoire = (opId) => {
-    if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' }); return; }
+    if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '', opProvisoireManuel: '' }); return; }
     const op = ops.find(o => o.id === opId);
     if (op) {
-      const updates = {
-        ...form, opProvisoireId: opId, opProvisoireNumero: op.numero,
+      setForm({
+        ...form, opProvisoireId: opId, opProvisoireNumero: op.numero, opProvisoireManuel: '',
         beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire,
-        modeReglement: op.modeReglement || 'VIREMENT'
-      };
-      if (form.type === 'ANNULATION') {
-        updates.montant = String(-(op.montant || 0));
-        updates.objet = `Annulation OP ${op.numero} - ${op.objet || ''}`;
-        updates.piecesJustificatives = `OP ${op.numero}`;
-      } else if (form.type === 'DEFINITIF') {
-        updates.objet = `Régularisation OP ${op.numero} - ${op.objet || ''}`;
-        updates.piecesJustificatives = `OP ${op.numero}`;
-      }
-      setForm(updates);
+        modeReglement: op.modeReglement || 'VIREMENT',
+        montant: String(-(op.montant || 0)),
+        objet: `Annulation OP ${op.numero} - ${op.objet || ''}`,
+        piecesJustificatives: `OP ${op.numero}`
+      });
     }
+  };
+
+  // DEFINITIF : sélection multiple d'OP provisoires
+  const handleSelectOpProvisoiresMulti = (opId, checked) => {
+    const currentIds = form.opProvisoireIds || [];
+    const newIds = checked ? [...currentIds, opId] : currentIds.filter(id => id !== opId);
+    const selectedOps = newIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+    const numeros = selectedOps.map(o => o.numero).join(', ');
+    const libelles = [...new Set(selectedOps.map(o => o.objet).filter(Boolean))].join(' / ');
+    
+    const updates = { ...form, opProvisoireIds: newIds, opProvisoireId: newIds[0] || '', opProvisoireManuel: '' };
+    if (newIds.length > 0) {
+      updates.objet = `Régularisation OP ${numeros} - ${libelles}`;
+    }
+    if (selectedOps.length === 1) {
+      updates.beneficiaireId = selectedOps[0].beneficiaireId;
+      updates.ligneBudgetaire = selectedOps[0].ligneBudgetaire;
+      updates.modeReglement = selectedOps[0].modeReglement || 'VIREMENT';
+    }
+    setForm(updates);
   };
 
   const handleClear = () => {
@@ -239,8 +255,11 @@ const PageNouvelOp = () => {
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === true && (!form.montantTVA || parseFloat(form.montantTVA) === 0)) {
       showToast('error', 'Champ obligatoire', 'TVA récupérable : veuillez saisir le montant de la TVA'); return;
     }
-    if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId && !form.opProvisoireNumero.trim()) {
-      showToast('error', 'Champ obligatoire', `Veuillez sélectionner ou saisir le N° d'OP Provisoire à ${form.type === 'ANNULATION' ? 'annuler' : 'régulariser'}`); return;
+    if (form.type === 'ANNULATION' && !form.opProvisoireId && !form.opProvisoireManuel.trim()) {
+      showToast('error', 'Champ obligatoire', 'Veuillez sélectionner ou saisir le N° d\'OP Provisoire à annuler'); return;
+    }
+    if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length === 0 && !form.opProvisoireManuel.trim()) {
+      showToast('error', 'Champ obligatoire', 'Veuillez sélectionner ou saisir le(s) N° d\'OP Provisoire à régulariser'); return;
     }
     if (form.type !== 'ANNULATION' && getDisponible() < 0) {
       showToast('error', 'Budget insuffisant', `Disponible : ${formatMontant(getDisponible())} FCFA`); return;
@@ -277,8 +296,8 @@ const PageNouvelOp = () => {
       }
 
       // Avertissement si OP provisoire saisi manuellement (hors base)
-      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && !form.opProvisoireId && form.opProvisoireNumero.trim()) {
-        showToast('warning', 'OP Provisoire hors système', `Le N° ${form.opProvisoireNumero} a été saisi manuellement. Les engagements ne seront pas ajustés automatiquement.`);
+      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireManuel.trim() && !form.opProvisoireId && (form.opProvisoireIds || []).length === 0) {
+        showToast('warning', 'OP Provisoire hors système', `Le N° ${form.opProvisoireManuel} a été saisi manuellement. Les engagements ne seront pas ajustés automatiquement.`);
       }
 
       const sigleProjet = projet?.sigle || 'PROJET';
@@ -302,6 +321,24 @@ const PageNouvelOp = () => {
       const numeroInitial = genererNumero();
       if (numero !== numeroInitial) showToast('warning', 'Numéro corrigé', `${numeroInitial} déjà utilisé → ${numero}`);
       
+      // Construire les champs OP provisoire selon le type
+      let opProvFields = {};
+      if (form.type === 'ANNULATION') {
+        opProvFields.opProvisoireId = form.opProvisoireId || null;
+        opProvFields.opProvisoireNumero = form.opProvisoireId 
+          ? form.opProvisoireNumero 
+          : form.opProvisoireManuel.trim() || null;
+      } else if (form.type === 'DEFINITIF') {
+        const ids = form.opProvisoireIds || [];
+        const numeros = ids.map(id => ops.find(o => o.id === id)?.numero || '').filter(Boolean);
+        opProvFields.opProvisoireId = ids[0] || null;
+        opProvFields.opProvisoireIds = ids.length > 0 ? ids : null;
+        opProvFields.opProvisoireNumero = ids.length > 0 
+          ? numeros.join(', ') 
+          : form.opProvisoireManuel.trim() || null;
+        opProvFields.opProvisoireNumeros = numeros.length > 0 ? numeros : null;
+      }
+
       const opData = {
         numero, type: form.type, sourceId: activeSource, exerciceId: exerciceActif.id,
         beneficiaireId: form.beneficiaireId, modeReglement: form.modeReglement,
@@ -309,7 +346,7 @@ const PageNouvelOp = () => {
         objet: form.objet.trim(), piecesJustificatives: form.piecesJustificatives.trim(),
         montant: parseFloat(form.montant), montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
         tvaRecuperable: form.tvaRecuperable === true, statut: 'EN_COURS',
-        opProvisoireId: form.opProvisoireId || null, opProvisoireNumero: form.opProvisoireNumero || null,
+        ...opProvFields,
         dateCreation: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
       };
@@ -407,7 +444,7 @@ const PageNouvelOp = () => {
               <div style={{ flex: '0 0 auto' }}>
                 <label style={labelStyle}>TYPE *</label>
                 <select value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
+                  onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
                   style={{ padding: '10px 10px', border: `1.5px solid ${(typeColors[form.type] || '#999')}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || '#999', cursor: 'pointer', background: '#fff', height: 44 }}>
                   <option value="PROVISOIRE">Provisoire</option>
                   <option value="DIRECT">Direct</option>
@@ -420,34 +457,61 @@ const PageNouvelOp = () => {
                 <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-flex', alignItems: 'center', height: 44 }}>{new Date().toISOString().split('T')[0]}</span>
               </div>
 
-              {/* OP Provisoire inline (ANNULATION/DEFINITIF) */}
-              {['ANNULATION', 'DEFINITIF'].includes(form.type) && (
-                <div style={{ flex: '0 0 auto' }}>
-                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32' }}>OP PROV. *</label>
+              {/* OP Provisoire (ANNULATION = single select, DEFINITIF = checkboxes multi) */}
+              {form.type === 'ANNULATION' && (
+                <div style={{ flex: '1 1 auto', minWidth: 280 }}>
+                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#C43E3E' }}>OP PROV. À ANNULER *</label>
                   <Autocomplete
-                    creatable
-                    options={opProvisoiresDisponibles.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
-                    value={form.opProvisoireId 
-                      ? opProvisoiresDisponibles.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || null
-                      : form.opProvisoireNumero 
-                        ? { value: '_manual_', label: form.opProvisoireNumero } 
-                        : null
-                    }
+                    options={opProvisoiresAnnulation.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
+                    value={form.opProvisoireId ? opProvisoiresAnnulation.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || null : null}
                     onChange={(option) => {
-                      if (!option) {
-                        setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' });
-                      } else if (option.__isNew__) {
-                        setForm({ ...form, opProvisoireId: '', opProvisoireNumero: option.label });
-                      } else {
-                        handleSelectOpProvisoire(option.value);
-                      }
+                      if (option?.value) { handleSelectOpProvisoire(option.value); }
+                      else { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' }); }
                     }}
-                    placeholder="N° ou saisir manuellement..."
-                    noOptionsMessage="Tapez un N° pour saisir manuellement"
-                    formatCreateLabel={(input) => `Saisir : "${input}"`}
-                    accentColor={form.type === 'ANNULATION' ? '#C43E3E' : '#2e7d32'}
-                    style={{ minWidth: 200 }}
+                    placeholder="Sélectionner un OP provisoire..."
+                    noOptionsMessage="Aucun OP provisoire disponible"
+                    accentColor="#C43E3E"
                   />
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Hors système :</div>
+                    <input type="text" value={form.opProvisoireManuel}
+                      onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireId: '', opProvisoireNumero: '' })}
+                      placeholder="Saisir N° manuellement..."
+                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7' }}
+                    />
+                  </div>
+                </div>
+              )}
+              {form.type === 'DEFINITIF' && (
+                <div style={{ flex: '1 1 auto', minWidth: 320 }}>
+                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#2e7d32' }}>OP PROV. À RÉGULARISER *</label>
+                  {opProvisoiresDefinitif.length > 0 ? (
+                    <div style={{ maxHeight: 150, overflowY: 'auto', border: '1.5px solid #e0e0e0', borderRadius: 8, background: 'white' }}>
+                      {opProvisoiresDefinitif.map(op => {
+                        const checked = (form.opProvisoireIds || []).includes(op.id);
+                        return (
+                          <label key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0', background: checked ? '#e8f5e915' : 'transparent' }}>
+                            <input type="checkbox" checked={checked}
+                              onChange={(e) => handleSelectOpProvisoiresMulti(op.id, e.target.checked)}
+                              style={{ accentColor: '#2e7d32', width: 16, height: 16 }} />
+                            <span style={{ fontSize: 12, fontWeight: checked ? 700 : 400, color: checked ? '#2e7d32' : '#333' }}>
+                              {op.numero} — {beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A'} — {formatMontant(op.montant)} F
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '10px 14px', fontSize: 12, color: '#999', background: '#f8f9fa', borderRadius: 8, border: '1.5px solid #e0e0e0' }}>Aucun OP provisoire disponible</div>
+                  )}
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Hors système :</div>
+                    <input type="text" value={form.opProvisoireManuel}
+                      onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireIds: [], opProvisoireId: '' })}
+                      placeholder="Saisir N° manuellement..."
+                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7' }}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -471,7 +535,7 @@ const PageNouvelOp = () => {
                     value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null}
                     onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })}
                     placeholder="Rechercher par nom ou NCC..."
-                    isDisabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                    isDisabled={form.type === 'ANNULATION' && !!form.opProvisoireId}
                     noOptionsMessage="Aucun bénéficiaire trouvé"
                     accentColor={accent}
                   />
@@ -561,7 +625,7 @@ const PageNouvelOp = () => {
                     value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null}
                     onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })}
                     placeholder="Code..."
-                    isDisabled={['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireId}
+                    isDisabled={form.type === 'ANNULATION' && !!form.opProvisoireId}
                     noOptionsMessage="Aucune ligne"
                     accentColor={accent}
                   />
@@ -619,19 +683,21 @@ const PageNouvelOp = () => {
             </div>
 
             {/* Récap paiement DEFINITIF — compact */}
-            {form.type === 'DEFINITIF' && form.opProvisoireId && (() => {
-              const opProv = ops.find(o => o.id === form.opProvisoireId);
-              if (!opProv) return null;
-              const mtPaye = Number(opProv.montantPaye || opProv.montant || 0);
+            {form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0 && (() => {
+              const selectedProvs = (form.opProvisoireIds || []).map(id => ops.find(o => o.id === id)).filter(Boolean);
+              if (selectedProvs.length === 0) return null;
+              const totalPaye = selectedProvs.reduce((sum, op) => sum + Number(op.montantPaye || op.montant || 0), 0);
               const mtDef = parseFloat(form.montant) || 0;
-              const ecart = mtPaye - mtDef;
+              const ecart = totalPaye - mtDef;
               return (
                 <div style={{ marginBottom: 24, padding: 12, background: '#e8f5e9', borderRadius: 8, border: '1px solid #c8e6c9' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: '#2e7d32' }}>Récapitulatif paiement</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: '#2e7d32' }}>
+                    Récapitulatif — {selectedProvs.length} OP provisoire{selectedProvs.length > 1 ? 's' : ''}
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                     <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant payé (provisoire)</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#D4722A' }}>{formatMontant(mtPaye)} F</div>
+                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Total payé (provisoire{selectedProvs.length > 1 ? 's' : ''})</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#D4722A' }}>{formatMontant(totalPaye)} F</div>
                     </div>
                     <div>
                       <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant définitif</div>
