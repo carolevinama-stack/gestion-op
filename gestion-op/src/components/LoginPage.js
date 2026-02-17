@@ -62,16 +62,15 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
       }}>
         <div style={{ position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         <div style={{ position: 'absolute', bottom: -50, left: -50, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
-        {/* Logo encadré */}
+        {/* Logo sans contour */}
         <div style={{
-          background: 'rgba(255,255,255,0.95)', borderRadius: 16, padding: 18,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+          background: 'rgba(255,255,255,0.92)', borderRadius: 16, padding: 18,
           position: 'relative', zIndex: 1,
         }}>
           <img src={LOGO_PIF2} alt="PIF2" style={{ width: 200, display: 'block' }} />
         </div>
-        <div style={{ color: '#fff', fontSize: 20, fontWeight: 700, marginTop: 28, textAlign: 'center', position: 'relative', zIndex: 1 }}>Bienvenue</div>
-        <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 8, textAlign: 'center', position: 'relative', zIndex: 1, lineHeight: 1.7 }}>
+        <div style={{ color: '#fff', fontSize: 24, fontWeight: 700, marginTop: 28, textAlign: 'center', position: 'relative', zIndex: 1 }}>Bienvenue</div>
+        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginTop: 10, textAlign: 'center', position: 'relative', zIndex: 1, lineHeight: 1.7 }}>
           Projet d'Investissement Forestier<br />Côte d'Ivoire
         </div>
       </div>
@@ -81,7 +80,7 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
         <div style={{ width: '100%', maxWidth: 380 }}>
           {!showForgot ? (
             <form onSubmit={handleSubmit}>
-              <h2 style={{ fontSize: 20, color: '#1B6B2E', fontWeight: 700, margin: '0 0 6px' }}>Se connecter</h2>
+              <h2 style={{ fontSize: 24, color: '#1B6B2E', fontWeight: 700, margin: '0 0 6px' }}>Se connecter</h2>
               <p style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>Entrez vos identifiants pour continuer</p>
               {error && (
                 <div style={{ padding: '10px 14px', borderRadius: 10, background: '#FFEBEE', color: '#C43E3E', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>{error}</div>
@@ -111,13 +110,13 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
                 </button>
               </div>
               <button type="submit" disabled={loading}
-                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#2E9940', color: '#fff', fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#2E9940', color: '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Connexion...' : 'Se connecter'}
               </button>
             </form>
           ) : (
             <>
-              <h2 style={{ fontSize: 20, color: '#1B6B2E', fontWeight: 700, margin: '0 0 6px' }}>Mot de passe oublié</h2>
+              <h2 style={{ fontSize: 24, color: '#1B6B2E', fontWeight: 700, margin: '0 0 6px' }}>Mot de passe oublié</h2>
               <p style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>Saisissez votre e-mail pour recevoir un lien de réinitialisation</p>
               {forgotMessage && (
                 <div style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, marginBottom: 16,
@@ -132,7 +131,7 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
                   onFocus={e => e.target.style.borderColor='#2E9940'} onBlur={e => e.target.style.borderColor='#c8e6c9'} />
               </div>
               <button onClick={handleForgotPassword} disabled={forgotLoading}
-                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#2E9940', color: '#fff', fontSize: 14, fontWeight: 700, cursor: forgotLoading ? 'not-allowed' : 'pointer', marginBottom: 14, opacity: forgotLoading ? 0.7 : 1 }}>
+                style={{ width: '100%', padding: 13, border: 'none', borderRadius: 10, background: '#2E9940', color: '#fff', fontSize: 15, fontWeight: 700, cursor: forgotLoading ? 'not-allowed' : 'pointer', marginBottom: 14, opacity: forgotLoading ? 0.7 : 1 }}>
                 {forgotLoading ? 'Envoi...' : 'Envoyer le lien'}
               </button>
               <button onClick={() => { setShowForgot(false); setForgotMessage(null); }}
