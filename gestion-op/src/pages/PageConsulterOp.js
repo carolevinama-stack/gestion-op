@@ -262,13 +262,23 @@ const PageConsulterOp = () => {
 
   const getDotation = () => selectedLigne?.dotation || 0;
   const getEngagementsAnterieurs = () => {
-    if (!form.ligneBudgetaire) return 0;
+    if (!form.ligneBudgetaire || !selectedOp) return 0;
+    // Cumul chronologique : seuls les OP créés AVANT l'OP sélectionné sur la même ligne
     return ops
-      .filter(op => op.id !== selectedOp?.id && op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.ligneBudgetaire === form.ligneBudgetaire && ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) && !['REJETE', 'REJETE_CF', 'REJETE_AC', 'ANNULE'].includes(op.statut))
+      .filter(op =>
+        op.sourceId === activeSource &&
+        op.exerciceId === exerciceActif?.id &&
+        op.ligneBudgetaire === form.ligneBudgetaire &&
+        ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
+        !['REJETE', 'REJETE_CF', 'REJETE_AC', 'ANNULE'].includes(op.statut) &&
+        op.id !== selectedOp.id &&
+        (op.createdAt || '') < (selectedOp.createdAt || '')
+      )
       .reduce((sum, op) => sum + (op.montant || 0), 0);
   };
   const getEngagementActuel = () => {
     const montant = parseFloat(form.montant) || 0;
+    if (form.type === 'ANNULATION') return -montant;
     if (form.type === 'DEFINITIF') {
       // Multi-provisoire : déduire la somme des OP provisoires liés
       const ids = (form.opProvisoireIds || []).length > 0 ? form.opProvisoireIds : (form.opProvisoireId ? [form.opProvisoireId] : []);
