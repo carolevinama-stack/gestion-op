@@ -4,7 +4,7 @@ import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -200,6 +200,38 @@ const PageNouvelOp = () => {
     return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
   };
 
+  // Génération atomique via transaction Firestore (anti-doublon simultané)
+  const genererNumeroTransaction = async () => {
+    const sigleProjet = projet?.sigle || 'PROJET';
+    const sigleSource = currentSourceObj?.sigle || 'OP';
+    const annee = exerciceActif?.annee || new Date().getFullYear();
+    const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
+    const compteurRef = doc(db, 'compteurs', compteurId);
+
+    // Si le compteur n'existe pas encore, initialiser depuis le max existant
+    let initCount = 0;
+    const snapCheck = await getDoc(compteurRef);
+    if (!snapCheck.exists()) {
+      const allOpsSnap = await getDocs(query(
+        collection(db, 'ops'),
+        where('sourceId', '==', activeSource),
+        where('exerciceId', '==', exerciceActif.id)
+      ));
+      allOpsSnap.docs.forEach(d => {
+        const match = (d.data().numero || '').match(/N°(\d+)\//);
+        if (match) initCount = Math.max(initCount, parseInt(match[1]));
+      });
+    }
+
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(compteurRef);
+      const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
+      const nextNum = currentCount + 1;
+      tx.set(compteurRef, { count: nextNum, type: 'OP', sourceId: activeSource, exerciceId: exerciceActif?.id, updatedAt: new Date().toISOString() });
+      return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+    });
+  };
+
   // ANNULATION : sélection unique d'un OP provisoire
   const handleSelectOpProvisoire = (opId) => {
     if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '', opProvisoireManuel: '' }); return; }
@@ -300,26 +332,8 @@ const PageNouvelOp = () => {
         showToast('warning', 'OP Provisoire hors système', `Le N° ${form.opProvisoireManuel} a été saisi manuellement. Les engagements ne seront pas ajustés automatiquement.`);
       }
 
-      const sigleProjet = projet?.sigle || 'PROJET';
-      const sigleSource = currentSourceObj?.sigle || 'OP';
-      const annee = exerciceActif?.annee || new Date().getFullYear();
-      
-      const allOpsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
-      const allNumerosExistants = allOpsSnap.docs.map(d => d.data().numero);
-      
-      // Extraire le plus grand numéro existant
-      let maxNum = 0;
-      allNumerosExistants.forEach(n => {
-        const match = (n || '').match(/N°(\d+)\//);
-        if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-      });
-      let nextNum = maxNum + 1;
-      let numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
-      let tentatives = 0;
-      while (allNumerosExistants.includes(numero) && tentatives < 50) { nextNum++; numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`; tentatives++; }
-      
-      const numeroInitial = genererNumero();
-      if (numero !== numeroInitial) showToast('warning', 'Numéro corrigé', `${numeroInitial} déjà utilisé → ${numero}`);
+      // Numéro généré via transaction atomique (anti-doublon simultané)
+      const numero = await genererNumeroTransaction();
       
       // Construire les champs OP provisoire selon le type
       let opProvFields = {};
@@ -353,18 +367,25 @@ const PageNouvelOp = () => {
 
       const docRef = await addDoc(collection(db, 'ops'), opData);
       
-      const doublonSnap = await getDocs(query(collection(db, 'ops'), where('numero', '==', numero)));
-      if (doublonSnap.size > 1) {
-        const allOpsSnap2 = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
-        const allNums2 = allOpsSnap2.docs.map(d => d.data().numero);
-        let fixMax = 0;
-        allNums2.forEach(n => { const m = (n || '').match(/N°(\d+)\//); if (m) fixMax = Math.max(fixMax, parseInt(m[1])); });
-        let fixNum = fixMax + 1;
-        let fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
-        while (allNums2.includes(fixNumero)) { fixNum++; fixNumero = `N°${String(fixNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`; }
-        await updateDoc(doc(db, 'ops', docRef.id), { numero: fixNumero, updatedAt: new Date().toISOString() });
-        opData.numero = fixNumero;
-        showToast('warning', 'Numéro corrigé', `Doublon corrigé → ${fixNumero}`);
+      // Vérification post-création : s'assurer que le budget n'a pas été dépassé entre-temps
+      if (form.type !== 'ANNULATION') {
+        const postOpsSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('sourceId', '==', activeSource),
+          where('exerciceId', '==', exerciceActif.id)
+        ));
+        const engagementTotal = postOpsSnap.docs
+          .map(d => d.data())
+          .filter(op =>
+            op.ligneBudgetaire === form.ligneBudgetaire &&
+            ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
+            !['REJETE', 'ANNULE', 'TRAITE'].includes(op.statut)
+          )
+          .reduce((sum, op) => sum + (op.montant || 0), 0);
+        const dotation = getDotation();
+        if (engagementTotal > dotation) {
+          showToast('warning', 'Attention : dépassement budgétaire', `Le budget de cette ligne est dépassé de ${formatMontant(engagementTotal - dotation)} FCFA suite à des saisies simultanées.`);
+        }
       }
       
       setOps([...ops, { id: docRef.id, ...opData }]);
