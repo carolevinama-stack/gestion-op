@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV } from '../utils/formatters';
 import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -171,6 +171,23 @@ const PageBudget = () => {
     setSaving(false);
   };
 
+  const handleDeleteBudget = async () => {
+    if (!currentBudget) return;
+    const totaux = getTotaux(currentBudget);
+    if (totaux.engagement > 0) { showToast('error', 'Suppression impossible', `Ce budget a ${formatMontant(totaux.engagement)} FCFA d'engagements. Supprimez d'abord les OP liés.`); return; }
+    const password = window.prompt('Mot de passe requis pour supprimer :');
+    if (password !== PASSWORD_CORRECTION) { if (password !== null) showToast('error', 'Mot de passe incorrect'); return; }
+    if (!window.confirm(`Supprimer définitivement "${getVersionLabel(currentBudget)}" ?`)) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'budgets', currentBudget.id));
+      setBudgets(budgets.filter(b => b.id !== currentBudget.id));
+      setSelectedVersion(null); setShowModal(false);
+      showToast('success', 'Budget supprimé');
+    } catch (error) { console.error('Erreur:', error); showToast('error', 'Erreur', 'Erreur lors de la suppression'); }
+    setSaving(false);
+  };
+
   const getTotaux = (budget) => {
     if (!budget?.lignes) return { dotation: 0, engagement: 0, disponible: 0 };
     let totalDotation = 0, totalEngagement = 0;
@@ -273,6 +290,7 @@ const PageBudget = () => {
                     <>
                       <button className="bud-btn" onClick={openCorrectionModal} style={{ background: P.orangeLight, color: P.orange }}>{Icon.lock(P.orange, 14)} Correction</button>
                       <button className="bud-btn" onClick={openRevisionModal} style={{ background: accent, color: 'white' }}>{Icon.filePlus('white', 14)} Nouvelle révision</button>
+                      <button className="bud-btn" onClick={handleDeleteBudget} style={{ background: P.redLight, color: P.red }}>{Icon.trash(P.red, 14)} Supprimer</button>
                     </>
                   )}
                 </div>
