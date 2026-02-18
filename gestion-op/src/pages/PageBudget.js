@@ -33,6 +33,7 @@ const Icon = {
   alert: (color = P.gold, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   barChart: (color = P.textMuted, size = 40) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   search: (color = P.textMuted, size = 14) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  upload: (color = P.blue, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
   gear: (color = P.textSec, size = 18) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
 };
 
@@ -79,6 +80,9 @@ const PageBudget = () => {
   const [dateNotification, setDateNotification] = useState('');
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState([]);
+  const [importErrors, setImportErrors] = useState([]);
 
   const PASSWORD_CORRECTION = 'admin';
 
@@ -153,6 +157,85 @@ const PageBudget = () => {
     const engagement = getEngagementLigne(code);
     if (engagement > 0) { showToast('error', 'Suppression impossible', `Engagements de ${formatMontant(engagement)} FCFA`); return; }
     setBudgetLignes(budgetLignes.filter(l => l.code !== code));
+  };
+
+  const handleImportFile = async (file) => {
+    if (!file) return;
+    try {
+      const XLSX = await import('xlsx');
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (rows.length < 2) { showToast('error', 'Fichier vide', 'Le fichier ne contient pas de données.'); return; }
+
+      // Détecter la ligne d'en-tête (chercher "code" ou "dotation")
+      let startRow = 0;
+      for (let i = 0; i < Math.min(rows.length, 5); i++) {
+        const cells = (rows[i] || []).map(c => String(c || '').toLowerCase().trim());
+        if (cells.some(c => c.includes('code') || c.includes('ligne') || c.includes('rubrique'))) { startRow = i + 1; break; }
+      }
+
+      // Détecter les colonnes code et dotation
+      const header = (rows[startRow > 0 ? startRow - 1 : 0] || []).map(c => String(c || '').toLowerCase().trim());
+      let colCode = header.findIndex(h => h.includes('code') || h.includes('ligne') || h.includes('rubrique'));
+      let colDot = header.findIndex(h => h.includes('dotation') || h.includes('montant') || h.includes('budget') || h.includes('crédit'));
+      // Fallback : colonne 0 = code, colonne 1 = dotation
+      if (colCode < 0) colCode = 0;
+      if (colDot < 0) colDot = colCode === 0 ? 1 : 0;
+
+      const parsed = [];
+      const errors = [];
+
+      for (let i = startRow; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0) continue;
+        const rawCode = String(row[colCode] || '').trim();
+        const rawDot = row[colDot];
+        if (!rawCode) continue;
+
+        // Chercher la ligne budgétaire correspondante
+        const lb = lignesBudgetaires.find(l =>
+          l.code === rawCode ||
+          l.code === rawCode.replace(/\./g, '') ||
+          l.code.replace(/\./g, '') === rawCode.replace(/\./g, '')
+        );
+
+        const dotation = parseInt(String(rawDot).replace(/[^\d-]/g, '')) || 0;
+
+        if (!lb) {
+          errors.push(`Ligne ${i + 1} : code "${rawCode}" introuvable dans les lignes budgétaires`);
+        } else {
+          // Vérifier doublon
+          if (!parsed.find(p => p.code === lb.code)) {
+            parsed.push({ code: lb.code, libelle: lb.libelle, dotation });
+          } else {
+            errors.push(`Ligne ${i + 1} : code "${rawCode}" en doublon (ignoré)`);
+          }
+        }
+      }
+
+      if (parsed.length === 0) {
+        showToast('error', 'Aucune ligne reconnue', errors.length > 0 ? errors[0] : 'Vérifiez le format du fichier.');
+        return;
+      }
+
+      setImportData(parsed);
+      setImportErrors(errors);
+      setShowImportModal(true);
+    } catch (e) {
+      console.error('Erreur import:', e);
+      showToast('error', 'Erreur de lecture', 'Le fichier Excel est invalide ou corrompu.');
+    }
+  };
+
+  const confirmImport = () => {
+    setBudgetLignes(importData);
+    setShowImportModal(false);
+    setImportData([]);
+    setImportErrors([]);
+    setShowModal(true);
+    showToast('success', 'Budget importé', `${importData.length} ligne(s) chargée(s)`);
   };
 
   const updateDotation = (code, dotation) => setBudgetLignes(budgetLignes.map(l => l.code === code ? { ...l, dotation: parseInt(dotation) || 0 } : l));
@@ -285,11 +368,15 @@ const PageBudget = () => {
               {!showAnterieur && exerciceActif && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   {!currentBudget ? (
-                    <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', padding: '10px 18px' }}>{Icon.plus('white', 14)} Créer le budget initial</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', padding: '10px 18px' }}>{Icon.plus('white', 14)} Créer le budget initial</button>
+                      <label className="bud-btn" style={{ background: P.blueLight || '#E3F2FD', color: P.blue || '#1976D2', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{Icon.upload(P.blue || '#1976D2', 14)} Importer Excel<input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value = ''; }} /></label>
+                    </div>
                   ) : (
                     <>
                       <button className="bud-btn" onClick={openCorrectionModal} style={{ background: P.orangeLight, color: P.orange }}>{Icon.lock(P.orange, 14)} Correction</button>
                       <button className="bud-btn" onClick={openRevisionModal} style={{ background: accent, color: 'white' }}>{Icon.filePlus('white', 14)} Nouvelle révision</button>
+                      <label className="bud-btn" style={{ background: P.blueLight || '#E3F2FD', color: P.blue || '#1976D2', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{Icon.upload(P.blue || '#1976D2', 14)} Importer<input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value = ''; }} /></label>
                       <button className="bud-btn" onClick={handleDeleteBudget} style={{ background: P.redLight, color: P.red }}>{Icon.trash(P.red, 14)} Supprimer</button>
                     </>
                   )}
@@ -492,6 +579,49 @@ const PageBudget = () => {
             <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
               <button className="bud-btn" onClick={() => setShowPasswordModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
               <button className="bud-btn" onClick={verifyPasswordAndEdit} style={{ background: P.orange, color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Valider</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL IMPORT ==================== */}
+      {showImportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
+          <div style={{ background: 'white', borderRadius: 16, width: 600, maxHeight: '85vh', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '20px 28px', background: P.blue || '#1976D2', display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0', flexShrink: 0 }}>{Icon.upload('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Import Excel — Aperçu</span></div>
+            <div style={{ padding: '20px 28px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ background: P.greenLight, padding: 14, borderRadius: 10, marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+                {Icon.check(P.green, 16)}
+                <span style={{ fontSize: 13, fontWeight: 600, color: P.green }}>{importData.length} ligne(s) reconnue(s)</span>
+                <span style={{ fontSize: 13, color: P.textSec, marginLeft: 'auto' }}>Total : <strong style={{ color: accent }}>{formatMontant(importData.reduce((s, l) => s + (l.dotation || 0), 0))} FCFA</strong></span>
+              </div>
+              {importErrors.length > 0 && (
+                <div style={{ background: P.orangeLight, padding: 14, borderRadius: 10, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>{Icon.alert(P.orange, 16)}<span style={{ fontSize: 12, fontWeight: 700, color: P.orange }}>{importErrors.length} avertissement(s)</span></div>
+                  {importErrors.map((err, i) => <div key={i} style={{ fontSize: 11, color: P.textSec, padding: '3px 0', borderTop: i > 0 ? `1px solid ${P.border}` : 'none' }}>{err}</div>)}
+                </div>
+              )}
+              <div style={{ border: `1px solid ${P.border}`, borderRadius: 10, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead><tr style={{ background: '#FAFAF8' }}>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', letterSpacing: .5 }}>CODE</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', letterSpacing: .5 }}>LIBELLÉ</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', letterSpacing: .5 }}>DOTATION</th>
+                  </tr></thead>
+                  <tbody>{importData.map((l, i) => (
+                    <tr key={i} style={{ borderTop: `1px solid ${P.border}` }}>
+                      <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 600, fontSize: 11 }}>{l.code}</td>
+                      <td style={{ padding: '8px 12px', fontSize: 12, color: P.text }}>{l.libelle}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: accent }}>{formatMontant(l.dotation)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <p style={{ fontSize: 11, color: P.textMuted, marginTop: 12, lineHeight: 1.5 }}>Les lignes importées remplaceront le formulaire de budget actuel. Vous pourrez encore modifier les dotations avant d'enregistrer.</p>
+            </div>
+            <div style={{ padding: '16px 28px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}`, flexShrink: 0 }}>
+              <button className="bud-btn" onClick={() => { setShowImportModal(false); setImportData([]); setImportErrors([]); }} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
+              <button className="bud-btn" onClick={confirmImport} style={{ background: P.blue || '#1976D2', color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Confirmer l'import</button>
             </div>
           </div>
         </div>
