@@ -162,6 +162,7 @@ const PageNouvelOp = () => {
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     op.beneficiaireId === form.beneficiaireId &&
+    op.sourceId === activeSource &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
   ) : [];
@@ -515,7 +516,7 @@ const PageNouvelOp = () => {
                     }).filter(Boolean)}
                     onChange={(selected) => {
                       if (!selected || selected.length === 0) {
-                        handleSelectOpProvisoiresMulti(null, false);
+                        setForm({ ...form, opProvisoireIds: [], opProvisoireId: '', opProvisoireNumero: '', objet: '' });
                       } else {
                         const newIds = selected.map(s => s.value);
                         const removedId = (form.opProvisoireIds || []).find(id => !newIds.includes(id));
