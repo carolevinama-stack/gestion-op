@@ -6,7 +6,7 @@ import { collection, doc, addDoc, getDocs, getDoc, query, where, runTransaction 
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
-// ==================== CONFIGURATION MODALE ====================
+// ==================== CONFIGURATION MODALE (Auto-close ajouté) ====================
 const MODAL_STYLES = {
   success: { 
     color: '#2e7d32', 
@@ -28,8 +28,17 @@ const MODAL_STYLES = {
   },
 };
 
-// Composant d'affichage de la modale centrée
 const ModalMessage = ({ data, onClose }) => {
+  useEffect(() => {
+    // Si c'est un succès, on ferme automatiquement après 2.5 secondes
+    if (data && data.type === 'success') {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [data, onClose]);
+
   if (!data) return null;
   const style = MODAL_STYLES[data.type] || MODAL_STYLES.success;
 
@@ -39,7 +48,7 @@ const ModalMessage = ({ data, onClose }) => {
       backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 10000, animation: 'fadeIn 0.2s ease-out'
-    }} onClick={onClose}>
+    }} onClick={data.type === 'success' ? onClose : undefined}>
       <div style={{
         background: 'white', borderRadius: 20, padding: '32px',
         width: '90%', maxWidth: 400, textAlign: 'center',
@@ -62,12 +71,14 @@ const ModalMessage = ({ data, onClose }) => {
           {data.message}
         </p>
 
+        {/* Le bouton ne s'affiche que si ce n'est PAS un succès (car succès auto-close) 
+            OU si on veut permettre de fermer plus vite */}
         <button onClick={onClose} style={{
           background: style.btnBg, color: 'white', border: 'none',
           padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 600,
           width: '100%', cursor: 'pointer', transition: 'transform 0.1s'
         }}>
-          D'accord
+          {data.type === 'success' ? 'Fermer' : 'D\'accord'}
         </button>
       </div>
     </div>
@@ -80,13 +91,13 @@ const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D472
 const PageNouvelOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
   
-  // MODIF: type démarre vide ('') au lieu de 'PROVISOIRE'
+  // Par défaut, le type est vide pour forcer la sélection, mais les autres champs peuvent être remplis par le brouillon
   const defaultForm = { type: '', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
 
   // Restaurer le brouillon depuis localStorage
   const loadDraft = () => {
     try {
-      const saved = localStorage.getItem('op_draft');
+      const saved = localStorage.getItem('op_draft_v3'); // Nouvelle clé pour nettoyer proprement les anciens états
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return defaultForm;
@@ -106,7 +117,7 @@ const PageNouvelOp = () => {
 
   // Sauvegarder le brouillon à chaque modification
   useEffect(() => {
-    try { localStorage.setItem('op_draft', JSON.stringify(form)); } catch (e) {}
+    try { localStorage.setItem('op_draft_v3', JSON.stringify(form)); } catch (e) {}
   }, [form]);
   useEffect(() => {
     try { if (activeSource) localStorage.setItem('op_draft_source', activeSource); } catch (e) {}
@@ -178,7 +189,7 @@ const PageNouvelOp = () => {
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => getDotation() - getEngagementsCumules();
 
-  // OP provisoires pour ANNULATION : même bénéficiaire obligatoire, pas déjà annulé
+  // OP provisoires pour ANNULATION
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     op.beneficiaireId === form.beneficiaireId &&
@@ -187,7 +198,7 @@ const PageNouvelOp = () => {
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
   ) : [];
 
-  // OP provisoires pour DEFINITIF : même bénéficiaire, pas déjà régularisé
+  // OP provisoires pour DEFINITIF
   const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     op.beneficiaireId === form.beneficiaireId &&
@@ -197,7 +208,6 @@ const PageNouvelOp = () => {
   ) : [];
 
 
-  // Label pour l'autocomplete (avec badge Extra + année si autre exercice)
   const getOpProvLabel = (op) => {
     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
     const ex = exercices.find(e => e.id === op.exerciceId);
@@ -211,7 +221,6 @@ const PageNouvelOp = () => {
     const sigleSource = currentSourceObj?.sigle || 'OP';
     const annee = exerciceActif?.annee || new Date().getFullYear();
     const opsSource = ops.filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id);
-    // Extraire le plus grand numéro existant
     let maxNum = 0;
     opsSource.forEach(op => {
       const match = (op.numero || '').match(/N°(\d+)\//);
@@ -221,7 +230,8 @@ const PageNouvelOp = () => {
     return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
   };
 
-  // Génération atomique via transaction Firestore (anti-doublon simultané)
+  // === CŒUR DU SYSTÈME : TRANSACTION NUMÉROTATION ===
+  // Cette fonction garantit l'unicité et l'ordre même en cas de clics simultanés
   const genererNumeroTransaction = async () => {
     const sigleProjet = projet?.sigle || 'PROJET';
     const sigleSource = currentSourceObj?.sigle || 'OP';
@@ -229,7 +239,7 @@ const PageNouvelOp = () => {
     const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
     const compteurRef = doc(db, 'compteurs', compteurId);
 
-    // Si le compteur n'existe pas encore, initialiser depuis le max existant
+    // Initialisation si le compteur n'existe pas
     let initCount = 0;
     const snapCheck = await getDoc(compteurRef);
     if (!snapCheck.exists()) {
@@ -244,6 +254,7 @@ const PageNouvelOp = () => {
       });
     }
 
+    // La transaction verrouille le compteur : un seul utilisateur passe à la fois
     return await runTransaction(db, async (tx) => {
       const snap = await tx.get(compteurRef);
       const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
@@ -253,7 +264,6 @@ const PageNouvelOp = () => {
     });
   };
 
-  // ANNULATION : sélection unique d'un OP provisoire
   const handleSelectOpProvisoire = (opId) => {
     if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '', opProvisoireManuel: '' }); return; }
     const op = ops.find(o => o.id === opId);
@@ -269,7 +279,6 @@ const PageNouvelOp = () => {
     }
   };
 
-  // DEFINITIF : sélection multiple d'OP provisoires
   const handleSelectOpProvisoiresMulti = (opId, checked) => {
     const currentIds = form.opProvisoireIds || [];
     const newIds = checked ? [...currentIds, opId] : currentIds.filter(id => id !== opId);
@@ -291,13 +300,12 @@ const PageNouvelOp = () => {
 
   const handleClear = () => {
     setForm(defaultForm);
-    try { localStorage.removeItem('op_draft'); } catch (e) {}
+    try { localStorage.removeItem('op_draft_v3'); } catch (e) {}
   };
 
   const handleSave = async () => {
-    // MODIF: Validation du type obligatoire
+    // Validation
     if (!form.type) { setModal({ type: 'error', title: 'Type manquant', message: 'Veuillez sélectionner un type d\'OP' }); return; }
-    
     if (!activeSource) { setModal({ type: 'error', title: 'Source manquante', message: 'Veuillez sélectionner une source de financement' }); return; }
     if (!exerciceActif) { setModal({ type: 'error', title: 'Exercice manquant', message: 'Aucun exercice actif' }); return; }
     if (!form.beneficiaireId) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner un bénéficiaire' }); return; }
@@ -323,7 +331,7 @@ const PageNouvelOp = () => {
 
     setSaving(true);
     try {
-      // === Vérification temps réel du budget depuis Firestore ===
+      // 1. Vérification ultime du budget (lecture temps réel)
       if (form.type !== 'ANNULATION') {
         const opsSnap = await getDocs(query(
           collection(db, 'ops'),
@@ -340,40 +348,30 @@ const PageNouvelOp = () => {
           .reduce((sum, op) => sum + (op.montant || 0), 0);
 
         let engagementActuel = parseFloat(form.montant) || 0;
-
         const dotation = getDotation();
         const disponibleReel = dotation - engagementsReels - engagementActuel;
 
         if (disponibleReel < 0) {
-          setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${formatMontant(dotation - engagementsReels)} FCFA. Votre montant dépasse.` });
+          setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${formatMontant(dotation - engagementsReels)} FCFA.` });
           setSaving(false);
           return;
         }
       }
 
-      // Avertissement si OP provisoire saisi manuellement (hors base)
-      if (['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireManuel.trim() && !form.opProvisoireId && (form.opProvisoireIds || []).length === 0) {
-        // Note: Ici on n'utilise pas le modal pour ne pas bloquer
-      }
-
-      // Numéro généré via transaction atomique (anti-doublon simultané)
+      // 2. Génération ATOMIQUE du numéro (Bloque les doublons concurrents)
       const numero = await genererNumeroTransaction();
       
-      // Construire les champs OP provisoire selon le type
+      // Préparation données
       let opProvFields = {};
       if (form.type === 'ANNULATION') {
         opProvFields.opProvisoireId = form.opProvisoireId || null;
-        opProvFields.opProvisoireNumero = form.opProvisoireId 
-          ? form.opProvisoireNumero 
-          : form.opProvisoireManuel.trim() || null;
+        opProvFields.opProvisoireNumero = form.opProvisoireId ? form.opProvisoireNumero : form.opProvisoireManuel.trim() || null;
       } else if (form.type === 'DEFINITIF') {
         const ids = form.opProvisoireIds || [];
         const numeros = ids.map(id => ops.find(o => o.id === id)?.numero || '').filter(Boolean);
         opProvFields.opProvisoireId = ids[0] || null;
         opProvFields.opProvisoireIds = ids.length > 0 ? ids : null;
-        opProvFields.opProvisoireNumero = ids.length > 0 
-          ? numeros.join(', ') 
-          : form.opProvisoireManuel.trim() || null;
+        opProvFields.opProvisoireNumero = ids.length > 0 ? numeros.join(', ') : form.opProvisoireManuel.trim() || null;
         opProvFields.opProvisoireNumeros = numeros.length > 0 ? numeros : null;
       }
 
@@ -389,32 +387,11 @@ const PageNouvelOp = () => {
         creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
       };
 
+      // 3. Sauvegarde de l'OP
       const docRef = await addDoc(collection(db, 'ops'), opData);
       
-      // Vérification post-création : s'assurer que le budget n'a pas été dépassé entre-temps
-      let warningMsg = '';
-      if (form.type !== 'ANNULATION') {
-        const postOpsSnap = await getDocs(query(
-          collection(db, 'ops'),
-          where('sourceId', '==', activeSource),
-          where('exerciceId', '==', exerciceActif.id)
-        ));
-        const engagementTotal = postOpsSnap.docs
-          .map(d => d.data())
-          .filter(op =>
-            op.ligneBudgetaire === form.ligneBudgetaire &&
-            ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
-            !['REJETE', 'ANNULE', 'TRAITE'].includes(op.statut)
-          )
-          .reduce((sum, op) => sum + (op.montant || 0), 0);
-        const dotation = getDotation();
-        if (engagementTotal > dotation) {
-          warningMsg = ` Attention: Budget dépassé de ${formatMontant(engagementTotal - dotation)} FCFA suite à des saisies simultanées.`;
-        }
-      }
-      
       setOps([...ops, { id: docRef.id, ...opData }]);
-      setModal({ type: 'success', title: 'OP créé avec succès', message: `L'ordre de paiement N° ${opData.numero} a été enregistré.${warningMsg}` });
+      setModal({ type: 'success', title: 'OP créé avec succès', message: `L'ordre de paiement N° ${opData.numero} a été enregistré.` });
       handleClear();
     } catch (error) {
       console.error('Erreur:', error);
