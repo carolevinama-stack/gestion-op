@@ -262,39 +262,43 @@ const PageConsulterOp = () => {
 
   const getDotation = () => selectedLigne?.dotation || 0;
   
-  // Reproduit EXACTEMENT la logique de PageListeOP : cumul chronologique par ligne budgétaire
+  // ===================== CALCUL DES ENGAGEMENTS =====================
+  // Version corrigée : Somme pure des montants précédents sur la même ligne
+  // (Les annulations et rejets sont déjà négatifs dans la base, donc additionner fonctionne)
+  
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire || !selectedOp) return 0;
-    // Tous les OP de la même source/exercice, triés par date de création (plus ancien en premier)
+    
+    // 1. Filtrer par source et exercice, trier par date
     const allOps = ops
       .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id)
       .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-    // Accumuler par ligne budgétaire dans l'ordre chronologique, comme PageListeOP
+      
     let cumul = 0;
+    
     for (const op of allOps) {
-      if (op.id === selectedOp.id) break; // On s'arrête AVANT l'OP sélectionné
-      if (op.ligneBudgetaire === form.ligneBudgetaire && !['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
-        cumul += op.type === 'ANNULATION' ? -(op.montant || 0) : (op.montant || 0);
+      // 2. On s'arrête AVANT l'OP actuel
+      if (op.id === selectedOp.id) break;
+      
+      // 3. Si même ligne budgétaire, on additionne le montant (qu'il soit positif ou négatif)
+      if (op.ligneBudgetaire === form.ligneBudgetaire) {
+        cumul += (parseFloat(op.montant) || 0);
       }
     }
     return cumul;
   };
+
   const getEngagementActuel = () => {
+    // On retourne simplement le montant du formulaire
+    // Si c'est une annulation ou un rejet enregistré, le montant est déjà négatif
     const montant = parseFloat(form.montant) || 0;
-    if (form.type === 'ANNULATION') return -montant;
-    if (form.type === 'DEFINITIF') {
-      // Multi-provisoire : déduire la somme des OP provisoires liés
-      const ids = (form.opProvisoireIds || []).length > 0 ? form.opProvisoireIds : (form.opProvisoireId ? [form.opProvisoireId] : []);
-      const totalProv = ids.reduce((sum, id) => {
-        const opProv = ops.find(o => o.id === id);
-        return sum + (opProv?.montant || 0);
-      }, 0);
-      return montant - totalProv;
-    }
     return montant;
   };
+
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => getDotation() - getEngagementsCumules();
+
+  // ===================== FIN CALCUL DES ENGAGEMENTS =====================
 
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
@@ -506,14 +510,14 @@ const PageConsulterOp = () => {
     const montantOP = selectedOp.montant || 0;
     const engAnterieurs = getEngagementsAnterieurs();
     const isAnnulation = selectedOp.type === 'ANNULATION';
-    // Engagement actuel signé : négatif pour annulation
-    const engActuelSigne = isAnnulation ? -montantOP : montantOP;
-    const engCumules = engAnterieurs + engActuelSigne;
+    // Engagement actuel : on prend la valeur brute (positive ou négative)
+    const engActuel = getEngagementActuel();
+    const engCumules = engAnterieurs + engActuel;
     const disponible = getDotation() - engCumules;
     // Formatage avec signe
     const fmtSigne = (val) => val < 0 ? ('-' + formatMontant(Math.abs(val))) : formatMontant(val);
-    const printMontantTotal = fmtSigne(engActuelSigne);
-    const printEngActuel = fmtSigne(engActuelSigne);
+    const printMontantTotal = fmtSigne(engActuel);
+    const printEngActuel = fmtSigne(engActuel);
     const printEngCumules = fmtSigne(engCumules);
     const printDisponible = fmtSigne(disponible);
     const isBailleur = src?.sigle?.includes('IDA') || src?.sigle?.includes('BAD') || src?.sigle?.includes('UE');
