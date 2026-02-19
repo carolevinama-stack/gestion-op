@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
@@ -28,7 +28,7 @@ const I={
   archive:(c=P.olive,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   search:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   lock:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  warn:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  warn:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   fileText:(c=P.textMuted,s=40)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   plusCircle:(c=P.green,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
@@ -43,45 +43,62 @@ const STab=React.memo(({active,label,count,color,onClick})=><button onClick={onC
 const IBtn=React.memo(({icon,title,bg,onClick,disabled,size=30})=><button onClick={onClick} disabled={disabled} title={title} style={{width:size,height:size,borderRadius:8,border:'none',background:bg||P.greenLight,display:'flex',alignItems:'center',justifyContent:'center',cursor:disabled?'not-allowed':'pointer',opacity:disabled?.4:1,transition:'all .15s',padding:0}}>{icon}</button>);
 const ActionBtn=React.memo(({label,icon,color,onClick,disabled,count})=><button onClick={onClick} disabled={disabled} style={{padding:'10px 20px',background:color,color:'#fff',border:'none',borderRadius:10,fontWeight:700,fontSize:13,cursor:disabled?'not-allowed':'pointer',display:'inline-flex',alignItems:'center',gap:8,opacity:disabled?.5:1,boxShadow:`0 4px 12px ${color}33`,transition:'all .2s',minHeight:40}}>{icon}{label}{count!==undefined&&<span style={{background:'rgba(255,255,255,.25)',padding:'2px 8px',borderRadius:6,fontSize:11}}>{count}</span>}</button>);
 
-// Modal Générique
 const Modal=React.memo(({title,titleColor,onClose,children,width=540})=><><div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',backdropFilter:'blur(3px)',zIndex:200}}/><div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxWidth:'92vw',maxHeight:'88vh',background:P.card,borderRadius:16,zIndex:201,boxShadow:'0 20px 60px rgba(0,0,0,.2)',display:'flex',flexDirection:'column',overflow:'hidden'}}><div style={{padding:'16px 22px',background:titleColor||P.green,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}><h3 style={{fontSize:16,fontWeight:700,color:'#fff',margin:0}}>{title}</h3><button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:'none',background:'rgba(255,255,255,.2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{I.close('#fff',16)}</button></div><div style={{flex:1,overflowY:'auto',padding:'20px 22px'}}>{children}</div></div></>);
 
-// Modal Alert / Confirm (Remplace window.alert/confirm/prompt)
+// MODALE D'ALERTE AUTO-FERMANTE (pour succès) OU CONFIRMATION
 const ModalAlert = ({ data, onClose }) => {
-  // HOOKS TOUJOURS EN PREMIER
   const [val, setVal] = useState('');
 
+  useEffect(() => {
+    // Si c'est un succès, on ferme automatiquement après 2 secondes
+    if (data && data.type === 'success') {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [data, onClose]);
+
   if (!data) return null;
-  // data = { type: 'success'|'error'|'confirm', title, message, onConfirm, showInput: bool, inputLabel, showPwd: bool }
+
   const isConfirm = data.type === 'confirm';
   const color = data.type === 'error' ? P.red : isConfirm ? P.gold : P.green;
   
   return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div style={{background:'white',borderRadius:20,padding:24,width:400,textAlign:'center',boxShadow:'0 10px 40px rgba(0,0,0,.2)'}}>
-      <h3 style={{color,margin:'0 0 10px'}}>{data.title}</h3>
-      <p style={{color:'#666',fontSize:14,marginBottom:20,whiteSpace:'pre-line'}}>{data.message}</p>
+    <div style={{background:'white',borderRadius:20,padding:24,width:400,textAlign:'center',boxShadow:'0 10px 40px rgba(0,0,0,.2)',animation:'scaleUp 0.2s ease-out'}}>
+      
+      {/* Icône selon le type */}
+      <div style={{width: 50, height: 50, borderRadius: '50%', background: data.type === 'error' ? P.redLight : data.type === 'success' ? P.greenLight : P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px'}}>
+        {data.type === 'success' ? I.check(P.green, 24) : data.type === 'error' ? I.close(P.red, 24) : I.warn(P.gold, 24)}
+      </div>
+
+      <h3 style={{color,margin:'0 0 10px', fontSize: 18}}>{data.title}</h3>
+      <p style={{color:'#666',fontSize:14,marginBottom:20,whiteSpace:'pre-line', lineHeight:1.5}}>{data.message}</p>
       
       {(data.showInput || data.showPwd) && (
         <div style={{marginBottom:20,textAlign:'left'}}>
           {data.inputLabel && <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>{data.inputLabel}</label>}
           <input type={data.showPwd ? "password" : "text"} autoFocus value={val} onChange={e=>setVal(e.target.value)} 
-            style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #ccc',boxSizing:'border-box'}} 
-            placeholder={data.showPwd ? "Mot de passe..." : "Saisir ici..."}
+            style={{width:'100%',padding:12,borderRadius:8,border:'1px solid #ccc',boxSizing:'border-box', fontSize:14}} 
+            placeholder={data.showPwd ? "Saisir le mot de passe..." : "Saisir ici..."}
           />
         </div>
       )}
 
-      <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-        {isConfirm && <button onClick={onClose} style={{padding:'10px 20px',borderRadius:8,border:'1px solid #ccc',background:'white',cursor:'pointer',fontWeight:600}}>Annuler</button>}
-        <button onClick={() => { 
-          if(isConfirm && (data.showInput || data.showPwd) && !val) return; 
-          if(isConfirm) data.onConfirm(val); 
-          setVal(''); // Reset
-          onClose(); 
-        }} style={{padding:'10px 20px',borderRadius:8,border:'none',background:color,color:'white',cursor:'pointer',fontWeight:600,flex:isConfirm?1:'0 0 100%'}}>
-          {isConfirm ? 'Confirmer' : 'OK'}
-        </button>
-      </div>
+      {/* Boutons (masqués si c'est un message de succès car il s'auto-ferme) */}
+      {data.type !== 'success' && (
+        <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+          {isConfirm && <button onClick={onClose} style={{padding:'12px 20px',borderRadius:8,border:'1px solid #ccc',background:'white',cursor:'pointer',fontWeight:600}}>Annuler</button>}
+          <button onClick={() => { 
+            if(isConfirm && (data.showInput || data.showPwd) && !val) return; 
+            if(isConfirm) data.onConfirm(val); 
+            setVal(''); 
+            onClose(); 
+          }} style={{padding:'12px 20px',borderRadius:8,border:'none',background:color,color:'white',cursor:'pointer',fontWeight:600,flex:isConfirm?1:'0 0 100%'}}>
+            {isConfirm ? 'Confirmer' : 'Fermer'}
+          </button>
+        </div>
+      )}
     </div>
   </div>;
 };
@@ -126,7 +143,7 @@ const PageBordereaux=()=>{
   const setDateRef=(key,el)=>{if(el)dateRefs.current['_'+key]=el};
   const readDate=(key)=>dateRefs.current['_'+key]?.value||'';
 
-  // Helper pour les alertes/confirms
+  // Helpers pour les Alertes Propres
   const notify = (type, title, message) => setAlertData({ type, title, message });
   const ask = (title, message, onConfirm, showPwd=false, showInput=false, inputLabel='') => {
     setAlertData({ type: 'confirm', title, message, onConfirm, showPwd, showInput, inputLabel });
@@ -140,17 +157,19 @@ const PageBordereaux=()=>{
     return ops.filter(op => op.sourceId === activeSourceBT && op.exerciceId === exerciceActif?.id);
   }, [ops, activeSourceBT, exerciceActif]);
 
-  // FILTRE STRICT : Un OP dans un bordereau (même "en cours") ne doit plus apparaitre dans "Nouveau"
+  // FILTRE STRICT CF
   const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && !op.bordereauCF), [opsForSource]);
   const opsTransmisCF = useMemo(() => opsForSource.filter(op => op.statut === 'TRANSMIS_CF'), [opsForSource]);
   const opsDifferesCF = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_CF'), [opsForSource]);
   const opsRejetesCF = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_CF'), [opsForSource]);
   
+  // FILTRE STRICT AC (Les ANNULES n'apparaissent JAMAIS ici, ils vont en archive)
   const opsEligiblesAC = useMemo(() => opsForSource.filter(op => op.statut === 'VISE_CF' && !op.bordereauAC && op.statut !== 'ANNULE'), [opsForSource]);
   const opsTransmisAC = useMemo(() => opsForSource.filter(op => (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && op.statut !== 'ANNULE'), [opsForSource]);
   const opsDifferesAC = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_AC'), [opsForSource]);
   const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC'), [opsForSource]);
   
+  // ARCHIVES : Inclut PAYE et ANNULE (circuit court)
   const opsAArchiver = useMemo(() => opsForSource.filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE'), [opsForSource]);
   const opsArchives = useMemo(() => opsForSource.filter(op => op.statut === 'ARCHIVE'), [opsForSource]);
   
@@ -160,21 +179,18 @@ const PageBordereaux=()=>{
   // === HELPERS ===
   const getBen=(op)=>op?.beneficiaireNom||beneficiaires.find(b=>b.id===op?.beneficiaireId)?.nom||'N/A';
   
-  // LOGIQUE DE VERROUILLAGE
-  const isOpLockedForCF = (op) => ['VISE_CF','TRANSMIS_AC','PAYE_PARTIEL','PAYE','ARCHIVE','ANNULE','DIFFERE_AC','REJETE_AC'].includes(op.statut);
-  const isOpLockedForAC = (op) => ['PAYE','ARCHIVE'].includes(op.statut);
+  // VERROUILLAGE STRICT : Un bordereau CF est verrouillé dès que le CF a statué (Visé, Différé, Rejeté).
+  const isOpLockedForCF = (op) => {
+    // Les seuls statuts où le CF n'a pas encore touché sont EN_COURS et TRANSMIS_CF
+    return op.statut !== 'EN_COURS' && op.statut !== 'TRANSMIS_CF';
+  };
+  const isOpLockedForAC = (op) => ['PAYE','ARCHIVE', 'ANNULE'].includes(op.statut);
+  
   const isBordereauLocked = (bt) => {
     if (!bt.opsIds) return false;
     if (bt.type === 'CF') return bt.opsIds.some(id => { const op = ops.find(o => o.id === id); return op && isOpLockedForCF(op); });
     if (bt.type === 'AC') return bt.opsIds.some(id => { const op = ops.find(o => o.id === id); return op && isOpLockedForAC(op); });
     return false;
-  };
-
-  const checkPwd = (callback) => {
-    ask("Sécurité", "Veuillez saisir le mot de passe administrateur :", (pwd) => {
-      if(pwd === (projet?.motDePasseAdmin || 'admin123')) callback();
-      else notify('error', 'Erreur', 'Mot de passe incorrect');
-    }, true);
   };
 
   const filterBordereaux=(btList)=>btList.filter(bt=>{if(!searchBT)return true;const t=searchBT.toLowerCase();if((bt.numero||'').toLowerCase().includes(t))return true;return bt.opsIds?.some(opId=>{const op=ops.find(o=>o.id===opId);return(op?.numero||'').toLowerCase().includes(t)||getBen(op).toLowerCase().includes(t);});});
@@ -229,7 +245,7 @@ const PageBordereaux=()=>{
         });
 
         await batch.commit();
-        notify('success', 'Succès', `${num} créé.`);
+        notify('success', 'Succès', `Bordereau ${num} créé.`);
         setSelectedOps([]);
         if(typeBT==='CF')setSubTabCF('BORDEREAUX');else setSubTabAC('BORDEREAUX');
       }catch(e){notify('error', 'Erreur', e.message);}
@@ -257,28 +273,34 @@ const PageBordereaux=()=>{
   };
 
   const handleAnnulerTransmission=async(bt)=>{
-    if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Impossible d'annuler : des OP ont déjà été traités."); return;}
-    checkPwd(async () => {
-      ask('Confirmation', `Annuler la transmission de ${bt.numero} ?`, async () => {
-        setSaving(true);
-        try{
-          const batch = writeBatch(db);
-          batch.update(doc(db, 'bordereaux', bt.id), {dateTransmission:null,statut:'EN_COURS',updatedAt:new Date().toISOString()});
-          const prevSt=bt.type==='CF'?'EN_COURS':'VISE_CF';const df=bt.type==='CF'?'dateTransmissionCF':'dateTransmissionAC';
-          bt.opsIds.forEach(opId => {
-            const op = ops.find(o => o.id === opId);
-            const exp = bt.type==='CF'?'TRANSMIS_CF':'TRANSMIS_AC';
-            if(op && op.statut === exp) {
-               batch.update(doc(db, 'ops', opId), {statut:prevSt,[df]:null,updatedAt:new Date().toISOString()});
-            }
-          });
-          await batch.commit();
-          notify('success', 'Annulé', 'Transmission annulée.');
-          setModalEditBT(prev => prev ? {...prev, dateTransmission: null, statut: 'EN_COURS'} : null);
-        }catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
-    });
+    if(isBordereauLocked(bt)){
+      notify('error', 'Action bloquée', "Ce bordereau contient des OP qui ont déjà été traités (Visés, Différés, Rejetés, etc.).\nAnnulez ces traitements d'abord."); 
+      return;
+    }
+    
+    // Demande de mot de passe incluse dans la modale
+    ask('Annuler transmission', `Saisissez le mot de passe pour annuler la transmission du bordereau ${bt.numero} :`, async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
+      
+      setSaving(true);
+      try{
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'bordereaux', bt.id), {dateTransmission:null,statut:'EN_COURS',updatedAt:new Date().toISOString()});
+        const prevSt=bt.type==='CF'?'EN_COURS':'VISE_CF';const df=bt.type==='CF'?'dateTransmissionCF':'dateTransmissionAC';
+        
+        bt.opsIds.forEach(opId => {
+          const op = ops.find(o => o.id === opId);
+          const exp = bt.type==='CF'?'TRANSMIS_CF':'TRANSMIS_AC';
+          if(op && op.statut === exp) {
+             batch.update(doc(db, 'ops', opId), {statut:prevSt,[df]:null,updatedAt:new Date().toISOString()});
+          }
+        });
+        await batch.commit();
+        notify('success', 'Annulé', 'Transmission annulée avec succès.');
+        setModalEditBT(prev => prev ? {...prev, dateTransmission: null, statut: 'EN_COURS'} : null);
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
+    }, true, true, "Mot de passe");
   };
 
   const handleOpenEditBT=(bt)=>{ setEditBtNumero(bt.numero||'');setModalEditBT(bt); };
@@ -311,94 +333,143 @@ const PageBordereaux=()=>{
 
   const handleDeleteBordereau=async(bt)=>{
     if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Des OP sont verrouillés."); return;}
-    checkPwd(() => {
-      ask('Suppression', `Supprimer définitivement le bordereau ${bt.numero} ?\nLes OP seront libérés.`, async () => {
-        try{
-          const batch = writeBatch(db);
-          batch.delete(doc(db, 'bordereaux', bt.id));
-          const ps=bt.type==='CF'?'EN_COURS':'VISE_CF';const bf=bt.type==='CF'?'bordereauCF':'bordereauAC';const df=bt.type==='CF'?'dateTransmissionCF':'dateTransmissionAC';
-          bt.opsIds.forEach(opId => {
-            batch.update(doc(db, 'ops', opId), {[bf]:null,statut:ps,[df]:null,updatedAt:new Date().toISOString()});
-          });
-          await batch.commit();
-          notify('success', 'Supprimé', 'Bordereau supprimé.');
-          if(expandedBT===bt.id)setExpandedBT(null);setModalEditBT(null);
-        }catch(e){notify('error', 'Erreur', e.message);}
-      });
-    });
+    ask('Suppression', `Mot de passe pour supprimer définitivement le bordereau ${bt.numero} :`, async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
+      try{
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'bordereaux', bt.id));
+        const ps=bt.type==='CF'?'EN_COURS':'VISE_CF';const bf=bt.type==='CF'?'bordereauCF':'bordereauAC';const df=bt.type==='CF'?'dateTransmissionCF':'dateTransmissionAC';
+        bt.opsIds.forEach(opId => {
+          batch.update(doc(db, 'ops', opId), {[bf]:null,statut:ps,[df]:null,updatedAt:new Date().toISOString()});
+        });
+        await batch.commit();
+        notify('success', 'Supprimé', 'Bordereau supprimé.');
+        if(expandedBT===bt.id)setExpandedBT(null);setModalEditBT(null);
+      }catch(e){notify('error', 'Erreur', e.message);}
+    }, true, true, "Mot de passe");
   };
 
   const handleSaveBtNumero=async(bt)=>{
     const nn=editBtNumero.trim();if(!nn){notify('error', 'Erreur', 'Numéro vide.');return;}
     if(nn===bt.numero)return;
-    checkPwd(async () => {
+    ask('Modifier Numéro', `Mot de passe pour valider :`, async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
       if(bordereaux.find(b=>b.numero===nn&&b.id!==bt.id&&b.type===bt.type)){notify('error', 'Doublon', 'Ce numéro existe déjà.');return;}
       try{
-        await updateDoc(doc(db,'bordereaux',bt.id),{numero:nn,updatedAt:new Date().toISOString()});
+        const batch = writeBatch(db);
+        batch.update(doc(db,'bordereaux',bt.id),{numero:nn,updatedAt:new Date().toISOString()});
         const bf=bt.type==='CF'?'bordereauCF':'bordereauAC';
-        for(const opId of(bt.opsIds||[]))await updateDoc(doc(db,'ops',opId),{[bf]:nn,updatedAt:new Date().toISOString()});
+        for(const opId of(bt.opsIds||[])) batch.update(doc(db,'ops',opId),{[bf]:nn,updatedAt:new Date().toISOString()});
+        await batch.commit();
         setBordereaux(p=>p.map(b=>b.id===bt.id?{...b,numero:nn}:b));
         setOps(p=>p.map(o=>(bt.opsIds||[]).includes(o.id)?{...o,[bf]:nn}:o));
         setModalEditBT(p=>p?{...p,numero:nn}:null);
         notify('success', 'Modifié', 'Numéro mis à jour.');
       }catch(e){notify('error', 'Erreur', e.message);}
-    });
+    }, true, true, "Mot de passe");
   };
 
   const handleRetourCF=async()=>{
     if(selectedOps.length===0){notify('error', 'Erreur', 'Sélectionnez des OP.');return;}
     const d=readDate('retourCF');if(!d){notify('error', 'Erreur', 'Date requise.');return;}
     if((resultatCF==='DIFFERE'||resultatCF==='REJETE')&&!motifRetour.trim()){notify('error', 'Erreur', 'Motif obligatoire.');return;}
+    
     const exec = async () => {
-      ask('Confirmation', `Marquer ${selectedOps.length} OP comme "${resultatCF}" ?`, async () => {
-        setSaving(true);
-        try{
-          let upd={updatedAt:new Date().toISOString()};
-          if(resultatCF==='VISE'){upd.statut='VISE_CF';upd.dateVisaCF=d;}
-          else if(resultatCF==='DIFFERE'){upd.statut='DIFFERE_CF';upd.dateDiffere=d;upd.motifDiffere=motifRetour.trim();}
-          else{upd.statut='REJETE_CF';upd.dateRejet=d;upd.motifRejet=motifRetour.trim();}
+      setSaving(true);
+      try{
+        const batch = writeBatch(db);
+        for(const opId of selectedOps) {
+          const op = ops.find(o => o.id === opId);
+          if(!op) continue;
+          let upd = { updatedAt: new Date().toISOString() };
           
-          const batch = writeBatch(db);
-          selectedOps.forEach(opId => batch.update(doc(db,'ops',opId), upd));
-          await batch.commit();
-          
-          notify('success', 'Succès', 'Mise à jour effectuée.');
-          setSelectedOps([]);setMotifRetour('');setModalRetourCF(false);
-        }catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
+          if (resultatCF === 'VISE') {
+            // CIRCUIT COURT : Si Annulation Visée, part directement en Archive (statut ANNULE)
+            if (op.type === 'ANNULATION') {
+              upd.statut = 'ANNULE';
+              upd.dateVisaCF = d;
+            } else {
+              upd.statut = 'VISE_CF';
+              upd.dateVisaCF = d;
+            }
+          } 
+          else if (resultatCF === 'DIFFERE') {
+             upd.statut = 'DIFFERE_CF';
+             upd.dateDiffere = d;
+             upd.motifDiffere = motifRetour.trim();
+          } 
+          else if (resultatCF === 'REJETE') {
+             upd.statut = 'REJETE_CF';
+             upd.type = 'REJET'; // Le type change en REJET
+             upd.montant = -Math.abs(op.montant); // Le montant devient négatif
+             upd.dateRejet = d;
+             upd.motifRejet = motifRetour.trim();
+          }
+          batch.update(doc(db,'ops',opId), upd);
+        }
+        await batch.commit();
+        notify('success', 'Terminé', `Les OP ont été marqués comme ${resultatCF}.`);
+        setSelectedOps([]);setMotifRetour('');setModalRetourCF(false);
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
     };
-    if(resultatCF==='REJETE') checkPwd(exec); else exec();
+
+    if(resultatCF === 'REJETE') {
+      ask('Mot de passe', `Confirmer le rejet définitif de ${selectedOps.length} OP ?\nIls deviendront négatifs.`, async (pwd) => {
+        if(pwd === (projet?.motDePasseAdmin || 'admin123')) exec();
+        else notify('error', 'Erreur', 'Mot de passe incorrect');
+      }, true, true, "Mot de passe");
+    } else {
+      ask('Confirmation', `Valider la décision "${resultatCF}" pour ${selectedOps.length} OP ?`, exec);
+    }
   };
 
   const handleAnnulerRetour=async(opId,statut)=>{
-    checkPwd(() => {
-      ask('Annulation', `Annuler le statut actuel et revenir en arrière ?`, async () => {
-        setSaving(true);
-        const ret=['DIFFERE_AC','REJETE_AC'].includes(statut)?'TRANSMIS_AC':'TRANSMIS_CF';
-        try{await updateDoc(doc(db,'ops',opId),{statut:ret,dateVisaCF:null,dateDiffere:null,motifDiffere:null,dateRejet:null,motifRejet:null,updatedAt:new Date().toISOString()});notify('success', 'Annulé', 'Retour arrière effectué.');}catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
-    });
+    ask('Annulation', `Mot de passe pour annuler cette étape et faire reculer l'OP :`, async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
+      setSaving(true);
+      
+      // On rétablit le bon statut précédent.
+      let newStatut = 'EN_COURS';
+      if (statut === 'VISE_CF' || statut === 'DIFFERE_CF' || statut === 'REJETE_CF') newStatut = 'TRANSMIS_CF';
+      if (statut === 'DIFFERE_AC' || statut === 'REJETE_AC') newStatut = 'TRANSMIS_AC';
+      
+      try{
+        await updateDoc(doc(db,'ops',opId),{
+          statut:newStatut,
+          dateVisaCF:null,dateDiffere:null,motifDiffere:null,dateRejet:null,motifRejet:null,
+          updatedAt:new Date().toISOString()
+        });
+        notify('success', 'Annulé', 'L\'OP est retourné à l\'étape précédente.');
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
+    }, true, true, "Mot de passe");
   };
 
   const handleRetourAC=async()=>{
     if(!modalPaiement)return;if(!motifRetourAC.trim()){notify('error', 'Erreur', 'Motif obligatoire.');return;}
     const d=readDate('retourAC');if(!d){notify('error', 'Erreur', 'Date requise.');return;}
+    
     const exec = async () => {
-      ask('Confirmation', `Marquer comme "${resultatAC}" ?`, async () => {
-        setSaving(true);
-        try{
-          let upd={updatedAt:new Date().toISOString()};
-          if(resultatAC==='DIFFERE'){upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();}
-          else{upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();}
-          await updateDoc(doc(db,'ops',modalPaiement.id),upd);
-          notify('success', 'Succès', 'Mise à jour effectuée.');setModalPaiement(null);setMotifRetourAC('');
-        }catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
+      setSaving(true);
+      try{
+        let upd={updatedAt:new Date().toISOString()};
+        if(resultatAC==='DIFFERE'){upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();}
+        else{upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();}
+        await updateDoc(doc(db,'ops',modalPaiement.id),upd);
+        notify('success', 'Succès', `OP marqué comme ${resultatAC}.`);setModalPaiement(null);setMotifRetourAC('');
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
     };
-    if(resultatAC==='REJETE') checkPwd(exec); else exec();
+
+    if(resultatAC === 'REJETE') {
+      ask('Mot de passe', `Confirmer le rejet AC de cet OP ?`, async (pwd) => {
+        if(pwd === (projet?.motDePasseAdmin || 'admin123')) exec();
+        else notify('error', 'Erreur', 'Mot de passe incorrect');
+      }, true, true, "Mot de passe");
+    } else {
+      ask('Confirmation', `Marquer comme "${resultatAC}" ?`, exec);
+    }
   };
 
   const handlePaiement=async(opId)=>{
@@ -414,7 +485,7 @@ const PageBordereaux=()=>{
         const nP=[...paiem,{date:d,montant:m,reference:paiementReference.trim(),createdAt:new Date().toISOString()}];
         const tot=nP.reduce((s,p)=>s+(p.montant||0),0);const solde=(op.montant||0)-tot<1;
         await updateDoc(doc(db,'ops',opId),{paiements:nP,totalPaye:tot,datePaiement:d,updatedAt:new Date().toISOString(),statut:solde?'PAYE':'PAYE_PARTIEL'});
-        notify('success', 'Paiement', solde?'OP soldé.':'Paiement partiel enregistré.');
+        notify('success', 'Paiement', solde?'OP soldé !':'Paiement partiel enregistré.');
         setPaiementMontant('');setPaiementReference('');
       }catch(e){notify('error', 'Erreur', e.message);}
       setSaving(false);
@@ -430,29 +501,30 @@ const PageBordereaux=()=>{
   const handleAnnulerPaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);const p=op?.paiements||[];if(p.length===0)return;
     const der=p[p.length-1];
-    checkPwd(() => {
-      ask('Annulation', `Annuler le dernier paiement de ${formatMontant(der.montant)} F ?`, async () => {
-        setSaving(true);
-        try{
-          const nP=p.slice(0,-1);const tot=nP.reduce((s,x)=>s+(x.montant||0),0);
-          const upd={paiements:nP,totalPaye:tot,statut:nP.length>0?'PAYE_PARTIEL':'TRANSMIS_AC',updatedAt:new Date().toISOString()};
-          if(nP.length===0)upd.datePaiement=null;
-          await updateDoc(doc(db,'ops',opId),upd);notify('success', 'Annulé', 'Paiement annulé.');
-        }catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
-    });
+    ask('Annulation', `Mot de passe pour annuler le dernier paiement de ${formatMontant(der.montant)} F :`, async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
+      setSaving(true);
+      try{
+        const nP=p.slice(0,-1);const tot=nP.reduce((s,x)=>s+(x.montant||0),0);
+        const upd={paiements:nP,totalPaye:tot,statut:nP.length>0?'PAYE_PARTIEL':'TRANSMIS_AC',updatedAt:new Date().toISOString()};
+        if(nP.length===0)upd.datePaiement=null;
+        await updateDoc(doc(db,'ops',opId),upd);notify('success', 'Annulé', 'Paiement annulé.');
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
+    }, true, true, "Mot de passe");
   };
 
   const handleArchiverDirect=async(opId,boite)=>{
     if(!boite||!boite.trim()){notify('error', 'Erreur', "Renseignez la boîte.");return;}
-    checkPwd(() => {
-      ask('Archivage', `Archiver dans "${boite}" ?`, async () => {
-        setSaving(true);
-        try{await updateDoc(doc(db,'ops',opId),{statut:'ARCHIVE',boiteArchivage:boite.trim(),dateArchivage:new Date().toISOString().split('T')[0],updatedAt:new Date().toISOString()});notify('success', 'Archivé', 'OP archivé.');setModalPaiement(null);setBoiteModalPaiement('');}catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
-    });
+    ask('Archivage', `Mot de passe pour archiver dans "${boite}" :`, async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
+      setSaving(true);
+      try{
+        await updateDoc(doc(db,'ops',opId),{statut:'ARCHIVE',boiteArchivage:boite.trim(),dateArchivage:new Date().toISOString().split('T')[0],updatedAt:new Date().toISOString()});
+        notify('success', 'Archivé', 'OP archivé avec succès.');setModalPaiement(null);setBoiteModalPaiement('');
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
+    }, true, true, "Mot de passe");
   };
 
   const handleArchiver=async()=>{
@@ -472,29 +544,27 @@ const PageBordereaux=()=>{
   };
 
   const handleDesarchiver=async(opId)=>{
-    checkPwd(() => {
-      ask('Désarchiver', 'Remettre cet OP en circulation ?', async () => {
-        setSaving(true);
-        try{
-          const op=ops.find(o=>o.id===opId);
-          let prev = 'ANNULE';
-          if(op.statut !== 'ANNULE') {
-             prev=(op?.totalPaye&&op.totalPaye>=(op?.montant||0))?'PAYE':(op?.totalPaye>0?'PAYE_PARTIEL':'TRANSMIS_AC');
-          }
-          await updateDoc(doc(db,'ops',opId),{statut:prev,boiteArchivage:null,dateArchivage:null,updatedAt:new Date().toISOString()});notify('success', 'OK', 'Désarchivé.');
-        }catch(e){notify('error', 'Erreur', e.message);}
-        setSaving(false);
-      });
-    });
+    ask('Désarchiver', 'Mot de passe pour remettre cet OP en circulation :', async (pwd) => {
+      if (pwd !== (projet?.motDePasseAdmin || 'admin123')) { notify('error', 'Erreur', 'Mot de passe incorrect.'); return; }
+      setSaving(true);
+      try{
+        const op=ops.find(o=>o.id===opId);
+        let prev = 'ANNULE';
+        if(op.statut !== 'ANNULE') {
+           prev=(op?.totalPaye&&op.totalPaye>=(op?.montant||0))?'PAYE':(op?.totalPaye>0?'PAYE_PARTIEL':'TRANSMIS_AC');
+        }
+        await updateDoc(doc(db,'ops',opId),{statut:prev,boiteArchivage:null,dateArchivage:null,updatedAt:new Date().toISOString()});
+        notify('success', 'Désarchivé', 'L\'OP est de nouveau disponible.');
+      }catch(e){notify('error', 'Erreur', e.message);}
+      setSaving(false);
+    }, true, true, "Mot de passe");
   };
 
   const handleModifierBoite=async(opId)=>{
-    checkPwd(() => {
-      ask('Modifier boîte', 'Nouvelle référence de boîte :', async (val) => {
-        if(!val) return;
-        try{await updateDoc(doc(db,'ops',opId),{boiteArchivage:val.trim(),updatedAt:new Date().toISOString()});notify('success', 'OK', 'Boîte modifiée.');}catch(e){notify('error', 'Erreur', e.message);}
-      }, false, true, "Référence boîte");
-    });
+    ask('Modifier boîte', 'Saisissez la nouvelle référence de boîte :', async (val) => {
+      if(!val) return;
+      try{await updateDoc(doc(db,'ops',opId),{boiteArchivage:val.trim(),updatedAt:new Date().toISOString()});notify('success', 'OK', 'Boîte modifiée.');}catch(e){notify('error', 'Erreur', e.message);}
+    }, false, true, "Référence boîte");
   };
 
   const handleReintroduire=async(opIds,type='CF')=>{
@@ -601,7 +671,7 @@ const PageBordereaux=()=>{
       {filterOps(differes,searchSuivi).length===0?<Empty text="Aucun différé"/>:<>
       <div style={{maxHeight:350,overflowY:'auto'}}><table style={styles.table}><thead><tr>
         <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(differes,searchSuivi).length&&selectedOps.length>0} onChange={()=>toggleAll(filterOps(differes,searchSuivi))}/></th>
-        <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>DATE</th><th style={thS}>MOTIF</th><th style={{...thS,width:36}}></th>
+        <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>DATE</th><th style={thS}>MOTIF</th><th style={{...thS,width:60}}>ACTIONS</th>
       </tr></thead><tbody>{filterOps(differes,searchSuivi).map(op=>{const ch=selectedOps.includes(op.id);
         return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
           <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
@@ -610,7 +680,7 @@ const PageBordereaux=()=>{
           <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
           <td style={{...styles.td,fontSize:12}}>{op.dateDiffere||'-'}</td>
           <td style={{...styles.td,fontSize:11}}>{op.motifDiffere||'-'}</td>
-          <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
+          <td style={styles.td} onClick={e=>e.stopPropagation()}><ActionBtn label="Annuler" icon={I.undo(P.gold,14)} color="#E0E0E0" onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
         </tr>;})}</tbody></table></div>
       {selectedOps.length>0&&selectedOps.some(id=>differes.find(o=>o.id===id))&&<div style={{marginTop:12,padding:12,background:P.goldLight,borderRadius:10,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
         <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:4}}>Date</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('reintro',el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/></div>
@@ -620,14 +690,14 @@ const PageBordereaux=()=>{
     {subTab==='REJETES'&&<div style={crd}>
       {filterOps(rejetes,searchSuivi).length===0?<Empty text="Aucun rejeté"/>:
       <div style={{maxHeight:350,overflowY:'auto'}}><table style={styles.table}><thead><tr>
-        <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>DATE</th><th style={thS}>MOTIF</th><th style={{...thS,width:36}}></th>
+        <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>DATE</th><th style={thS}>MOTIF</th><th style={{...thS,width:60}}>ACTIONS</th>
       </tr></thead><tbody>{filterOps(rejetes,searchSuivi).map(op=><tr key={op.id} style={{background:P.redLight}}>
         <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
         <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
         <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600,color:P.red}}>{formatMontant(op.montant)}</td>
         <td style={{...styles.td,fontSize:12}}>{op.dateRejet||'-'}</td>
         <td style={{...styles.td,fontSize:11}}>{op.motifRejet||'-'}</td>
-        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'REJETE_CF':'REJETE_AC')}/></td>
+        <td style={styles.td}><ActionBtn label="Annuler" icon={I.undo(P.red,14)} color="#E0E0E0" onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'REJETE_CF':'REJETE_AC')}/></td>
       </tr>)}</tbody></table></div>}
     </div>}
   </div>;
@@ -641,7 +711,7 @@ const PageBordereaux=()=>{
       {[{k:'CF',l:'Contrôle Financier',c:P.greenDark},{k:'AC',l:'Agent Comptable',c:P.orange},{k:'ARCHIVES',l:'Archives',c:P.olive}].map(t=><button key={t.k} onClick={()=>chgTab(t.k)} style={{flex:1,padding:'14px 12px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mainTab===t.k?t.c:'#EDEAE5',color:mainTab===t.k?'white':P.textSec,borderRadius:10,boxShadow:mainTab===t.k?`0 4px 12px ${t.c}33`:'none',transition:'all .2s'}}>{t.l}</button>)}
     </div>
 
-    {/* ALERT & CONFIRM MODAL */}
+    {/* MODALES PROPRES */}
     <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
 
     {/* ===== CF ===== */}
@@ -679,12 +749,12 @@ const PageBordereaux=()=>{
       {subTabCF==='BORDEREAUX'&&renderBordereaux(bordereauCF)}
       {subTabCF==='RETOUR'&&<div style={crd}>
         <h3 style={{margin:'0 0 6px',color:P.gold,fontSize:15}}>OP transmis au CF ({opsTransmisCF.length})</h3>
-        <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Sélectionnez puis cliquez Retour CF.</p>
+        <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Sélectionnez puis cliquez Retour CF pour statuer. Vous pouvez aussi annuler la transmission d'un OP individuellement.</p>
         <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsTransmisCF,searchBT).length===0?<Empty text="Aucun OP"/>:
         <div style={{maxHeight:400,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsTransmisCF,searchBT).length&&filterOps(opsTransmisCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsTransmisCF,searchBT))}/></th>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:100}}>N° BT</th><th style={{...thS,width:90}}>TRANSMIS</th>
+          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:100}}>N° BT</th><th style={{...thS,width:60}}>ACTIONS</th>
         </tr></thead><tbody>
           {filterOps(opsTransmisCF,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?`${P.gold}10`:'transparent'}}>
@@ -693,10 +763,16 @@ const PageBordereaux=()=>{
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:9}}>{op.bordereauCF||'-'}</td>
-              <td style={{...styles.td,fontSize:12}}>{op.dateTransmissionCF||'-'}</td>
+              <td style={styles.td} onClick={e=>e.stopPropagation()}><ActionBtn label="Annuler" icon={I.undo(P.gold,14)} color="#E0E0E0" onClick={async()=>{
+                ask('Annulation', `Annuler la transmission de cet OP et le remettre "En cours" ?`, async () => {
+                  setSaving(true);
+                  try{await updateDoc(doc(db,'ops',op.id),{statut:'EN_COURS',dateTransmissionCF:null,updatedAt:new Date().toISOString()});notify('success', 'Annulé', 'Transmission annulée.');}catch(e){notify('error', 'Erreur', e.message);}
+                  setSaving(false);
+                });
+              }}/></td>
             </tr>;})}
         </tbody></table></div>}
-        {selectedOps.length>0&&<div style={{marginTop:14,textAlign:'right'}}><ActionBtn label="Retour CF" count={selectedOps.length} color={P.gold} onClick={()=>{setModalRetourCF(true);setResultatCF('VISE');setMotifRetour('');}}/></div>}
+        {selectedOps.length>0&&<div style={{marginTop:14,textAlign:'right'}}><ActionBtn label="Retour CF (Viser/Rejeter...)" count={selectedOps.length} color={P.gold} onClick={()=>{setModalRetourCF(true);setResultatCF('VISE');setMotifRetour('');}}/></div>}
       </div>}
       {subTabCF==='SUIVI'&&renderSuivi(opsDifferesCF,opsRejetesCF,'CF',subTabSuiviCF,setSubTabSuiviCF)}
     </div>}
@@ -715,7 +791,7 @@ const PageBordereaux=()=>{
         {filterOps(opsEligiblesAC,searchBT).length===0?<Empty text="Aucun OP visé"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesAC,searchBT).length&&filterOps(opsEligiblesAC,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesAC,searchBT))}/></th>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>VISA CF</th><th style={{...thS,width:36}}></th>
+          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>VISA CF</th><th style={{...thS,width:60}}>ACTIONS</th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesAC,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
@@ -725,7 +801,7 @@ const PageBordereaux=()=>{
               <td style={{...styles.td,fontSize:11,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={{...styles.td,fontSize:12}}>{op.dateVisaCF||'-'}</td>
-              <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler visa" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,'VISE_CF')}/></td>
+              <td style={styles.td} onClick={e=>e.stopPropagation()}><ActionBtn label="Annuler Visa" icon={I.undo(P.gold,14)} color="#E0E0E0" onClick={()=>handleAnnulerRetour(op.id,'VISE_CF')}/></td>
             </tr>;})}
         </tbody></table></div>}
         {selectedOps.length>0&&<div style={{marginTop:16,padding:16,background:P.greenLight,borderRadius:10}}>
@@ -786,7 +862,7 @@ const PageBordereaux=()=>{
         <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsArchives,searchArch).length===0?<Empty text="Aucun OP archivé"/>:
         <div style={{maxHeight:500,overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:120}}>BOÎTE</th><th style={{...thS,width:90}}>DATE</th><th style={{...thS,width:70}}></th>
+          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:120}}>BOÎTE</th><th style={{...thS,width:90}}>DATE</th><th style={{...thS,width:70}}>ACTIONS</th>
         </tr></thead><tbody>
           {filterOps(opsArchives,searchArch).map(op=><tr key={op.id}>
             <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
@@ -818,7 +894,7 @@ const PageBordereaux=()=>{
       </div>
       <div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
       {(resultatCF==='DIFFERE'||resultatCF==='REJETE')&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6,color:P.red}}>Motif (obligatoire) *</label><textarea value={motifRetour} onChange={e=>setMotifRetour(e.target.value)} placeholder="Motif..." style={{...styles.input,minHeight:80,resize:'vertical',marginBottom:0}}/></div>}
-      {resultatCF==='REJETE'&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:P.redLight,borderRadius:8,marginBottom:14}}>{I.warn(P.red,16)}<span style={{fontSize:12,color:P.red,fontWeight:600}}>Confirmé par mot de passe.</span></div>}
+      {resultatCF==='REJETE'&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:P.redLight,borderRadius:8,marginBottom:14}}>{I.warn(P.red,16)}<span style={{fontSize:12,color:P.red,fontWeight:600}}>L'OP passera en négatif. Mot de passe requis.</span></div>}
       <button onClick={handleRetourCF} disabled={saving} style={{width:'100%',padding:14,border:'none',borderRadius:10,background:resultatCF==='VISE'?P.green:resultatCF==='DIFFERE'?P.gold:P.red,color:'white',fontWeight:700,fontSize:14,cursor:'pointer'}}>{saving?'...':`Valider (${selectedOps.length} OP)`}</button>
     </Modal>}
 
@@ -902,7 +978,6 @@ const PageBordereaux=()=>{
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Numéro du bordereau</div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}><input type="text" value={editBtNumero} onChange={e=>setEditBtNumero(e.target.value)} style={{flex:1,...iS,fontFamily:'monospace',fontWeight:700,borderRadius:8}}/><ActionBtn label="Sauver" color={P.gold} onClick={()=>handleSaveBtNumero(modalEditBT)} disabled={saving}/></div>
-        <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Mot de passe requis.</p>
       </div>
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
@@ -922,19 +997,19 @@ const PageBordereaux=()=>{
       
       {modalEditBT.statut === 'ENVOYE' && !isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20,borderTop:`1px solid ${P.border}`,paddingTop:16}}>
-           <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.goldBorder}`,borderRadius:10,background:P.goldLight,color:P.gold,fontWeight:700,fontSize:13,cursor:'pointer'}}>Annuler la transmission</button>
+           <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.goldBorder}`,borderRadius:10,background:P.goldLight,color:P.gold,fontWeight:700,fontSize:13,cursor:'pointer'}}>Annuler la transmission (Mot de passe)</button>
         </div>
       )}
 
       {!isBordereauLocked(modalEditBT) && (
         <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:20}}>
-          <button onClick={()=>handleDeleteBordereau(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.red}33`,borderRadius:10,background:P.redLight,color:P.red,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.trash(P.red,15)} Supprimer ce bordereau</button>
+          <button onClick={()=>handleDeleteBordereau(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.red}33`,borderRadius:10,background:P.redLight,color:P.red,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.trash(P.red,15)} Supprimer ce bordereau (Mot de passe)</button>
         </div>
       )}
       
       {isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20,padding:12,background:P.redLight,color:P.red,fontSize:12,borderRadius:8,textAlign:'center'}}>
-          <strong>Bordereau verrouillé.</strong><br/>Certains OP ont avancé dans le circuit (Paiement ou Visa).<br/>Annulez les étapes sur les OP individuels pour débloquer.
+          <strong>Bordereau verrouillé.</strong><br/>Certains OP ont avancé dans le circuit (Paiement, Visa ou Différé/Rejeté).<br/>Annulez les étapes sur les OP individuels pour débloquer.
         </div>
       )}
     </Modal>}
