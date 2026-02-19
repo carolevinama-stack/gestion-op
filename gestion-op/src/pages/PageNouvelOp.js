@@ -79,7 +79,9 @@ const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D472
 
 const PageNouvelOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
-  const defaultForm = { type: 'PROVISOIRE', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
+  
+  // MODIF: type démarre vide ('') au lieu de 'PROVISOIRE'
+  const defaultForm = { type: '', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
 
   // Restaurer le brouillon depuis localStorage
   const loadDraft = () => {
@@ -98,7 +100,6 @@ const PageNouvelOp = () => {
   };
 
   const [activeSource, setActiveSource] = useState(loadSource);
-  // REMPLACEMENT : État unique pour la modale au lieu du tableau de toasts
   const [modal, setModal] = useState(null); 
   const [form, setForm] = useState(loadDraft);
   const [saving, setSaving] = useState(false);
@@ -294,6 +295,9 @@ const PageNouvelOp = () => {
   };
 
   const handleSave = async () => {
+    // MODIF: Validation du type obligatoire
+    if (!form.type) { setModal({ type: 'error', title: 'Type manquant', message: 'Veuillez sélectionner un type d\'OP' }); return; }
+    
     if (!activeSource) { setModal({ type: 'error', title: 'Source manquante', message: 'Veuillez sélectionner une source de financement' }); return; }
     if (!exerciceActif) { setModal({ type: 'error', title: 'Exercice manquant', message: 'Aucun exercice actif' }); return; }
     if (!form.beneficiaireId) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner un bénéficiaire' }); return; }
@@ -349,9 +353,7 @@ const PageNouvelOp = () => {
 
       // Avertissement si OP provisoire saisi manuellement (hors base)
       if (['ANNULATION', 'DEFINITIF'].includes(form.type) && form.opProvisoireManuel.trim() && !form.opProvisoireId && (form.opProvisoireIds || []).length === 0) {
-        // Note: Ici on n'utilise pas le modal pour ne pas bloquer, ou alors on l'utilise à la fin.
-        // Pour simplifier avec le système modal, on continue mais on pourrait logger ou notifier différemment.
-        // Dans ce système modal strict, on passe outre l'avertissement non bloquant pour le moment de la sauvegarde.
+        // Note: Ici on n'utilise pas le modal pour ne pas bloquer
       }
 
       // Numéro généré via transaction atomique (anti-doublon simultané)
@@ -487,6 +489,7 @@ const PageNouvelOp = () => {
                 <select value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
                   style={{ padding: '10px 10px', border: `1.5px solid ${(typeColors[form.type] || '#999')}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || '#999', cursor: 'pointer', background: '#fff', height: 44 }}>
+                  <option value="" disabled>-- Sélectionner --</option>
                   <option value="PROVISOIRE">Provisoire</option>
                   <option value="DIRECT">Direct</option>
                   <option value="DEFINITIF">Définitif</option>
