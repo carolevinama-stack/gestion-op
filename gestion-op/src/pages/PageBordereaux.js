@@ -35,7 +35,7 @@ const I={
 };
 
 // ============================================================
-// UI COMPONENTS
+// COMPOSANTS UI
 // ============================================================
 const Badge=React.memo(({bg,color,children})=><span style={{background:bg,color,padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:600,whiteSpace:'nowrap',letterSpacing:.3}}>{children}</span>);
 const Empty=React.memo(({text})=><div style={{textAlign:'center',padding:50,color:P.textMuted}}><div style={{marginBottom:12,opacity:.5}}>{I.fileText(P.textMuted,40)}</div><p style={{fontSize:14,margin:0}}>{text}</p></div>);
@@ -48,11 +48,13 @@ const Modal=React.memo(({title,titleColor,onClose,children,width=540})=><><div o
 
 // Modal Alert / Confirm (Remplace window.alert/confirm/prompt)
 const ModalAlert = ({ data, onClose }) => {
+  // HOOKS TOUJOURS EN PREMIER
+  const [val, setVal] = useState('');
+
   if (!data) return null;
   // data = { type: 'success'|'error'|'confirm', title, message, onConfirm, showInput: bool, inputLabel, showPwd: bool }
   const isConfirm = data.type === 'confirm';
   const color = data.type === 'error' ? P.red : isConfirm ? P.gold : P.green;
-  const [val, setVal] = useState('');
   
   return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center'}}>
     <div style={{background:'white',borderRadius:20,padding:24,width:400,textAlign:'center',boxShadow:'0 10px 40px rgba(0,0,0,.2)'}}>
@@ -74,6 +76,7 @@ const ModalAlert = ({ data, onClose }) => {
         <button onClick={() => { 
           if(isConfirm && (data.showInput || data.showPwd) && !val) return; 
           if(isConfirm) data.onConfirm(val); 
+          setVal(''); // Reset
           onClose(); 
         }} style={{padding:'10px 20px',borderRadius:8,border:'none',background:color,color:'white',cursor:'pointer',fontWeight:600,flex:isConfirm?1:'0 0 100%'}}>
           {isConfirm ? 'Confirmer' : 'OK'}
@@ -102,7 +105,7 @@ const PageBordereaux=()=>{
   const[searchArch,setSearchArch]=useState('');
   
   // Modales
-  const[alertData, setAlertData] = useState(null); // Pour remplacer window.alert/confirm
+  const[alertData, setAlertData] = useState(null); 
   const[modalRetourCF,setModalRetourCF]=useState(false);
   const[resultatCF,setResultatCF]=useState('VISE');
   const[motifRetour,setMotifRetour]=useState('');
@@ -122,47 +125,7 @@ const PageBordereaux=()=>{
   const dateRefs=useRef({});
   const setDateRef=(key,el)=>{if(el)dateRefs.current['_'+key]=el};
   const readDate=(key)=>dateRefs.current['_'+key]?.value||'';
-// Modal Alert / Confirm (Remplace window.alert/confirm/prompt)
-const ModalAlert = ({ data, onClose }) => {
-  // CORRECTION : On déclare le State TOUJOURS en premier
-  const [val, setVal] = useState('');
 
-  // Ensuite seulement on peut faire le return null
-  if (!data) return null;
-
-  // data = { type: 'success'|'error'|'confirm', title, message, onConfirm, showInput: bool, inputLabel, showPwd: bool }
-  const isConfirm = data.type === 'confirm';
-  const color = data.type === 'error' ? P.red : isConfirm ? P.gold : P.green;
-  
-  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(4px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div style={{background:'white',borderRadius:20,padding:24,width:400,textAlign:'center',boxShadow:'0 10px 40px rgba(0,0,0,.2)'}}>
-      <h3 style={{color,margin:'0 0 10px'}}>{data.title}</h3>
-      <p style={{color:'#666',fontSize:14,marginBottom:20,whiteSpace:'pre-line'}}>{data.message}</p>
-      
-      {(data.showInput || data.showPwd) && (
-        <div style={{marginBottom:20,textAlign:'left'}}>
-          {data.inputLabel && <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>{data.inputLabel}</label>}
-          <input type={data.showPwd ? "password" : "text"} autoFocus value={val} onChange={e=>setVal(e.target.value)} 
-            style={{width:'100%',padding:10,borderRadius:8,border:'1px solid #ccc',boxSizing:'border-box'}} 
-            placeholder={data.showPwd ? "Mot de passe..." : "Saisir ici..."}
-          />
-        </div>
-      )}
-
-      <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-        {isConfirm && <button onClick={onClose} style={{padding:'10px 20px',borderRadius:8,border:'1px solid #ccc',background:'white',cursor:'pointer',fontWeight:600}}>Annuler</button>}
-        <button onClick={() => { 
-          if(isConfirm && (data.showInput || data.showPwd) && !val) return; 
-          if(isConfirm) data.onConfirm(val); 
-          setVal(''); // Reset valeur
-          onClose(); 
-        }} style={{padding:'10px 20px',borderRadius:8,border:'none',background:color,color:'white',cursor:'pointer',fontWeight:600,flex:isConfirm?1:'0 0 100%'}}>
-          {isConfirm ? 'Confirmer' : 'OK'}
-        </button>
-      </div>
-    </div>
-  </div>;
-};
   // Helper pour les alertes/confirms
   const notify = (type, title, message) => setAlertData({ type, title, message });
   const ask = (title, message, onConfirm, showPwd=false, showInput=false, inputLabel='') => {
@@ -197,7 +160,7 @@ const ModalAlert = ({ data, onClose }) => {
   // === HELPERS ===
   const getBen=(op)=>op?.beneficiaireNom||beneficiaires.find(b=>b.id===op?.beneficiaireId)?.nom||'N/A';
   
-  // LOGIQUE DE VERROUILLAGE DU BORDEREAU
+  // LOGIQUE DE VERROUILLAGE
   const isOpLockedForCF = (op) => ['VISE_CF','TRANSMIS_AC','PAYE_PARTIEL','PAYE','ARCHIVE','ANNULE','DIFFERE_AC','REJETE_AC'].includes(op.statut);
   const isOpLockedForAC = (op) => ['PAYE','ARCHIVE'].includes(op.statut);
   const isBordereauLocked = (bt) => {
@@ -238,7 +201,7 @@ const ModalAlert = ({ data, onClose }) => {
   const chgSub=(fn,v)=>{fn(v);setSelectedOps([]);setSearchBT('');setExpandedBT(null);setSearchSuivi('');};
 
   // ================================================================
-  // ACTIONS
+  // ACTIONS (BATCHES)
   // ================================================================
   const handleCreateBordereau=async(typeBT)=>{
     if(selectedOps.length===0){notify('error', 'Erreur', 'Sélectionnez au moins un OP.');return;}
