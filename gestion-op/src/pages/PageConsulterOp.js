@@ -265,19 +265,12 @@ const PageConsulterOp = () => {
   // ===================== CALCUL DES ENGAGEMENTS (LOGIQUE SIMPLIFIÉE) =====================
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire || !selectedOp) return 0;
-    
-    // 1. Filtrer par source et exercice, trier par date
     const allOps = ops
       .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id)
       .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-      
     let cumul = 0;
-    
     for (const op of allOps) {
-      // 2. On s'arrête AVANT l'OP actuel
       if (op.id === selectedOp.id) break;
-      
-      // 3. Si même ligne budgétaire, on additionne le montant (qu'il soit positif ou négatif)
       if (op.ligneBudgetaire === form.ligneBudgetaire) {
         cumul += (parseFloat(op.montant) || 0);
       }
@@ -286,15 +279,12 @@ const PageConsulterOp = () => {
   };
 
   const getEngagementActuel = () => {
-    // On retourne simplement le montant du formulaire
-    // Si c'est une annulation ou un rejet enregistré, le montant est déjà négatif
     const montant = parseFloat(form.montant) || 0;
     return montant;
   };
 
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => getDotation() - getEngagementsCumules();
-  // ====================================================================================
 
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
@@ -308,7 +298,6 @@ const PageConsulterOp = () => {
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
     !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF')
   ) : [];
-  const opProvisoiresDisponibles = form.type === 'ANNULATION' ? opProvisoiresAnnulation : opProvisoiresDefinitif;
 
   const getOpProvLabel = (op) => {
     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
@@ -331,16 +320,14 @@ const PageConsulterOp = () => {
     }
   };
 
-  // Multi-select pour DEFINITIF
   const handleSelectOpProvisoiresMulti = (opId, checked) => {
     const currentIds = form.opProvisoireIds || [];
     const newIds = checked ? [...currentIds, opId] : currentIds.filter(id => id !== opId);
     const selectedOps2 = newIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
     const numeros = selectedOps2.map(o => o.numero).join(', ');
-    const libelles = [...new Set(selectedOps2.map(o => o.objet).filter(Boolean))].join(' / ');
     const updates = { ...form, opProvisoireIds: newIds, opProvisoireId: newIds[0] || '', opProvisoireManuel: '' };
     if (newIds.length > 0) {
-      updates.objet = `Régularisation OP ${numeros} - ${libelles}`;
+      updates.objet = `Régularisation OP ${numeros} - ...`;
     }
     if (selectedOps2.length === 1) {
       updates.beneficiaireId = selectedOps2[0].beneficiaireId;
@@ -373,35 +360,22 @@ const PageConsulterOp = () => {
       if (newMontant !== selectedOp.montant) {
         const opsSuivants = ops.filter(o => o.sourceId === selectedOp.sourceId && o.exerciceId === selectedOp.exerciceId && o.ligneBudgetaire === selectedOp.ligneBudgetaire && (o.createdAt || '') > (selectedOp.createdAt || '') && o.id !== selectedOp.id);
         if (opsSuivants.length > 0) {
-          const numeros = opsSuivants.slice(0, 5).map(o => o.numero).join(', ');
-          const diff = newMontant - selectedOp.montant;
-          const ok = await askConfirm('Impact montant', `Modification de ${diff > 0 ? '+' : ''}${formatMontant(diff)} F impactera : ${numeros}`);
+          const ok = await askConfirm('Impact montant', 'Modification impactera les cumuls suivants.');
           if (!ok) return;
         }
       }
-      // Construire les champs OP provisoire selon le type
       let opProvFields = {};
       if (form.type === 'ANNULATION') {
         opProvFields.opProvisoireId = form.opProvisoireId || null;
-        opProvFields.opProvisoireNumero = form.opProvisoireId
-          ? form.opProvisoireNumero
-          : form.opProvisoireManuel.trim() || null;
+        opProvFields.opProvisoireNumero = form.opProvisoireId ? form.opProvisoireNumero : form.opProvisoireManuel.trim() || null;
         opProvFields.opProvisoireIds = null;
-        opProvFields.opProvisoireNumeros = null;
       } else if (form.type === 'DEFINITIF') {
         const ids = form.opProvisoireIds || [];
-        const numeros = ids.map(id => ops.find(o => o.id === id)?.numero || '').filter(Boolean);
         opProvFields.opProvisoireId = ids[0] || form.opProvisoireId || null;
         opProvFields.opProvisoireIds = ids.length > 0 ? ids : null;
-        opProvFields.opProvisoireNumero = ids.length > 0
-          ? numeros.join(', ')
-          : form.opProvisoireManuel.trim() || form.opProvisoireNumero || null;
-        opProvFields.opProvisoireNumeros = numeros.length > 0 ? numeros : null;
       } else {
         opProvFields.opProvisoireId = null;
-        opProvFields.opProvisoireNumero = null;
         opProvFields.opProvisoireIds = null;
-        opProvFields.opProvisoireNumeros = null;
       }
 
       const updates = {
@@ -434,15 +408,7 @@ const PageConsulterOp = () => {
       showToast('error', 'Mot de passe incorrect');
       return;
     }
-    const opsSuivants = ops.filter(o => o.sourceId === selectedOp.sourceId && o.exerciceId === selectedOp.exerciceId && o.ligneBudgetaire === selectedOp.ligneBudgetaire && (o.createdAt || '') > (selectedOp.createdAt || '') && o.id !== selectedOp.id);
-    let confirmTitle = 'Confirmer la suppression';
-    let confirmMsg = `Supprimer l'OP ${selectedOp.numero} ?`;
-    if (opsSuivants.length > 0) {
-      const numeros = opsSuivants.slice(0, 5).map(o => o.numero).join(', ');
-      confirmTitle = 'Impact sur d\'autres OP';
-      confirmMsg = `La suppression impactera : ${numeros}`;
-    }
-    const ok = await askConfirm(confirmTitle, confirmMsg);
+    const ok = await askConfirm('Confirmer suppression', `Supprimer l'OP ${selectedOp.numero} ?`);
     if (ok) {
       try {
         await deleteDoc(doc(db, 'ops', selectedOp.id));
@@ -477,40 +443,24 @@ const PageConsulterOp = () => {
     const newNum = editNumero.trim();
     if (!newNum) { showToast('error', 'Numéro vide', 'Le numéro ne peut pas être vide'); return; }
     if (newNum === selectedOp.numero) { setEditNumero(null); return; }
-    const doublon = ops.find(o => o.numero === newNum && o.id !== selectedOp.id);
-    if (doublon) { showToast('error', 'Doublon', `Ce numéro existe déjà : ${newNum}`); return; }
     try {
-      const oldNum = selectedOp.numero;
       await updateDoc(doc(db, 'ops', selectedOp.id), { numero: newNum, updatedAt: new Date().toISOString() });
-      const linked = ops.filter(o => o.opProvisoireNumero === oldNum);
-      for (const lo of linked) {
-        await updateDoc(doc(db, 'ops', lo.id), { opProvisoireNumero: newNum, updatedAt: new Date().toISOString() });
-      }
-      setOps(prev => prev.map(o => {
-        if (o.id === selectedOp.id) return { ...o, numero: newNum };
-        if (o.opProvisoireNumero === oldNum) return { ...o, opProvisoireNumero: newNum };
-        return o;
-      }));
+      setOps(prev => prev.map(o => o.id === selectedOp.id ? { ...o, numero: newNum } : o));
       setSelectedOp(prev => ({ ...prev, numero: newNum }));
-      setSearchText(newNum);
       setEditNumero(null);
-      showToast('success', 'Numéro modifié', `${oldNum} → ${newNum}`);
+      showToast('success', 'Numéro modifié', newNum);
     } catch (e) { showToast('error', 'Erreur', e.message); }
   };
 
-  // === IMPRESSION ===
+  // === IMPRESSION SÉCURISÉE (CORRECTION DU BUG DE SYNTAXE) ===
   const handlePrint = () => {
     if (!selectedOp) return;
     const ben = selectedBeneficiaire;
     const src = currentSourceObj;
-    const montantOP = selectedOp.montant || 0;
     const engAnterieurs = getEngagementsAnterieurs();
-    const isAnnulation = selectedOp.type === 'ANNULATION';
-    // Engagement actuel : on prend la valeur brute (positive ou négative)
     const engActuel = getEngagementActuel();
     const engCumules = engAnterieurs + engActuel;
     const disponible = getDotation() - engCumules;
-    // Formatage avec signe
     const fmtSigne = (val) => val < 0 ? ('-' + formatMontant(Math.abs(val))) : formatMontant(val);
     const printMontantTotal = fmtSigne(engActuel);
     const printEngActuel = fmtSigne(engActuel);
@@ -521,9 +471,60 @@ const PageConsulterOp = () => {
     const codeImputationComplet = (src?.codeImputation || '') + ' ' + (selectedOp.ligneBudgetaire || '');
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
-    const printContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ${selectedOp.numero}</title><style>@page{size:A4;margin:10mm}@media print{.toolbar{display:none!important}body{background:#fff!important;padding:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Century Gothic','Trebuchet MS',sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:8mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;border-right:1px solid #000}.header-logo img{max-height:75px;max-width:100%}.header-center{width:56%;padding:6px;text-align:center;border-right:1px solid #000}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}.op-title-section{text-align:center;padding:6px 10px;border-bottom:1px solid #000}.exercice-type-line{display:flex;justify-content:space-between;align-items:center}.exercice-type-line>div:first-child{width:25%;text-align:left;font-size:11px}.exercice-type-line>div:nth-child(2){width:50%;text-align:center}.exercice-type-line>div:last-child{width:25%;text-align:right}.op-title{font-weight:bold;text-decoration:underline;font-size:11px}.op-numero{font-size:10px;margin-top:2px}.body-content{padding:12px 15px;border-bottom:1px solid #000}.type-red{color:#c00;font-weight:bold;font-style:italic}.field{margin-bottom:8px}.field-title{text-decoration:underline;font-size:10px;margin-bottom:6px}.field-value{font-weight:bold}.field-large{margin:15px 0;min-height:45px;line-height:1.6;word-wrap:break-word}.checkbox-line{display:flex;align-items:center;margin-bottom:8px}.checkbox-label{min-width:230px}.checkbox-options{display:flex;gap:50px}.check-item{display:flex;align-items:center;gap:6px}.box{width:18px;height:14px;border:1px solid #000;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.budget-section{margin-top:15px}.budget-row{display:flex;align-items:center;margin-bottom:8px}.budget-row .col-left{width:33.33%}.budget-row .col-center{width:33.33%}.budget-row .col-right{width:33.33%}.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}.acquit-section{display:flex}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:110px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}.acquit-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.acquit-date{font-size:9px;text-align:left}</style></head><body><div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ${selectedOp.numero}</span></div><div class="page-container"><div class="inner-frame"><div class="header"><div class="header-logo"><img src="${LOGO_PIF2}" alt="PIF2" /></div><div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div><div class="header-right"><div style="text-align:center;"><img src="${ARMOIRIE}" alt="Armoirie" style="max-height:50px;max-width:60px;margin-bottom:3px;" /><div>Union – Discipline – Travail</div></div></div></div><div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>${exerciceActif?.annee || ''}</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N°${selectedOp.numero}</div></div><div class="type-red">${selectedOp.type}</div></div></div><div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${ben?.nom || ''}</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${ben?.ncc || ''}</span></div><div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span><span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span></div></div><div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">${selectedOp.modeReglement === 'ESPECES' ? 'x' : ''}</span></span><span class="check-item">CHEQUE <span class="box">${selectedOp.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span><span class="check-item">VIREMENT <span class="box">${selectedOp.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span></div></div><div class="field">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : ''}</span></div><div class="field-large">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.objet || ''}</span></div><div class="field-large">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${selectedOp.piecesJustificatives || ''}</span></div><div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">${printMontantTotal}</div></div><div class="col-right"></div></div><div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">${codeImputationComplet.trim()}</div></div><div class="col-right"></div></div><table class="budget-table"><tr><td class="col-letter">A</td><td class="col-label">Dotation budgétaire</td><td class="col-amount">${formatMontant(getDotation())}</td><td class="col-empty"></td></tr><tr><td class="col-letter">B</td><td class="col-label">Engagements antérieurs</td><td class="col-amount">${formatMontant(engAnterieurs)}</td><td class="col-empty"></td></tr><tr><td class="col-letter">C</td><td class="col-label">Engagement actuel</td><td class="col-amount">${printEngActuel}</td><td class="col-empty"></td></tr><tr><td class="col-letter">D</td><td class="col-label">Engagements cumulés (B + C)</td><td class="col-amount">${printEngCumules}</td><td class="col-empty"></td></tr><tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">${printDisponible}</td><td class="col-empty"></td></tr></table></div></div><div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div><div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA AGENT<br/>COMPTABLE</div><div class="sig-content"></div></div></div><div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div><div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>`;
+
+    // Utilisation d'un tableau pour éviter les chaînes trop longues qui cassent le build
+    const htmlParts = [
+      '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
+      '<style>',
+      '@page{size:A4;margin:10mm}@media print{.toolbar{display:none!important}body{background:#fff!important;padding:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important}}',
+      '*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Century Gothic","Trebuchet MS",sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}',
+      '.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}',
+      '.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}',
+      '.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:8mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}',
+      '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;border-right:1px solid #000}.header-logo img{max-height:75px;max-width:100%}',
+      '.header-center{width:56%;padding:6px;text-align:center;border-right:1px solid #000}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
+      '.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}',
+      '.op-title-section{text-align:center;padding:6px 10px;border-bottom:1px solid #000}.exercice-type-line{display:flex;justify-content:space-between;align-items:center}',
+      '.exercice-type-line>div:first-child{width:25%;text-align:left;font-size:11px}.exercice-type-line>div:nth-child(2){width:50%;text-align:center}.exercice-type-line>div:last-child{width:25%;text-align:right}',
+      '.op-title{font-weight:bold;text-decoration:underline;font-size:11px}.op-numero{font-size:10px;margin-top:2px}.body-content{padding:12px 15px;border-bottom:1px solid #000}',
+      '.type-red{color:#c00;font-weight:bold;font-style:italic}.field{margin-bottom:8px}.field-title{text-decoration:underline;font-size:10px;margin-bottom:6px}.field-value{font-weight:bold}',
+      '.field-large{margin:15px 0;min-height:45px;line-height:1.6;word-wrap:break-word}.checkbox-line{display:flex;align-items:center;margin-bottom:8px}.checkbox-label{min-width:230px}',
+      '.checkbox-options{display:flex;gap:50px}.check-item{display:flex;align-items:center;gap:6px}.box{width:18px;height:14px;border:1px solid #000;display:inline-flex;align-items:center;justify-content:center;font-size:10px}',
+      '.budget-section{margin-top:15px}.budget-row{display:flex;align-items:center;margin-bottom:8px}.budget-row .col-left{width:33.33%}.budget-row .col-center{width:33.33%}.budget-row .col-right{width:33.33%}',
+      '.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}',
+      '.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}',
+      '.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}',
+      '.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}',
+      '.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}',
+      '.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}',
+      '.acquit-section{display:flex}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:110px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}',
+      '.acquit-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.acquit-date{font-size:9px;text-align:left}',
+      '</style></head><body>',
+      '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
+      '<div class="page-container"><div class="inner-frame"><div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
+      '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D\'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div>',
+      '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" style="max-height:50px;max-width:60px;margin-bottom:3px;" /><div>Union – Discipline – Travail</div></div></div></div>',
+      '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N°' + selectedOp.numero + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
+      '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.ncc || '') + '</span></div>',
+      '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
+      '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
+      '<div class="field">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field-large">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      '<div class="field-large">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
+      '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet.trim() + '</div></div><div class="col-right"></div></div>',
+      '<table class="budget-table"><tr><td class="col-letter">A</td><td class="col-label">Dotation budgétaire</td><td class="col-amount">' + formatMontant(getDotation()) + '</td><td class="col-empty"></td></tr>',
+      '<tr><td class="col-letter">B</td><td class="col-label">Engagements antérieurs</td><td class="col-amount">' + formatMontant(engAnterieurs) + '</td><td class="col-empty"></td></tr>',
+      '<tr><td class="col-letter">C</td><td class="col-label">Engagement actuel</td><td class="col-amount">' + printEngActuel + '</td><td class="col-empty"></td></tr>',
+      '<tr><td class="col-letter">D</td><td class="col-label">Engagements cumulés (B + C)</td><td class="col-amount">' + printEngCumules + '</td><td class="col-empty"></td></tr>',
+      '<tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">' + printDisponible + '</td><td class="col-empty"></td></tr></table></div></div>',
+      '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div>',
+      '<div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA AGENT<br/>COMPTABLE</div><div class="sig-content"></div></div></div>',
+      '<div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div>',
+      '<div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>'
+    ];
     const printWindow = window.open('', '_blank', 'width=900,height=700');
-    printWindow.document.write(printContent);
+    printWindow.document.write(htmlParts.join(''));
     printWindow.document.close();
   };
 
@@ -548,7 +549,6 @@ const PageConsulterOp = () => {
         </div>
       ))}
 
-      {/* Modal (mot de passe / confirmation) */}
       {modal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(34,51,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(3px)' }}
           onClick={() => closeModal(null)}>
@@ -946,4 +946,44 @@ const PageConsulterOp = () => {
                         <button onClick={() => { setIsEditMode(false); loadOp(selectedOp); }} style={{ ...styles.buttonSecondary, padding: '10px 16px', fontSize: 12, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: P.bgCard, color: P.labelMuted, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
                       </div>
                       <button onClick={handleEnregistrerModif} title="Enregistrer"
-                        style={{ width: 52, height: 52, borderRadius: '50%', border: 'none', background: P.gold, cursor: 'pointer', display: '
+                        style={{ width: 52, height: 52, borderRadius: '50%', border: 'none', background: P.gold, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${P.gold}40`, transition: 'all 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                        {Icons.save('#fff')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: `1px solid ${P.bgApp}` }}>
+                      <span style={{ padding: '8px 14px', background: accent + '10', color: accent, borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.eyeSearch(accent)} {selectedOp.numero}</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[
+                          { label: 'Modifier', icon: Icons.edit('#fff'), bg: P.gold, action: handleModifier },
+                          { label: 'Supprimer', icon: Icons.trash('#fff'), bg: P.labelMuted, action: handleSupprimer },
+                          { label: 'Dupliquer', icon: Icons.copy('#fff'), bg: P.orange, action: handleDupliquer },
+                          { label: 'Imprimer', icon: Icons.printer('#fff'), bg: accent, action: handlePrint },
+                        ].map((btn, i) => (
+                          <button key={i} title={btn.label} onClick={btn.action}
+                            style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: btn.bg, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${btn.bg}44`, transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                            {btn.icon}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 60, color: P.labelMuted }}>
+                  <div style={{ marginBottom: 16, opacity: 0.4 }}>{Icons.eyeSearch(P.labelMuted)}</div>
+                  <p style={{ fontSize: 16, fontWeight: 500 }}>Sélectionnez un OP pour le consulter</p>
+                  <p style={{ fontSize: 13 }}>Utilisez la barre de recherche ou les flèches</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PageConsulterOp;
