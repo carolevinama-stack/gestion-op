@@ -1,211 +1,173 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
-import { collection, doc, updateDoc, runTransaction, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
+import PasswordModal from '../components/PasswordModal';
 
-const P = {
-  bg:'#F6F4F1', card:'#FFFFFF', green:'#2E9940', greenDark:'#1B6B2E', greenLight:'#E8F5E9',
-  gold:'#C5961F', goldLight:'#FFF8E1', red:'#C43E3E', orange:'#D4722A', border:'#E2DFD8'
-};
+// AJOUT DE LA DÉFINITION MANQUANTE
+const Badge = React.memo(({ bg, color, children }) => (
+  <span style={{ background: bg, color, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: 0.3 }}>
+    {children}
+  </span>
+));
 
-const I = {
-  settings:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
-  chevron:(c)=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
-};
+const PageListeOP = () => {
+  const { projet, sources, exercices, exerciceActif, beneficiaires, budgets, ops, setOps, setCurrentPage, setConsultOpData } = useAppContext();
+  const [activeSource, setActiveSource] = useState('ALL'); 
+  const [activeTab, setActiveTab] = useState('CUMUL_OP'); 
+  const [showAnterieur, setShowAnterieur] = useState(false); 
+  const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
+  const [filters, setFilters] = useState({ type: '', statut: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '' });
+  const [showPasswordModal, setShowPasswordModal] = useState(null);
 
-const Badge = ({ bg, color, children }) => <span style={{ background: bg, color, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>{children}</span>;
-const Empty = ({ text }) => <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>{text}</div>;
-const STab = ({ active, label, count, color, onClick }) => <button onClick={onClick} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: active ? color : '#FFF', color: active ? '#fff' : '#666', fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>{label} ({count})</button>;
-const ActionBtn = ({ label, color, onClick, disabled }) => <button onClick={onClick} disabled={disabled} style={{ padding: '10px 20px', background: color, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>{label}</button>;
-const IBtn = ({ icon, onClick }) => <button onClick={onClick} style={{ border: 'none', background: '#EEE', borderRadius: 8, padding: 6, cursor: 'pointer' }}>{icon}</button>;
-const Modal = ({ title, onClose, children }) => <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}><div style={{ background:'#FFF', padding:20, borderRadius:15, width:500 }}><h3 style={{ marginTop:0 }}>{title}</h3>{children}<button onClick={onClose} style={{ marginTop:15 }}>Fermer</button></div></div>;
+  const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
 
-const PageBordereaux = () => {
-  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux } = useAppContext();
-  const [mainTab, setMainTab] = useState('CF');
-  const [subTabCF, setSubTabCF] = useState('NOUVEAU');
-  const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
-  const [selectedOps, setSelectedOps] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [resultatCF, setResultatCF] = useState('VISE');
-  const [motifRetour, setMotifRetour] = useState('');
-  const [modalRetourCF, setModalRetourCF] = useState(false);
-  const [modalEditBT, setModalEditBT] = useState(null);
-  const [editBtNumero, setEditBtNumero] = useState('');
-  const [expandedBT, setExpandedBT] = useState(null);
-  const dateRefs = useRef({});
-
-  // DÉCLARATION DU STYLE MANQUANT
-  const crd = { background: '#FFF', borderRadius: 14, padding: 20, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)' };
-  const thS = { padding: 10, textAlign: 'left', fontSize: 11, background: '#F9F9F9', fontWeight: 700 };
-  const iS = { width: '100%', padding: 10, borderRadius: 8, border: '1px solid #DDD', color: '#000' };
-
-  const setDateRef = (key, el) => { if (el) dateRefs.current['_' + key] = el };
-  const readDate = (key) => dateRefs.current['_' + key]?.value || '';
-  const toggleOp = (opId) => setSelectedOps(prev => prev.includes(opId) ? prev.filter(id => id !== opId) : [...prev, opId]);
-  const toggleAll = (list) => setSelectedOps(prev => prev.length === list.length ? [] : list.map(o => o.id));
-
-  const exerciceActif = exercices.find(e => e.actif);
-  const currentSrc = sources.find(s => s.id === activeSourceBT);
-  const opsForSource = useMemo(() => ops.filter(op => op.sourceId === activeSourceBT && op.exerciceId === exerciceActif?.id && op.statut !== 'SUPPRIME'), [ops, activeSourceBT, exerciceActif]);
-  const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && !op.bordereauCF), [opsForSource]);
-  const opsTransmisCF = useMemo(() => opsForSource.filter(op => op.statut === 'TRANSMIS_CF'), [opsForSource]);
-  const bordereauCF = useMemo(() => bordereaux.filter(bt => bt.type === 'CF' && bt.sourceId === activeSourceBT && bt.exerciceId === exerciceActif?.id && bt.statut !== 'SUPPRIME'), [bordereaux, activeSourceBT, exerciceActif]);
-
-  const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
-
-  const genNumeroBT = async (typeBT) => {
-    const pf = typeBT === 'CF' ? 'BT-CF' : 'BT-AC';
-    const cId = `${typeBT}_${activeSourceBT}_${exerciceActif?.id}`;
-    const cRef = doc(db, 'compteurs', cId);
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(cRef);
-      const next = (snap.exists() ? (snap.data().count || 0) : 0) + 1;
-      tx.set(cRef, { count: next, type: typeBT, sourceId: activeSourceBT, exerciceId: exerciceActif?.id });
-      return `${pf}-${String(next).padStart(4, '0')}/${projet?.sigle || 'PROJET'}-${currentSrc?.sigle || 'SRC'}/${exerciceActif?.annee}`;
-    });
+  const typeColors = { PROVISOIRE: '#E8B931', DIRECT: '#E8B931', DEFINITIF: '#2e7d32', ANNULATION: '#C43E3E' };
+  const statutConfig = {
+    EN_COURS: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours' },
+    CREE: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours' },
+    TRANSMIS_CF: { bg: '#E8B93115', color: '#E8B931', label: 'Transmis CF' },
+    VISE_CF: { bg: '#E8F5E9', color: '#2e7d32', label: 'Visé CF' },
+    PAYE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Payé' },
+    REJETE_CF: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté CF' },
+    REJETE_AC: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté AC' },
+    SUPPRIME: { bg: '#F7F5F2', color: '#999', label: 'Supprimé' }
   };
 
-  const handleCreateBordereau = async (typeBT) => {
-    if (selectedOps.length === 0) return;
-    setSaving(true);
-    try {
-      const num = await genNumeroBT(typeBT);
-      const batch = writeBatch(db);
-      const btRef = doc(collection(db, 'bordereaux'));
-      const totalBT = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
-      batch.set(btRef, {
-        numero: num, type: typeBT, sourceId: activeSourceBT, exerciceId: exerciceActif.id,
-        dateCreation: new Date().toISOString().split('T')[0], opsIds: selectedOps, nbOps: selectedOps.length,
-        totalMontant: totalBT, statut: 'EN_COURS', createdAt: new Date().toISOString()
-      });
-      const field = typeBT === 'CF' ? 'bordereauCF' : 'bordereauAC';
-      selectedOps.forEach(opId => batch.update(doc(db, 'ops', opId), { [field]: num }));
-      await batch.commit();
-      setSelectedOps([]);
-      setSubTabCF('BORDEREAUX');
-    } catch (e) { alert(e.message); }
-    setSaving(false);
+  const getBenNom = (op) => {
+    if (op.beneficiaireNom) return op.beneficiaireNom;
+    const b = beneficiaires.find(x => x.id === op.beneficiaireId);
+    return b ? b.nom : 'N/A';
   };
 
-  const handleTransmettre = async (bt) => {
-    const d = readDate('trans_' + bt.id); if (!d) return;
-    setSaving(true);
-    try {
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'bordereaux', bt.id), { dateTransmission: d, statut: 'ENVOYE' });
-      bt.opsIds.forEach(opId => batch.update(doc(db, 'ops', opId), { statut: 'TRANSMIS_CF', dateTransmissionCF: d }));
-      await batch.commit();
-    } catch (e) { alert(e.message); }
-    setSaving(false);
-  };
-
-  const handleRetourCF = async () => {
-    const d = readDate('retourCF'); if (!d) return;
-    setSaving(true);
-    try {
-      const batch = writeBatch(db);
-      for (const opId of selectedOps) {
-        const op = ops.find(o => o.id === opId);
-        let upd = { updatedAt: new Date().toISOString() };
-        if (resultatCF === 'VISE') {
-          if (op.type === 'ANNULATION') {
-            upd.statut = 'ANNULE'; upd.dateVisaCF = d; upd.dateArchivage = d; 
-            if (op.opProvisoireId) batch.update(doc(db, 'ops', op.opProvisoireId), { statut: 'ANNULE', dateAnnulation: d });
-          } else { upd.statut = 'VISE_CF'; upd.dateVisaCF = d; }
-        } else if (resultatCF === 'DIFFERE') {
-          upd.statut = 'DIFFERE_CF'; upd.dateDiffere = d; upd.motifDiffere = motifRetour;
-        } else {
-          upd.statut = 'REJETE_CF'; upd.dateRejet = d; upd.motifRejet = motifRetour;
-        }
-        batch.update(doc(db, 'ops', opId), upd);
+  const filteredOps = useMemo(() => {
+    return ops.filter(op => {
+      if (op.exerciceId !== currentExerciceId) return false;
+      if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
+      if (op.statut === 'SUPPRIME' && activeTab !== 'CORBEILLE') return false;
+      if (op.statut !== 'SUPPRIME' && activeTab === 'CORBEILLE') return false;
+      if (filters.type && op.type !== filters.type) return false;
+      if (filters.statut && op.statut !== filters.statut) return false;
+      if (filters.search) {
+        const s = filters.search.toLowerCase();
+        const benNom = getBenNom(op).toLowerCase();
+        return op.numero?.toLowerCase().includes(s) || benNom.includes(s) || op.objet?.toLowerCase().includes(s);
       }
-      await batch.commit();
-      setSelectedOps([]); setModalRetourCF(false);
-    } catch (e) { alert(e.message); }
-    setSaving(false);
+      return true;
+    });
+  }, [ops, currentExerciceId, activeSource, activeTab, filters, beneficiaires]);
+
+  const displayOps = useMemo(() => {
+    const lines = filteredOps.map(op => ({ ...op, isRejetLine: false }));
+    filteredOps.forEach(op => {
+      if (['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
+        lines.push({ ...op, isRejetLine: true, displayNumero: op.numero + ' (REJET)', montant: -(op.montant || 0) });
+      }
+    });
+    lines.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    const cumulParLigne = {};
+    const processedLines = lines.map(line => {
+      const lb = line.ligneBudgetaire;
+      const budgetSource = budgets.find(b => b.sourceId === line.sourceId && b.exerciceId === line.exerciceId);
+      const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
+      line.engagementAnterieur = cumulParLigne[lb] || 0;
+      if (!['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(line.statut) || line.isRejetLine) {
+        cumulParLigne[lb] = (cumulParLigne[lb] || 0) + line.montant;
+      }
+      line.dotationLigne = dotation;
+      line.disponible = dotation - (cumulParLigne[lb] || 0);
+      return line;
+    });
+    return processedLines.reverse();
+  }, [filteredOps, budgets]);
+
+  const handleExport = () => {
+    const headers = ['Source', 'N° OP', 'Bénéficiaire', 'Objet', 'Montant', 'Statut'];
+    const rows = displayOps.map(op => [
+      sources.find(s => s.id === op.sourceId)?.sigle || '',
+      op.isRejetLine ? op.displayNumero : op.numero,
+      getBenNom(op),
+      op.objet,
+      op.montant,
+      op.statut
+    ]);
+    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(";")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "export_ops.csv";
+    link.click();
   };
 
   return (
-    <div className="bordereaux-page">
-      <style>{` .bordereaux-page input, .bordereaux-page select, .bordereaux-page textarea { color: #000 !important; } `}</style>
-      <h1 style={{ color: P.greenDark }}>Bordereaux de transmission</h1>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        {sources.map(s => <button key={s.id} onClick={() => setActiveSourceBT(s.id)} style={{ padding: 10, background: activeSourceBT === s.id ? s.couleur : '#FFF', color: activeSourceBT === s.id ? '#FFF' : '#000' }}>{s.sigle}</button>)}
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h1 style={{ color: '#1B6B2E', fontSize: 20, fontWeight: 800 }}>Liste des OP ({exerciceActif?.annee})</h1>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={handleExport} style={styles.buttonSecondary}>Export Excel</button>
+          <button onClick={() => setCurrentPage('nouvelOp')} style={{ ...styles.button, background: '#D4722A' }}>Nouvel OP</button>
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <STab active={subTabCF === 'NOUVEAU'} label="Nouveau BT" count={opsEligiblesCF.length} color={P.greenDark} onClick={() => setSubTabCF('NOUVEAU')} />
-        <STab active={subTabCF === 'BORDEREAUX'} label="Bordereaux" count={bordereauCF.length} color={P.green} onClick={() => setSubTabCF('BORDEREAUX')} />
-        <STab active={subTabCF === 'RETOUR'} label="Traitement Visa" count={opsTransmisCF.length} color={P.gold} onClick={() => setSubTabCF('RETOUR')} />
+      <div style={{ display: 'flex', gap: 10, marginBottom: 15, borderBottom: '2px solid #EEE' }}>
+        <button onClick={() => setActiveSource('ALL')} style={{ padding: 10, border: 'none', background: 'none', color: activeSource === 'ALL' ? '#D4722A' : '#999', fontWeight: 700, borderBottom: activeSource === 'ALL' ? '3px solid #D4722A' : 'none' }}>CUMUL OP</button>
+        {sources.map(s => (
+          <button key={s.id} onClick={() => setActiveSource(s.id)} style={{ padding: 10, border: 'none', background: 'none', color: activeSource === s.id ? s.couleur : '#999', fontWeight: 700, borderBottom: activeSource === s.id ? `3px solid ${s.couleur}` : 'none' }}>{s.sigle}</button>
+        ))}
       </div>
-      {subTabCF === 'NOUVEAU' && (
-        <div style={crd}>
-          <table style={{ width: '100%' }}>
-            <thead><tr><th><input type="checkbox" onChange={() => toggleAll(opsEligiblesCF)} /></th><th style={thS}>N° OP</th><th style={thS}>Bénéficiaire</th><th style={{ ...thS, textAlign: 'right' }}>Montant</th></tr></thead>
-            <tbody>
-              {opsEligiblesCF.map(op => (
-                <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: selectedOps.includes(op.id) ? P.greenLight : '#FFF' }}>
-                  <td><input type="checkbox" checked={selectedOps.includes(op.id)} readOnly /></td>
-                  <td style={{ padding: 10 }}>{op.numero}</td>
-                  <td style={{ padding: 10 }}>{getBen(op)}</td>
-                  <td style={{ padding: 10, textAlign: 'right' }}>{formatMontant(op.montant)}</td>
+      <div style={{ background: '#FFF', padding: 15, borderRadius: 10, marginBottom: 20, display: 'flex', gap: 10 }}>
+        <input type="text" placeholder="Rechercher..." onChange={e => setFilters({...filters, search: e.target.value})} style={{ ...styles.input, flex: 1, marginBottom: 0, color: '#000' }} />
+        <select onChange={e => setFilters({...filters, type: e.target.value})} style={{ ...styles.input, width: 150, marginBottom: 0, color: '#000' }}>
+          <option value="">Tous les types</option>
+          <option value="PROVISOIRE">Provisoire</option>
+          <option value="DIRECT">Direct</option>
+          <option value="DEFINITIF">Définitif</option>
+        </select>
+      </div>
+      <div style={{ background: '#FFF', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+        <table style={{ ...styles.table, color: '#000' }}>
+          <thead>
+            <tr style={{ background: '#F9F9F9' }}>
+              {activeSource === 'ALL' && <th style={styles.th}>Source</th>}
+              <th style={styles.th}>N° OP</th>
+              <th style={styles.th}>Bénéficiaire</th>
+              <th style={styles.th}>Objet</th>
+              <th style={{ ...styles.th, textAlign: 'right' }}>Dotation</th>
+              <th style={{ ...styles.th, textAlign: 'right' }}>Montant</th>
+              {activeSource !== 'ALL' && <><th style={{ ...styles.th, textAlign: 'right' }}>Eng. Ant.</th><th style={{ ...styles.th, textAlign: 'right' }}>Disponible</th></>}
+              <th style={styles.th}>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayOps.map((op, i) => {
+              const conf = statutConfig[op.statut] || { color: '#333', bg: '#EEE', label: op.statut };
+              return (
+                <tr key={i} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ cursor: 'pointer', borderBottom: '1px solid #EEE' }}>
+                  {activeSource === 'ALL' && <td style={styles.td}><Badge bg={sources.find(s=>s.id===op.sourceId)?.couleur} color="#FFF">{sources.find(s=>s.id===op.sourceId)?.sigle}</Badge></td>}
+                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.isRejetLine ? op.displayNumero : op.numero}</td>
+                  <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
+                  <td style={{ ...styles.td, fontSize: 12, color: '#444' }}>{op.objet}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(op.dotationLigne)}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: op.isRejetLine ? '#C43E3E' : '#000' }}>{formatMontant(op.montant)}</td>
+                  {activeSource !== 'ALL' && (
+                    <>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#666' }}>{formatMontant(op.engagementAnterieur)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
+                    </>
+                  )}
+                  <td style={styles.td}>
+                    <span style={{ padding: '4px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: op.isRejetLine ? '#FFEBEE' : conf.bg, color: op.isRejetLine ? '#C43E3E' : conf.color }}>
+                      {op.isRejetLine ? 'REJET' : conf.label}
+                    </span>
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {selectedOps.length > 0 && <ActionBtn label="Créer Bordereau" color={P.greenDark} onClick={() => handleCreateBordereau('CF')} />}
-        </div>
-      )}
-      {subTabCF === 'BORDEREAUX' && (
-        <div style={crd}>
-          {bordereauCF.map(bt => (
-            <div key={bt.id} style={{ marginBottom: 10, border: '1px solid #DDD', padding: 10, borderRadius: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 700 }}>{bt.numero}</span>
-                <IBtn icon={I.settings()} onClick={() => { setEditBtNumero(bt.numero); setModalEditBT(bt); }} />
-              </div>
-              {bt.statut === 'EN_COURS' && (
-                <div style={{ marginTop: 10 }}>
-                  <input type="date" ref={el => setDateRef('trans_' + bt.id, el)} />
-                  <button onClick={() => handleTransmettre(bt)}>Transmettre</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      {subTabCF === 'RETOUR' && (
-        <div style={crd}>
-          <table style={{ width: '100%' }}>
-            <thead><tr><th><input type="checkbox" onChange={() => toggleAll(opsTransmisCF)} /></th><th style={thS}>N° OP</th><th style={thS}>Bénéficiaire</th></tr></thead>
-            <tbody>
-              {opsTransmisCF.map(op => (
-                <tr key={op.id} onClick={() => toggleOp(op.id)} style={{ cursor: 'pointer', background: selectedOps.includes(op.id) ? P.goldLight : '#FFF' }}>
-                  <td><input type="checkbox" checked={selectedOps.includes(op.id)} readOnly /></td>
-                  <td>{op.numero}</td>
-                  <td>{getBen(op)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {selectedOps.length > 0 && <ActionBtn label="Valider Visa" color={P.gold} onClick={() => setModalRetourCF(true)} />}
-        </div>
-      )}
-      {modalRetourCF && (
-        <Modal title="Visa CF" onClose={() => setModalRetourCF(false)}>
-          <select value={resultatCF} onChange={e => setResultatCF(e.target.value)} style={iS}>
-            <option value="VISE">VISER</option>
-            <option value="DIFFERE">DIFFERER</option>
-            <option value="REJETE">REJETER</option>
-          </select>
-          <input type="date" ref={el => setDateRef('retourCF', el)} style={{ ...iS, marginTop: 10 }} />
-          <button onClick={handleRetourCF} style={{ marginTop: 10 }}>Confirmer</button>
-        </Modal>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {showPasswordModal && <PasswordModal isOpen={!!showPasswordModal} onClose={() => setShowPasswordModal(null)} onConfirm={showPasswordModal.action} adminPassword={projet?.adminPassword || ''} title={showPasswordModal.title} description={showPasswordModal.description} confirmText={showPasswordModal.confirmText} confirmColor={showPasswordModal.confirmColor} />}
     </div>
   );
 };
 
-export default PageBordereaux;
+export default PageListeOP;
