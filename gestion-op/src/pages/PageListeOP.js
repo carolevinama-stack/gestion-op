@@ -301,43 +301,6 @@ const PageListeOP = () => {
     paye: filteredOps.reduce((sum, op) => sum + (op.totalPaye || 0), 0)
   };
 
-  // ===================== FONCTION EXPORT EXCEL (Réintégrée) =====================
-  const handleExport = () => {
-    const headers = ['Source', 'N° OP', 'Création', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Trans. CF', 'Visa CF', 'Trans. AC', 'Payé', 'Reste', 'Statut', 'Motif Rejet/Différé'];
-    const rows = displayOps.map(op => {
-      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-      const source = sources.find(s => s.id === op.sourceId);
-      const motif = op.motifRejet || op.motifDiffereCF || op.motifDiffereAC || '';
-      const montantAffiche = op.isRejetLine ? -(op.montant || 0) : (op.montant || 0);
-      return [
-        source?.sigle || '', 
-        op.isRejetLine ? op.displayNumero : op.numero, 
-        op.dateCreation || '', 
-        op.isRejetLine ? 'REJET' : op.type,
-        op.beneficiaireNom || ben?.nom || '', 
-        op.objet || '', 
-        op.ligneBudgetaire || '', 
-        montantAffiche,
-        op.dateTransmissionCF || '', 
-        op.dateVisaCF || '', 
-        op.dateTransmissionAC || '', 
-        op.totalPaye || 0,
-        (op.montant || 0) - (op.totalPaye || 0), 
-        op.isRejetLine ? 'Rejet' : (statutConfig[op.statut]?.label || op.statut), 
-        motif
-      ];
-    });
-
-    const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${currentExercice?.annee || 'TOUS'}_${activeTab}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleOpenTransmissionCF = (op) => {
     setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], bordereau: op.bordereauCF || '' });
     setShowTransmissionModal({ op, destination: 'CF' });
@@ -701,6 +664,32 @@ const PageListeOP = () => {
     }
   };
 
+  // EXPORT EXCEL OFFICIELLEMENT RE-AJOUTÉ
+  const handleExport = () => {
+    const headers = ['Source', 'N° OP', 'Création', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Trans. CF', 'Visa CF', 'Trans. AC', 'Payé', 'Reste', 'Statut', 'Motif Rejet/Différé'];
+    const rows = displayOps.map(op => {
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      const source = sources.find(s => s.id === op.sourceId);
+      const motif = op.motifRejet || op.motifDiffereCF || op.motifDiffereAC || '';
+      const montantAffiche = op.isRejetLine ? -(op.montant || 0) : (op.montant || 0);
+      return [
+        source?.sigle || '', op.isRejetLine ? op.displayNumero : op.numero, op.dateCreation || '', op.isRejetLine ? 'REJET' : op.type,
+        op.beneficiaireNom || ben?.nom || '', op.objet || '', op.ligneBudgetaire || '', montantAffiche,
+        op.dateTransmissionCF || '', op.dateVisaCF || '', op.dateTransmissionAC || '', op.totalPaye || 0,
+        (op.montant || 0) - (op.totalPaye || 0), op.isRejetLine ? 'Rejet' : (statutConfig[op.statut]?.label || op.statut), motif
+      ];
+    });
+
+    const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${currentExercice?.annee || 'TOUS'}_${activeTab}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -741,7 +730,6 @@ const PageListeOP = () => {
         ))}
       </div>
 
-      {/* Barre de recherche et filtres */}
       <div style={{ background: '#FFFFFF', padding: '12px 16px', borderRadius: 12, marginBottom: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ flex: '3 1 280px', minWidth: 0 }}>
@@ -819,7 +807,7 @@ const PageListeOP = () => {
                   <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Montant</th>
                   {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 70, background: '#F7F5F2', fontSize: 9.5 }}>Ancienneté</th>}
                   
-                  {activeTab !== 'CUMUL_OP' && activeSource !== 'ALL' && (
+                  {activeSource !== 'ALL' && (
                     <>
                       <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Eng. ant.</th>
                       <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Disponible</th>
@@ -857,7 +845,7 @@ const PageListeOP = () => {
                       
                       {activeTab === 'A_REGULARISER' && <td style={{ ...styles.td }}><span style={{ background: anciennete > 30 ? '#C43E3E15' : anciennete > 15 ? '#E8B93120' : '#E8F5E9', color: anciennete > 30 ? '#C43E3E' : anciennete > 15 ? '#E8B931' : '#2e7d32', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 }}>{anciennete}j</span></td>}
 
-                      {activeTab !== 'CUMUL_OP' && activeSource !== 'ALL' && (
+                      {activeSource !== 'ALL' && (
                         <>
                           <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5 }}>{formatMontant(op.engagementAnterieur)}</td>
                           <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: op.disponible < 0 ? '#C43E3E' : '#2e7d32' }}>{formatMontant(op.disponible)}</td>
