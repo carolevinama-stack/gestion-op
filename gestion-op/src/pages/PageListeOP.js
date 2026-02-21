@@ -39,12 +39,10 @@ const PageListeOP = () => {
   const [circuitForm, setCircuitForm] = useState({}); 
   const [drawerOp, setDrawerOp] = useState(null); 
 
-  // Exercice courant (actif ou sélectionné)
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
   const currentExercice = exercices.find(e => e.id === currentExerciceId);
   const currentSourceObj = activeSource === 'ALL' ? null : sources.find(s => s.id === activeSource);
 
-  // Toutes les lignes budgétaires disponibles pour l'exercice courant
   const allLignes = [...new Set(
     budgets
       .filter(b => b.exerciceId === currentExerciceId)
@@ -52,7 +50,6 @@ const PageListeOP = () => {
       .map(l => l.code)
   )].sort();
 
-  // Couleurs par type
   const typeColors = {
     PROVISOIRE: '#E8B931',
     DIRECT: '#E8B931',
@@ -60,31 +57,29 @@ const PageListeOP = () => {
     ANNULATION: '#C43E3E'
   };
 
-  // Couleurs par statut
   const statutConfig = {
-    EN_COURS: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours', icon: '' },
-    CREE: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours', icon: '' },
-    TRANSMIS_CF: { bg: '#E8B93115', color: '#E8B931', label: 'Transmis CF', icon: '' },
-    DIFFERE_CF: { bg: '#E8B93120', color: '#C5961F', label: 'Différé CF', icon: '' },
-    RETOURNE_CF: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Retourné CF', icon: '' },
-    VISE_CF: { bg: '#E8F5E9', color: '#2e7d32', label: 'Visé CF', icon: '' },
-    REJETE_CF: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté CF', icon: '' },
-    TRANSMIS_AC: { bg: '#C5961F15', color: '#C5961F', label: 'Transmis AC', icon: '' },
-    DIFFERE_AC: { bg: '#E8B93120', color: '#C5961F', label: 'Différé AC', icon: '' },
-    RETOURNE_AC: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Retourné AC', icon: '' },
-    PAYE_PARTIEL: { bg: '#E8B93115', color: '#E8B931', label: 'Payé partiel', icon: '' },
-    PAYE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Payé', icon: '' },
-    REJETE_AC: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté AC', icon: '' },
-    ARCHIVE: { bg: '#F7F5F2', color: '#888', label: 'Archivé', icon: '' },
-    ANNULE: { bg: '#C43E3E15', color: '#C43E3E', label: 'Annulé', icon: '' },
-    TRAITE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Régularisé', icon: '' },
-    SUPPRIME: { bg: '#F7F5F2', color: '#999', label: 'Supprimé', icon: '' } 
+    EN_COURS: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours' },
+    CREE: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours' },
+    TRANSMIS_CF: { bg: '#E8B93115', color: '#E8B931', label: 'Transmis CF' },
+    DIFFERE_CF: { bg: '#E8B93120', color: '#C5961F', label: 'Différé CF' },
+    RETOURNE_CF: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Retourné CF' },
+    VISE_CF: { bg: '#E8F5E9', color: '#2e7d32', label: 'Visé CF' },
+    REJETE_CF: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté CF' },
+    TRANSMIS_AC: { bg: '#C5961F15', color: '#C5961F', label: 'Transmis AC' },
+    DIFFERE_AC: { bg: '#E8B93120', color: '#C5961F', label: 'Différé AC' },
+    RETOURNE_AC: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Retourné AC' },
+    PAYE_PARTIEL: { bg: '#E8B93115', color: '#E8B931', label: 'Payé partiel' },
+    PAYE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Payé' },
+    REJETE_AC: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté AC' },
+    ARCHIVE: { bg: '#F7F5F2', color: '#888', label: 'Archivé' },
+    ANNULE: { bg: '#C43E3E15', color: '#C43E3E', label: 'Annulé' },
+    TRAITE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Régularisé' },
+    SUPPRIME: { bg: '#F7F5F2', color: '#999', label: 'Supprimé' } 
   };
 
   const buildCircuitSteps = (op) => {
     if (!op) return [];
     const statut = op.statut === 'CREE' ? 'EN_COURS' : op.statut;
-    
     const circuitNormal = [
       { key: 'EN_COURS', label: 'En cours', date: op.dateCreation || op.createdAt?.split('T')[0] },
       { key: 'TRANSMIS_CF', label: 'Transmis CF', date: op.dateTransmissionCF },
@@ -93,58 +88,27 @@ const PageListeOP = () => {
       { key: 'PAYE', label: 'Payé', date: op.datePaiement || (op.paiements?.length > 0 ? op.paiements[op.paiements.length - 1].date : null) },
       { key: 'ARCHIVE', label: 'Archivé', date: op.dateArchivage }
     ];
-
     const statutOrder = ['EN_COURS', 'TRANSMIS_CF', 'VISE_CF', 'TRANSMIS_AC', 'PAYE', 'ARCHIVE'];
-    
     if (statut === 'DIFFERE_CF') {
-      return [
-        { ...circuitNormal[0], state: 'done' },
-        { ...circuitNormal[1], state: 'done' },
-        { key: 'DIFFERE_CF', label: 'Différé CF', date: op.dateDiffere || op.updatedAt?.split('T')[0], state: 'deferred' },
-        { ...circuitNormal[2], state: 'pending' },
-        { ...circuitNormal[3], state: 'pending' },
-        { ...circuitNormal[4], state: 'pending' }
-      ];
+      return [{ ...circuitNormal[0], state: 'done' }, { ...circuitNormal[1], state: 'done' }, { key: 'DIFFERE_CF', label: 'Différé CF', date: op.dateDiffere || op.updatedAt?.split('T')[0], state: 'deferred' }, { ...circuitNormal[2], state: 'pending' }, { ...circuitNormal[3], state: 'pending' }, { ...circuitNormal[4], state: 'pending' }];
     }
     if (statut === 'REJETE_CF') {
-      return [
-        { ...circuitNormal[0], state: 'done' },
-        { ...circuitNormal[1], state: 'done' },
-        { key: 'REJETE_CF', label: 'Rejeté CF', date: op.dateRejet || op.updatedAt?.split('T')[0], state: 'rejected' }
-      ];
+      return [{ ...circuitNormal[0], state: 'done' }, { ...circuitNormal[1], state: 'done' }, { key: 'REJETE_CF', label: 'Rejeté CF', date: op.dateRejet || op.updatedAt?.split('T')[0], state: 'rejected' }];
     }
     if (statut === 'DIFFERE_AC') {
-      return [
-        { ...circuitNormal[0], state: 'done' },
-        { ...circuitNormal[1], state: 'done' },
-        { ...circuitNormal[2], state: 'done' },
-        { ...circuitNormal[3], state: 'done' },
-        { key: 'DIFFERE_AC', label: 'Différé AC', date: op.dateDiffere || op.updatedAt?.split('T')[0], state: 'deferred' },
-        { ...circuitNormal[4], state: 'pending' }
-      ];
+      return [{ ...circuitNormal[0], state: 'done' }, { ...circuitNormal[1], state: 'done' }, { ...circuitNormal[2], state: 'done' }, { ...circuitNormal[3], state: 'done' }, { key: 'DIFFERE_AC', label: 'Différé AC', date: op.dateDiffere || op.updatedAt?.split('T')[0], state: 'deferred' }, { ...circuitNormal[4], state: 'pending' }];
     }
     if (statut === 'REJETE_AC') {
-      return [
-        { ...circuitNormal[0], state: 'done' },
-        { ...circuitNormal[1], state: 'done' },
-        { ...circuitNormal[2], state: 'done' },
-        { ...circuitNormal[3], state: 'done' },
-        { key: 'REJETE_AC', label: 'Rejeté AC', date: op.dateRejet || op.updatedAt?.split('T')[0], state: 'rejected' }
-      ];
+      return [{ ...circuitNormal[0], state: 'done' }, { ...circuitNormal[1], state: 'done' }, { ...circuitNormal[2], state: 'done' }, { ...circuitNormal[3], state: 'done' }, { key: 'REJETE_AC', label: 'Rejeté AC', date: op.dateRejet || op.updatedAt?.split('T')[0], state: 'rejected' }];
     }
-
     const currentIdx = statutOrder.indexOf(statut);
-    return circuitNormal.map((step, i) => ({
-      ...step,
-      state: i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'pending'
-    }));
+    return circuitNormal.map((step, i) => ({ ...step, state: i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'pending' }));
   };
 
   const getDrawerMessage = (op) => {
     if (!op) return null;
     const s = op.statut;
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '';
-    
     if (s === 'EN_COURS' || s === 'CREE') return { type: 'info', text: 'Cet OP est en cours de préparation.' };
     if (s === 'TRANSMIS_CF') return { type: 'info', text: `Transmis au Contrôleur Financier le ${formatDate(op.dateTransmissionCF)} — en attente de visa.` };
     if (s === 'DIFFERE_CF') return { type: 'warning', title: 'Différé par le CF', text: op.motifDiffere || op.motifRejet || 'Aucun motif renseigné', date: formatDate(op.dateDiffere || op.updatedAt) };
@@ -159,7 +123,6 @@ const PageListeOP = () => {
     return null;
   };
 
-  // Filtrage principal des OP : On cache les supprimés SAUF si on est dans la corbeille
   const opsExercice = ops.filter(op => {
     if (op.exerciceId !== currentExerciceId) return false;
     if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
@@ -167,16 +130,10 @@ const PageListeOP = () => {
     return true;
   });
 
-  // Provisoires à régulariser : OP Provisoires PAYÉS sans régularisation valide liée
   const provisoiresARegulariser = opsExercice.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
     if (op.statut !== 'PAYE' && op.statut !== 'PAYE_PARTIEL') return false;
-    
-    const hasRegularisationActive = opsExercice.some(o => 
-      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
-      o.opProvisoireId === op.id &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
+    const hasRegularisationActive = opsExercice.some(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && o.opProvisoireId === op.id && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut));
     return !hasRegularisationActive;
   });
 
@@ -187,16 +144,10 @@ const PageListeOP = () => {
     return Math.floor((now - date) / (1000 * 60 * 60 * 24));
   };
 
-  // Provisoires à annuler : OP Provisoires NON PAYÉS sans régularisation
   const provisoiresAnnuler = opsExercice.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
     if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE', 'SUPPRIME'].includes(op.statut)) return false;
-    
-    const hasRegularisationActive = opsExercice.some(o => 
-      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
-      o.opProvisoireId === op.id &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
+    const hasRegularisationActive = opsExercice.some(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && o.opProvisoireId === op.id && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut));
     return !hasRegularisationActive;
   });
   
@@ -227,12 +178,7 @@ const PageListeOP = () => {
       const search = filters.search.toLowerCase();
       const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
       const source = sources.find(s => s.id === op.sourceId);
-      if (
-        !op.numero?.toLowerCase().includes(search) &&
-        !(op.beneficiaireNom || ben?.nom || '').toLowerCase().includes(search) &&
-        !op.objet?.toLowerCase().includes(search) &&
-        !source?.sigle?.toLowerCase().includes(search)
-      ) return false;
+      if (!op.numero?.toLowerCase().includes(search) && !(op.beneficiaireNom || ben?.nom || '').toLowerCase().includes(search) && !op.objet?.toLowerCase().includes(search) && !source?.sigle?.toLowerCase().includes(search)) return false;
     }
     if (filters.dateDebut && op.dateCreation < filters.dateDebut) return false;
     if (filters.dateFin && op.dateCreation > filters.dateFin) return false;
@@ -248,58 +194,30 @@ const PageListeOP = () => {
     });
     filteredOpsChrono.forEach(op => {
       if (['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
-        lines.push({
-          ...op,
-          isRejetLine: true,
-          displayNumero: (op.numero || '') + ' - REJET',
-          displayMontant: -(op.montant || 0),
-          displayDate: op.updatedAt || op.createdAt || op.dateCreation
-        });
+        lines.push({ ...op, isRejetLine: true, displayNumero: (op.numero || '') + ' - REJET', displayMontant: -(op.montant || 0), displayDate: op.updatedAt || op.createdAt || op.dateCreation });
       }
     });
     lines.sort((a, b) => (a.displayDate || '').localeCompare(b.displayDate || ''));
-    
     const cumulParLigne = {}; 
     const getDotationOP = (op) => {
       if (op.dotationLigne !== undefined && op.dotationLigne !== null) return op.dotationLigne;
-      const latestBudget = budgets
-        .filter(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId)
-        .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+      const latestBudget = budgets.filter(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId).sort((a, b) => (b.version || 1) - (a.version || 1))[0];
       const ligne = latestBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
       return ligne?.dotation || 0;
     };
-    
-    let ordre = 0;
     lines.forEach(line => {
-      ordre++;
-      line.ordre = ordre;
       const lb = line.ligneBudgetaire || '_NONE_';
       line.engagementAnterieur = cumulParLigne[lb] || 0;
-      
-      if (line.isRejetLine) {
-        cumulParLigne[lb] = (cumulParLigne[lb] || 0) + line.displayMontant; 
-      } else if (!['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(line.statut)) {
-        cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (line.montant || 0);
-      }
-      if (!line.isRejetLine && ['REJETE_CF', 'REJETE_AC'].includes(line.statut)) {
-        cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (line.montant || 0);
-      }
-      
-      const dotOP = getDotationOP(line);
-      const totalEngageLigne = cumulParLigne[lb] || 0;
-      line.disponible = dotOP - totalEngageLigne;
+      if (line.isRejetLine) cumulParLigne[lb] = (cumulParLigne[lb] || 0) + line.displayMontant; 
+      else if (!['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(line.statut)) cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (line.montant || 0);
+      if (!line.isRejetLine && ['REJETE_CF', 'REJETE_AC'].includes(line.statut)) cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (line.montant || 0);
+      line.disponible = getDotationOP(line) - (cumulParLigne[lb] || 0);
     });
-    
     return lines.reverse();
   };
   
   const displayOps = buildDisplayOps();
-
-  const totaux = {
-    count: filteredOps.length,
-    montant: filteredOps.reduce((sum, op) => sum + (op.montant || 0), 0),
-    paye: filteredOps.reduce((sum, op) => sum + (op.totalPaye || 0), 0)
-  };
+  const totaux = { count: filteredOps.length, montant: filteredOps.reduce((sum, op) => sum + (op.montant || 0), 0), paye: filteredOps.reduce((sum, op) => sum + (op.totalPaye || 0), 0) };
 
   const handleExport = () => {
     const headers = ['Source', 'N° OP', 'Création', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Trans. CF', 'Visa CF', 'Trans. AC', 'Payé', 'Reste', 'Statut', 'Motif Rejet/Différé'];
@@ -315,7 +233,6 @@ const PageListeOP = () => {
         (op.montant || 0) - (op.totalPaye || 0), op.isRejetLine ? 'Rejet' : (statutConfig[op.statut]?.label || op.statut), motif
       ];
     });
-
     const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -326,367 +243,98 @@ const PageListeOP = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleOpenTransmissionCF = (op) => {
-    setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], bordereau: op.bordereauCF || '' });
-    setShowTransmissionModal({ op, destination: 'CF' });
-  };
-
-  const handleOpenTransmissionAC = (op) => {
-    setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], bordereau: op.bordereauAC || '' });
-    setShowTransmissionModal({ op, destination: 'AC' });
-  };
-
+  const handleOpenTransmissionCF = (op) => { setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], bordereau: op.bordereauCF || '' }); setShowTransmissionModal({ op, destination: 'CF' }); };
+  const handleOpenTransmissionAC = (op) => { setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], bordereau: op.bordereauAC || '' }); setShowTransmissionModal({ op, destination: 'AC' }); };
+  
   const handleConfirmTransmission = async () => {
     const { op, destination } = showTransmissionModal;
     try {
-      const updates = { 
-        statut: destination === 'CF' ? 'TRANSMIS_CF' : 'TRANSMIS_AC',
-        updatedAt: new Date().toISOString()
-      };
-      
-      if (destination === 'CF') {
-        updates.dateTransmissionCF = actionForm.date;
-        updates.bordereauCF = actionForm.bordereau.trim() || null;
-      } else {
-        updates.dateTransmissionAC = actionForm.date;
-        updates.bordereauAC = actionForm.bordereau.trim() || null;
-      }
-      
+      const updates = { statut: destination === 'CF' ? 'TRANSMIS_CF' : 'TRANSMIS_AC', updatedAt: new Date().toISOString() };
+      if (destination === 'CF') { updates.dateTransmissionCF = actionForm.date; updates.bordereauCF = actionForm.bordereau.trim() || null; }
+      else { updates.dateTransmissionAC = actionForm.date; updates.bordereauAC = actionForm.bordereau.trim() || null; }
       await updateDoc(doc(db, 'ops', op.id), updates);
       setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
       setShowTransmissionModal(null);
       setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' });
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la transmission');
-    }
+    } catch (error) { console.error('Erreur:', error); alert('Erreur lors de la transmission'); }
   };
 
   const handleViserCF = async (op) => {
     if (!window.confirm(`Viser l'OP ${op.numero} ?`)) return;
     try {
-      const updates = { 
-        statut: 'VISE_CF',
-        dateVisaCF: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString()
-      };
+      const updates = { statut: 'VISE_CF', dateVisaCF: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString() };
       await updateDoc(doc(db, 'ops', op.id), updates);
       let updatedOps = ops.map(o => o.id === op.id ? { ...o, ...updates } : o);
-
       if (op.type === 'ANNULATION' && op.opProvisoireId) {
-        const annuleUpdates = {
-          statut: 'ANNULE',
-          dateAnnulation: new Date().toISOString().split('T')[0],
-          opAnnulationId: op.id,
-          updatedAt: new Date().toISOString()
-        };
+        const annuleUpdates = { statut: 'ANNULE', dateAnnulation: new Date().toISOString().split('T')[0], opAnnulationId: op.id, updatedAt: new Date().toISOString() };
         await updateDoc(doc(db, 'ops', op.opProvisoireId), annuleUpdates);
         updatedOps = updatedOps.map(o => o.id === op.opProvisoireId ? { ...o, ...annuleUpdates } : o);
       }
       setOps(updatedOps);
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors du visa');
-    }
-  };
-
-  const handleRetourner = async (op, origine) => {
-    const motif = window.prompt(`Motif du retour par le ${origine} :`);
-    if (!motif) return;
-    try {
-      const updates = { 
-        statut: origine === 'CF' ? 'RETOURNE_CF' : 'RETOURNE_AC',
-        [`dateRetour${origine}`]: new Date().toISOString().split('T')[0],
-        [`motifRetour${origine}`]: motif.trim(),
-        updatedAt: new Date().toISOString()
-      };
-      await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors du retour');
-    }
+    } catch (error) { console.error('Erreur:', error); alert('Erreur lors du visa'); }
   };
 
   const handlePaiement = async () => {
     if (!actionForm.reference.trim()) { alert('La référence est obligatoire'); return; }
     const montantPaye = parseFloat(actionForm.montant);
     if (!montantPaye || montantPaye <= 0) { alert('Le montant doit être supérieur à 0'); return; }
-    
     const op = showPaiementModal;
-    const totalPayeActuel = op.totalPaye || 0;
-    const resteAPayer = op.montant - totalPayeActuel;
-    
-    if (montantPaye > resteAPayer) { alert(`Le montant ne peut pas dépasser le reste à payer (${formatMontant(resteAPayer)} FCFA)`); return; }
-    
+    if (montantPaye > (op.montant - (op.totalPaye || 0))) { alert(`Le montant dépasse le reste à payer`); return; }
     try {
       const nouveauPaiement = { date: actionForm.date, reference: actionForm.reference.trim(), montant: montantPaye, mode: op.modeReglement || 'VIREMENT' };
-      const paiements = [...(op.paiements || []), nouveauPaiement];
-      const nouveauTotalPaye = totalPayeActuel + montantPaye;
-      const nouveauReste = op.montant - nouveauTotalPaye;
-      const nouveauStatut = nouveauReste <= 0 ? 'PAYE' : 'PAYE_PARTIEL';
-      
-      const updates = { 
-        paiements, totalPaye: nouveauTotalPaye, resteAPayer: nouveauReste, statut: nouveauStatut,
-        datePaiement: nouveauStatut === 'PAYE' ? actionForm.date : op.datePaiement, updatedAt: new Date().toISOString()
-      };
-      
+      const nTotal = (op.totalPaye || 0) + montantPaye;
+      const nStatut = nTotal >= op.montant ? 'PAYE' : 'PAYE_PARTIEL';
+      const updates = { paiements: [...(op.paiements || []), nouveauPaiement], totalPaye: nTotal, statut: nStatut, datePaiement: nStatut === 'PAYE' ? actionForm.date : op.datePaiement, updatedAt: new Date().toISOString() };
       await updateDoc(doc(db, 'ops', op.id), updates);
       setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
       setShowPaiementModal(null);
       setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '' });
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de l\'enregistrement du paiement');
-    }
-  };
-
-  const handleArchiver = (op) => {
-    setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], boiteArchive: op.boiteArchive || '' });
-    setShowArchiveModal(op);
-  };
-  
-  const handleConfirmArchive = async () => {
-    const op = showArchiveModal;
-    try {
-      const updates = { 
-        statut: 'ARCHIVE', dateArchivage: actionForm.date, boiteArchive: actionForm.boiteArchive.trim() || null, updatedAt: new Date().toISOString()
-      };
-      await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
-      setShowArchiveModal(null);
-      setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' });
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de l\'archivage');
-    }
+    } catch (error) { console.error('Erreur:', error); alert('Erreur paiement'); }
   };
 
   const handleDeleteWithPassword = (op) => {
-    let warningMsg = `L'OP sera déplacé vers la corbeille.`;
-    if (!['REJETE_CF', 'REJETE_AC', 'ARCHIVE'].includes(op.statut)) {
-      warningMsg += ` Le budget de ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire} sera libéré.`;
-    }
-    if (['TRANSMIS_CF', 'VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE'].includes(op.statut)) {
-      warningMsg += ` Attention : cet OP est déjà en cours de traitement !`;
-    }
-    
     setShowPasswordModal({
-      title: 'Supprimer un OP',
-      description: `Déplacer l'OP ${op.numero} vers la corbeille ?`,
-      warningMessage: warningMsg,
-      confirmText: 'Mettre à la corbeille',
-      confirmColor: '#C43E3E',
+      title: 'Supprimer un OP', description: `Déplacer l'OP ${op.numero} vers la corbeille ?`, confirmText: 'Mettre à la corbeille', confirmColor: '#C43E3E',
       action: async () => {
         try {
-          const updates = {
-            statut: 'SUPPRIME',
-            dateSuppression: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
+          const updates = { statut: 'SUPPRIME', dateSuppression: new Date().toISOString(), updatedAt: new Date().toISOString() };
           await updateDoc(doc(db, 'ops', op.id), updates);
           setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
-          setShowPasswordModal(null);
-          setShowDetail(null); 
-        } catch (error) {
-          console.error('Erreur:', error);
-          alert('Erreur lors de la mise à la corbeille');
-        }
+          setShowPasswordModal(null); setShowDetail(null); 
+        } catch (error) { console.error('Erreur:', error); alert('Erreur mise à la corbeille'); }
       }
     });
-  };
-
-  const handleOpenStatutModal = (op) => {
-    setShowStatutModal({ op });
-    setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' });
-  };
-
-  const handleChangeStatut = async () => {
-    const op = showStatutModal.op;
-    const { nouveauStatut, date, motif } = actionForm;
-    if (!nouveauStatut) { alert('Veuillez sélectionner un statut'); return; }
-    if (['DIFFERE_CF', 'DIFFERE_AC', 'REJETE_CF', 'REJETE_AC'].includes(nouveauStatut) && !motif.trim()) { alert('Le motif est obligatoire pour ce statut'); return; }
-    
-    if (['REJETE_CF', 'REJETE_AC'].includes(nouveauStatut)) {
-      setShowPasswordModal({
-        title: `Changer le statut en ${statutConfig[nouveauStatut]?.label}`,
-        description: `L'OP ${op.numero} sera marqué comme rejeté.`,
-        warningMessage: `Le rejet va libérer ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire}.`,
-        confirmText: 'Confirmer',
-        confirmColor: '#C43E3E',
-        action: async () => { await saveStatutChange(op, nouveauStatut, date, motif); setShowPasswordModal(null); }
-      });
-      return;
-    }
-    await saveStatutChange(op, nouveauStatut, date, motif);
-  };
-
-  const saveStatutChange = async (op, nouveauStatut, date, motif) => {
-    try {
-      const updates = { statut: nouveauStatut, updatedAt: new Date().toISOString() };
-      if (nouveauStatut === 'TRANSMIS_CF') updates.dateTransmissionCF = date;
-      if (nouveauStatut === 'VISE_CF') updates.dateVisaCF = date;
-      if (nouveauStatut === 'TRANSMIS_AC') updates.dateTransmissionAC = date;
-      if (nouveauStatut === 'DIFFERE_CF') { updates.dateDiffereCF = date; updates.motifDiffereCF = motif; }
-      if (nouveauStatut === 'DIFFERE_AC') { updates.dateDiffereAC = date; updates.motifDiffereAC = motif; }
-      if (nouveauStatut === 'REJETE_CF' || nouveauStatut === 'REJETE_AC') { updates.dateRejet = date; updates.motifRejet = motif; updates.rejetePar = nouveauStatut === 'REJETE_CF' ? 'CF' : 'AC'; }
-      if (nouveauStatut === 'ARCHIVE') updates.dateArchivage = date;
-      
-      await updateDoc(doc(db, 'ops', op.id), updates);
-      let updatedOps2 = ops.map(o => o.id === op.id ? { ...o, ...updates } : o);
-
-      if (nouveauStatut === 'VISE_CF' && op.type === 'ANNULATION' && op.opProvisoireId) {
-        const annuleUpdates = { statut: 'ANNULE', dateAnnulation: date, opAnnulationId: op.id, updatedAt: new Date().toISOString() };
-        await updateDoc(doc(db, 'ops', op.opProvisoireId), annuleUpdates);
-        updatedOps2 = updatedOps2.map(o => o.id === op.opProvisoireId ? { ...o, ...annuleUpdates } : o);
-      }
-
-      setOps(updatedOps2);
-      setShowStatutModal(null);
-      setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' });
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors du changement de statut');
-    }
-  };
-
-  const handleDesarchiver = async (op) => {
-    if (!window.confirm(`Désarchiver l'OP ${op.numero} ? Il retournera au statut "Payé".`)) return;
-    try {
-      const updates = { statut: 'PAYE', dateArchivage: null, updatedAt: new Date().toISOString() };
-      await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors du désarchivage');
-    }
-  };
-
-  const handleOpenEdit = (op) => {
-    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-    const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
-    let ribIdx = 0;
-    if (op.rib && benRibs.length > 1) {
-      const idx = benRibs.findIndex(r => r.numero === op.rib);
-      if (idx >= 0) ribIdx = idx;
-    }
-    setEditForm({
-      type: op.type || 'DIRECT', beneficiaireId: op.beneficiaireId || '', ribIndex: ribIdx, modeReglement: op.modeReglement || 'VIREMENT',
-      objet: op.objet || '', piecesJustificatives: op.piecesJustificatives || '', montant: op.montant || '', ligneBudgetaire: op.ligneBudgetaire || '',
-      dateCreation: op.dateCreation || '', tvaRecuperable: op.tvaRecuperable || false, montantTVA: op.montantTVA || ''
-    });
-    setShowEditModal(op);
-  };
-
-  const handleSaveEdit = async () => {
-    const op = showEditModal;
-    const montantModifie = parseFloat(editForm.montant) !== op.montant;
-    const beneficiaireModifie = editForm.beneficiaireId !== op.beneficiaireId;
-    
-    if (montantModifie || beneficiaireModifie) {
-      const opsPostérieurs = ops.filter(o => 
-        o.sourceId === op.sourceId && o.exerciceId === op.exerciceId && o.ligneBudgetaire === editForm.ligneBudgetaire &&
-        o.id !== op.id && (o.createdAt || '') > (op.createdAt || '')
-      );
-      
-      let warningMsg = '';
-      if (montantModifie) warningMsg = `Le montant passe de ${formatMontant(op.montant)} à ${formatMontant(parseFloat(editForm.montant))} FCFA.`;
-      if (beneficiaireModifie) {
-        const oldBen = beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
-        const newBen = beneficiaires.find(b => b.id === editForm.beneficiaireId)?.nom || 'N/A';
-        warningMsg += (warningMsg ? ' ' : '') + `Bénéficiaire : ${oldBen} → ${newBen}.`;
-      }
-      if (opsPostérieurs.length > 0 && montantModifie) warningMsg += ` Attention : ${opsPostérieurs.length} OP postérieur(s) sur cette ligne seront impactés.`;
-      
-      setShowPasswordModal({
-        title: 'Confirmer les modifications', description: `Modification de l'OP ${op.numero}`, warningMessage: warningMsg,
-        confirmText: 'Confirmer la modification', confirmColor: '#E8B931',
-        action: async () => { await saveEditChanges(op); setShowPasswordModal(null); }
-      });
-      return;
-    }
-    await saveEditChanges(op);
-  };
-
-  const saveEditChanges = async (op) => {
-    try {
-      const ben = beneficiaires.find(b => b.id === editForm.beneficiaireId);
-      const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
-      const selectedRib = benRibs[editForm.ribIndex || 0];
-      
-      const updates = {
-        type: editForm.type, beneficiaireId: editForm.beneficiaireId, beneficiaireNom: ben?.nom || '',
-        modeReglement: editForm.modeReglement, rib: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.numero || '') : '',
-        banque: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '',
-        objet: editForm.objet, piecesJustificatives: editForm.piecesJustificatives, montant: parseFloat(editForm.montant) || op.montant,
-        ligneBudgetaire: editForm.ligneBudgetaire, dateCreation: editForm.dateCreation, tvaRecuperable: editForm.tvaRecuperable || false,
-        montantTVA: editForm.tvaRecuperable ? (parseFloat(editForm.montantTVA) || 0) : 0, updatedAt: new Date().toISOString()
-      };
-      
-      await updateDoc(doc(db, 'ops', op.id), updates);
-      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
-      setShowEditModal(null);
-      setEditForm({});
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la modification');
-    }
-  };
-
-  const handleOpenCircuitModal = (op) => {
-    setCircuitForm({
-      statut: op.statut, dateCreation: op.dateCreation || '', dateTransmissionCF: op.dateTransmissionCF || '', bordereauCF: op.bordereauCF || '',
-      dateVisaCF: op.dateVisaCF || '', numeroVisaCF: op.numeroVisaCF || '', dateTransmissionAC: op.dateTransmissionAC || '', bordereauAC: op.bordereauAC || '',
-      datePaiement: op.datePaiement || '', referencePaiement: op.referencePaiement || '', dateArchivage: op.dateArchivage || '', boiteArchive: op.boiteArchive || '',
-      dateDiffereCF: op.dateDiffereCF || '', motifDiffereCF: op.motifDiffereCF || '', dateDiffereAC: op.dateDiffereAC || '', motifDiffereAC: op.motifDiffereAC || '',
-      dateRejet: op.dateRejet || '', motifRejet: op.motifRejet || '', rejetePar: op.rejetePar || ''
-    });
-    setShowCircuitModal(op);
   };
 
   const handleSaveCircuit = async () => {
     const op = showCircuitModal;
     const nouveauStatut = circuitForm.statut;
-    if (['REJETE_CF', 'REJETE_AC'].includes(nouveauStatut) && !['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
-      setShowPasswordModal({
-        title: `Rejeter l'OP ${op.numero}`, description: `L'OP sera marqué comme rejeté par le ${nouveauStatut === 'REJETE_CF' ? 'CF' : 'AC'}.`,
-        warningMessage: `Le rejet va libérer ${formatMontant(op.montant)} FCFA sur la ligne ${op.ligneBudgetaire}.`,
-        confirmText: 'Confirmer le rejet', confirmColor: '#C43E3E',
-        action: async () => { await saveCircuitChanges(op); setShowPasswordModal(null); }
-      });
-      return;
-    }
-    await saveCircuitChanges(op);
-  };
-  
-  const saveCircuitChanges = async (op) => {
     try {
-      const updates = {
-        statut: circuitForm.statut, dateCreation: circuitForm.dateCreation || null, dateTransmissionCF: circuitForm.dateTransmissionCF || null,
-        bordereauCF: circuitForm.bordereauCF || null, dateVisaCF: circuitForm.dateVisaCF || null, numeroVisaCF: circuitForm.numeroVisaCF || null,
-        dateTransmissionAC: circuitForm.dateTransmissionAC || null, bordereauAC: circuitForm.bordereauAC || null, datePaiement: circuitForm.datePaiement || null,
-        referencePaiement: circuitForm.referencePaiement || null, dateArchivage: circuitForm.dateArchivage || null, boiteArchive: circuitForm.boiteArchive || null,
-        dateDiffereCF: circuitForm.dateDiffereCF || null, motifDiffereCF: circuitForm.motifDiffereCF || null, dateDiffereAC: circuitForm.dateDiffereAC || null,
-        motifDiffereAC: circuitForm.motifDiffereAC || null, dateRejet: circuitForm.dateRejet || null, motifRejet: circuitForm.motifRejet || null,
-        rejetePar: circuitForm.rejetePar || null, updatedAt: new Date().toISOString()
-      };
-      
+      const updates = { statut: nouveauStatut, dateCreation: circuitForm.dateCreation || null, dateTransmissionCF: circuitForm.dateTransmissionCF || null, bordereauCF: circuitForm.bordereauCF || null, dateVisaCF: circuitForm.dateVisaCF || null, numeroVisaCF: circuitForm.numeroVisaCF || null, dateTransmissionAC: circuitForm.dateTransmissionAC || null, bordereauAC: circuitForm.bordereauAC || null, datePaiement: circuitForm.datePaiement || null, referencePaiement: circuitForm.referencePaiement || null, dateArchivage: circuitForm.dateArchivage || null, boiteArchive: circuitForm.boiteArchive || null, dateDiffereCF: circuitForm.dateDiffereCF || null, motifDiffereCF: circuitForm.motifDiffereCF || null, dateDiffereAC: circuitForm.dateDiffereAC || null, motifDiffereAC: circuitForm.motifDiffereAC || null, dateRejet: circuitForm.dateRejet || null, motifRejet: circuitForm.motifRejet || null, rejetePar: circuitForm.rejetePar || null, updatedAt: new Date().toISOString() };
       await updateDoc(doc(db, 'ops', op.id), updates);
       let updatedOps3 = ops.map(o => o.id === op.id ? { ...o, ...updates } : o);
-
       if (circuitForm.statut === 'VISE_CF' && op.type === 'ANNULATION' && op.opProvisoireId) {
         const annuleUpdates = { statut: 'ANNULE', dateAnnulation: circuitForm.dateVisaCF || new Date().toISOString().split('T')[0], opAnnulationId: op.id, updatedAt: new Date().toISOString() };
         await updateDoc(doc(db, 'ops', op.opProvisoireId), annuleUpdates);
         updatedOps3 = updatedOps3.map(o => o.id === op.opProvisoireId ? { ...o, ...annuleUpdates } : o);
       }
+      setOps(updatedOps3); setShowCircuitModal(null);
+    } catch (error) { console.error('Erreur:', error); alert('Erreur mise à jour'); }
+  };
 
-      setOps(updatedOps3);
-      setShowCircuitModal(null);
-      setCircuitForm({});
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la mise à jour');
-    }
+  const handleOpenStatutModal = (op) => { setShowStatutModal({ op }); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' }); };
+
+  const handleSaveEdit = async () => {
+    const op = showEditModal;
+    try {
+      const ben = beneficiaires.find(b => b.id === editForm.beneficiaireId);
+      const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+      const selectedRib = benRibs[editForm.ribIndex || 0];
+      const updates = { type: editForm.type, beneficiaireId: editForm.beneficiaireId, beneficiaireNom: ben?.nom || '', modeReglement: editForm.modeReglement, rib: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.numero || '') : '', banque: editForm.modeReglement === 'VIREMENT' ? (selectedRib?.banque || '') : '', objet: editForm.objet, piecesJustificatives: editForm.piecesJustificatives, montant: parseFloat(editForm.montant) || op.montant, ligneBudgetaire: editForm.ligneBudgetaire, dateCreation: editForm.dateCreation, tvaRecuperable: editForm.tvaRecuperable || false, montantTVA: editForm.tvaRecuperable ? (parseFloat(editForm.montantTVA) || 0) : 0, updatedAt: new Date().toISOString() };
+      await updateDoc(doc(db, 'ops', op.id), updates);
+      setOps(ops.map(o => o.id === op.id ? { ...o, ...updates } : o));
+      setShowEditModal(null);
+    } catch (error) { console.error('Erreur:', error); alert('Erreur modification'); }
   };
 
   return (
@@ -706,12 +354,7 @@ const PageListeOP = () => {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[
-          { key: 'CUMUL_OP', label: 'Liste OP' },
-          { key: 'PROV_A_ANNULER', label: 'Prov. à annuler' },
-          { key: 'A_REGULARISER', label: 'À régulariser' },
-          { key: 'CORBEILLE', label: 'Corbeille' }
-        ].map(tab => (
+        {[{ key: 'CUMUL_OP', label: 'Liste OP' }, { key: 'PROV_A_ANNULER', label: 'Prov. à annuler' }, { key: 'A_REGULARISER', label: 'À régulariser' }, { key: 'CORBEILLE', label: 'Corbeille' }].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: activeTab === tab.key ? '#D4722A' : '#fff', color: activeTab === tab.key ? 'white' : '#666', fontWeight: 600, fontSize: 12, cursor: 'pointer', boxShadow: activeTab === tab.key ? '0 2px 8px rgba(75,93,22,0.2)' : '0 1px 3px rgba(0,0,0,0.04)' }}>
             {tab.label} <span style={{ background: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : '#EDE9E3', padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 800 }}>{counts[tab.key]}</span>
           </button>
@@ -738,20 +381,13 @@ const PageListeOP = () => {
           <div style={{ flex: '1 1 110px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase' }}>Type</label>
             <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })} style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, fontSize: 12, color: '#000000' }}>
-              <option value="">Tous</option>
-              <option value="PROVISOIRE">Provisoire</option>
-              <option value="DIRECT">Direct</option>
-              <option value="DEFINITIF">Définitif</option>
-              <option value="ANNULATION">Annulation</option>
+              <option value="">Tous</option><option value="PROVISOIRE">Provisoire</option><option value="DIRECT">Direct</option><option value="DEFINITIF">Définitif</option><option value="ANNULATION">Annulation</option>
             </select>
           </div>
           <div style={{ flex: '1 1 120px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase' }}>Statut</label>
             <select value={filters.statut} onChange={(e) => setFilters({ ...filters, statut: e.target.value })} style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, fontSize: 12, color: '#000000' }}>
-              <option value="">Tous</option>
-              {Object.entries(statutConfig).map(([key, val]) => (
-                <option key={key} value={key}>{val.label}</option>
-              ))}
+              <option value="">Tous</option>{Object.entries(statutConfig).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div style={{ flex: '1 1 120px', minWidth: 0 }}>
@@ -759,400 +395,94 @@ const PageListeOP = () => {
             <input type="text" placeholder="Filtrer..." value={filters.ligneBudgetaire} onChange={(e) => setFilters({ ...filters, ligneBudgetaire: e.target.value })} style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, fontSize: 12, color: '#000000' }} list="lignesList" />
             <datalist id="lignesList">{allLignes.map(code => <option key={code} value={code} />)}</datalist>
           </div>
-          <div style={{ flex: '1 1 110px', minWidth: 0 }}>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase' }}>Du</label>
-            <input type="date" value={filters.dateDebut} onChange={(e) => setFilters({ ...filters, dateDebut: e.target.value })} style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, fontSize: 12, color: '#000000' }} />
-          </div>
-          <div style={{ flex: '1 1 110px', minWidth: 0 }}>
-            <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase' }}>Au</label>
-            <input type="date" value={filters.dateFin} onChange={(e) => setFilters({ ...filters, dateFin: e.target.value })} style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, fontSize: 12, color: '#000000' }} />
-          </div>
         </div>
       </div>
 
       <div style={{ background: '#FFFFFF', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.04)' }}>
-        <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F7F5F2' }}>
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid #F7F5F2' }}>
           <span style={{ fontSize: 12, color: '#888' }}>
             <strong style={{ color: '#D4722A' }}>{totaux.count}</strong> OP — Montant : <strong style={{ color: '#2C5A7A', fontFamily: 'monospace' }}>{formatMontant(totaux.montant)}</strong>
             {totaux.paye > 0 && <> — Payé : <strong style={{ color: '#1B6B2E', fontFamily: 'monospace' }}>{formatMontant(totaux.paye)}</strong></>}
           </span>
-          {(filters.type || filters.statut || filters.search || filters.ligneBudgetaire || filters.dateDebut || filters.dateFin) && (
-            <button 
-              onClick={() => setFilters({ type: '', statut: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '' })}
-              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(34,51,0,0.08)', background: '#F7F5F2', fontSize: 11, color: '#999', cursor: 'pointer' }}
-            >
-              Effacer filtres
-            </button>
-          )}
         </div>
-
-        {filteredOps.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#888' }}>
-            <div style={{ marginBottom: 12, opacity: 0.4 }}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg></div>
-            <div style={{ fontSize: 13 }}>Aucun OP trouvé</div>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', maxHeight: '60vh' }}>
-            <table style={styles.table}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr>
-                  {activeSource === 'ALL' && <th style={{ ...styles.th, width: 55, background: '#F7F5F2', fontSize: 9.5 }}>Source</th>}
-                  <th style={{ ...styles.th, width: 140, background: '#F7F5F2', fontSize: 9.5 }}>N° OP</th>
-                  <th style={{ ...styles.th, width: 70, background: '#F7F5F2', fontSize: 9.5 }}>Type</th>
-                  <th style={{ ...styles.th, width: 140, background: '#F7F5F2', fontSize: 9.5 }}>Bénéficiaire</th>
-                  <th style={{ ...styles.th, background: '#F7F5F2', fontSize: 9.5 }}>Objet</th>
-                  <th style={{ ...styles.th, width: 60, background: '#F7F5F2', fontSize: 9.5 }}>Ligne</th>
-                  <th style={{ ...styles.th, width: 95, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Dotation</th>
-                  <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Montant</th>
-                  {activeTab === 'A_REGULARISER' && <th style={{ ...styles.th, width: 70, background: '#F7F5F2', fontSize: 9.5 }}>Ancienneté</th>}
-                  
-                  {activeSource !== 'ALL' && (
-                    <>
-                      <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Eng. ant.</th>
-                      <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Disponible</th>
-                    </>
-                  )}
-                  <th style={{ ...styles.th, width: 95, background: '#F7F5F2', fontSize: 9.5 }}>Statut</th>
-                  <th style={{ ...styles.th, width: 38, textAlign: 'center', background: '#F7F5F2' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayOps.map((op) => {
-                  const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-                  const source = sources.find(s => s.id === op.sourceId);
-                  const isRejet = op.isRejetLine;
-                  const statutObj = isRejet ? { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejet' } : (statutConfig[op.statut] || { bg: '#F7F5F2', color: '#666', label: op.statut });
-                  const anciennete = getAnciennete(op.dateCreation);
-                  
-                  let dotationLigne = op.dotationLigne;
-                  if (dotationLigne === undefined || dotationLigne === null) {
-                    const currentBudget = budgets.filter(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId).sort((a, b) => (b.version || 1) - (a.version || 1))[0];
-                    const ligneBudget = currentBudget?.lignes?.find(l => l.code === op.ligneBudgetaire);
-                    dotationLigne = ligneBudget?.dotation || 0;
-                  }
-                  
-                  return (
-                    <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#E8F5E9' : 'transparent', transition: 'background 0.1s' }} onClick={() => { if (!isRejet) setDrawerOp(op); }} onDoubleClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
-                      {activeSource === 'ALL' && <td style={styles.td}><span style={{ background: source?.couleur || '#666', color: 'white', padding: '2px 7px', borderRadius: 4, fontSize: 9 }}>{source?.sigle || '?'}</span></td>}
-                      <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#C43E3E' : '#155A25' }}>{isRejet ? op.displayNumero : op.numero}</td>
-                      <td style={{ ...styles.td }}><span style={{ background: isRejet ? '#C43E3E15' : `${typeColors[op.type]}18`, color: isRejet ? '#C43E3E' : typeColors[op.type], padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>{isRejet ? 'REJET' : op.type}</span></td>
-                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
-                      <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#888' }} title={op.objet}>{op.objet || '-'}</td>
-                      <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace', color: '#666' }}>{op.ligneBudgetaire || '-'}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5, color: '#999' }}>{formatMontant(dotationLigne)}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: isRejet ? '#C43E3E' : '#155A25' }}>{isRejet ? '-' + formatMontant(op.montant) : formatMontant(op.montant)}</td>
-                      
-                      {activeTab === 'A_REGULARISER' && <td style={{ ...styles.td }}><span style={{ background: anciennete > 30 ? '#C43E3E15' : anciennete > 15 ? '#E8B93120' : '#E8F5E9', color: anciennete > 30 ? '#C43E3E' : anciennete > 15 ? '#E8B931' : '#2e7d32', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 }}>{anciennete}j</span></td>}
-
-                      {activeSource !== 'ALL' && (
-                        <>
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 10.5, color: '#666' }}>{formatMontant(op.engagementAnterieur || 0)}</td>
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: (op.disponible || 0) < 0 ? '#C43E3E' : '#2e7d32' }}>{formatMontant(op.disponible)}</td>
-                        </>
-                      )}
-                      <td style={styles.td}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: statutObj.bg, color: statutObj.color, padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: statutObj.color }} />{statutObj.label}</span></td>
-                      
-                      <td style={{ ...styles.td, textAlign: 'center', padding: '8px 4px' }} onClick={(e) => e.stopPropagation()}>
-                        {!isRejet && (
-                          <button onClick={() => setDrawerOp(op)} title="Aperçu du circuit" style={{ width: 28, height: 28, borderRadius: 7, border: drawerOp?.id === op.id ? 'none' : '1.5px solid #EDE9E3', background: drawerOp?.id === op.id ? '#D4722A' : 'white', color: drawerOp?.id === op.id ? 'white' : '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.15s', padding: 0 }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div style={{ overflowX: 'auto', maxHeight: '60vh' }}>
+          <table style={styles.table}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+              <tr>
+                {activeSource === 'ALL' && <th style={{ ...styles.th, width: 55, background: '#F7F5F2', fontSize: 9.5 }}>Source</th>}
+                <th style={{ ...styles.th, width: 140, background: '#F7F5F2', fontSize: 9.5 }}>N° OP</th>
+                <th style={{ ...styles.th, width: 70, background: '#F7F5F2', fontSize: 9.5 }}>Type</th>
+                <th style={{ ...styles.th, width: 140, background: '#F7F5F2', fontSize: 9.5 }}>Bénéficiaire</th>
+                <th style={{ ...styles.th, background: '#F7F5F2', fontSize: 9.5 }}>Objet</th>
+                <th style={{ ...styles.th, width: 60, background: '#F7F5F2', fontSize: 9.5 }}>Ligne</th>
+                <th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Montant</th>
+                {activeSource !== 'ALL' && <><th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Eng. ant.</th><th style={{ ...styles.th, width: 100, textAlign: 'right', background: '#F7F5F2', fontSize: 9.5 }}>Disponible</th></>}
+                <th style={{ ...styles.th, width: 95, background: '#F7F5F2', fontSize: 9.5 }}>Statut</th>
+                <th style={{ ...styles.th, width: 38, background: '#F7F5F2' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayOps.map((op) => {
+                const statutObj = statutConfig[op.statut] || { bg: '#F7F5F2', color: '#666', label: op.statut };
+                const isRejet = op.isRejetLine;
+                return (
+                  <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#E8F5E9' : 'transparent' }} onClick={() => { if (!isRejet) setDrawerOp(op); }} onDoubleClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
+                    {activeSource === 'ALL' && <td style={styles.td}><span style={{ background: sources.find(s => s.id === op.sourceId)?.couleur || '#666', color: 'white', padding: '2px 7px', borderRadius: 4, fontSize: 9 }}>{sources.find(s => s.id === op.sourceId)?.sigle}</span></td>}
+                    <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#C43E3E' : '#155A25' }}>{isRejet ? op.displayNumero : op.numero}</td>
+                    <td style={{ ...styles.td }}><span style={{ background: isRejet ? '#C43E3E15' : `${typeColors[op.type]}18`, color: isRejet ? '#C43E3E' : typeColors[op.type], padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>{isRejet ? 'REJET' : op.type}</span></td>
+                    <td style={{ ...styles.td, fontSize: 11 }}>{op.beneficiaireNom || 'N/A'}</td>
+                    <td style={{ ...styles.td, fontSize: 11 }}>{op.objet}</td>
+                    <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace' }}>{op.ligneBudgetaire}</td>
+                    <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: isRejet ? '#C43E3E' : '#155A25' }}>{isRejet ? '-' : ''}{formatMontant(op.montant)}</td>
+                    {activeSource !== 'ALL' && <><td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5 }}>{formatMontant(op.engagementAnterieur)}</td><td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: op.disponible < 0 ? '#C43E3E' : '#2e7d32' }}>{formatMontant(op.disponible)}</td></>}
+                    <td style={styles.td}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: isRejet ? '#C43E3E15' : statutObj.bg, color: isRejet ? '#C43E3E' : statutObj.color, padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 600 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: isRejet ? '#C43E3E' : statutObj.color }} />{isRejet ? 'Rejet' : statutObj.label}</span></td>
+                    <td style={styles.td} onClick={(e) => e.stopPropagation()}>{!isRejet && <button onClick={() => setDrawerOp(op)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Modal Import OP */}
-      {showImportModal && (
-        <div style={styles.modal} onClick={() => { setShowImportModal(false); setImportData([]); setImportError(''); }}>
-          <div style={{ ...styles.modalContent, maxWidth: 900 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: 20, borderBottom: '1px solid #EDE9E3', background: '#E8B931', color: 'white' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>Importer des OP depuis Excel/CSV</h2>
+      {drawerOp && (
+        <>
+          <div onClick={() => setDrawerOp(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(12,74,94,0.08)', zIndex: 90 }} />
+          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 400, background: '#FFFFFF', zIndex: 100, boxShadow: '-8px 0 32px rgba(12,74,94,0.12)', borderRadius: '20px 0 0 20px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #EDE9E3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2C5A7A', margin: 0 }}>Aperçu OP</h3>
+              <button onClick={() => setDrawerOp(null)} style={{ border: 'none', background: '#F7F5F2', cursor: 'pointer', borderRadius: 8, padding: 5 }}>✕</button>
             </div>
-            <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
-              <div style={{ marginBottom: 20, padding: 16, background: '#E8B93110', borderRadius: 8, fontSize: 13 }}>
-                <strong>Format attendu (colonnes) :</strong><br/>
-                Type | Bénéficiaire (NCC) | Objet | Ligne Budgétaire | Montant | Date Création
-              </div>
-              
-              <input 
-                type="file" 
-                accept=".csv,.xlsx,.xls"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  
-                  const reader = new FileReader();
-                  reader.onload = (evt) => {
-                    try {
-                      const text = evt.target.result;
-                      const lines = text.split('\n').filter(l => l.trim());
-                      
-                      const data = lines.slice(1).map((line, idx) => {
-                        const cols = line.split(/[;,\t]/);
-                        return {
-                          idx: idx + 1,
-                          type: (cols[0] || '').trim().toUpperCase(),
-                          beneficiaire: (cols[1] || '').trim(),
-                          objet: (cols[2] || '').trim(),
-                          ligneBudgetaire: (cols[3] || '').trim(),
-                          montant: parseFloat((cols[4] || '0').replace(/[^\d.-]/g, '')) || 0,
-                          dateCreation: (cols[5] || new Date().toISOString().split('T')[0]).trim(),
-                          valid: true,
-                          error: ''
-                        };
-                      }).filter(d => d.type || d.beneficiaire || d.montant);
-                      
-                      data.forEach(d => {
-                        if (!['PROVISOIRE', 'DIRECT', 'DEFINITIF', 'ANNULATION'].includes(d.type)) {
-                          d.valid = false; d.error = 'Type invalide';
-                        }
-                        if (!d.beneficiaire) {
-                          d.valid = false; d.error = 'Bénéficiaire manquant';
-                        }
-                        if (!d.montant || d.montant <= 0) {
-                          d.valid = false; d.error = 'Montant invalide';
-                        }
-                      });
-                      
-                      setImportData(data);
-                      setImportError('');
-                    } catch (err) {
-                      setImportError('Erreur de lecture du fichier : ' + err.message);
-                      setImportData([]);
-                    }
-                  };
-                  reader.readAsText(file);
-                }}
-                style={{ marginBottom: 16 }}
-              />
-              
-              {importError && (
-                <div style={{ padding: 12, background: '#C43E3E15', color: '#C43E3E', borderRadius: 6, marginBottom: 16 }}>
-                  {importError}
-                </div>
-              )}
-              
-              {importData.length > 0 && (
-                <>
-                  <div style={{ marginBottom: 12, fontSize: 13 }}>
-                    <strong>{importData.length}</strong> lignes détectées — 
-                    <span style={{ color: '#2e7d32' }}> {importData.filter(d => d.valid).length} valides</span> / 
-                    <span style={{ color: '#C43E3E' }}> {importData.filter(d => !d.valid).length} erreurs</span>
-                  </div>
-                  
-                  <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          <th style={{ ...styles.th, width: 40 }}>#</th>
-                          <th style={{ ...styles.th, width: 80 }}>Type</th>
-                          <th style={styles.th}>Bénéficiaire</th>
-                          <th style={styles.th}>Objet</th>
-                          <th style={{ ...styles.th, width: 70 }}>Ligne</th>
-                          <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>Montant</th>
-                          <th style={{ ...styles.th, width: 100 }}>Statut</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importData.map(d => (
-                          <tr key={d.idx} style={{ background: d.valid ? 'transparent' : '#fff8f8' }}>
-                            <td style={styles.td}>{d.idx}</td>
-                            <td style={styles.td}>{d.type}</td>
-                            <td style={styles.td}>{d.beneficiaire}</td>
-                            <td style={{ ...styles.td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.objet}</td>
-                            <td style={styles.td}>{d.ligneBudgetaire}</td>
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(d.montant)}</td>
-                            <td style={styles.td}>
-                              {d.valid ? (
-                                <span style={{ color: '#2e7d32', fontSize: 12 }}>OK</span>
-                              ) : (
-                                <span style={{ color: '#C43E3E', fontSize: 11 }}>{d.error}</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                    <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>
-                      Annuler
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        const validOps = importData.filter(d => d.valid);
-                        if (validOps.length === 0) {
-                          alert('Aucun OP valide à importer');
-                          return;
-                        }
-                        
-                        if (!window.confirm(`Importer ${validOps.length} OP ?`)) return;
-                        
-                        try {
-                          const sourceIdToUse = activeSource === 'ALL' ? sources[0]?.id : activeSource;
-                          const exerciceIdToUse = exerciceActif?.id;
-                          const sigleProjet = projet?.sigle || 'PROJET';
-                          const sourceObj = sources.find(s => s.id === sourceIdToUse);
-                          const sigleSrc = sourceObj?.sigle || 'SRC';
-                          const annee = exerciceActif?.annee || new Date().getFullYear();
-
-                          // TRANSACTION POUR LE COMPTEUR
-                          const compteurRef = doc(db, 'compteurs', `op_${sourceIdToUse}_${exerciceIdToUse}`);
-                          const startCount = await runTransaction(db, async (transaction) => {
-                            const docSnap = await transaction.get(compteurRef);
-                            let currentCount = 0;
-                            if (docSnap.exists()) {
-                              currentCount = docSnap.data().count || 0;
-                            }
-                            transaction.set(compteurRef, {
-                              count: currentCount + validOps.length,
-                              sourceId: sourceIdToUse,
-                              exerciceId: exerciceIdToUse
-                            }, { merge: true });
-                            
-                            return currentCount; 
-                          });
-
-                          // BATCH POUR INSERTION
-                          const batch = writeBatch(db);
-
-                          validOps.forEach((d, index) => {
-                            const ben = beneficiaires.find(b => 
-                              b.ncc === d.beneficiaire || 
-                              b.nom.toLowerCase().includes(d.beneficiaire.toLowerCase())
-                            );
-                            
-                            const opNumberInt = startCount + index + 1;
-                            const numero = `N°${String(opNumberInt).padStart(4, '0')}/${sigleProjet}-${sigleSrc}/${annee}`;
-                            const newOpRef = doc(collection(db, 'ops')); 
-                            
-                            batch.set(newOpRef, {
-                              numero,
-                              type: d.type,
-                              beneficiaireId: ben?.id || null,
-                              beneficiaireNom: ben?.nom || d.beneficiaire,
-                              objet: d.objet,
-                              ligneBudgetaire: d.ligneBudgetaire,
-                              montant: d.montant,
-                              dateCreation: d.dateCreation,
-                              statut: 'EN_COURS',
-                              sourceId: sourceIdToUse,
-                              exerciceId: exerciceIdToUse,
-                              createdAt: new Date().toISOString(),
-                              importedAt: new Date().toISOString()
-                            });
-                          });
-                          
-                          await batch.commit(); 
-                          
-                          alert(`${validOps.length} OP importés avec succès !`);
-                          setShowImportModal(false);
-                          setImportData([]);
-                        } catch (err) {
-                          alert('Erreur import : ' + err.message);
-                        }
-                      }}
-                      disabled={importData.filter(d => d.valid).length === 0}
-                      style={{ ...styles.button, background: importData.filter(d => d.valid).length === 0 ? '#ccc' : '#2e7d32' }}
-                    >
-                      Importer {importData.filter(d => d.valid).length} OP
-                    </button>
-                  </div>
-                </>
-              )}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+              {(() => {
+                const ben = beneficiaires.find(b => b.id === drawerOp.beneficiaireId);
+                const source = sources.find(s => s.id === drawerOp.sourceId);
+                const steps = buildCircuitSteps(drawerOp);
+                const msg = getDrawerMessage(drawerOp);
+                return (
+                  <>
+                    <div style={{ marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #EDE9E3' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#2C5A7A' }}>{drawerOp.numero}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{drawerOp.beneficiaireNom || ben?.nom}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#D4722A', marginTop: 8 }}>{formatMontant(drawerOp.montant)} FCFA</div>
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', marginBottom: 12 }}>Circuit</div>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+                      {steps.map((s, i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: s.state === 'done' || s.state === 'current' ? '#D4722A' : '#EDE9E3' }} />)}
+                    </div>
+                    {msg && <div style={{ padding: 12, borderRadius: 10, background: '#E8F5E9', color: '#1B6B2E', fontSize: 12, marginBottom: 20 }}>{msg.text}</div>}
+                    <button onClick={() => { setConsultOpData(drawerOp); setCurrentPage('consulterOp'); setDrawerOp(null); }} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, background: '#D4722A', color: 'white', fontWeight: 600, cursor: 'pointer' }}>Voir détail complet</button>
+                  </>
+                );
+              })()}
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Modal Détail OP */}
-      {showDetail && (
-        <div style={styles.modal} onClick={() => setShowDetail(null)}>
-          <div style={{ ...styles.modalContent, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: sources.find(s => s.id === showDetail.sourceId)?.couleur || '#D4722A', color: 'white' }}>
-              <h2 style={{ margin: 0, fontSize: 18 }}>{showDetail.numero}</h2>
-            </div>
-            <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
-              {(() => {
-                const ben = beneficiaires.find(b => b.id === showDetail.beneficiaireId);
-                const statut = statutConfig[showDetail.statut] || { label: showDetail.statut };
-                const source = sources.find(s => s.id === showDetail.sourceId);
-                
-                let dotation = showDetail.dotationLigne;
-                if (dotation === undefined || dotation === null) {
-                  const currentBudget = budgets
-                    .filter(b => b.sourceId === showDetail.sourceId && b.exerciceId === showDetail.exerciceId)
-                    .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
-                  const ligne = currentBudget?.lignes?.find(l => l.code === showDetail.ligneBudgetaire);
-                  dotation = ligne?.dotation || 0;
-                }
-                
-                const opsAnterieurs = ops.filter(o => 
-                  o.sourceId === showDetail.sourceId &&
-                  o.exerciceId === showDetail.exerciceId &&
-                  o.ligneBudgetaire === showDetail.ligneBudgetaire &&
-                  o.id !== showDetail.id &&
-                  !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut) &&
-                  (o.createdAt || '') < (showDetail.createdAt || '')
-                );
-                
-                const engagementsAnterieurs = opsAnterieurs.reduce((sum, o) => {
-                  if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') return sum + (o.montant || 0);
-                  if (o.type === 'DEFINITIF') {
-                    const prov = ops.find(p => p.id === o.opProvisoireId);
-                    return sum - (prov?.montant || 0) + (o.montant || 0);
-                  }
-                  if (o.type === 'ANNULATION') {
-                    const prov = ops.find(p => p.id === o.opProvisoireId);
-                    return sum - (prov?.montant || 0);
-                  }
-                  return sum;
-                }, 0);
-                
-                return (
-                  <div style={{ display: 'grid', gap: 16 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-                      <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>SOURCE</label>
-                        <div style={{ marginTop: 4 }}>
-                          <span style={{ background: source?.couleur || '#666', color: 'white', padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
-                            {source?.sigle || '?'}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>TYPE</label>
-                        <div style={{ marginTop: 4 }}>
-                          <span style={{ background: `${typeColors[showDetail.type]}20`, color: typeColors[showDetail.type], padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
-                            {showDetail.type}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>STATUT</label>
-                        <div style={{ marginTop: 4 }}>
-                          <span style={{ background: statut.bg, color: statut.color, padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
-                            {statut.label}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>BÉNÉFICIAIRE</label>
-                      <div style={{ marginTop: 4, fontWeight: 600 }}>{showDetail.beneficiaireNom || ben?.nom || 'N/A'}</div>
-                      {ben?.ncc && <div style={{ fontSize: 12, color: '#6c757d' }}>NCC: {ben.ncc}</div>}
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>OBJET</label>
-                      <div style={{ marginTop: 4 }}>{showDetail.objet}</div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                      <div>
+      {showPasswordModal && <PasswordModal isOpen={!!showPasswordModal} onClose={() => setShowPasswordModal(null)} onConfirm={showPasswordModal.action} adminPassword={projet?.adminPassword || ''} title={showPasswordModal.title} description={showPasswordModal.description} confirmText={showPasswordModal.confirmText} confirmColor={showPasswordModal.confirmColor} />}
+    </div>
+  );
+};
+
+export default PageListeOP;
