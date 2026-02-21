@@ -1,819 +1,212 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
-import { db } from '../firebase';
-import { collection, doc, addDoc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
-import MontantInput from '../components/MontantInput';
-import Autocomplete from '../components/Autocomplete';
+import PasswordModal from '../components/PasswordModal';
 
-// ==================== CONFIGURATION MODALE ====================
-const MODAL_STYLES = {
-  success: { 
-    color: '#2e7d32', 
-    bgIcon: '#e8f5e9', 
-    btnBg: '#2e7d32',
-    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
-  },
-  error: { 
-    color: '#C43E3E', 
-    bgIcon: '#ffebee', 
-    btnBg: '#C43E3E',
-    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C43E3E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-  },
-  warning: { 
-    color: '#C5961F', 
-    bgIcon: '#fff3e0', 
-    btnBg: '#C5961F',
-    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C5961F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-  },
-};
+// Composant interne pour les étiquettes de statut
+const Badge = React.memo(({ bg, color, children }) => (
+  <span style={{ 
+    display: 'inline-block', 
+    padding: '4px 10px', 
+    borderRadius: 12, 
+    fontSize: 11, 
+    fontWeight: 600, 
+    background: bg, 
+    color: color, 
+    whiteSpace: 'nowrap' 
+  }}>
+    {children}
+  </span>
+));
 
-const ModalMessage = ({ data, onClose }) => {
-  useEffect(() => {
-    if (data && data.type === 'success') {
-      const timer = setTimeout(() => {
-        onClose();
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [data, onClose]);
+const PageListeOP = () => {
+  const { projet, sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
+  const [activeSource, setActiveSource] = useState('ALL'); 
+  const [activeTab, setActiveTab] = useState('CUMUL_OP'); 
+  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', statut: '' });
+  const [showPasswordModal, setShowPasswordModal] = useState(null);
 
-  if (!data) return null;
-  const style = MODAL_STYLES[data.type] || MODAL_STYLES.success;
+  const typeColors = { PROVISOIRE: '#E8B931', DIRECT: '#D4722A', DEFINITIF: '#2E9940', ANNULATION: '#C43E3E' };
+  const statutConfig = {
+    EN_COURS: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours' },
+    TRANSMIS_CF: { bg: '#FFF8E1', color: '#C5961F', label: 'Transmis CF' },
+    VISE_CF: { bg: '#E8F5E9', color: '#2E9940', label: 'Visé CF' },
+    TRANSMIS_AC: { bg: '#E3F2FD', color: '#1976D2', label: 'Chez AC' },
+    PAYE: { bg: '#E8F5E9', color: '#1B6B2E', label: 'Payé' },
+    REJETE_CF: { bg: '#FFEBEE', color: '#C43E3E', label: 'Rejeté CF' },
+    REJETE_AC: { bg: '#FFEBEE', color: '#C43E3E', label: 'Rejeté AC' },
+    SUPPRIME: { bg: '#F5F5F5', color: '#999', label: 'Supprimé' }
+  };
+
+  const getBenNom = (op) => {
+    if (op.beneficiaireNom) return op.beneficiaireNom;
+    const b = beneficiaires.find(x => x.id === op.beneficiaireId);
+    return b ? b.nom : 'N/A';
+  };
+
+  const displayOps = useMemo(() => {
+    let baseOps = ops.filter(op => {
+      if (op.exerciceId !== exerciceActif?.id) return false;
+      if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
+      if (activeTab === 'CORBEILLE' ? op.statut !== 'SUPPRIME' : op.statut === 'SUPPRIME') return false;
+      if (filters.type && op.type !== filters.type) return false;
+      if (filters.statut && op.statut !== filters.statut) return false;
+      if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
+      if (filters.search) {
+        const s = filters.search.toLowerCase();
+        return op.numero?.toLowerCase().includes(s) || getBenNom(op).toLowerCase().includes(s) || (op.objet || '').toLowerCase().includes(s);
+      }
+      return true;
+    });
+
+    const lines = baseOps.map(op => ({ ...op, isRejetLine: false }));
+    baseOps.forEach(op => {
+      if (['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
+        lines.push({ ...op, isRejetLine: true, displayNumero: op.numero + ' (REJET)', montant: -(op.montant || 0) });
+      }
+    });
+
+    lines.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+    const cumulParLigne = {};
+    const processed = lines.map(line => {
+      const lb = line.ligneBudgetaire;
+      const budgetSource = budgets.find(b => b.sourceId === line.sourceId && b.exerciceId === line.exerciceId);
+      const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
+
+      line.engagementAnterieur = cumulParLigne[lb] || 0;
+      if (!['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(line.statut) || line.isRejetLine) {
+        cumulParLigne[lb] = (cumulParLigne[lb] || 0) + line.montant;
+      }
+      line.dotationLigne = dotation;
+      line.disponible = dotation - (cumulParLigne[lb] || 0);
+      return line;
+    });
+
+    return processed.reverse();
+  }, [ops, activeSource, activeTab, filters, exerciceActif, budgets, beneficiaires]);
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 10000, animation: 'fadeIn 0.2s ease-out'
-    }} onClick={data.type === 'success' ? onClose : undefined}>
-      <div style={{
-        background: 'white', borderRadius: 20, padding: '32px',
-        width: '90%', maxWidth: 400, textAlign: 'center',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
-        transform: 'scale(1)', animation: 'scaleUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
-      }} onClick={e => e.stopPropagation()}>
-        
-        <div style={{
-          width: 64, height: 64, borderRadius: '50%', background: style.bgIcon,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto'
-        }}>
-          {style.icon}
+    <div style={styles.pageContainer}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
+        <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
+      </div>
+
+      <div style={styles.tabs}>
+        <div onClick={() => setActiveSource('ALL')} style={activeSource === 'ALL' ? styles.tabActive : styles.tab}>CUMUL OP</div>
+        {sources.map(s => (
+          <div key={s.id} onClick={() => setActiveSource(s.id)} style={activeSource === s.id ? { ...styles.tabActive, color: s.couleur, borderColor: s.couleur } : styles.tab}>
+            {s.sigle}
+          </div>
+        ))}
+      </div>
+
+      {/* FILTRES COMPLETS */}
+      <div style={{ ...styles.card, display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end', marginBottom: 15 }}>
+        <div>
+          <label style={styles.label}>Recherche rapide</label>
+          <input type="text" placeholder="N°, bénéficiaire..." style={styles.input} value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
         </div>
-
-        <h3 style={{ margin: '0 0 10px 0', color: '#1a1a1a', fontSize: 18, fontWeight: 700 }}>
-          {data.title}
-        </h3>
-        
-        <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14, lineHeight: 1.5 }}>
-          {data.message}
-        </p>
-
-        <button onClick={onClose} style={{
-          background: style.btnBg, color: 'white', border: 'none',
-          padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 600,
-          width: '100%', cursor: 'pointer', transition: 'transform 0.1s'
-        }}>
-          {data.type === 'success' ? 'Fermer' : 'D\'accord'}
+        <div>
+          <label style={styles.label}>Type</label>
+          <select style={styles.select} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
+            <option value="">Tous les types</option>
+            <option value="PROVISOIRE">Provisoire</option>
+            <option value="DIRECT">Direct</option>
+            <option value="DEFINITIF">Définitif</option>
+            <option value="ANNULATION">Annulation</option>
+          </select>
+        </div>
+        <div>
+          <label style={styles.label}>Ligne Budgétaire</label>
+          <input type="text" placeholder="Code ligne..." style={styles.input} value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
+        </div>
+        <div>
+          <label style={styles.label}>Statut</label>
+          <select style={styles.select} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
+            <option value="">Tous les statuts</option>
+            {Object.entries(statutConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </div>
+        <button onClick={() => setActiveTab(activeTab === 'CORBEILLE' ? 'CUMUL_OP' : 'CORBEILLE')} style={{ ...styles.buttonSecondary, height: 38 }}>
+          {activeTab === 'CORBEILLE' ? 'Sortir' : '🗑️'}
         </button>
       </div>
-    </div>
-  );
-};
 
-// ==================== PAGE NOUVEL OP ====================
-const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D4722A', ANNULATION: '#C43E3E' };
-
-const PageNouvelOp = () => {
-  const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
-  
-  const defaultForm = { type: '', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
-
-  const loadDraft = () => {
-    try {
-      const saved = localStorage.getItem('op_draft_v3');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return defaultForm;
-  };
-  const loadSource = () => {
-    try {
-      const saved = localStorage.getItem('op_draft_source');
-      if (saved && sources.find(s => s.id === saved)) return saved;
-    } catch (e) {}
-    return sources[0]?.id || null;
-  };
-
-  const [activeSource, setActiveSource] = useState(loadSource);
-  const [modal, setModal] = useState(null); 
-  const [form, setForm] = useState(loadDraft);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    try { localStorage.setItem('op_draft_v3', JSON.stringify(form)); } catch (e) {}
-  }, [form]);
-  useEffect(() => {
-    try { if (activeSource) localStorage.setItem('op_draft_source', activeSource); } catch (e) {}
-  }, [activeSource]);
-
-  const currentSourceObj = sources.find(s => s.id === activeSource);
-  const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
-
-  useEffect(() => {
-    if (consultOpData && consultOpData._duplicate) {
-      const op = consultOpData;
-      if (op.sourceId) setActiveSource(op.sourceId);
-      setForm({
-        type: op.type === 'ANNULATION' ? 'PROVISOIRE' : op.type,
-        beneficiaireId: op.beneficiaireId || '',
-        ribIndex: 0,
-        modeReglement: op.modeReglement || 'VIREMENT',
-        objet: op.objet || '',
-        piecesJustificatives: op.piecesJustificatives || '',
-        montant: '',
-        ligneBudgetaire: op.ligneBudgetaire || '',
-        montantTVA: '',
-        tvaRecuperable: op.tvaRecuperable === true ? true : op.tvaRecuperable === false ? false : null,
-        opProvisoireNumero: '',
-        opProvisoireId: '',
-        opProvisoireIds: [],
-        opProvisoireManuel: ''
-      });
-      if (setConsultOpData) setConsultOpData(null);
-    }
-  }, [consultOpData]);
-  
-  const getBeneficiaireRibs = (ben) => {
-    if (!ben) return [];
-    if (ben.ribs && ben.ribs.length > 0) return ben.ribs;
-    if (ben.rib) return [{ banque: '', numero: ben.rib }];
-    return [];
-  };
-  
-  const beneficiaireRibs = getBeneficiaireRibs(selectedBeneficiaire);
-  const selectedRib = beneficiaireRibs[form.ribIndex] || beneficiaireRibs[0] || null;
-
-  const currentBudget = budgets
-    .filter(b => b.sourceId === activeSource && b.exerciceId === exerciceActif?.id)
-    .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
-
-  const selectedLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
-
-  const getDotation = () => selectedLigne?.dotation || 0;
-  
-  // ===================== CALCUL EXACT DES ENGAGEMENTS =====================
-  const getEngagementsAnterieurs = () => {
-    if (!form.ligneBudgetaire) return 0;
-    
-    // 1. Prendre tous les OP de la ligne, triés par date (sauf corbeille)
-    const opsAnterieurs = ops
-      .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.ligneBudgetaire === form.ligneBudgetaire && op.statut !== 'SUPPRIME')
-      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-
-    let cumul = 0;
-
-    // 2. Additionner et soustraire selon la logique comptable stricte
-    opsAnterieurs.forEach(o => {
-      // Les OP rejetés ne consomment pas de budget, on les ignore
-      if (!['REJETE_CF', 'REJETE_AC'].includes(o.statut)) {
-        
-        if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') {
-          cumul += (parseFloat(o.montant) || 0);
-        } 
-        else if (o.type === 'DEFINITIF') {
-          // Si c'est un définitif multi-provisoires, on déduit tous les provisoires liés
-          if (o.opProvisoireIds && o.opProvisoireIds.length > 0) {
-            let provSum = 0;
-            o.opProvisoireIds.forEach(id => {
-              const p = ops.find(x => x.id === id);
-              provSum += (parseFloat(p?.montant) || 0);
-            });
-            cumul = cumul - provSum + (parseFloat(o.montant) || 0);
-          } else {
-            // Un seul provisoire
-            const prov = ops.find(p => p.id === o.opProvisoireId);
-            cumul = cumul - (parseFloat(prov?.montant) || 0) + (parseFloat(o.montant) || 0);
-          }
-        } 
-        else if (o.type === 'ANNULATION') {
-          // L'annulation libère le montant du provisoire lié
-          const prov = ops.find(p => p.id === o.opProvisoireId);
-          cumul -= (parseFloat(prov?.montant) || 0);
-        }
-      }
-    });
-
-    return cumul;
-  };
-
-  const getEngagementActuel = () => {
-    let montant = parseFloat(form.montant) || 0;
-    if (form.type === 'ANNULATION') return -Math.abs(montant);
-    return montant;
-  };
-
-  const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
-  const getDisponible = () => getDotation() - getEngagementsCumules();
-
-  const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' &&
-    op.beneficiaireId === form.beneficiaireId &&
-    op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
-    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && o.statut !== 'SUPPRIME')
-  ) : [];
-
-  const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' &&
-    op.beneficiaireId === form.beneficiaireId &&
-    op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
-    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
-  ) : [];
-
-  const getOpProvLabel = (op) => {
-    const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-    const ex = exercices.find(e => e.id === op.exerciceId);
-    const isExtra = op.importAnterieur ? ' [Extra]' : '';
-    const isAutreEx = (exerciceActif && op.exerciceId !== exerciceActif.id && ex) ? ` (${ex.annee})` : '';
-    return `${op.numero}${isExtra}${isAutreEx} - ${ben?.nom || 'N/A'} - ${formatMontant(op.montant)} F`;
-  };
-
-  const genererNumero = () => {
-    const sigleProjet = projet?.sigle || 'PROJET';
-    const sigleSource = currentSourceObj?.sigle || 'OP';
-    const annee = exerciceActif?.annee || new Date().getFullYear();
-    const opsSource = ops.filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id);
-    let maxNum = 0;
-    opsSource.forEach(op => {
-      const match = (op.numero || '').match(/N°(\d+)\//);
-      if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-    });
-    const nextNum = maxNum + 1;
-    return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
-  };
-
-  const genererNumeroTransaction = async () => {
-    const sigleProjet = projet?.sigle || 'PROJET';
-    const sigleSource = currentSourceObj?.sigle || 'OP';
-    const annee = exerciceActif?.annee || new Date().getFullYear();
-    const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
-    const compteurRef = doc(db, 'compteurs', compteurId);
-
-    let initCount = 0;
-    const snapCheck = await getDoc(compteurRef);
-    if (!snapCheck.exists()) {
-      const allOpsSnap = await getDocs(query(
-        collection(db, 'ops'),
-        where('sourceId', '==', activeSource),
-        where('exerciceId', '==', exerciceActif.id)
-      ));
-      allOpsSnap.docs.forEach(d => {
-        const match = (d.data().numero || '').match(/N°(\d+)\//);
-        if (match) initCount = Math.max(initCount, parseInt(match[1]));
-      });
-    }
-
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(compteurRef);
-      const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
-      const nextNum = currentCount + 1;
-      tx.set(compteurRef, { count: nextNum, type: 'OP', sourceId: activeSource, exerciceId: exerciceActif?.id, updatedAt: new Date().toISOString() });
-      return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
-    });
-  };
-
-  const handleSelectOpProvisoire = (opId) => {
-    if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '', opProvisoireManuel: '' }); return; }
-    const op = ops.find(o => o.id === opId);
-    if (op) {
-      setForm({
-        ...form, opProvisoireId: opId, opProvisoireNumero: op.numero, opProvisoireManuel: '',
-        beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire,
-        modeReglement: op.modeReglement || 'VIREMENT',
-        montant: String(Math.abs(op.montant || 0)), 
-        objet: `Annulation OP ${op.numero} - ${op.objet || ''}`,
-        piecesJustificatives: `OP ${op.numero}`
-      });
-    }
-  };
-
-  const handleSelectOpProvisoiresMulti = (opId, checked) => {
-    const currentIds = form.opProvisoireIds || [];
-    const newIds = checked ? [...currentIds, opId] : currentIds.filter(id => id !== opId);
-    const selectedOps = newIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
-    const numeros = selectedOps.map(o => o.numero).join(', ');
-    const libelles = [...new Set(selectedOps.map(o => o.objet).filter(Boolean))].join(' / ');
-    
-    const updates = { ...form, opProvisoireIds: newIds, opProvisoireId: newIds[0] || '', opProvisoireManuel: '' };
-    if (newIds.length > 0) {
-      updates.objet = `Régularisation OP ${numeros} - ${libelles}`;
-    }
-    if (selectedOps.length === 1) {
-      updates.beneficiaireId = selectedOps[0].beneficiaireId;
-      updates.ligneBudgetaire = selectedOps[0].ligneBudgetaire;
-      updates.modeReglement = selectedOps[0].modeReglement || 'VIREMENT';
-    }
-    setForm(updates);
-  };
-
-  const handleClear = () => {
-    setForm(defaultForm);
-    try { localStorage.removeItem('op_draft_v3'); } catch (e) {}
-  };
-
-  const handleSave = async () => {
-    // === VALIDATION SÉCURISÉE ===
-    if (!form.type) { setModal({ type: 'error', title: 'Type manquant', message: 'Veuillez sélectionner un type d\'OP' }); return; }
-    if (!activeSource) { setModal({ type: 'error', title: 'Source manquante', message: 'Veuillez sélectionner une source de financement' }); return; }
-    if (!exerciceActif) { setModal({ type: 'error', title: 'Exercice manquant', message: 'Aucun exercice actif' }); return; }
-    if (!form.beneficiaireId) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner un bénéficiaire' }); return; }
-    if (form.modeReglement === 'VIREMENT' && !selectedRib) { setModal({ type: 'error', title: 'RIB manquant', message: 'Veuillez renseigner un RIB pour le bénéficiaire' }); return; }
-    if (!form.ligneBudgetaire) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner une ligne budgétaire' }); return; }
-    if (!form.objet.trim()) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir l\'objet de la dépense' }); return; }
-    
-    let finalMontant = parseFloat(form.montant);
-    if (isNaN(finalMontant) || finalMontant === 0) { 
-      setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; 
-    }
-
-    if (form.type !== 'ANNULATION' && finalMontant < 0) {
-      setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Direct, Provisoire ou Définitif doit être positif.' }); return; 
-    }
-    if (form.type === 'ANNULATION') {
-      finalMontant = -Math.abs(finalMontant); // Forcé en négatif
-    }
-
-    if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
-      setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez indiquer si la TVA est récupérable (OUI / NON)' }); return;
-    }
-    if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === true && (!form.montantTVA || parseFloat(form.montantTVA) === 0)) {
-      setModal({ type: 'error', title: 'Champ obligatoire', message: 'TVA récupérable : veuillez saisir le montant de la TVA' }); return;
-    }
-    if (form.type === 'ANNULATION' && !form.opProvisoireId && !form.opProvisoireManuel.trim()) {
-      setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner ou saisir le N° d\'OP Provisoire à annuler' }); return;
-    }
-    if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length === 0 && !form.opProvisoireManuel.trim()) {
-      setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner ou saisir le(s) N° d\'OP Provisoire à régulariser' }); return;
-    }
-    if (form.type !== 'ANNULATION' && getDisponible() < 0) {
-      setModal({ type: 'error', title: 'Budget insuffisant', message: `Disponible : ${formatMontant(getDisponible())} FCFA` }); return;
-    }
-
-    setSaving(true);
-    try {
-      // 1. Vérification temps réel lors de l'enregistrement (même logique comptable)
-      if (form.type !== 'ANNULATION') {
-        const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
-        const allReels = opsSnap.docs.map(d => d.data())
-          .filter(op => op.ligneBudgetaire === form.ligneBudgetaire && op.statut !== 'SUPPRIME')
-          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-
-        let engagementsReels = 0;
-        allReels.forEach(o => {
-          if (!['REJETE_CF', 'REJETE_AC'].includes(o.statut)) {
-            if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') {
-              engagementsReels += (parseFloat(o.montant) || 0);
-            } else if (o.type === 'DEFINITIF') {
-              if (o.opProvisoireIds && o.opProvisoireIds.length > 0) {
-                let provSum = 0;
-                o.opProvisoireIds.forEach(id => {
-                  const p = ops.find(x => x.id === id); // on utilise le state local 'ops' pour retrouver le montant du provisoire
-                  provSum += (parseFloat(p?.montant) || 0);
-                });
-                engagementsReels = engagementsReels - provSum + (parseFloat(o.montant) || 0);
-              } else {
-                const prov = ops.find(p => p.id === o.opProvisoireId);
-                engagementsReels = engagementsReels - (parseFloat(prov?.montant) || 0) + (parseFloat(o.montant) || 0);
-              }
-            } else if (o.type === 'ANNULATION') {
-              const prov = ops.find(p => p.id === o.opProvisoireId);
-              engagementsReels -= (parseFloat(prov?.montant) || 0);
-            }
-          }
-        });
-
-        const dotation = getDotation();
-        const disponibleReel = dotation - engagementsReels - finalMontant;
-
-        if (disponibleReel < 0) {
-          setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${formatMontant(dotation - engagementsReels)} FCFA.` });
-          setSaving(false);
-          return;
-        }
-      }
-
-      // 2. Génération ATOMIQUE du numéro
-      const numero = await genererNumeroTransaction();
-      
-      // Préparation données
-      let opProvFields = {};
-      if (form.type === 'ANNULATION') {
-        opProvFields.opProvisoireId = form.opProvisoireId || null;
-        opProvFields.opProvisoireNumero = form.opProvisoireId ? form.opProvisoireNumero : form.opProvisoireManuel.trim() || null;
-      } else if (form.type === 'DEFINITIF') {
-        const ids = form.opProvisoireIds || [];
-        const numeros = ids.map(id => ops.find(o => o.id === id)?.numero || '').filter(Boolean);
-        opProvFields.opProvisoireId = ids[0] || null;
-        opProvFields.opProvisoireIds = ids.length > 0 ? ids : null;
-        opProvFields.opProvisoireNumero = ids.length > 0 ? numeros.join(', ') : form.opProvisoireManuel.trim() || null;
-        opProvFields.opProvisoireNumeros = numeros.length > 0 ? numeros : null;
-      }
-
-      const opData = {
-        numero, type: form.type, sourceId: activeSource, exerciceId: exerciceActif.id,
-        beneficiaireId: form.beneficiaireId, modeReglement: form.modeReglement,
-        rib: selectedRib || null, ligneBudgetaire: form.ligneBudgetaire,
-        objet: form.objet.trim(), piecesJustificatives: form.piecesJustificatives.trim(),
-        montant: finalMontant, montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
-        tvaRecuperable: form.tvaRecuperable === true, statut: 'EN_COURS',
-        ...opProvFields,
-        dateCreation: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-        creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
-      };
-
-      // 3. Sauvegarde
-      const docRef = await addDoc(collection(db, 'ops'), opData);
-      
-      setOps([...ops, { id: docRef.id, ...opData }]);
-      setModal({ type: 'success', title: 'OP créé avec succès', message: `L'ordre de paiement N° ${opData.numero} a été enregistré.` });
-      handleClear();
-    } catch (error) {
-      console.error('Erreur:', error);
-      setModal({ type: 'error', title: 'Erreur système', message: 'Erreur lors de la création de l\'OP. Veuillez réessayer.' });
-    }
-    setSaving(false);
-  };
-
-  // === STYLES ===
-  const accent = currentSourceObj?.couleur || '#2E9940';
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#6c757d', letterSpacing: 0.3 };
-  const fieldStyle = { padding: '12px 14px', background: '#f8f9fa', borderRadius: 8, fontSize: 14, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', height: 44, color: '#000000' };
-  const editFieldStyle = { ...fieldStyle, background: '#fffde7', border: `1.5px solid ${accent}40`, color: '#000000' };
-  const sectionTitle = (icon, label) => (
-    <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontSize: 14 }}>{icon}</span> {label}
-    </div>
-  );
-
-  return (
-    <div className="nouvelop-form">
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .nouvelop-form *, .nouvelop-form *::before, .nouvelop-form *::after { box-sizing: border-box; }
-        .nouvelop-form input, .nouvelop-form select, .nouvelop-form textarea { box-sizing: border-box; color: #000000; }
-      `}</style>
-      
-      {/* MODALE CENTRÉE */}
-      <ModalMessage data={modal} onClose={() => setModal(null)} />
-
-      {/* Sources */}
-      <div style={{ maxWidth: 1020, margin: '0 auto', marginBottom: 4 }}>
-        <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10 }}>SOURCE DE FINANCEMENT</label>
-        <div style={{ display: 'flex', gap: 12 }}>
-          {sources.map(s => {
-            const isActive = activeSource === s.id;
-            return (
-              <div key={s.id} onClick={() => setActiveSource(s.id)}
-                style={{ flex: 1, padding: '16px 20px', borderRadius: 12, cursor: 'pointer', background: isActive ? s.couleur : 'white', border: isActive ? `2px solid ${s.couleur}` : '2px solid #e0e0e0', boxShadow: isActive ? `0 4px 16px ${s.couleur}33` : '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.25s' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: isActive ? 'white' : s.couleur }}>{s.sigle || s.nom}</div>
-                    <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : '#999', marginTop: 2 }}>{s.nom}</div>
-                  </div>
-                  {isActive && <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'white', fontSize: 16, fontWeight: 700 }}>✓</span></div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {!exerciceActif ? (
-        <div style={{ maxWidth: 1020, margin: '0 auto', background: 'white', borderRadius: 12, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 14, color: '#C43E3E', fontWeight: 700 }}>Attention</div>
-          <p style={{ color: '#C5961F', fontWeight: 600 }}>Aucun exercice actif</p>
-          <p style={{ color: '#6c757d' }}>Veuillez définir un exercice actif dans les <span style={{ color: accent, cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setCurrentPage('parametres')}>Paramètres</span></p>
-        </div>
-      ) : (
-        <div style={{ maxWidth: 1020, margin: '0 auto', background: 'white', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${accent}` }}>
-          <div style={{ padding: '24px 28px 20px' }}>
-
-            {/* ===== LIGNE 1 : N°OP + TYPE + DATE + (OP PROV) + EFFACER ===== */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
-              <div style={{ flex: '0 1 auto' }}>
-                <label style={labelStyle}>N° OP (auto)</label>
-                <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 13, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', height: 44, color: '#000000' }}>{genererNumero()}</span>
-              </div>
-              <div style={{ flex: '0 0 auto' }}>
-                <label style={labelStyle}>TYPE *</label>
-                <select value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
-                  style={{ padding: '10px 10px', border: `1.5px solid ${(typeColors[form.type] || '#999')}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || '#000000', cursor: 'pointer', background: '#fff', height: 44 }}>
-                  <option value="" disabled>-- Sélectionner --</option>
-                  <option value="PROVISOIRE">Provisoire</option>
-                  <option value="DIRECT">Direct</option>
-                  <option value="DEFINITIF">Définitif</option>
-                  <option value="ANNULATION">✕ Annulation</option>
-                </select>
-              </div>
-              <div style={{ flex: '0 0 auto' }}>
-                <label style={labelStyle}>DATE</label>
-                <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-flex', alignItems: 'center', height: 44, color: '#000000' }}>{new Date().toISOString().split('T')[0]}</span>
-              </div>
-
-              {/* OP Provisoire (ANNULATION = single select, DEFINITIF = checkboxes multi) */}
-              {form.type === 'ANNULATION' && (
-                <div style={{ flex: '1 1 auto', minWidth: 280 }}>
-                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#C43E3E' }}>OP PROV. À ANNULER *</label>
-                  <Autocomplete
-                    options={opProvisoiresAnnulation.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
-                    value={form.opProvisoireId ? opProvisoiresAnnulation.filter(o => o.id === form.opProvisoireId).map(op => ({ value: op.id, label: getOpProvLabel(op) }))[0] || null : null}
-                    onChange={(option) => {
-                      if (option?.value) { handleSelectOpProvisoire(option.value); }
-                      else { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '' }); }
-                    }}
-                    placeholder="Sélectionner un OP provisoire..."
-                    noOptionsMessage="Aucun OP provisoire disponible"
-                    accentColor="#C43E3E"
-                  />
-                  <div style={{ marginTop: 6 }}>
-                    <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Hors système :</div>
-                    <input type="text" value={form.opProvisoireManuel}
-                      onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireId: '', opProvisoireNumero: '' })}
-                      placeholder="Saisir N° manuellement..."
-                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7', color: '#000000' }}
-                    />
-                  </div>
-                </div>
-              )}
-              {form.type === 'DEFINITIF' && (
-                <div style={{ flex: '1 1 auto', minWidth: 320 }}>
-                  <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#2e7d32' }}>OP PROV. À RÉGULARISER *</label>
-                  <Autocomplete
-                    isMulti
-                    options={opProvisoiresDefinitif.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
-                    value={(form.opProvisoireIds || []).map(id => {
-                      const op = ops.find(o => o.id === id);
-                      return op ? { value: op.id, label: getOpProvLabel(op) } : null;
-                    }).filter(Boolean)}
-                    onChange={(selected) => {
-                      if (!selected || selected.length === 0) {
-                        setForm({ ...form, opProvisoireIds: [], opProvisoireId: '', opProvisoireNumero: '', objet: '' });
-                      } else {
-                        const newIds = selected.map(s => s.value);
-                        const removedId = (form.opProvisoireIds || []).find(id => !newIds.includes(id));
-                        const addedId = newIds.find(id => !(form.opProvisoireIds || []).includes(id));
-                        if (addedId) handleSelectOpProvisoiresMulti(addedId, true);
-                        else if (removedId) handleSelectOpProvisoiresMulti(removedId, false);
-                      }
-                    }}
-                    placeholder={form.beneficiaireId ? "Sélectionner un ou plusieurs OP provisoires..." : "Sélectionner d'abord un bénéficiaire"}
-                    isDisabled={!form.beneficiaireId}
-                    noOptionsMessage="Aucun OP provisoire disponible"
-                    accentColor="#2e7d32"
-                  />
-                  <div style={{ marginTop: 6 }}>
-                    <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Hors système :</div>
-                    <input type="text" value={form.opProvisoireManuel}
-                      onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireIds: [], opProvisoireId: '' })}
-                      placeholder="Saisir N° manuellement..."
-                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7', color: '#000000' }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* EFFACER — toujours en dernier */}
-              <div style={{ marginLeft: 'auto' }}>
-                <button onClick={handleClear} style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: '#C43E3E', fontSize: 12, fontWeight: 600, color: 'white', cursor: 'pointer', whiteSpace: 'nowrap' }}>EFFACER</button>
-              </div>
-            </div>
-
-            <div style={{ height: 1, background: '#f0f0f0', marginBottom: 20 }} />
-
-            {/* ===== BÉNÉFICIAIRE + NCC + RÈGLEMENT — grille 2fr|1.5fr|3fr ===== */}
-            <div style={{ marginBottom: 24 }}>
-              {sectionTitle('', 'Bénéficiaire & Règlement')}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, alignItems: 'end' }}>
-                {/* NOM — col 1+2 = même largeur que OBJET */}
-                <div style={{ gridColumn: '1 / 3' }}>
-                  <label style={labelStyle}>NOM / RAISON SOCIALE *</label>
-                  <Autocomplete
-                    options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || '', ...(b.ribs || []).map(r => r.numero), ...(b.ribs || []).map(r => r.banque), b.rib || ''] }))}
-                    value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null}
-                    onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })}
-                    placeholder="Rechercher par nom ou NCC..."
-                    isDisabled={form.type === 'ANNULATION' && !!form.opProvisoireId}
-                    noOptionsMessage="Aucun bénéficiaire trouvé"
-                    accentColor={accent}
-                  />
-                </div>
-                {/* NCC + Règlement — col 3 */}
-                <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
-                  <div>
-                    <label style={labelStyle}>N°CC</label>
-                    <div style={{ ...fieldStyle, height: 44, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', minWidth: 100 }}>{selectedBeneficiaire?.ncc || ''}</div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>RÈGLEMENT</label>
-                    <div style={{ display: 'flex', gap: 4, height: 44, alignItems: 'center' }}>
-                      {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => {
-                        const active = form.modeReglement === mode;
-                        return (
-                          <div key={mode} onClick={() => setForm({ ...form, modeReglement: mode })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: 44, borderRadius: 8, border: `1.5px solid ${active ? accent : '#e0e0e0'}`, background: active ? accent + '08' : 'white', cursor: 'pointer', boxSizing: 'border-box' }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : '#ccc'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
-                            </div>
-                            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : '#000000' }}>{mode}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* RIB en dessous si VIREMENT — même largeur que OBJET */}
-              {form.modeReglement === 'VIREMENT' && (
-                <div style={{ marginTop: 12 }}>
-                  <label style={labelStyle}>RIB</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
-                    <div style={{ gridColumn: '1 / 3' }}>
-                      {!selectedBeneficiaire ? (
-                        <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#E8F5E9', border: '1.5px solid #c8e6c9', color: '#000000', fontStyle: 'italic', fontSize: 13 }}>Sélectionnez un bénéficiaire</div>
-                      ) : beneficiaireRibs.length === 0 ? (
-                        <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#fff3e0', color: '#C5961F', border: '1.5px solid #ffe0b2', fontSize: 13 }}>Aucun RIB</div>
-                      ) : beneficiaireRibs.length === 1 ? (
-                        <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'monospace', background: '#E8F5E9', border: '1.5px solid #c8e6c9' }}>
-                          {beneficiaireRibs[0].banque && <span style={{ background: '#E8F5E9', color: '#2E9940', padding: '4px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{beneficiaireRibs[0].banque}</span>}
-                          <span style={{ fontSize: 13, color: '#000000' }}>{beneficiaireRibs[0].numero}</span>
-                        </div>
-                      ) : (
-                        <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 13 }}>
-                          {beneficiaireRibs.map((rib, index) => <option key={index} value={index}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Détails */}
-            <div style={{ marginBottom: 24 }}>
-              {sectionTitle('', 'Détails de la dépense')}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
-                <div style={{ gridColumn: '1 / 3' }}>
-                  <label style={labelStyle}>OBJET *</label>
-                  <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })}
-                    style={{ ...editFieldStyle, height: 'auto', minHeight: 130, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} placeholder="Décrire l'objet de la dépense..." />
-                </div>
-                <div>
-                  <label style={labelStyle}>PIÈCES JUSTIFICATIVES</label>
-                  <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })}
-                    style={{ ...editFieldStyle, height: 'auto', minHeight: 130, resize: 'vertical', fontFamily: 'inherit', fontSize: 14, outline: 'none' }} placeholder="Lister les pièces jointes..." />
-                </div>
-              </div>
-            </div>
-
-            {/* Montant et budget */}
-            <div style={{ marginBottom: 24 }}>
-              {sectionTitle('', 'Montant et budget')}
-              {/* Ligne 1 : Montant + Ligne budg + Libellé */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, marginBottom: 16 }}>
-                <div>
-                  <label style={labelStyle}>MONTANT (FCFA) *</label>
-                  <MontantInput value={form.montant} onChange={(val) => setForm({ ...form, montant: val })}
-                    style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 18, textAlign: 'right' }} placeholder="0"
-                    disabled={form.type === 'ANNULATION' && form.opProvisoireId} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <label style={labelStyle}>LIGNE BUDG. *</label>
-                  <Autocomplete
-                    options={(currentBudget?.lignes || []).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))}
-                    value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null}
-                    onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })}
-                    placeholder="Code..."
-                    isDisabled={form.type === 'ANNULATION' && !!form.opProvisoireId}
-                    noOptionsMessage="Aucune ligne"
-                    accentColor={accent}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>LIBELLÉ</label>
-                  <div style={{ padding: '12px 14px', background: '#E8F5E9', borderRadius: 8, fontSize: 14, color: '#000000', height: 44, display: 'flex', alignItems: 'center', border: '1.5px solid #c8e6c9' }}>{selectedLigne?.libelle || ''}</div>
-                </div>
-              </div>
-              {/* Ligne 2 : Budget sous col 1+2, TVA sous col 3 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
-                <div style={{ gridColumn: '1 / 3', background: '#f8faf9', padding: 18, borderRadius: 10, border: '1px solid #e8ece9' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 16px' }}>
-                    <span style={{ fontSize: 13, color: '#6c757d' }}>Dotation</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: '#000000' }}>{formatMontant(getDotation())}</span>
-                    <span style={{ fontSize: 13, color: '#6c757d' }}>Engag. antérieurs</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: '#000000' }}>{formatMontant(getEngagementsAnterieurs())}</span>
-                    <span style={{ fontSize: 13, color: '#6c757d' }}>Engag. actuel</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : '#C5961F' }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
-                    <span style={{ fontSize: 13, color: '#6c757d' }}>Engag. cumulés</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: '#000000' }}>{formatMontant(getEngagementsCumules())}</span>
-                    <div style={{ gridColumn: '1 / -1', height: 1, background: '#d0d8d3', margin: '6px 0' }} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#333' }}>Disponible</span>
-                    <span style={{ fontSize: 16, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(getDisponible())}</span>
-                  </div>
-                  {getDisponible() < 0 && form.type !== 'ANNULATION' && (
-                    <div style={{ marginTop: 10, padding: 8, background: '#ffebee', borderRadius: 6, color: '#C43E3E', fontSize: 11, fontWeight: 600 }}>Budget insuffisant</div>
-                  )}
-                </div>
-                <div>
-                  {['DIRECT', 'DEFINITIF'].includes(form.type) && (
-                    <div>
-                      <label style={labelStyle}>TVA RÉCUPÉRABLE *</label>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {[{ val: true, lbl: 'OUI' }, { val: false, lbl: 'NON' }].map(opt => {
-                          const active = form.tvaRecuperable === opt.val;
-                          return (
-                            <div key={opt.lbl} onClick={() => setForm({ ...form, tvaRecuperable: opt.val })}
-                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: `1.5px solid ${active ? accent : form.tvaRecuperable === null ? '#ffcc8040' : '#e0e0e0'}`, background: active ? accent + '08' : 'white', cursor: 'pointer' }}>
-                              <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : '#ccc'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
-                              </div>
-                              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : '#000000' }}>{opt.lbl}</span>
-                            </div>
-                          );
-                        })}
-                        {form.tvaRecuperable && (
-                          <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 11, textAlign: 'right', width: 90, padding: '4px 8px' }} placeholder="0" />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Récap paiement DEFINITIF — compact */}
-            {form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0 && (() => {
-              const selectedProvs = (form.opProvisoireIds || []).map(id => ops.find(o => o.id === id)).filter(Boolean);
-              if (selectedProvs.length === 0) return null;
-              const totalPaye = selectedProvs.reduce((sum, op) => sum + Number(op.totalPaye || op.montant || 0), 0);
-              const mtDef = parseFloat(form.montant) || 0;
-              const ecart = totalPaye - mtDef;
-              return (
-                <div style={{ marginBottom: 24, padding: 12, background: '#e8f5e9', borderRadius: 8, border: '1px solid #c8e6c9' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: '#2e7d32' }}>
-                    Récapitulatif — {selectedProvs.length} OP provisoire{selectedProvs.length > 1 ? 's' : ''}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Total payé (provisoire{selectedProvs.length > 1 ? 's' : ''})</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#D4722A' }}>{formatMontant(totalPaye)} F</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant définitif</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#000000' }}>{mtDef > 0 ? formatMontant(mtDef) + ' F' : '—'}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Écart</div>
-                      {mtDef > 0 ? (
-                        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: ecart > 0 ? '#C43E3E' : ecart < 0 ? '#C5961F' : '#2e7d32' }}>
-                          {ecart > 0 ? '+' + formatMontant(ecart) + ' F' : ecart < 0 ? formatMontant(ecart) + ' F' : '0 F'}
-                          <div style={{ fontSize: 9, fontWeight: 400, marginTop: 2 }}>
-                            {ecart > 0 ? 'Trop perçu → reversement' : ecart < 0 ? 'Complément à payer' : 'Aucun écart'}
-                          </div>
-                        </div>
-                      ) : <div style={{ fontSize: 12, color: '#999' }}>Saisir le montant définitif</div>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* ENREGISTRER */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
-              <button onClick={handleSave} disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
-                style={{
-                  padding: '14px 28px', borderRadius: 10, border: 'none',
-                  background: (getDisponible() < 0 && form.type !== 'ANNULATION') ? '#bdbdbd' : accent,
-                  cursor: (saving || (getDisponible() < 0 && form.type !== 'ANNULATION')) ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  boxShadow: `0 3px 12px ${accent}44`, transition: 'all 0.2s',
-                  color: 'white', fontSize: 15, fontWeight: 700
-                }}>
-                {saving ? 'Enregistrement...' : (
+      <div style={{ ...styles.card, padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+          <table style={styles.table}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#F9F9F8' }}>
+              <tr>
+                <th style={styles.th}>N° OP</th>
+                <th style={styles.th}>Type</th>
+                <th style={styles.th}>Bénéficiaire</th>
+                <th style={styles.th}>Objet</th>
+                <th style={styles.th}>Ligne</th>
+                {activeSource !== 'ALL' && <th style={{ ...styles.th, textAlign: 'right' }}>Dotation</th>}
+                <th style={{ ...styles.th, textAlign: 'right' }}>Montant</th>
+                {activeSource !== 'ALL' && (
                   <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    Enregistrer l'OP
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Engag. Ant.</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Disponible</th>
                   </>
                 )}
-              </button>
-            </div>
-          </div>
+                <th style={{ ...styles.th, textAlign: 'center' }}>Statut</th>
+                <th style={{ ...styles.th, textAlign: 'center', width: 50 }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayOps.length === 0 ? (
+                <tr><td colSpan="12" style={{ textAlign: 'center', padding: 40, color: '#999' }}>Aucun enregistrement trouvé</td></tr>
+              ) : displayOps.map((op, i) => {
+                const st = statutConfig[op.statut] || { color: '#333', bg: '#EEE', label: op.statut };
+                return (
+                  <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                    <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.isRejetLine ? op.displayNumero : op.numero}</td>
+                    <td style={styles.td}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: op.isRejetLine ? '#C43E3E' : typeColors[op.type] }}>
+                        {op.isRejetLine ? 'REJET' : op.type}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
+                    <td style={{ ...styles.td, color: '#666', fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet}</td>
+                    <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
+                    
+                    {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(op.dotationLigne)}</td>}
+                    
+                    <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: op.isRejetLine ? '#C43E3E' : '#000' }}>
+                      {op.isRejetLine ? '-' : ''}{formatMontant(Math.abs(op.montant))}
+                    </td>
+                    
+                    {activeSource !== 'ALL' && (
+                      <>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#666' }}>{formatMontant(op.engagementAnterieur)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
+                      </>
+                    )}
+
+                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                      <Badge bg={op.isRejetLine ? '#FFEBEE' : st.bg} color={op.isRejetLine ? '#C43E3E' : st.color}>
+                        {op.isRejetLine ? 'REJET' : st.label}
+                      </Badge>
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                      <button onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 5 }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
+      {showPasswordModal && <PasswordModal isOpen={!!showPasswordModal} onClose={() => setShowPasswordModal(null)} onConfirm={showPasswordModal.action} adminPassword={projet?.adminPassword || ''} />}
     </div>
   );
 };
 
-export default PageNouvelOp;
+export default PageListeOP;
