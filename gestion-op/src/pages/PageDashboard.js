@@ -21,8 +21,15 @@ const PageDashboard = () => {
 
   // === DONNÉES DE BASE ===
   const budgetsActifs = useMemo(() => budgets.filter(b => b.exerciceId === exerciceActifId), [budgets, exerciceActifId]);
+  
+  // On récupère tous les OP de l'exercice (y compris pour les vérifications de liaisons)
   const allOpsExercice = useMemo(() => ops.filter(op => op.exerciceId === exerciceActifId), [ops, exerciceActifId]);
-  const opsActifs = useMemo(() => allOpsExercice.filter(op => ['DIRECT', 'DEFINITIF'].includes(op.type) && op.statut !== 'REJETE'), [allOpsExercice]);
+  
+  // Pour les calculs de KPI budgétaires : Uniquement les directs et définitifs valides
+  const opsActifs = useMemo(() => allOpsExercice.filter(op => 
+    ['DIRECT', 'DEFINITIF'].includes(op.type) && 
+    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(op.statut)
+  ), [allOpsExercice]);
 
   const totalDotation = useMemo(() => budgetsActifs.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0), [budgetsActifs]);
   const totalEngagement = useMemo(() => opsActifs.reduce((sum, op) => sum + (op.montant || 0), 0), [opsActifs]);
@@ -32,7 +39,6 @@ const PageDashboard = () => {
   // === HELPERS ===
   const getBenefNom = (id) => beneficiaires.find(b => b.id === id)?.nom || 'Inconnu';
   const getSourceSigle = (id) => sources.find(s => s.id === id)?.sigle || sources.find(s => s.id === id)?.nom || '—';
-  const getSourceCouleur = (id) => sources.find(s => s.id === id)?.couleur || '#1B6B2E';
   const getLigneBudgetaire = (op) => {
     const budget = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
     const ligne = budget?.lignes?.find(l => l.code === op.ligneBudgetaire || l.nom === op.ligneBudgetaire);
@@ -50,45 +56,65 @@ const PageDashboard = () => {
 
   // === 7 CATÉGORIES D'ALERTES ===
   const alertes = useMemo(() => {
-    // À transférer au CF : statut EN_COURS
-    const transfert_cf = allOpsExercice
+    
+    // Fonction helper pour savoir si un OP a une régularisation (Définitif ou Annulation) active
+    const hasValidRegularisation = (opProvId) => {
+      return allOpsExercice.some(o => 
+        (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
+        o.opProvisoireId === opProvId &&
+        !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+      );
+    };
+
+    // On exclut de base les OP supprimés de toutes les alertes
+    const opsForAlerts = allOpsExercice.filter(op => op.statut !== 'SUPPRIME');
+
+    // 1. À transférer au CF : statut EN_COURS ou CREE (Sauf les annulations auto)
+    const transfert_cf = opsForAlerts
       .filter(op => ['EN_COURS', 'CREE'].includes(op.statut) && op.type !== 'ANNULATION')
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-    // À transférer à l'AC : statut VISE_CF (visés par CF, pas encore transmis à AC)
-    const transfert_ac = allOpsExercice
+    // 2. À transférer à l'AC : statut VISE_CF (visés par CF, pas encore transmis à AC)
+    const transfert_ac = opsForAlerts
       .filter(op => op.statut === 'VISE_CF')
       .map(op => ({ ...op, _jours: joursDepuis(op.dateVisaCF || op.dateCreation) }));
 
-    // Différés : statut DIFFERE ou DIFFERE_CF ou DIFFERE_AC
-    const differe = allOpsExercice
-      .filter(op => ['DIFFERE', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut))
-      .map(op => ({ ...op, _jours: joursDepuis(op.dateDiffere || op.dateCreation) }));
+    // 3. Différés : statut DIFFERE_CF ou DIFFERE_AC
+    const differe = opsForAlerts
+      .filter(op => ['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut))
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateDiffereCF || op.dateDiffereAC || op.dateCreation) }));
 
-    // Attente CF : statut TRANSMIS_CF (transmis, en attente du visa)
-    const attente_cf = allOpsExercice
+    // 4. Attente CF : statut TRANSMIS_CF (transmis, en attente du visa)
+    const attente_cf = opsForAlerts
       .filter(op => op.statut === 'TRANSMIS_CF')
       .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionCF || op.dateCreation) }));
 
-    // À annuler : PROVISOIRE + > 60 jours + pas régularisé
-    const annuler = allOpsExercice
-      .filter(op => op.type === 'PROVISOIRE' && op.statut !== 'REGULARISE' && joursDepuis(op.dateCreation) > 60)
+    // 5. À annuler : PROVISOIRE + NON PAYÉ + pas de régularisation liée (Synchronisé avec PageListeOP)
+    const annuler = opsForAlerts
+      .filter(op => {
+        if (op.type !== 'PROVISOIRE') return false;
+        // Si c'est payé, rejeté, archivé ou déjà annulé, ce n'est plus "à annuler" ici
+        if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
+        return !hasValidRegularisation(op.id);
+      })
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-    // À régulariser : PROVISOIRE + PAYE + pas de DEFINITIF lié
-    const regulariser = allOpsExercice
+    // 6. À régulariser : PROVISOIRE + PAYÉ + pas de DEFINITIF/ANNULATION lié (Synchronisé avec PageListeOP)
+    const regulariser = opsForAlerts
       .filter(op => {
-        if (op.type !== 'PROVISOIRE' || op.statut === 'REGULARISE') return false;
-        if (op.statut !== 'PAYE') return false;
-        // Vérifie si un DEFINITIF est déjà lié
-        const hasDefinitif = allOpsExercice.some(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id);
-        return !hasDefinitif;
+        if (op.type !== 'PROVISOIRE') return false;
+        // Doit obligatoirement être payé pour être régularisé
+        if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false;
+        return !hasValidRegularisation(op.id);
       })
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
-    // À solder : paiement partiel (montantPaye > 0 et < montant)
-    const solder = allOpsExercice
-      .filter(op => op.montantPaye && op.montantPaye > 0 && op.montantPaye < op.montant && op.statut !== 'REJETE')
+    // 7. À solder : paiement partiel (totalPaye > 0 et < montant)
+    const solder = opsForAlerts
+      .filter(op => {
+        if (['REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
+        return op.statut === 'PAYE_PARTIEL' || (op.totalPaye > 0 && op.totalPaye < op.montant);
+      })
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
     return {
@@ -131,7 +157,7 @@ const PageDashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
           { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#2E9940', accent: '#E8F5E9' },
-          { icon: 'E', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP`, color: '#C5961F', accent: '#fff3e0' },
+          { icon: 'E', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP validés`, color: '#C5961F', accent: '#fff3e0' },
           { icon: 'R', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#C43E3E', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
           { icon: '%', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#D4722A', accent: '#FFF3E8', isPercent: true },
         ].map((card, i) => (
@@ -255,7 +281,7 @@ const PageDashboard = () => {
               </thead>
               <tbody>
                 {selectedOps.map((op, i) => (
-                  <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3' }}>
+                  <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3', cursor: 'pointer' }} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }}>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
                         {(op.numero || '').split('/')[0] || `N°${op.numero}`}
@@ -267,7 +293,7 @@ const PageDashboard = () => {
                     <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500 }}>
                       {getBenefNom(op.beneficiaireId)}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#555' }}>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#555', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {op.objet || '—'}
                     </td>
                     {activeAlert === 'solder' ? (
@@ -276,10 +302,10 @@ const PageDashboard = () => {
                           {formatMontant(op.montant)}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
-                          {formatMontant(op.montantPaye || 0)}
+                          {formatMontant(op.totalPaye || 0)}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#C43E3E' }}>
-                          {formatMontant(op.montant - (op.montantPaye || 0))}
+                          {formatMontant(op.montant - (op.totalPaye || 0))}
                         </td>
                       </>
                     ) : (
@@ -295,17 +321,17 @@ const PageDashboard = () => {
                       </>
                     )}
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      {op._jours ? (
+                      {op._jours > 0 ? (
                         <span style={{
                           fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
-                          background: op._jours > 7 ? '#ffebee' : '#f5f5f5',
-                          color: op._jours > 7 ? '#C43E3E' : '#999'
+                          background: op._jours > 15 ? '#ffebee' : '#f5f5f5',
+                          color: op._jours > 15 ? '#C43E3E' : '#999'
                         }}>
                           {op._jours}j
                         </span>
-                      ) : op.observationDiffere ? (
+                      ) : op.motifDiffereCF || op.motifDiffereAC ? (
                         <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: '#fff3e0', color: '#C5961F' }}>
-                          {op.observationDiffere}
+                          Motif renseigné
                         </span>
                       ) : (
                         <span style={{ fontSize: 10, color: '#ccc' }}>—</span>
