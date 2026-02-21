@@ -12,16 +12,13 @@ const Badge = React.memo(({ bg, color, children }) => (
 ));
 
 const PageListeOP = () => {
-  const { projet, sources, exercices, exerciceActif, beneficiaires, budgets, ops, setOps, setCurrentPage, setConsultOpData } = useAppContext();
+  const { projet, sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL'); 
   const [activeTab, setActiveTab] = useState('CUMUL_OP'); 
-  const [filters, setFilters] = useState({ type: '', statut: '', search: '', ligneBudgetaire: '' });
+  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '' });
   const [showPasswordModal, setShowPasswordModal] = useState(null);
 
-  const currentExerciceId = exerciceActif?.id;
-
   const typeColors = { PROVISOIRE: '#E8B931', DIRECT: '#D4722A', DEFINITIF: '#2E9940', ANNULATION: '#C43E3E' };
-  
   const statutConfig = {
     EN_COURS: { bg: '#E8F5E9', color: '#D4722A', label: 'En cours' },
     TRANSMIS_CF: { bg: '#FFF8E1', color: '#C5961F', label: 'Transmis CF' },
@@ -36,17 +33,16 @@ const PageListeOP = () => {
   const getBenNom = (op) => {
     if (op.beneficiaireNom) return op.beneficiaireNom;
     const b = beneficiaires.find(x => x.id === op.beneficiaireId);
-    return b ? b.nom : 'Inconnu';
+    return b ? b.nom : 'N/A';
   };
 
-  const filteredOps = useMemo(() => {
-    return ops.filter(op => {
-      if (op.exerciceId !== currentExerciceId) return false;
+  const displayOps = useMemo(() => {
+    // 1. Filtrage de base
+    let baseOps = ops.filter(op => {
+      if (op.exerciceId !== exerciceActif?.id) return false;
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
       if (activeTab === 'CORBEILLE' ? op.statut !== 'SUPPRIME' : op.statut === 'SUPPRIME') return false;
-
       if (filters.type && op.type !== filters.type) return false;
-      if (filters.statut && op.statut !== filters.statut) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
       if (filters.search) {
         const s = filters.search.toLowerCase();
@@ -54,22 +50,24 @@ const PageListeOP = () => {
       }
       return true;
     });
-  }, [ops, currentExerciceId, activeSource, activeTab, filters, beneficiaires]);
 
-  const displayOps = useMemo(() => {
-    const lines = filteredOps.map(op => ({ ...op, isRejetLine: false }));
-    filteredOps.forEach(op => {
+    // 2. Gestion des lignes de rejet
+    const lines = baseOps.map(op => ({ ...op, isRejetLine: false }));
+    baseOps.forEach(op => {
       if (['REJETE_CF', 'REJETE_AC'].includes(op.statut)) {
         lines.push({ ...op, isRejetLine: true, displayNumero: op.numero + ' (REJET)', montant: -(op.montant || 0) });
       }
     });
+
     lines.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 
+    // 3. Calculs budgétaires
     const cumulParLigne = {};
     const processed = lines.map(line => {
       const lb = line.ligneBudgetaire;
       const budgetSource = budgets.find(b => b.sourceId === line.sourceId && b.exerciceId === line.exerciceId);
       const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
+
       line.engagementAnterieur = cumulParLigne[lb] || 0;
       if (!['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(line.statut) || line.isRejetLine) {
         cumulParLigne[lb] = (cumulParLigne[lb] || 0) + line.montant;
@@ -78,41 +76,21 @@ const PageListeOP = () => {
       line.disponible = dotation - (cumulParLigne[lb] || 0);
       return line;
     });
-    return processed.reverse();
-  }, [filteredOps, budgets]);
 
-  const handleExport = () => {
-    const headers = ['Source', 'N° OP', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Statut'];
-    const rows = displayOps.map(op => [
-      sources.find(s => s.id === op.sourceId)?.sigle || '',
-      op.isRejetLine ? op.displayNumero : op.numero,
-      op.type,
-      getBenNom(op),
-      op.objet,
-      op.ligneBudgetaire,
-      op.montant,
-      op.statut
-    ]);
-    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(";")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `export_ops_${activeSource}.csv`;
-    link.click();
-  };
+    return processed.reverse();
+  }, [ops, activeSource, activeTab, filters, exerciceActif, budgets, beneficiaires]);
 
   return (
     <div style={styles.pageContainer}>
+      {/* HEADER AVEC TITRE ORIGINAL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={handleExport} style={styles.buttonSecondary}>Export Excel</button>
-          <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
-        </div>
+        <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
       </div>
 
+      {/* TABS SOURCES */}
       <div style={styles.tabs}>
-        <div onClick={() => setActiveSource('ALL')} style={activeSource === 'ALL' ? styles.tabActive : styles.tab}>CUMUL GÉNÉRAL</div>
+        <div onClick={() => setActiveSource('ALL')} style={activeSource === 'ALL' ? styles.tabActive : styles.tab}>CUMUL OP</div>
         {sources.map(s => (
           <div key={s.id} onClick={() => setActiveSource(s.id)} style={activeSource === s.id ? { ...styles.tabActive, color: s.couleur, borderColor: s.couleur } : styles.tab}>
             {s.sigle}
@@ -120,11 +98,11 @@ const PageListeOP = () => {
         ))}
       </div>
 
-      {/* BLOC DE RECHERCHE ET FILTRES */}
-      <div style={{ ...styles.card, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+      {/* BARRE DE FILTRES RÉTABLIE */}
+      <div style={{ ...styles.card, display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end', marginBottom: 15 }}>
         <div>
           <label style={styles.label}>Recherche</label>
-          <input type="text" placeholder="N°, bénéficiaire, objet..." style={styles.input} value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
+          <input type="text" placeholder="N°, bénéficiaire..." style={styles.input} value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
         </div>
         <div>
           <label style={styles.label}>Type</label>
@@ -138,22 +116,20 @@ const PageListeOP = () => {
         </div>
         <div>
           <label style={styles.label}>Ligne Budgétaire</label>
-          <input type="text" placeholder="Code ligne..." style={styles.input} value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
+          <input type="text" placeholder="Filtrer ligne..." style={styles.input} value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
         </div>
-        <div>
-          <label style={styles.label}>Statut</label>
-          <select style={styles.select} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
-            <option value="">Tous les statuts</option>
-            {Object.entries(statutConfig).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}
-          </select>
+        <div style={{ textAlign: 'center' }}>
+           <label style={styles.label}>Tab. actif</label>
+           <Badge bg={activeTab === 'CORBEILLE' ? '#FFEBEE' : '#E8F5E9'} color={activeTab === 'CORBEILLE' ? '#C43E3E' : '#2E9940'}>{activeTab}</Badge>
         </div>
-        <button onClick={() => setActiveTab(activeTab === 'CORBEILLE' ? 'CUMUL_OP' : 'CORBEILLE')} style={{ ...styles.buttonSecondary, color: activeTab === 'CORBEILLE' ? '#C43E3E' : '#666', height: 40 }}>
-          {activeTab === 'CORBEILLE' ? 'Sortir Corbeille' : '🗑️'}
+        <button onClick={() => setActiveTab(activeTab === 'CORBEILLE' ? 'CUMUL_OP' : 'CORBEILLE')} style={{ ...styles.buttonSecondary, height: 38 }}>
+          {activeTab === 'CORBEILLE' ? 'Sortir' : '🗑️'}
         </button>
       </div>
 
+      {/* TABLEAU AVEC BARRE DE SCROLL RÉTABLIE */}
       <div style={{ ...styles.card, padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto', maxHeight: '65vh', overflowY: 'auto' }}>
+        <div style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
           <table style={styles.table}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#F9F9F8' }}>
               <tr>
@@ -162,7 +138,9 @@ const PageListeOP = () => {
                 <th style={styles.th}>Bénéficiaire</th>
                 <th style={styles.th}>Objet</th>
                 <th style={styles.th}>Ligne</th>
-                <th style={{ ...styles.th, textAlign: 'right' }}>Dotation</th>
+                
+                {/* Colonnes budgétaires spécifiques aux sources */}
+                {activeSource !== 'ALL' && <th style={{ ...styles.th, textAlign: 'right' }}>Dotation</th>}
                 <th style={{ ...styles.th, textAlign: 'right' }}>Montant</th>
                 {activeSource !== 'ALL' && (
                   <>
@@ -170,12 +148,15 @@ const PageListeOP = () => {
                     <th style={{ ...styles.th, textAlign: 'right' }}>Disponible</th>
                   </>
                 )}
+                
                 <th style={{ ...styles.th, textAlign: 'center' }}>Statut</th>
-                <th style={{ ...styles.th, width: 50 }}></th>
+                <th style={{ ...styles.th, width: 40, textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {displayOps.map((op, i) => {
+              {displayOps.length === 0 ? (
+                <tr><td colSpan="10" style={{ textAlign: 'center', padding: 30, color: '#999' }}>Aucun OP trouvé</td></tr>
+              ) : displayOps.map((op, i) => {
                 const st = statutConfig[op.statut] || { color: '#333', bg: '#EEE', label: op.statut };
                 return (
                   <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
@@ -186,24 +167,28 @@ const PageListeOP = () => {
                     <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
                     <td style={{ ...styles.td, color: '#666', fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet}</td>
                     <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
-                    <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(op.dotationLigne)}</td>
+                    
+                    {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(op.dotationLigne)}</td>}
+                    
                     <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: op.isRejetLine ? '#C43E3E' : '#000' }}>
                       {op.isRejetLine ? '-' : ''}{formatMontant(Math.abs(op.montant))}
                     </td>
+                    
                     {activeSource !== 'ALL' && (
                       <>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#666' }}>{formatMontant(op.engagementAnterieur)}</td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
                       </>
                     )}
+
                     <td style={{ ...styles.td, textAlign: 'center' }}>
                       <Badge bg={op.isRejetLine ? '#FFEBEE' : st.bg} color={op.isRejetLine ? '#C43E3E' : st.color}>
                         {op.isRejetLine ? 'REJET' : st.label}
                       </Badge>
                     </td>
-                    <td style={styles.td}>
-                      <button onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 5 }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                      <button onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 5 }} title="Consulter">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
                     </td>
                   </tr>
