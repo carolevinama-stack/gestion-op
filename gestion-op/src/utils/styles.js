@@ -11,6 +11,7 @@ export const styles = {
     color: '#000000',
     transition: 'margin-left 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)',
     minWidth: 0,
+    fontFamily: "'Century Gothic', 'Trebuchet MS', sans-serif",
   },
 
   title: { fontSize: 20, fontWeight: 700, color: '#1B6B2E', marginBottom: 20 },
@@ -27,7 +28,7 @@ export const styles = {
   select: { padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 13, width: '100%', boxSizing: 'border-box', color: '#000' },
   label: { fontSize: '11px', fontWeight: 700, color: '#444', marginBottom: 4, display: 'block' },
 
-  tableWrapper: { flex: 1, overflowX: 'auto', overflowY: 'auto', background: '#fff', border: '1px solid #ddd' },
+  tableWrapper: { flex: 1, overflowX: 'auto', overflowY: 'auto', maxHeight: '65vh', background: '#fff', border: '1px solid #ddd', borderRadius: 4 },
   table: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' },
   stickyTh: { 
     position: 'sticky', top: 0, zIndex: 10, background: '#EEE', 
