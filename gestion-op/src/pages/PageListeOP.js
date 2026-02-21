@@ -4,18 +4,8 @@ import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import PasswordModal from '../components/PasswordModal';
 
-// Composant interne pour les étiquettes de statut
 const Badge = React.memo(({ bg, color, children }) => (
-  <span style={{ 
-    display: 'inline-block', 
-    padding: '4px 10px', 
-    borderRadius: 12, 
-    fontSize: 11, 
-    fontWeight: 600, 
-    background: bg, 
-    color: color, 
-    whiteSpace: 'nowrap' 
-  }}>
+  <span style={{ ...styles.badge, background: bg, color, whiteSpace: 'nowrap' }}>
     {children}
   </span>
 ));
@@ -24,7 +14,7 @@ const PageListeOP = () => {
   const { projet, sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL'); 
   const [activeTab, setActiveTab] = useState('CUMUL_OP'); 
-  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', statut: '' });
+  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', statut: '', dateDebut: '', dateFin: '' });
   const [showPasswordModal, setShowPasswordModal] = useState(null);
 
   const typeColors = { PROVISOIRE: '#E8B931', DIRECT: '#D4722A', DEFINITIF: '#2E9940', ANNULATION: '#C43E3E' };
@@ -50,9 +40,12 @@ const PageListeOP = () => {
       if (op.exerciceId !== exerciceActif?.id) return false;
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
       if (activeTab === 'CORBEILLE' ? op.statut !== 'SUPPRIME' : op.statut === 'SUPPRIME') return false;
+      
       if (filters.type && op.type !== filters.type) return false;
       if (filters.statut && op.statut !== filters.statut) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
+      if (filters.dateDebut && op.dateCreation < filters.dateDebut) return false;
+      if (filters.dateFin && op.dateCreation > filters.dateFin) return false;
       if (filters.search) {
         const s = filters.search.toLowerCase();
         return op.numero?.toLowerCase().includes(s) || getBenNom(op).toLowerCase().includes(s) || (op.objet || '').toLowerCase().includes(s);
@@ -103,34 +96,41 @@ const PageListeOP = () => {
         ))}
       </div>
 
-      {/* FILTRES COMPLETS */}
-      <div style={{ ...styles.card, display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end', marginBottom: 15 }}>
-        <div>
-          <label style={styles.label}>Recherche rapide</label>
+      {/* BARRE DE FILTRES AJUSTÉE ET COMPLÈTE */}
+      <div style={{ ...styles.card, display: 'flex', gap: 10, alignItems: 'end', marginBottom: 15, flexWrap: 'nowrap' }}>
+        <div style={{ flex: 2 }}>
+          <label style={styles.label}>Recherche</label>
           <input type="text" placeholder="N°, bénéficiaire..." style={styles.input} value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <label style={styles.label}>Type</label>
           <select style={styles.select} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
-            <option value="">Tous les types</option>
+            <option value="">Tous</option>
             <option value="PROVISOIRE">Provisoire</option>
             <option value="DIRECT">Direct</option>
             <option value="DEFINITIF">Définitif</option>
-            <option value="ANNULATION">Annulation</option>
           </select>
         </div>
-        <div>
-          <label style={styles.label}>Ligne Budgétaire</label>
-          <input type="text" placeholder="Code ligne..." style={styles.input} value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
+        <div style={{ flex: 1 }}>
+          <label style={styles.label}>Ligne</label>
+          <input type="text" placeholder="Code..." style={styles.input} value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
+          <label style={styles.label}>Du</label>
+          <input type="date" style={styles.input} value={filters.dateDebut} onChange={e => setFilters({...filters, dateDebut: e.target.value})} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={styles.label}>Au</label>
+          <input type="date" style={styles.input} value={filters.dateFin} onChange={e => setFilters({...filters, dateFin: e.target.value})} />
+        </div>
+        <div style={{ flex: 1 }}>
           <label style={styles.label}>Statut</label>
           <select style={styles.select} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
-            <option value="">Tous les statuts</option>
+            <option value="">Tous</option>
             {Object.entries(statutConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
         </div>
-        <button onClick={() => setActiveTab(activeTab === 'CORBEILLE' ? 'CUMUL_OP' : 'CORBEILLE')} style={{ ...styles.buttonSecondary, height: 38 }}>
+        <button onClick={() => setActiveTab(activeTab === 'CORBEILLE' ? 'CUMUL_OP' : 'CORBEILLE')} style={{ ...styles.buttonSecondary, padding: '10px 15px' }}>
           {activeTab === 'CORBEILLE' ? 'Sortir' : '🗑️'}
         </button>
       </div>
@@ -173,20 +173,16 @@ const PageListeOP = () => {
                     <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
                     <td style={{ ...styles.td, color: '#666', fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet}</td>
                     <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
-                    
                     {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(op.dotationLigne)}</td>}
-                    
                     <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: op.isRejetLine ? '#C43E3E' : '#000' }}>
                       {op.isRejetLine ? '-' : ''}{formatMontant(Math.abs(op.montant))}
                     </td>
-                    
                     {activeSource !== 'ALL' && (
                       <>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', color: '#666' }}>{formatMontant(op.engagementAnterieur)}</td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
                       </>
                     )}
-
                     <td style={{ ...styles.td, textAlign: 'center' }}>
                       <Badge bg={op.isRejetLine ? '#FFEBEE' : st.bg} color={op.isRejetLine ? '#C43E3E' : st.color}>
                         {op.isRejetLine ? 'REJET' : st.label}
