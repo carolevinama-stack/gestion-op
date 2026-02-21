@@ -14,7 +14,8 @@ const joursDepuis = (dateStr) => {
 const thStyle = { padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#999', letterSpacing: 0.5 };
 
 const PageDashboard = () => {
-  const { exerciceActif, budgets, ops, sources, beneficiaires, userProfile } = useAppContext();
+  // CORRECTION ICI : Ajout de setConsultOpData et setCurrentPage
+  const { exerciceActif, budgets, ops, sources, beneficiaires, userProfile, setConsultOpData, setCurrentPage } = useAppContext();
   const [activeAlert, setActiveAlert] = useState('transfert_cf');
 
   const exerciceActifId = exerciceActif?.id;
@@ -89,21 +90,19 @@ const PageDashboard = () => {
       .filter(op => op.statut === 'TRANSMIS_CF')
       .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionCF || op.dateCreation) }));
 
-    // 5. À annuler : PROVISOIRE + NON PAYÉ + pas de régularisation liée (Synchronisé avec PageListeOP)
+    // 5. À annuler : PROVISOIRE + NON PAYÉ + pas de régularisation liée
     const annuler = opsForAlerts
       .filter(op => {
         if (op.type !== 'PROVISOIRE') return false;
-        // Si c'est payé, rejeté, archivé ou déjà annulé, ce n'est plus "à annuler" ici
         if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
         return !hasValidRegularisation(op.id);
       })
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-    // 6. À régulariser : PROVISOIRE + PAYÉ + pas de DEFINITIF/ANNULATION lié (Synchronisé avec PageListeOP)
+    // 6. À régulariser : PROVISOIRE + PAYÉ + pas de DEFINITIF/ANNULATION lié
     const regulariser = opsForAlerts
       .filter(op => {
         if (op.type !== 'PROVISOIRE') return false;
-        // Doit obligatoirement être payé pour être régularisé
         if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false;
         return !hasValidRegularisation(op.id);
       })
