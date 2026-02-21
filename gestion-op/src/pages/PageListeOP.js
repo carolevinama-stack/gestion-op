@@ -6,12 +6,11 @@ import { formatMontant } from '../utils/formatters';
 const PageListeOP = () => {
   const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
-  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '' });
+  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statut: '' });
   const [previewOp, setPreviewOp] = useState(null);
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
 
-  // LOGIQUE DE CALCUL : Somme chronologique de TOUT ce qui précède (rejets inclus)
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
       if (op.exerciceId !== exerciceActif?.id) return false;
@@ -19,6 +18,7 @@ const PageListeOP = () => {
       return true;
     });
 
+    // Tri chronologique pour le calcul des cumuls
     const sorted = [...baseOps].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const cumulParLigne = {};
     
@@ -26,13 +26,15 @@ const PageListeOP = () => {
       const lb = op.ligneBudgetaire;
       const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
       const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
-      
       const engagementAnterieur = cumulParLigne[lb] || 0;
+      
+      // Somme chronologique totale (incluant rejets et annulations)
       cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (op.montant || 0);
 
       return { ...op, dotationLigne: dotation, engagementAnterieur, disponible: dotation - cumulParLigne[lb] };
     });
 
+    // Application des filtres de recherche
     return withCalculations.filter(op => {
       if (filters.search && !`${op.numero} ${getBenNom(op)}`.toLowerCase().includes(filters.search.toLowerCase())) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
@@ -44,10 +46,13 @@ const PageListeOP = () => {
 
   return (
     <div style={styles.main}>
-      <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
-      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
+        <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
+      </div>
+
       <div style={styles.tabs}>
-        <div onClick={() => setActiveSource('ALL')} style={activeSource === 'ALL' ? styles.tabActive : styles.tab}>CUMUL GÉNÉRAL</div>
+        <div onClick={() => setActiveSource('ALL')} style={activeSource === 'ALL' ? styles.tabActive : styles.tab}>CUMUL GENERAL</div>
         {sources.map(s => <div key={s.id} onClick={() => setActiveSource(s.id)} style={activeSource === s.id ? styles.tabActive : styles.tab}>{s.sigle}</div>)}
       </div>
 
@@ -59,7 +64,7 @@ const PageListeOP = () => {
           </div>
           <div>
             <label style={styles.label}>Type</label>
-            <select style={styles.input} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
+            <select style={styles.select} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
               <option value="">Tous</option>
               <option value="DIRECT">Direct</option>
               <option value="PROVISOIRE">Provisoire</option>
@@ -77,12 +82,22 @@ const PageListeOP = () => {
             <label style={styles.label}>Au</label>
             <input type="date" style={styles.input} value={filters.dateFin} onChange={e => setFilters({...filters, dateFin: e.target.value})} />
           </div>
-          <button style={styles.buttonSecondary} onClick={() => setFilters({search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:''})}>Réinitialiser</button>
+          <div>
+            <label style={styles.label}>Statut</label>
+            <select style={styles.select} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
+              <option value="">Tous</option>
+              <option value="EN_COURS">En cours</option>
+              <option value="PAYE">Payé</option>
+            </select>
+          </div>
+          <button style={styles.buttonIcon} onClick={() => setFilters({search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:'', statut:''})}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
         </div>
       </div>
 
       <div style={styles.tableWrapper}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={styles.table}>
           <thead>
             <tr>
               <th style={styles.stickyTh}>N° OP</th>
@@ -102,8 +117,8 @@ const PageListeOP = () => {
           </thead>
           <tbody>
             {displayOps.map((op, i) => (
-              <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                <td style={styles.td}>{op.numero}</td>
+              <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #ddd', cursor: 'pointer' }}>
+                <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero}</td>
                 <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
                 <td style={styles.td}>{op.ligneBudgetaire}</td>
                 {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right' }}>{formatMontant(op.dotationLigne)}</td>}
@@ -114,13 +129,42 @@ const PageListeOP = () => {
                     <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
                   </>
                 )}
-                <td style={{ ...styles.td, textAlign: 'center' }}>{op.statut}</td>
-                <td style={styles.td}><button onClick={(e) => { e.stopPropagation(); setPreviewOp(op); }}>👁️</button></td>
+                <td style={{ ...styles.td, textAlign: 'center', fontSize: '11px' }}>{op.statut}</td>
+                <td style={styles.td}>
+                  <button onClick={(e) => { e.stopPropagation(); setPreviewOp(op); }} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {previewOp && (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: 400 }}>
+            <div style={{ padding: '15px', borderBottom: '1px solid #ddd', background: '#f8f8f8', display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontWeight: 800 }}>CIRCUIT DE VALIDATION</span>
+              <button onClick={() => setPreviewOp(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ fontSize: '11px', color: '#666' }}>REFERENCE OP</div>
+                <div style={{ fontWeight: 800 }}>{previewOp.numero}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
+                <div>DATE SAISIE : {previewOp.dateCreation || '---'}</div>
+                <div>VISA CF : {previewOp.dateVisaCF || 'EN ATTENTE'}</div>
+                <div>PAIEMENT : {previewOp.datePaiement || 'EN ATTENTE'}</div>
+              </div>
+              <button onClick={() => { setConsultOpData(previewOp); setCurrentPage('consulterOp'); setPreviewOp(null); }} style={{ ...styles.button, width: '100%', marginTop: '20px', background: '#D4722A' }}>
+                CONSULTER FICHE COMPLETE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
