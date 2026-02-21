@@ -6,7 +6,7 @@ import { collection, doc, addDoc, getDocs, getDoc, query, where, runTransaction 
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
-// ==================== CONFIGURATION MODALE (Auto-close ajouté) ====================
+// ==================== CONFIGURATION MODALE ====================
 const MODAL_STYLES = {
   success: { 
     color: '#2e7d32', 
@@ -30,7 +30,6 @@ const MODAL_STYLES = {
 
 const ModalMessage = ({ data, onClose }) => {
   useEffect(() => {
-    // Si c'est un succès, on ferme automatiquement après 2.5 secondes
     if (data && data.type === 'success') {
       const timer = setTimeout(() => {
         onClose();
@@ -71,8 +70,6 @@ const ModalMessage = ({ data, onClose }) => {
           {data.message}
         </p>
 
-        {/* Le bouton ne s'affiche que si ce n'est PAS un succès (car succès auto-close) 
-            OU si on veut permettre de fermer plus vite */}
         <button onClick={onClose} style={{
           background: style.btnBg, color: 'white', border: 'none',
           padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 600,
@@ -91,13 +88,11 @@ const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D472
 const PageNouvelOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
   
-  // Par défaut, le type est vide pour forcer la sélection, mais les autres champs peuvent être remplis par le brouillon
   const defaultForm = { type: '', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
 
-  // Restaurer le brouillon depuis localStorage
   const loadDraft = () => {
     try {
-      const saved = localStorage.getItem('op_draft_v3'); // Nouvelle clé pour nettoyer proprement les anciens états
+      const saved = localStorage.getItem('op_draft_v3');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return defaultForm;
@@ -115,7 +110,6 @@ const PageNouvelOp = () => {
   const [form, setForm] = useState(loadDraft);
   const [saving, setSaving] = useState(false);
 
-  // Sauvegarder le brouillon à chaque modification
   useEffect(() => {
     try { localStorage.setItem('op_draft_v3', JSON.stringify(form)); } catch (e) {}
   }, [form]);
@@ -126,7 +120,6 @@ const PageNouvelOp = () => {
   const currentSourceObj = sources.find(s => s.id === activeSource);
   const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
 
-  // Si on vient de Consulter OP avec duplication
   useEffect(() => {
     if (consultOpData && consultOpData._duplicate) {
       const op = consultOpData;
@@ -169,44 +162,75 @@ const PageNouvelOp = () => {
 
   const getDotation = () => selectedLigne?.dotation || 0;
   
+  // ===================== CALCUL EXACT DES ENGAGEMENTS =====================
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire) return 0;
-    return ops
-      .filter(op => 
-        op.sourceId === activeSource && 
-        op.exerciceId === exerciceActif?.id &&
-        op.ligneBudgetaire === form.ligneBudgetaire &&
-        ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
-        !['REJETE', 'ANNULE', 'TRAITE'].includes(op.statut)
-      )
-      .reduce((sum, op) => sum + (op.montant || 0), 0);
+    
+    // 1. Prendre tous les OP de la ligne, triés par date (sauf corbeille)
+    const opsAnterieurs = ops
+      .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.ligneBudgetaire === form.ligneBudgetaire && op.statut !== 'SUPPRIME')
+      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+    let cumul = 0;
+
+    // 2. Additionner et soustraire selon la logique comptable stricte
+    opsAnterieurs.forEach(o => {
+      // Les OP rejetés ne consomment pas de budget, on les ignore
+      if (!['REJETE_CF', 'REJETE_AC'].includes(o.statut)) {
+        
+        if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') {
+          cumul += (parseFloat(o.montant) || 0);
+        } 
+        else if (o.type === 'DEFINITIF') {
+          // Si c'est un définitif multi-provisoires, on déduit tous les provisoires liés
+          if (o.opProvisoireIds && o.opProvisoireIds.length > 0) {
+            let provSum = 0;
+            o.opProvisoireIds.forEach(id => {
+              const p = ops.find(x => x.id === id);
+              provSum += (parseFloat(p?.montant) || 0);
+            });
+            cumul = cumul - provSum + (parseFloat(o.montant) || 0);
+          } else {
+            // Un seul provisoire
+            const prov = ops.find(p => p.id === o.opProvisoireId);
+            cumul = cumul - (parseFloat(prov?.montant) || 0) + (parseFloat(o.montant) || 0);
+          }
+        } 
+        else if (o.type === 'ANNULATION') {
+          // L'annulation libère le montant du provisoire lié
+          const prov = ops.find(p => p.id === o.opProvisoireId);
+          cumul -= (parseFloat(prov?.montant) || 0);
+        }
+      }
+    });
+
+    return cumul;
   };
 
   const getEngagementActuel = () => {
-    return parseFloat(form.montant) || 0;
+    let montant = parseFloat(form.montant) || 0;
+    if (form.type === 'ANNULATION') return -Math.abs(montant);
+    return montant;
   };
 
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => getDotation() - getEngagementsCumules();
 
-  // OP provisoires pour ANNULATION
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
-    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
+    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
+    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && o.statut !== 'SUPPRIME')
   ) : [];
 
-  // OP provisoires pour DEFINITIF
   const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
-    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF')
+    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
+    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
   ) : [];
-
 
   const getOpProvLabel = (op) => {
     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
@@ -230,8 +254,6 @@ const PageNouvelOp = () => {
     return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
   };
 
-  // === CŒUR DU SYSTÈME : TRANSACTION NUMÉROTATION ===
-  // Cette fonction garantit l'unicité et l'ordre même en cas de clics simultanés
   const genererNumeroTransaction = async () => {
     const sigleProjet = projet?.sigle || 'PROJET';
     const sigleSource = currentSourceObj?.sigle || 'OP';
@@ -239,7 +261,6 @@ const PageNouvelOp = () => {
     const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
     const compteurRef = doc(db, 'compteurs', compteurId);
 
-    // Initialisation si le compteur n'existe pas
     let initCount = 0;
     const snapCheck = await getDoc(compteurRef);
     if (!snapCheck.exists()) {
@@ -254,7 +275,6 @@ const PageNouvelOp = () => {
       });
     }
 
-    // La transaction verrouille le compteur : un seul utilisateur passe à la fois
     return await runTransaction(db, async (tx) => {
       const snap = await tx.get(compteurRef);
       const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
@@ -272,7 +292,7 @@ const PageNouvelOp = () => {
         ...form, opProvisoireId: opId, opProvisoireNumero: op.numero, opProvisoireManuel: '',
         beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire,
         modeReglement: op.modeReglement || 'VIREMENT',
-        montant: String(-(op.montant || 0)),
+        montant: String(Math.abs(op.montant || 0)), 
         objet: `Annulation OP ${op.numero} - ${op.objet || ''}`,
         piecesJustificatives: `OP ${op.numero}`
       });
@@ -304,7 +324,7 @@ const PageNouvelOp = () => {
   };
 
   const handleSave = async () => {
-    // Validation
+    // === VALIDATION SÉCURISÉE ===
     if (!form.type) { setModal({ type: 'error', title: 'Type manquant', message: 'Veuillez sélectionner un type d\'OP' }); return; }
     if (!activeSource) { setModal({ type: 'error', title: 'Source manquante', message: 'Veuillez sélectionner une source de financement' }); return; }
     if (!exerciceActif) { setModal({ type: 'error', title: 'Exercice manquant', message: 'Aucun exercice actif' }); return; }
@@ -312,7 +332,19 @@ const PageNouvelOp = () => {
     if (form.modeReglement === 'VIREMENT' && !selectedRib) { setModal({ type: 'error', title: 'RIB manquant', message: 'Veuillez renseigner un RIB pour le bénéficiaire' }); return; }
     if (!form.ligneBudgetaire) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner une ligne budgétaire' }); return; }
     if (!form.objet.trim()) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir l\'objet de la dépense' }); return; }
-    if (!form.montant || parseFloat(form.montant) === 0) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; }
+    
+    let finalMontant = parseFloat(form.montant);
+    if (isNaN(finalMontant) || finalMontant === 0) { 
+      setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; 
+    }
+
+    if (form.type !== 'ANNULATION' && finalMontant < 0) {
+      setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Direct, Provisoire ou Définitif doit être positif.' }); return; 
+    }
+    if (form.type === 'ANNULATION') {
+      finalMontant = -Math.abs(finalMontant); // Forcé en négatif
+    }
+
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
       setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez indiquer si la TVA est récupérable (OUI / NON)' }); return;
     }
@@ -331,25 +363,39 @@ const PageNouvelOp = () => {
 
     setSaving(true);
     try {
-      // 1. Vérification ultime du budget (lecture temps réel)
+      // 1. Vérification temps réel lors de l'enregistrement (même logique comptable)
       if (form.type !== 'ANNULATION') {
-        const opsSnap = await getDocs(query(
-          collection(db, 'ops'),
-          where('sourceId', '==', activeSource),
-          where('exerciceId', '==', exerciceActif.id)
-        ));
-        const engagementsReels = opsSnap.docs
-          .map(d => d.data())
-          .filter(op =>
-            op.ligneBudgetaire === form.ligneBudgetaire &&
-            ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
-            !['REJETE', 'ANNULE', 'TRAITE'].includes(op.statut)
-          )
-          .reduce((sum, op) => sum + (op.montant || 0), 0);
+        const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
+        const allReels = opsSnap.docs.map(d => d.data())
+          .filter(op => op.ligneBudgetaire === form.ligneBudgetaire && op.statut !== 'SUPPRIME')
+          .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 
-        let engagementActuel = parseFloat(form.montant) || 0;
+        let engagementsReels = 0;
+        allReels.forEach(o => {
+          if (!['REJETE_CF', 'REJETE_AC'].includes(o.statut)) {
+            if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') {
+              engagementsReels += (parseFloat(o.montant) || 0);
+            } else if (o.type === 'DEFINITIF') {
+              if (o.opProvisoireIds && o.opProvisoireIds.length > 0) {
+                let provSum = 0;
+                o.opProvisoireIds.forEach(id => {
+                  const p = ops.find(x => x.id === id); // on utilise le state local 'ops' pour retrouver le montant du provisoire
+                  provSum += (parseFloat(p?.montant) || 0);
+                });
+                engagementsReels = engagementsReels - provSum + (parseFloat(o.montant) || 0);
+              } else {
+                const prov = ops.find(p => p.id === o.opProvisoireId);
+                engagementsReels = engagementsReels - (parseFloat(prov?.montant) || 0) + (parseFloat(o.montant) || 0);
+              }
+            } else if (o.type === 'ANNULATION') {
+              const prov = ops.find(p => p.id === o.opProvisoireId);
+              engagementsReels -= (parseFloat(prov?.montant) || 0);
+            }
+          }
+        });
+
         const dotation = getDotation();
-        const disponibleReel = dotation - engagementsReels - engagementActuel;
+        const disponibleReel = dotation - engagementsReels - finalMontant;
 
         if (disponibleReel < 0) {
           setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${formatMontant(dotation - engagementsReels)} FCFA.` });
@@ -358,7 +404,7 @@ const PageNouvelOp = () => {
         }
       }
 
-      // 2. Génération ATOMIQUE du numéro (Bloque les doublons concurrents)
+      // 2. Génération ATOMIQUE du numéro
       const numero = await genererNumeroTransaction();
       
       // Préparation données
@@ -380,14 +426,14 @@ const PageNouvelOp = () => {
         beneficiaireId: form.beneficiaireId, modeReglement: form.modeReglement,
         rib: selectedRib || null, ligneBudgetaire: form.ligneBudgetaire,
         objet: form.objet.trim(), piecesJustificatives: form.piecesJustificatives.trim(),
-        montant: parseFloat(form.montant), montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
+        montant: finalMontant, montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
         tvaRecuperable: form.tvaRecuperable === true, statut: 'EN_COURS',
         ...opProvFields,
         dateCreation: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
       };
 
-      // 3. Sauvegarde de l'OP
+      // 3. Sauvegarde
       const docRef = await addDoc(collection(db, 'ops'), opData);
       
       setOps([...ops, { id: docRef.id, ...opData }]);
@@ -403,8 +449,8 @@ const PageNouvelOp = () => {
   // === STYLES ===
   const accent = currentSourceObj?.couleur || '#2E9940';
   const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#6c757d', letterSpacing: 0.3 };
-  const fieldStyle = { padding: '12px 14px', background: '#f8f9fa', borderRadius: 8, fontSize: 14, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', height: 44 };
-  const editFieldStyle = { ...fieldStyle, background: '#fffde7', border: `1.5px solid ${accent}40` };
+  const fieldStyle = { padding: '12px 14px', background: '#f8f9fa', borderRadius: 8, fontSize: 14, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', height: 44, color: '#000000' };
+  const editFieldStyle = { ...fieldStyle, background: '#fffde7', border: `1.5px solid ${accent}40`, color: '#000000' };
   const sectionTitle = (icon, label) => (
     <div style={{ fontSize: 13, fontWeight: 700, color: accent, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ fontSize: 14 }}>{icon}</span> {label}
@@ -417,7 +463,7 @@ const PageNouvelOp = () => {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .nouvelop-form *, .nouvelop-form *::before, .nouvelop-form *::after { box-sizing: border-box; }
-        .nouvelop-form input, .nouvelop-form select, .nouvelop-form textarea { box-sizing: border-box; }
+        .nouvelop-form input, .nouvelop-form select, .nouvelop-form textarea { box-sizing: border-box; color: #000000; }
       `}</style>
       
       {/* MODALE CENTRÉE */}
@@ -459,13 +505,13 @@ const PageNouvelOp = () => {
             <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: '0 1 auto' }}>
                 <label style={labelStyle}>N° OP (auto)</label>
-                <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 13, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', height: 44 }}>{genererNumero()}</span>
+                <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 13, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', height: 44, color: '#000000' }}>{genererNumero()}</span>
               </div>
               <div style={{ flex: '0 0 auto' }}>
                 <label style={labelStyle}>TYPE *</label>
                 <select value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
-                  style={{ padding: '10px 10px', border: `1.5px solid ${(typeColors[form.type] || '#999')}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || '#999', cursor: 'pointer', background: '#fff', height: 44 }}>
+                  style={{ padding: '10px 10px', border: `1.5px solid ${(typeColors[form.type] || '#999')}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || '#000000', cursor: 'pointer', background: '#fff', height: 44 }}>
                   <option value="" disabled>-- Sélectionner --</option>
                   <option value="PROVISOIRE">Provisoire</option>
                   <option value="DIRECT">Direct</option>
@@ -475,7 +521,7 @@ const PageNouvelOp = () => {
               </div>
               <div style={{ flex: '0 0 auto' }}>
                 <label style={labelStyle}>DATE</label>
-                <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-flex', alignItems: 'center', height: 44 }}>{new Date().toISOString().split('T')[0]}</span>
+                <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-flex', alignItems: 'center', height: 44, color: '#000000' }}>{new Date().toISOString().split('T')[0]}</span>
               </div>
 
               {/* OP Provisoire (ANNULATION = single select, DEFINITIF = checkboxes multi) */}
@@ -498,7 +544,7 @@ const PageNouvelOp = () => {
                     <input type="text" value={form.opProvisoireManuel}
                       onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireId: '', opProvisoireNumero: '' })}
                       placeholder="Saisir N° manuellement..."
-                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7' }}
+                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7', color: '#000000' }}
                     />
                   </div>
                 </div>
@@ -534,7 +580,7 @@ const PageNouvelOp = () => {
                     <input type="text" value={form.opProvisoireManuel}
                       onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireIds: [], opProvisoireId: '' })}
                       placeholder="Saisir N° manuellement..."
-                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7' }}
+                      style={{ padding: '8px 12px', fontSize: 12, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7', color: '#000000' }}
                     />
                   </div>
                 </div>
@@ -581,7 +627,7 @@ const PageNouvelOp = () => {
                             <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : '#ccc'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
                             </div>
-                            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : '#555' }}>{mode}</span>
+                            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? accent : '#000000' }}>{mode}</span>
                           </div>
                         );
                       })}
@@ -596,13 +642,13 @@ const PageNouvelOp = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
                     <div style={{ gridColumn: '1 / 3' }}>
                       {!selectedBeneficiaire ? (
-                        <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#E8F5E9', border: '1.5px solid #c8e6c9', color: '#adb5bd', fontStyle: 'italic', fontSize: 13 }}>Sélectionnez un bénéficiaire</div>
+                        <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#E8F5E9', border: '1.5px solid #c8e6c9', color: '#000000', fontStyle: 'italic', fontSize: 13 }}>Sélectionnez un bénéficiaire</div>
                       ) : beneficiaireRibs.length === 0 ? (
                         <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#fff3e0', color: '#C5961F', border: '1.5px solid #ffe0b2', fontSize: 13 }}>Aucun RIB</div>
                       ) : beneficiaireRibs.length === 1 ? (
                         <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'monospace', background: '#E8F5E9', border: '1.5px solid #c8e6c9' }}>
                           {beneficiaireRibs[0].banque && <span style={{ background: '#E8F5E9', color: '#2E9940', padding: '4px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{beneficiaireRibs[0].banque}</span>}
-                          <span style={{ fontSize: 13 }}>{beneficiaireRibs[0].numero}</span>
+                          <span style={{ fontSize: 13, color: '#000000' }}>{beneficiaireRibs[0].numero}</span>
                         </div>
                       ) : (
                         <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 13 }}>
@@ -657,7 +703,7 @@ const PageNouvelOp = () => {
                 </div>
                 <div>
                   <label style={labelStyle}>LIBELLÉ</label>
-                  <div style={{ padding: '12px 14px', background: '#E8F5E9', borderRadius: 8, fontSize: 14, color: '#555', height: 44, display: 'flex', alignItems: 'center', border: '1.5px solid #c8e6c9' }}>{selectedLigne?.libelle || ''}</div>
+                  <div style={{ padding: '12px 14px', background: '#E8F5E9', borderRadius: 8, fontSize: 14, color: '#000000', height: 44, display: 'flex', alignItems: 'center', border: '1.5px solid #c8e6c9' }}>{selectedLigne?.libelle || ''}</div>
                 </div>
               </div>
               {/* Ligne 2 : Budget sous col 1+2, TVA sous col 3 */}
@@ -665,13 +711,13 @@ const PageNouvelOp = () => {
                 <div style={{ gridColumn: '1 / 3', background: '#f8faf9', padding: 18, borderRadius: 10, border: '1px solid #e8ece9' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 16px' }}>
                     <span style={{ fontSize: 13, color: '#6c757d' }}>Dotation</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getDotation())}</span>
+                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: '#000000' }}>{formatMontant(getDotation())}</span>
                     <span style={{ fontSize: 13, color: '#6c757d' }}>Engag. antérieurs</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getEngagementsAnterieurs())}</span>
+                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: '#000000' }}>{formatMontant(getEngagementsAnterieurs())}</span>
                     <span style={{ fontSize: 13, color: '#6c757d' }}>Engag. actuel</span>
                     <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#2e7d32' : '#C5961F' }}>{getEngagementActuel() >= 0 ? '+' : ''}{formatMontant(getEngagementActuel())}</span>
                     <span style={{ fontSize: 13, color: '#6c757d' }}>Engag. cumulés</span>
-                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(getEngagementsCumules())}</span>
+                    <span style={{ fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: '#000000' }}>{formatMontant(getEngagementsCumules())}</span>
                     <div style={{ gridColumn: '1 / -1', height: 1, background: '#d0d8d3', margin: '6px 0' }} />
                     <span style={{ fontSize: 14, fontWeight: 700, color: '#333' }}>Disponible</span>
                     <span style={{ fontSize: 16, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(getDisponible())}</span>
@@ -693,7 +739,7 @@ const PageNouvelOp = () => {
                               <div style={{ width: 10, height: 10, borderRadius: '50%', border: `2px solid ${active ? accent : '#ccc'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {active && <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent }} />}
                               </div>
-                              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : '#555' }}>{opt.lbl}</span>
+                              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? accent : '#000000' }}>{opt.lbl}</span>
                             </div>
                           );
                         })}
@@ -711,7 +757,7 @@ const PageNouvelOp = () => {
             {form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0 && (() => {
               const selectedProvs = (form.opProvisoireIds || []).map(id => ops.find(o => o.id === id)).filter(Boolean);
               if (selectedProvs.length === 0) return null;
-              const totalPaye = selectedProvs.reduce((sum, op) => sum + Number(op.montantPaye || op.montant || 0), 0);
+              const totalPaye = selectedProvs.reduce((sum, op) => sum + Number(op.totalPaye || op.montant || 0), 0);
               const mtDef = parseFloat(form.montant) || 0;
               const ecart = totalPaye - mtDef;
               return (
@@ -726,7 +772,7 @@ const PageNouvelOp = () => {
                     </div>
                     <div>
                       <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant définitif</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}>{mtDef > 0 ? formatMontant(mtDef) + ' F' : '—'}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#000000' }}>{mtDef > 0 ? formatMontant(mtDef) + ' F' : '—'}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Écart</div>
