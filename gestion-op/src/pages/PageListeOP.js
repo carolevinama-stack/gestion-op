@@ -301,6 +301,31 @@ const PageListeOP = () => {
     paye: filteredOps.reduce((sum, op) => sum + (op.totalPaye || 0), 0)
   };
 
+  const handleExport = () => {
+    const headers = ['Source', 'N° OP', 'Création', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Trans. CF', 'Visa CF', 'Trans. AC', 'Payé', 'Reste', 'Statut', 'Motif Rejet/Différé'];
+    const rows = displayOps.map(op => {
+      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
+      const source = sources.find(s => s.id === op.sourceId);
+      const motif = op.motifRejet || op.motifDiffereCF || op.motifDiffereAC || '';
+      const montantAffiche = op.isRejetLine ? -(op.montant || 0) : (op.montant || 0);
+      return [
+        source?.sigle || '', op.isRejetLine ? op.displayNumero : op.numero, op.dateCreation || '', op.isRejetLine ? 'REJET' : op.type,
+        op.beneficiaireNom || ben?.nom || '', op.objet || '', op.ligneBudgetaire || '', montantAffiche,
+        op.dateTransmissionCF || '', op.dateVisaCF || '', op.dateTransmissionAC || '', op.totalPaye || 0,
+        (op.montant || 0) - (op.totalPaye || 0), op.isRejetLine ? 'Rejet' : (statutConfig[op.statut]?.label || op.statut), motif
+      ];
+    });
+
+    const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${currentExercice?.annee || 'TOUS'}_${activeTab}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleOpenTransmissionCF = (op) => {
     setActionForm({ ...actionForm, date: new Date().toISOString().split('T')[0], bordereau: op.bordereauCF || '' });
     setShowTransmissionModal({ op, destination: 'CF' });
@@ -664,32 +689,6 @@ const PageListeOP = () => {
     }
   };
 
-  // EXPORT EXCEL OFFICIELLEMENT RE-AJOUTÉ
-  const handleExport = () => {
-    const headers = ['Source', 'N° OP', 'Création', 'Type', 'Bénéficiaire', 'Objet', 'Ligne', 'Montant', 'Trans. CF', 'Visa CF', 'Trans. AC', 'Payé', 'Reste', 'Statut', 'Motif Rejet/Différé'];
-    const rows = displayOps.map(op => {
-      const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-      const source = sources.find(s => s.id === op.sourceId);
-      const motif = op.motifRejet || op.motifDiffereCF || op.motifDiffereAC || '';
-      const montantAffiche = op.isRejetLine ? -(op.montant || 0) : (op.montant || 0);
-      return [
-        source?.sigle || '', op.isRejetLine ? op.displayNumero : op.numero, op.dateCreation || '', op.isRejetLine ? 'REJET' : op.type,
-        op.beneficiaireNom || ben?.nom || '', op.objet || '', op.ligneBudgetaire || '', montantAffiche,
-        op.dateTransmissionCF || '', op.dateVisaCF || '', op.dateTransmissionAC || '', op.totalPaye || 0,
-        (op.montant || 0) - (op.totalPaye || 0), op.isRejetLine ? 'Rejet' : (statutConfig[op.statut]?.label || op.statut), motif
-      ];
-    });
-
-    const csvContent = '\uFEFF' + [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `OP_${activeSource === 'ALL' ? 'TOUTES_SOURCES' : currentSourceObj?.sigle}_${currentExercice?.annee || 'TOUS'}_${activeTab}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -814,7 +813,7 @@ const PageListeOP = () => {
                     </>
                   )}
                   <th style={{ ...styles.th, width: 95, background: '#F7F5F2', fontSize: 9.5 }}>Statut</th>
-                  <th style={{ ...styles.th, width: 38, background: '#F7F5F2' }}></th>
+                  <th style={{ ...styles.th, width: 38, textAlign: 'center', background: '#F7F5F2' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -822,7 +821,7 @@ const PageListeOP = () => {
                   const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
                   const source = sources.find(s => s.id === op.sourceId);
                   const isRejet = op.isRejetLine;
-                  const statutObj = isRejet ? { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejet', icon: '↩' } : (statutConfig[op.statut] || { bg: '#F7F5F2', color: '#666', label: op.statut });
+                  const statutObj = isRejet ? { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejet' } : (statutConfig[op.statut] || { bg: '#F7F5F2', color: '#666', label: op.statut });
                   const anciennete = getAnciennete(op.dateCreation);
                   
                   let dotationLigne = op.dotationLigne;
@@ -833,26 +832,33 @@ const PageListeOP = () => {
                   }
                   
                   return (
-                    <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: 'pointer' }} onClick={() => setDrawerOp(op)} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }}>
-                      {activeSource === 'ALL' && <td style={styles.td}><span style={{ background: sources.find(s => s.id === op.sourceId)?.couleur, color: 'white', padding: '2px 7px', borderRadius: 4, fontSize: 9 }}>{sources.find(s => s.id === op.sourceId)?.sigle}</span></td>}
-                      <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600 }}>{op.numero}</td>
+                    <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#E8F5E9' : 'transparent', transition: 'background 0.1s' }} onClick={() => { if (!isRejet) setDrawerOp(op); }} onDoubleClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
+                      {activeSource === 'ALL' && <td style={styles.td}><span style={{ background: source?.couleur || '#666', color: 'white', padding: '2px 7px', borderRadius: 4, fontSize: 9 }}>{source?.sigle || '?'}</span></td>}
+                      <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 10, fontWeight: 600, color: isRejet ? '#C43E3E' : '#155A25' }}>{isRejet ? op.displayNumero : op.numero}</td>
                       <td style={{ ...styles.td }}><span style={{ background: isRejet ? '#C43E3E15' : `${typeColors[op.type]}18`, color: isRejet ? '#C43E3E' : typeColors[op.type], padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>{isRejet ? 'REJET' : op.type}</span></td>
                       <td style={{ ...styles.td, fontSize: 11, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.beneficiaireNom || ben?.nom || 'N/A'}</td>
                       <td style={{ ...styles.td, fontSize: 11, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#888' }} title={op.objet}>{op.objet || '-'}</td>
-                      <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace' }}>{op.ligneBudgetaire}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5 }}>{formatMontant(dotationLigne)}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: op.isRejetLine ? '#C43E3E' : '#155A25' }}>{op.isRejetLine ? '-' : ''}{formatMontant(op.montant)}</td>
+                      <td style={{ ...styles.td, fontSize: 10.5, fontFamily: 'monospace', color: '#666' }}>{op.ligneBudgetaire || '-'}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5, color: '#999' }}>{formatMontant(dotationLigne)}</td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: isRejet ? '#C43E3E' : '#155A25' }}>{isRejet ? '-' + formatMontant(op.montant) : formatMontant(op.montant)}</td>
                       
                       {activeTab === 'A_REGULARISER' && <td style={{ ...styles.td }}><span style={{ background: anciennete > 30 ? '#C43E3E15' : anciennete > 15 ? '#E8B93120' : '#E8F5E9', color: anciennete > 30 ? '#C43E3E' : anciennete > 15 ? '#E8B931' : '#2e7d32', padding: '2px 8px', borderRadius: 4, fontSize: 10.5, fontWeight: 600 }}>{anciennete}j</span></td>}
 
                       {activeSource !== 'ALL' && (
                         <>
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontSize: 10.5 }}>{formatMontant(op.engagementAnterieur)}</td>
-                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: op.disponible < 0 ? '#C43E3E' : '#2e7d32' }}>{formatMontant(op.disponible)}</td>
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, fontSize: 10.5, color: '#666' }}>{formatMontant(op.engagementAnterieur || 0)}</td>
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 10.5, color: (op.disponible || 0) < 0 ? '#C43E3E' : '#2e7d32' }}>{formatMontant(op.disponible)}</td>
                         </>
                       )}
                       <td style={styles.td}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: statutObj.bg, color: statutObj.color, padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: statutObj.color }} />{statutObj.label}</span></td>
-                      <td style={styles.td} onClick={(e) => e.stopPropagation()}><button onClick={() => setDrawerOp(op)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>👁️</button></td>
+                      
+                      <td style={{ ...styles.td, textAlign: 'center', padding: '8px 4px' }} onClick={(e) => e.stopPropagation()}>
+                        {!isRejet && (
+                          <button onClick={() => setDrawerOp(op)} title="Aperçu du circuit" style={{ width: 28, height: 28, borderRadius: 7, border: drawerOp?.id === op.id ? 'none' : '1.5px solid #EDE9E3', background: drawerOp?.id === op.id ? '#D4722A' : 'white', color: drawerOp?.id === op.id ? 'white' : '#888', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.15s', padding: 0 }}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" strokeWidth="1.8" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -862,97 +868,291 @@ const PageListeOP = () => {
         )}
       </div>
 
-      {/* ===== DRAWER APERÇU OP ===== */}
-      {drawerOp && (
-        <>
-          <div onClick={() => setDrawerOp(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(12,74,94,0.08)', zIndex: 90 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 400, background: '#FFFFFF', zIndex: 100, boxShadow: '-8px 0 32px rgba(12,74,94,0.12)', borderRadius: '20px 0 0 20px', display: 'flex', flexDirection: 'column', animation: 'slideIn 0.3s ease' }}>
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid #EDE9E3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2C5A7A', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>Aperçu OP</h3>
-              <button onClick={() => setDrawerOp(null)} style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: '#F7F5F2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>✕</button>
+      {/* Modal Import OP */}
+      {showImportModal && (
+        <div style={styles.modal} onClick={() => { setShowImportModal(false); setImportData([]); setImportError(''); }}>
+          <div style={{ ...styles.modalContent, maxWidth: 900 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 20, borderBottom: '1px solid #EDE9E3', background: '#E8B931', color: 'white' }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>Importer des OP depuis Excel/CSV</h2>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
-              {(() => {
-                const ben = beneficiaires.find(b => b.id === drawerOp.beneficiaireId);
-                const source = sources.find(s => s.id === drawerOp.sourceId);
-                const msg = getDrawerMessage(drawerOp);
-                const steps = buildCircuitSteps(drawerOp);
-                const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
-
-                return (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #EDE9E3' }}>
-                      <div>
-                        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#2C5A7A', marginBottom: 3 }}>{drawerOp.numero}</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#2C5A7A' }}>{drawerOp.beneficiaireNom || ben?.nom || 'N/A'}</div>
-                        <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{drawerOp.objet || '-'}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#D4722A', fontFeatureSettings: "'tnum'" }}>{formatMontant(drawerOp.montant)}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>FCFA</div>
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Circuit de validation</div>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, marginBottom: 10 }}>
-                      {steps.map((step, i) => {
-                        const dotStyle = { width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, border: '2.5px solid', ...(step.state === 'done' ? { background: '#D4722A', borderColor: '#D4722A', color: 'white' } : step.state === 'current' ? { background: '#D4722A', borderColor: '#D4722A', color: 'white', boxShadow: '0 0 0 4px rgba(75,93,22,0.15)' } : step.state === 'deferred' ? { background: '#E8B931', borderColor: '#E8B931', color: 'white' } : step.state === 'rejected' ? { background: '#C43E3E', borderColor: '#C43E3E', color: 'white' } : { background: '#F7F5F2', borderColor: '#EDE9E3', color: '#ccc' }) };
-                        const dotContent = step.state === 'done' ? '✓' : step.state === 'rejected' ? '✕' : step.state === 'deferred' ? '◌' : step.state === 'current' ? '●' : '○';
-                        return (
-                          <React.Fragment key={i}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto' }}>
-                              <div style={dotStyle}>{dotContent}</div>
-                              <div style={{ fontSize: 8.5, fontWeight: 600, color: ['done', 'current'].includes(step.state) ? '#155A25' : '#888', marginTop: 4, textAlign: 'center', maxWidth: 52, lineHeight: '1.2' }}>{step.label}</div>
-                              {step.date && <div style={{ fontSize: 8, color: '#D4722A', fontWeight: 500 }}>{formatDate(step.date)}</div>}
-                            </div>
-                            {i < steps.length - 1 && <div style={{ flex: 1, height: 2.5, background: steps[i + 1]?.state === 'done' || steps[i + 1]?.state === 'current' ? '#D4722A' : steps[i + 1]?.state === 'deferred' ? '#E8B931' : steps[i + 1]?.state === 'rejected' ? '#C43E3E' : '#EDE9E3', minWidth: 10, margin: '13px 2px 0' }} />}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-
-                    {msg && (
-                      <div style={{ padding: '11px 14px', borderRadius: 10, fontSize: 12, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 9, background: msg.type === 'warning' ? '#fef3cd' : msg.type === 'danger' ? '#fee2e2' : '#E8F5E9', color: msg.type === 'warning' ? '#C5961F' : msg.type === 'danger' ? '#C43E3E' : '#D4722A' }}>
-                        <div>{msg.title && <><strong>{msg.title}</strong>{msg.date ? ` — ${msg.date}` : ''}<br/></>}<span style={{ fontSize: 12 }}>{msg.text}</span></div>
-                      </div>
-                    )}
-
-                    <div style={{ height: 1, background: '#EDE9E3', margin: '16px 0' }} />
-
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Informations</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
-                      {[
-                        { label: 'Type', value: drawerOp.type },
-                        { label: 'Source', value: source?.nom || source?.sigle || '-' },
-                        { label: 'Ligne budgétaire', value: drawerOp.ligneBudgetaire || '-', mono: true },
-                        { label: 'Mode règlement', value: drawerOp.modeReglement || '-' },
-                        { label: 'Eng. antérieur', value: formatMontant(drawerOp.engagementAnterieur || 0), mono: true },
-                        { label: 'Disponible', value: formatMontant(drawerOp.disponible || 0), mono: true, color: (drawerOp.disponible || 0) >= 0 ? '#D4722A' : '#C43E3E' }
-                      ].map((item, i) => (
-                        <div key={i} style={{ padding: '9px 0', borderBottom: '1px solid #EDE9E3' }}>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
-                          <div style={{ fontSize: 13, fontWeight: item.mono ? 600 : 500, color: item.color || '#155A25', marginTop: 2, fontFamily: item.mono ? 'monospace' : 'inherit' }}>{item.value}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={() => { setConsultOpData(drawerOp); setCurrentPage('consulterOp'); setDrawerOp(null); }}
-                      style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: '#D4722A', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20 }}
-                    >
-                      Voir détail complet
+            <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
+              <div style={{ marginBottom: 20, padding: 16, background: '#E8B93110', borderRadius: 8, fontSize: 13 }}>
+                <strong>Format attendu (colonnes) :</strong><br/>
+                Type | Bénéficiaire (NCC) | Objet | Ligne Budgétaire | Montant | Date Création
+              </div>
+              
+              <input 
+                type="file" 
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  
+                  const reader = new FileReader();
+                  reader.onload = (evt) => {
+                    try {
+                      const text = evt.target.result;
+                      const lines = text.split('\n').filter(l => l.trim());
+                      
+                      const data = lines.slice(1).map((line, idx) => {
+                        const cols = line.split(/[;,\t]/);
+                        return {
+                          idx: idx + 1,
+                          type: (cols[0] || '').trim().toUpperCase(),
+                          beneficiaire: (cols[1] || '').trim(),
+                          objet: (cols[2] || '').trim(),
+                          ligneBudgetaire: (cols[3] || '').trim(),
+                          montant: parseFloat((cols[4] || '0').replace(/[^\d.-]/g, '')) || 0,
+                          dateCreation: (cols[5] || new Date().toISOString().split('T')[0]).trim(),
+                          valid: true,
+                          error: ''
+                        };
+                      }).filter(d => d.type || d.beneficiaire || d.montant);
+                      
+                      data.forEach(d => {
+                        if (!['PROVISOIRE', 'DIRECT', 'DEFINITIF', 'ANNULATION'].includes(d.type)) {
+                          d.valid = false; d.error = 'Type invalide';
+                        }
+                        if (!d.beneficiaire) {
+                          d.valid = false; d.error = 'Bénéficiaire manquant';
+                        }
+                        if (!d.montant || d.montant <= 0) {
+                          d.valid = false; d.error = 'Montant invalide';
+                        }
+                      });
+                      
+                      setImportData(data);
+                      setImportError('');
+                    } catch (err) {
+                      setImportError('Erreur de lecture du fichier : ' + err.message);
+                      setImportData([]);
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+                style={{ marginBottom: 16 }}
+              />
+              
+              {importError && (
+                <div style={{ padding: 12, background: '#C43E3E15', color: '#C43E3E', borderRadius: 6, marginBottom: 16 }}>
+                  {importError}
+                </div>
+              )}
+              
+              {importData.length > 0 && (
+                <>
+                  <div style={{ marginBottom: 12, fontSize: 13 }}>
+                    <strong>{importData.length}</strong> lignes détectées — 
+                    <span style={{ color: '#2e7d32' }}> {importData.filter(d => d.valid).length} valides</span> / 
+                    <span style={{ color: '#C43E3E' }}> {importData.filter(d => !d.valid).length} erreurs</span>
+                  </div>
+                  
+                  <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #ddd', borderRadius: 6 }}>
+                    <table style={styles.table}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...styles.th, width: 40 }}>#</th>
+                          <th style={{ ...styles.th, width: 80 }}>Type</th>
+                          <th style={styles.th}>Bénéficiaire</th>
+                          <th style={styles.th}>Objet</th>
+                          <th style={{ ...styles.th, width: 70 }}>Ligne</th>
+                          <th style={{ ...styles.th, width: 100, textAlign: 'right' }}>Montant</th>
+                          <th style={{ ...styles.th, width: 100 }}>Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importData.map(d => (
+                          <tr key={d.idx} style={{ background: d.valid ? 'transparent' : '#fff8f8' }}>
+                            <td style={styles.td}>{d.idx}</td>
+                            <td style={styles.td}>{d.type}</td>
+                            <td style={styles.td}>{d.beneficiaire}</td>
+                            <td style={{ ...styles.td, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.objet}</td>
+                            <td style={styles.td}>{d.ligneBudgetaire}</td>
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'monospace' }}>{formatMontant(d.montant)}</td>
+                            <td style={styles.td}>
+                              {d.valid ? (
+                                <span style={{ color: '#2e7d32', fontSize: 12 }}>OK</span>
+                              ) : (
+                                <span style={{ color: '#C43E3E', fontSize: 11 }}>{d.error}</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                    <button onClick={() => { setShowImportModal(false); setImportData([]); }} style={styles.buttonSecondary}>
+                      Annuler
                     </button>
-                  </>
-                );
-              })()}
+                    <button 
+                      onClick={async () => {
+                        const validOps = importData.filter(d => d.valid);
+                        if (validOps.length === 0) {
+                          alert('Aucun OP valide à importer');
+                          return;
+                        }
+                        
+                        if (!window.confirm(`Importer ${validOps.length} OP ?`)) return;
+                        
+                        try {
+                          const sourceIdToUse = activeSource === 'ALL' ? sources[0]?.id : activeSource;
+                          const exerciceIdToUse = exerciceActif?.id;
+                          const sigleProjet = projet?.sigle || 'PROJET';
+                          const sourceObj = sources.find(s => s.id === sourceIdToUse);
+                          const sigleSrc = sourceObj?.sigle || 'SRC';
+                          const annee = exerciceActif?.annee || new Date().getFullYear();
+
+                          // TRANSACTION POUR LE COMPTEUR
+                          const compteurRef = doc(db, 'compteurs', `op_${sourceIdToUse}_${exerciceIdToUse}`);
+                          const startCount = await runTransaction(db, async (transaction) => {
+                            const docSnap = await transaction.get(compteurRef);
+                            let currentCount = 0;
+                            if (docSnap.exists()) {
+                              currentCount = docSnap.data().count || 0;
+                            }
+                            transaction.set(compteurRef, {
+                              count: currentCount + validOps.length,
+                              sourceId: sourceIdToUse,
+                              exerciceId: exerciceIdToUse
+                            }, { merge: true });
+                            
+                            return currentCount; 
+                          });
+
+                          // BATCH POUR INSERTION
+                          const batch = writeBatch(db);
+
+                          validOps.forEach((d, index) => {
+                            const ben = beneficiaires.find(b => 
+                              b.ncc === d.beneficiaire || 
+                              b.nom.toLowerCase().includes(d.beneficiaire.toLowerCase())
+                            );
+                            
+                            const opNumberInt = startCount + index + 1;
+                            const numero = `N°${String(opNumberInt).padStart(4, '0')}/${sigleProjet}-${sigleSrc}/${annee}`;
+                            const newOpRef = doc(collection(db, 'ops')); 
+                            
+                            batch.set(newOpRef, {
+                              numero,
+                              type: d.type,
+                              beneficiaireId: ben?.id || null,
+                              beneficiaireNom: ben?.nom || d.beneficiaire,
+                              objet: d.objet,
+                              ligneBudgetaire: d.ligneBudgetaire,
+                              montant: d.montant,
+                              dateCreation: d.dateCreation,
+                              statut: 'EN_COURS',
+                              sourceId: sourceIdToUse,
+                              exerciceId: exerciceIdToUse,
+                              createdAt: new Date().toISOString(),
+                              importedAt: new Date().toISOString()
+                            });
+                          });
+                          
+                          await batch.commit(); 
+                          
+                          alert(`${validOps.length} OP importés avec succès !`);
+                          setShowImportModal(false);
+                          setImportData([]);
+                        } catch (err) {
+                          alert('Erreur import : ' + err.message);
+                        }
+                      }}
+                      disabled={importData.filter(d => d.valid).length === 0}
+                      style={{ ...styles.button, background: importData.filter(d => d.valid).length === 0 ? '#ccc' : '#2e7d32' }}
+                    >
+                      Importer {importData.filter(d => d.valid).length} OP
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </>
+        </div>
       )}
 
-      {showPasswordModal && <PasswordModal isOpen={!!showPasswordModal} onClose={() => setShowPasswordModal(null)} onConfirm={showPasswordModal.action} adminPassword={projet?.adminPassword || ''} title={showPasswordModal.title} description={showPasswordModal.description} confirmText={showPasswordModal.confirmText} confirmColor={showPasswordModal.confirmColor} />}
-    </div>
-  );
-};
-
-export default PageListeOP;
+      {/* Modal Détail OP */}
+      {showDetail && (
+        <div style={styles.modal} onClick={() => setShowDetail(null)}>
+          <div style={{ ...styles.modalContent, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: sources.find(s => s.id === showDetail.sourceId)?.couleur || '#D4722A', color: 'white' }}>
+              <h2 style={{ margin: 0, fontSize: 18 }}>{showDetail.numero}</h2>
+            </div>
+            <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
+              {(() => {
+                const ben = beneficiaires.find(b => b.id === showDetail.beneficiaireId);
+                const statut = statutConfig[showDetail.statut] || { label: showDetail.statut };
+                const source = sources.find(s => s.id === showDetail.sourceId);
+                
+                let dotation = showDetail.dotationLigne;
+                if (dotation === undefined || dotation === null) {
+                  const currentBudget = budgets
+                    .filter(b => b.sourceId === showDetail.sourceId && b.exerciceId === showDetail.exerciceId)
+                    .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+                  const ligne = currentBudget?.lignes?.find(l => l.code === showDetail.ligneBudgetaire);
+                  dotation = ligne?.dotation || 0;
+                }
+                
+                const opsAnterieurs = ops.filter(o => 
+                  o.sourceId === showDetail.sourceId &&
+                  o.exerciceId === showDetail.exerciceId &&
+                  o.ligneBudgetaire === showDetail.ligneBudgetaire &&
+                  o.id !== showDetail.id &&
+                  !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut) &&
+                  (o.createdAt || '') < (showDetail.createdAt || '')
+                );
+                
+                const engagementsAnterieurs = opsAnterieurs.reduce((sum, o) => {
+                  if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') return sum + (o.montant || 0);
+                  if (o.type === 'DEFINITIF') {
+                    const prov = ops.find(p => p.id === o.opProvisoireId);
+                    return sum - (prov?.montant || 0) + (o.montant || 0);
+                  }
+                  if (o.type === 'ANNULATION') {
+                    const prov = ops.find(p => p.id === o.opProvisoireId);
+                    return sum - (prov?.montant || 0);
+                  }
+                  return sum;
+                }, 0);
+                
+                return (
+                  <div style={{ display: 'grid', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>SOURCE</label>
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ background: source?.couleur || '#666', color: 'white', padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
+                            {source?.sigle || '?'}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>TYPE</label>
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ background: `${typeColors[showDetail.type]}20`, color: typeColors[showDetail.type], padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
+                            {showDetail.type}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>STATUT</label>
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ background: statut.bg, color: statut.color, padding: '4px 12px', borderRadius: 4, fontWeight: 600 }}>
+                            {statut.label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>BÉNÉFICIAIRE</label>
+                      <div style={{ marginTop: 4, fontWeight: 600 }}>{showDetail.beneficiaireNom || ben?.nom || 'N/A'}</div>
+                      {ben?.ncc && <div style={{ fontSize: 12, color: '#6c757d' }}>NCC: {ben.ncc}</div>}
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6c757d', fontWeight: 600 }}>OBJET</label>
+                      <div style={{ marginTop: 4 }}>{showDetail.objet}</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
