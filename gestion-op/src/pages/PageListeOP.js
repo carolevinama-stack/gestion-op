@@ -11,7 +11,7 @@ const PageListeOP = () => {
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
 
-  // LOGIQUE DE CALCUL (Chaque OP compte, rejets inclus selon tes règles)
+  // LOGIQUE DE CALCUL : Somme chronologique de TOUT ce qui précède (rejets inclus)
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
       if (op.exerciceId !== exerciceActif?.id) return false;
@@ -26,6 +26,7 @@ const PageListeOP = () => {
       const lb = op.ligneBudgetaire;
       const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
       const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
+      
       const engagementAnterieur = cumulParLigne[lb] || 0;
       cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (op.montant || 0);
 
@@ -43,87 +44,82 @@ const PageListeOP = () => {
 
   return (
     <div style={styles.main}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
-        <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
-      </div>
-
+      <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
+      
       <div style={styles.tabs}>
         <div onClick={() => setActiveSource('ALL')} style={activeSource === 'ALL' ? styles.tabActive : styles.tab}>CUMUL GÉNÉRAL</div>
         {sources.map(s => <div key={s.id} onClick={() => setActiveSource(s.id)} style={activeSource === s.id ? styles.tabActive : styles.tab}>{s.sigle}</div>)}
       </div>
 
-      {/* FILTRES BIEN ALIGNÉS */}
       <div style={styles.card}>
         <div style={styles.filterGrid}>
-          <div style={{ flex: 2 }}>
+          <div>
             <label style={styles.label}>Recherche</label>
             <input type="text" style={styles.input} placeholder="N°, bénéficiaire..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
           </div>
-          <div style={{ width: '100px' }}>
+          <div>
             <label style={styles.label}>Type</label>
-            <select style={styles.select} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}><option value="">Tous</option></select>
+            <select style={styles.input} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
+              <option value="">Tous</option>
+              <option value="DIRECT">Direct</option>
+              <option value="PROVISOIRE">Provisoire</option>
+            </select>
           </div>
-          <div style={{ width: '80px' }}>
+          <div>
             <label style={styles.label}>Ligne</label>
             <input type="text" style={styles.input} placeholder="Code" value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
           </div>
-          <div style={{ width: '130px' }}>
+          <div>
             <label style={styles.label}>Du</label>
             <input type="date" style={styles.input} value={filters.dateDebut} onChange={e => setFilters({...filters, dateDebut: e.target.value})} />
           </div>
-          <div style={{ width: '130px' }}>
+          <div>
             <label style={styles.label}>Au</label>
             <input type="date" style={styles.input} value={filters.dateFin} onChange={e => setFilters({...filters, dateFin: e.target.value})} />
           </div>
-          <button style={styles.buttonSecondary} onClick={() => setFilters({ search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:'' })}>Réinitialiser</button>
+          <button style={styles.buttonSecondary} onClick={() => setFilters({search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:''})}>Réinitialiser</button>
         </div>
       </div>
 
-      {/* TABLEAU AVEC EN-TÊTE FIGÉ */}
-      <div style={{ ...styles.card, padding: 0, flex: 1, overflow: 'hidden' }}>
-        <div style={{ overflowY: 'auto', height: '100%' }}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.stickyTh}>N° OP</th>
-                <th style={styles.stickyTh}>Type</th>
-                <th style={styles.stickyTh}>Bénéficiaire</th>
-                <th style={styles.stickyTh}>Ligne</th>
-                {activeSource !== 'ALL' && <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Dotation</th>}
-                <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Montant</th>
+      <div style={styles.tableWrapper}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={styles.stickyTh}>N° OP</th>
+              <th style={styles.stickyTh}>Bénéficiaire</th>
+              <th style={styles.stickyTh}>Ligne</th>
+              {activeSource !== 'ALL' && <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Dotation</th>}
+              <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Montant</th>
+              {activeSource !== 'ALL' && (
+                <>
+                  <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Engag. Ant.</th>
+                  <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Disponible</th>
+                </>
+              )}
+              <th style={{ ...styles.stickyTh, textAlign: 'center' }}>Statut</th>
+              <th style={styles.stickyTh}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayOps.map((op, i) => (
+              <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}>
+                <td style={styles.td}>{op.numero}</td>
+                <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
+                <td style={styles.td}>{op.ligneBudgetaire}</td>
+                {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right' }}>{formatMontant(op.dotationLigne)}</td>}
+                <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800 }}>{formatMontant(op.montant)}</td>
                 {activeSource !== 'ALL' && (
                   <>
-                    <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Engag. Ant.</th>
-                    <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Disponible</th>
+                    <td style={{ ...styles.td, textAlign: 'right', color: '#666' }}>{formatMontant(op.engagementAnterieur)}</td>
+                    <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
                   </>
                 )}
-                <th style={{ ...styles.stickyTh, textAlign: 'center' }}>Statut</th>
-                <th style={styles.stickyTh}></th>
+                <td style={{ ...styles.td, textAlign: 'center' }}>{op.statut}</td>
+                <td style={styles.td}><button onClick={(e) => { e.stopPropagation(); setPreviewOp(op); }}>👁️</button></td>
               </tr>
-            </thead>
-            <tbody>
-              {displayOps.map((op, i) => (
-                <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                  <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero}</td>
-                  <td style={styles.td}>{op.type}</td>
-                  <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
-                  <td style={styles.td}>{op.ligneBudgetaire}</td>
-                  {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right' }}>{formatMontant(op.dotationLigne)}</td>}
-                  <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800 }}>{formatMontant(op.montant)}</td>
-                  {activeSource !== 'ALL' && (
-                    <>
-                      <td style={{ ...styles.td, textAlign: 'right', color: '#666' }}>{formatMontant(op.engagementAnterieur)}</td>
-                      <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: op.disponible < 0 ? '#C43E3E' : '#2E9940' }}>{formatMontant(op.disponible)}</td>
-                    </>
-                  )}
-                  <td style={{ ...styles.td, textAlign: 'center' }}>{op.statut}</td>
-                  <td style={styles.td}><button onClick={(e) => { e.stopPropagation(); setPreviewOp(op); }}>👁️</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
