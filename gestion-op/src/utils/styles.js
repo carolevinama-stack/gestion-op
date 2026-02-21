@@ -1,27 +1,25 @@
 export const styles = {
-  // Verrouillage de l'espace à droite de la Sidebar
-  container: { display: 'flex', minHeight: '100vh', background: '#F7F5F2' },
-  
+  // Verrouille l'espace à droite de la sidebar (260px)
   main: { 
-    marginLeft: '260px', // Taille exacte de ta Sidebar pour éviter le chevauchement
+    marginLeft: '260px', 
     flex: 1, 
     padding: '20px', 
-    width: 'calc(100% - 260px)', 
+    minHeight: '100vh',
+    background: '#F7F5F2',
     display: 'flex',
-    flexDirection: 'column',
-    overflowX: 'hidden'
+    flexDirection: 'column'
   },
-
-  // Ajustement de la barre de filtres (image 2, 4, 6, 7)
+  
+  // Grille rigide pour les filtres (évite les chevauchements)
   filterGrid: { 
-    display: 'flex', 
-    gap: '10px', 
-    alignItems: 'flex-end', 
-    width: '100%',
-    padding: '10px 0'
+    display: 'grid', 
+    gridTemplateColumns: '2fr 1fr 0.8fr 1.2fr 1.2fr 1fr auto', 
+    gap: '15px', 
+    alignItems: 'end', 
+    marginBottom: '20px' 
   },
 
-  // En-tête de tableau STICKY (Fixé en haut quand tu scrolles)
+  // En-tête de tableau réellement figé
   stickyTh: { 
     position: 'sticky', 
     top: 0, 
@@ -32,10 +30,13 @@ export const styles = {
     fontWeight: 700, 
     color: '#333',
     borderBottom: '2px solid #ccc',
-    textAlign: 'left',
-    whiteSpace: 'nowrap'
+    textAlign: 'left'
   },
 
-  table: { width: '100%', borderCollapse: 'collapse', marginTop: '10px' },
-  td: { padding: '12px 10px', borderBottom: '1px solid #eee', fontSize: '13px', color: '#000' }
+  tableWrapper: { 
+    flex: 1, 
+    overflowY: 'auto', 
+    background: '#fff', 
+    borderRadius: 12 
+  }
 };
