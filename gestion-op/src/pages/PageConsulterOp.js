@@ -4,7 +4,7 @@ import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { db } from '../firebase';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore'; 
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -20,6 +20,7 @@ const P = {
   orange: '#E8B931',
   labelMuted: '#888',
   inputBg: '#FFFFFF',
+  textBlack: '#000000' // Noir pur appliqué
 };
 
 // ===================== ICÔNES SVG =====================
@@ -132,9 +133,12 @@ const statutConfig = {
   VISE_CF: { bg: P.olivePale, color: '#2e7d32', label: 'Visé CF' },
   REJETE_CF: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté CF' },
   TRANSMIS_AC: { bg: '#C5961F15', color: '#C5961F', label: 'Transmis AC' },
+  PAYE_PARTIEL: { bg: P.gold + '20', color: '#C5961F', label: 'Payé Partiel' },
   PAYE: { bg: '#1B6B2E15', color: '#1B6B2E', label: 'Payé' },
   REJETE_AC: { bg: '#C43E3E15', color: '#C43E3E', label: 'Rejeté AC' },
   ARCHIVE: { bg: P.bgSection, color: P.labelMuted, label: 'Archivé' },
+  SUPPRIME: { bg: '#C43E3E15', color: '#C43E3E', label: 'Supprimé' },
+  ANNULE: { bg: '#C43E3E15', color: '#C43E3E', label: 'Annulé' }
 };
 const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A', ANNULATION: '#C43E3E' };
 
@@ -196,7 +200,7 @@ const PageConsulterOp = () => {
   }, []);
 
   const opsSource = ops
-    .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id)
+    .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.statut !== 'SUPPRIME')
     .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
 
   const opsFiltered = opsSource.filter(op => {
@@ -262,11 +266,11 @@ const PageConsulterOp = () => {
 
   const getDotation = () => selectedLigne?.dotation || 0;
   
-  // ===================== CALCUL DES ENGAGEMENTS (LOGIQUE SIMPLIFIÉE) =====================
+  // ===================== CALCUL DES ENGAGEMENTS =====================
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire || !selectedOp) return 0;
     const allOps = ops
-      .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id)
+      .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.statut !== 'SUPPRIME')
       .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     let cumul = 0;
     for (const op of allOps) {
@@ -289,14 +293,14 @@ const PageConsulterOp = () => {
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
-    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION')
+    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
+    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && o.statut !== 'SUPPRIME')
   ) : [];
   const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
     op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut) &&
-    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF')
+    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
+    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
   ) : [];
 
   const getOpProvLabel = (op) => {
@@ -339,8 +343,16 @@ const PageConsulterOp = () => {
 
   const statutInfo = selectedOp ? (statutConfig[selectedOp.statut] || { bg: P.bgApp, color: P.labelMuted, label: selectedOp.statut || '' }) : null;
 
+  // VERROU DE SÉCURITÉ ET DE CONTRÔLE INTERNE : 
+  // Bloqué dès que le CF a visé (il faut annuler le visa dans les bordereaux pour pouvoir modifier)
+  const isLockedForEdit = selectedOp && ['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE'].includes(selectedOp.statut);
+
   // === ACTIONS ===
   const handleModifier = async () => {
+    if (isLockedForEdit) {
+      showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
+      return;
+    }
     const pwd = await askPassword('Mot de passe requis pour modifier');
     if (pwd === null) return;
     if (pwd === (projet?.motDePasseAdmin || 'admin123')) {
@@ -358,7 +370,7 @@ const PageConsulterOp = () => {
       const ribSel = benRibs[form.ribIndex || 0];
       const newMontant = parseFloat(form.montant) || selectedOp.montant;
       if (newMontant !== selectedOp.montant) {
-        const opsSuivants = ops.filter(o => o.sourceId === selectedOp.sourceId && o.exerciceId === selectedOp.exerciceId && o.ligneBudgetaire === selectedOp.ligneBudgetaire && (o.createdAt || '') > (selectedOp.createdAt || '') && o.id !== selectedOp.id);
+        const opsSuivants = ops.filter(o => o.sourceId === selectedOp.sourceId && o.exerciceId === selectedOp.exerciceId && o.ligneBudgetaire === selectedOp.ligneBudgetaire && (o.createdAt || '') > (selectedOp.createdAt || '') && o.id !== selectedOp.id && o.statut !== 'SUPPRIME');
         if (opsSuivants.length > 0) {
           const ok = await askConfirm('Impact montant', 'Modification impactera les cumuls suivants.');
           if (!ok) return;
@@ -402,18 +414,27 @@ const PageConsulterOp = () => {
 
   const handleSupprimer = async () => {
     if (!selectedOp) return;
-    const pwd = await askPassword('Mot de passe requis pour supprimer');
+    if (['TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE'].includes(selectedOp.statut)) {
+      showToast('error', 'Action bloquée', "Impossible de supprimer un OP déjà transmis à l'Agent Comptable ou payé.");
+      return;
+    }
+    const pwd = await askPassword('Mot de passe requis pour supprimer (Corbeille)');
     if (pwd === null) return;
     if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
       showToast('error', 'Mot de passe incorrect');
       return;
     }
-    const ok = await askConfirm('Confirmer suppression', `Supprimer l'OP ${selectedOp.numero} ?`);
+    const ok = await askConfirm('Confirmer la mise à la corbeille', `Mettre l'OP ${selectedOp.numero} à la corbeille ? Son budget sera libéré.`);
     if (ok) {
       try {
-        await deleteDoc(doc(db, 'ops', selectedOp.id));
-        setOps(ops.filter(o => o.id !== selectedOp.id));
-        showToast('success', 'OP supprimé', selectedOp.numero);
+        const updates = {
+          statut: 'SUPPRIME',
+          dateSuppression: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await updateDoc(doc(db, 'ops', selectedOp.id), updates);
+        setOps(ops.map(o => o.id === selectedOp.id ? { ...o, ...updates } : o));
+        showToast('success', 'OP mis à la corbeille', selectedOp.numero);
         setSelectedOp(null);
         setSearchText('');
       } catch (error) {
@@ -452,7 +473,6 @@ const PageConsulterOp = () => {
     } catch (e) { showToast('error', 'Erreur', e.message); }
   };
 
-  // === IMPRESSION SÉCURISÉE (CORRECTION DU BUG DE SYNTAXE) ===
   const handlePrint = () => {
     if (!selectedOp) return;
     const ben = selectedBeneficiaire;
@@ -472,7 +492,6 @@ const PageConsulterOp = () => {
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
 
-    // Utilisation d'un tableau pour éviter les chaînes trop longues qui cassent le build
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
@@ -530,8 +549,8 @@ const PageConsulterOp = () => {
 
   // === STYLES ===
   const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#333', letterSpacing: 0.3 };
-  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 13, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box' };
-  const editFieldStyle = { ...fieldStyle, background: P.inputBg, border: `1.5px solid ${accent}40` };
+  const fieldStyle = { padding: '10px 14px', background: P.bgApp, borderRadius: 8, fontSize: 13, border: '1.5px solid rgba(34,51,0,0.08)', width: '100%', boxSizing: 'border-box', color: P.textBlack };
+  const editFieldStyle = { ...fieldStyle, background: P.inputBg, border: `1.5px solid ${accent}40`, color: P.textBlack };
   const isReadOnly = selectedOp && !isEditMode;
 
   return (
@@ -541,7 +560,7 @@ const PageConsulterOp = () => {
         @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes modalIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         .consulterop-form *, .consulterop-form *::before, .consulterop-form *::after { box-sizing: border-box; }
-        .consulterop-form input, .consulterop-form select, .consulterop-form textarea { box-sizing: border-box; }
+        .consulterop-form input, .consulterop-form select, .consulterop-form textarea { box-sizing: border-box; color: ${P.textBlack}; } 
       `}</style>
       {toasts.map(t => (
         <div key={t.uid} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none' }}>
@@ -567,7 +586,7 @@ const PageConsulterOp = () => {
               <div style={{ position: 'relative', marginBottom: 20 }}>
                 <input ref={modalInputRef} type={showPwd ? 'text' : 'password'} autoFocus placeholder="Mot de passe..."
                   onKeyDown={e => { if (e.key === 'Enter') closeModal(e.target.value); if (e.key === 'Escape') closeModal(null); }}
-                  style={{ width: '100%', padding: '12px 48px 12px 16px', borderRadius: 12, border: '1.5px solid rgba(34,51,0,0.12)', background: P.inputBg, fontSize: 14, outline: 'none', textAlign: 'center', letterSpacing: showPwd ? 0 : 3, color: P.sidebarDark }} />
+                  style={{ width: '100%', padding: '12px 48px 12px 16px', borderRadius: 12, border: '1.5px solid rgba(34,51,0,0.12)', background: P.inputBg, fontSize: 14, outline: 'none', textAlign: 'center', letterSpacing: showPwd ? 0 : 3, color: P.textBlack }} />
                 <button onClick={() => setShowPwd(!showPwd)} type="button" tabIndex={-1}
                   style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}
                   onMouseEnter={e => e.currentTarget.style.opacity = '1'}
@@ -623,7 +642,7 @@ const PageConsulterOp = () => {
                   <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>{Icons.search(P.labelMuted)} RECHERCHER</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
                     <input type="text" value={searchText} onChange={(e) => { setSearchText(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} placeholder="N° OP, bénéficiaire..."
-                      style={{ width: 200, padding: '8px 10px', border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: '8px 0 0 8px', outline: 'none', fontFamily: 'monospace', fontWeight: 600, fontSize: 12, background: P.bgCard, color: P.sidebarDark }} />
+                      style={{ width: 200, padding: '8px 10px', border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: '8px 0 0 8px', outline: 'none', fontFamily: 'monospace', fontWeight: 600, fontSize: 12, background: P.bgCard, color: P.textBlack }} />
                     <div style={{ display: 'flex', flexDirection: 'column', borderRadius: '0 8px 8px 0', overflow: 'hidden', border: '1.5px solid rgba(34,51,0,0.08)', borderLeft: 'none' }}>
                       <button onClick={goToPrev} title="OP précédent" style={{ padding: '3px 8px', background: P.bgApp, cursor: 'pointer', border: 'none', borderBottom: '1px solid rgba(34,51,0,0.08)', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.chevronUp(accent)}</button>
                       <button onClick={goToNext} title="OP suivant" style={{ padding: '3px 8px', background: P.bgApp, cursor: 'pointer', border: 'none', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.chevronDown(accent)}</button>
@@ -643,7 +662,7 @@ const PageConsulterOp = () => {
                             onMouseOver={e => { if (!isSelected) e.currentTarget.style.background = P.bgApp; }}
                             onMouseOut={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? accent + '0a' : 'transparent'; }}>
                             <div>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13, color: P.sidebarDark }}>{op.numero}</div>
+                              <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13, color: P.textBlack }}>{op.numero}</div>
                               <div style={{ fontSize: 11, color: P.labelMuted, marginTop: 2 }}>{ben?.nom || 'N/A'} — {(op.objet || '').substring(0, 40)}{(op.objet || '').length > 40 ? '...' : ''}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
@@ -665,12 +684,12 @@ const PageConsulterOp = () => {
                       {editNumero !== null ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                           <input value={editNumero} onChange={e => setEditNumero(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveNumero(); if (e.key === 'Escape') setEditNumero(null); }}
-                            style={{ padding: '6px 8px', border: `1.5px solid ${accent}40`, borderRadius: 8, fontFamily: 'monospace', fontWeight: 700, fontSize: 12, background: P.inputBg, width: 200, color: P.sidebarDark }} autoFocus />
+                            style={{ padding: '6px 8px', border: `1.5px solid ${accent}40`, borderRadius: 8, fontFamily: 'monospace', fontWeight: 700, fontSize: 12, background: P.inputBg, width: 200, color: P.textBlack }} autoFocus />
                           <button onClick={handleSaveNumero} style={{ border: 'none', background: '#3B6B8A', color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>✓</button>
                           <button onClick={() => setEditNumero(null)} style={{ border: 'none', background: P.labelMuted, color: '#fff', borderRadius: 6, padding: '6px 8px', fontSize: 11, cursor: 'pointer' }}>✕</button>
                         </div>
                       ) : (
-                        <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', color: P.sidebarDark }}>
+                        <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', color: P.textBlack }}>
                           {selectedOp.numero} <span onClick={handleStartEditNumero} style={{ opacity: 0.3, cursor: 'pointer' }}>{Icons.editPen(P.labelMuted)}</span>
                         </span>
                       )}
@@ -700,7 +719,7 @@ const PageConsulterOp = () => {
                     {/* DATE */}
                     <div style={{ flex: '0 0 auto' }}>
                       <label style={labelStyle}>DATE</label>
-                      <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.sidebarDark }}>{selectedOp.dateCreation || ''}</span>
+                      <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.textBlack }}>{selectedOp.dateCreation || ''}</span>
                     </div>
 
                     {/* OP PROVISOIRE inline */}
@@ -752,12 +771,12 @@ const PageConsulterOp = () => {
                               <input type="text" value={form.opProvisoireManuel}
                                 onChange={(e) => setForm({ ...form, opProvisoireManuel: e.target.value, opProvisoireId: '', opProvisoireIds: [] })}
                                 placeholder="Saisir N° manuellement..."
-                                style={{ padding: '6px 10px', fontSize: 11, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7' }}
+                                style={{ padding: '6px 10px', fontSize: 11, borderRadius: 6, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', background: '#fffde7', color: P.textBlack }}
                               />
                             </div>
                           </div>
                         ) : (
-                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}` }}>
+                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}`, color: P.textBlack }}>
                             {selectedOp.opProvisoireNumero || '—'}
                           </span>
                         )}
@@ -789,13 +808,13 @@ const PageConsulterOp = () => {
                           {isEditMode ? (
                             <Autocomplete options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))} value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null} onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })} placeholder="Rechercher..." accentColor={accent} />
                           ) : (
-                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600, color: P.sidebarDark }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
+                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600 }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
                           <div style={{ minWidth: 90 }}>
                             <label style={labelStyle}>N°CC</label>
-                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', color: P.sidebarDark, fontSize: 12 }}>{selectedBeneficiaire?.ncc || ''}</div>
+                            <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', padding: '10px 12px', fontSize: 12 }}>{selectedBeneficiaire?.ncc || ''}</div>
                           </div>
                           <div>
                             <label style={labelStyle}>RÈGLEMENT</label>
@@ -827,7 +846,7 @@ const PageConsulterOp = () => {
                             ) : (
                               <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
                                 {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
-                                <span style={{ fontSize: 12, color: P.sidebarDark }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                <span style={{ fontSize: 12 }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
                               </div>
                             )}
                           </div>
@@ -842,12 +861,12 @@ const PageConsulterOp = () => {
                         <div style={{ gridColumn: '1 / 3' }}>
                           <label style={labelStyle}>OBJET</label>
                           {isEditMode ? <textarea value={form.objet} onChange={(e) => setForm({ ...form, objet: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-                          : <div style={{ ...fieldStyle, minHeight: 100, color: P.sidebarDark }}>{form.objet || ''}</div>}
+                          : <div style={{ ...fieldStyle, minHeight: 100 }}>{form.objet || ''}</div>}
                         </div>
                         <div>
                           <label style={labelStyle}>PIÈCES JUSTIFICATIVES</label>
                           {isEditMode ? <textarea value={form.piecesJustificatives} onChange={(e) => setForm({ ...form, piecesJustificatives: e.target.value })} style={{ ...editFieldStyle, minHeight: 100, resize: 'vertical', fontFamily: 'inherit', fontSize: 13, outline: 'none' }} />
-                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 12, color: P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
+                          : <div style={{ ...fieldStyle, minHeight: 100, fontSize: 12, color: form.piecesJustificatives ? P.textBlack : P.labelMuted }}>{form.piecesJustificatives || ''}</div>}
                         </div>
                       </div>
                     </div>
@@ -864,11 +883,11 @@ const PageConsulterOp = () => {
                         <div style={{ minWidth: 0 }}>
                           <label style={labelStyle}>LIGNE BUDG.</label>
                           {isEditMode ? <Autocomplete options={(currentBudget?.lignes || []).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))} value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null} onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })} placeholder="Code..." accentColor={accent} />
-                          : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: P.sidebarDark }}>{form.ligneBudgetaire || ''}</div>}
+                          : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 13 }}>{form.ligneBudgetaire || ''}</div>}
                         </div>
                         <div>
                           <label style={labelStyle}>LIBELLÉ</label>
-                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 12, color: P.labelMuted }}>{selectedLigne?.libelle || ''}</div>
+                          <div style={{ padding: '10px 14px', background: accent + '08', borderRadius: 8, fontSize: 12, color: P.textBlack }}>{selectedLigne?.libelle || ''}</div>
                         </div>
                       </div>
 
@@ -877,15 +896,15 @@ const PageConsulterOp = () => {
                         <div style={{ gridColumn: '1 / 3', background: P.bgApp, padding: 14, borderRadius: 12, border: `1px solid ${P.bgSection}` }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px' }}>
                             <span style={{ fontSize: 11, color: P.labelMuted }}>Dotation</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{formatMontant(getDotation())}</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.textBlack }}>{formatMontant(getDotation())}</span>
                             <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. antérieurs</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{getEngagementsAnterieurs() < 0 ? '-' + formatMontant(Math.abs(getEngagementsAnterieurs())) : formatMontant(getEngagementsAnterieurs())}</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.textBlack }}>{getEngagementsAnterieurs() < 0 ? '-' + formatMontant(Math.abs(getEngagementsAnterieurs())) : formatMontant(getEngagementsAnterieurs())}</span>
                             <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. actuel</span>
                             <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: getEngagementActuel() < 0 ? '#C43E3E' : P.orange }}>{getEngagementActuel() < 0 ? '-' + formatMontant(Math.abs(getEngagementActuel())) : '+' + formatMontant(getEngagementActuel())}</span>
                             <span style={{ fontSize: 11, color: P.labelMuted }}>Engag. cumulés</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.sidebarDark }}>{getEngagementsCumules() < 0 ? '-' + formatMontant(Math.abs(getEngagementsCumules())) : formatMontant(getEngagementsCumules())}</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500, color: P.textBlack }}>{getEngagementsCumules() < 0 ? '-' + formatMontant(Math.abs(getEngagementsCumules())) : formatMontant(getEngagementsCumules())}</span>
                             <div style={{ gridColumn: '1 / -1', height: 1, background: P.bgSection, margin: '4px 0' }} />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: P.sidebarDark }}>Disponible</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: P.textBlack }}>Disponible</span>
                             <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 800, color: getDisponible() >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(getDisponible())}</span>
                           </div>
                           {getDisponible() < 0 && form.type !== 'ANNULATION' && (
@@ -913,7 +932,7 @@ const PageConsulterOp = () => {
                                   isEditMode ? (
                                     <MontantInput value={form.montantTVA} onChange={(val) => setForm({ ...form, montantTVA: val })} style={{ ...editFieldStyle, fontFamily: 'monospace', fontSize: 11, textAlign: 'right', width: 100, padding: '4px 8px' }} placeholder="0" />
                                   ) : (
-                                    selectedOp.montantTVA ? <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 600, color: P.sidebarDark }}>{formatMontant(selectedOp.montantTVA)} F</span> : null
+                                    selectedOp.montantTVA ? <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 600 }}>{formatMontant(selectedOp.montantTVA)} F</span> : null
                                   )
                                 )}
                               </div>
@@ -943,7 +962,7 @@ const PageConsulterOp = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: `2px solid ${P.gold}` }}>
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                         <span style={{ padding: '10px 16px', background: P.gold + '15', color: P.gold, borderRadius: 8, fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.edit(P.gold)} Modification — {selectedOp.numero}</span>
-                        <button onClick={() => { setIsEditMode(false); loadOp(selectedOp); }} style={{ ...styles.buttonSecondary, padding: '10px 16px', fontSize: 12, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: P.bgCard, color: P.labelMuted, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+                        <button onClick={() => { setIsEditMode(false); loadOp(selectedOp); }} style={{ ...styles.buttonSecondary, padding: '10px 16px', fontSize: 12, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: P.bgCard, color: P.textBlack, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
                       </div>
                       <button onClick={handleEnregistrerModif} title="Enregistrer"
                         style={{ width: 52, height: 52, borderRadius: '50%', border: 'none', background: P.gold, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${P.gold}40`, transition: 'all 0.2s' }}
@@ -955,18 +974,44 @@ const PageConsulterOp = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: `1px solid ${P.bgApp}` }}>
                       <span style={{ padding: '8px 14px', background: accent + '10', color: accent, borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.eyeSearch(accent)} {selectedOp.numero}</span>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {[
-                          { label: 'Modifier', icon: Icons.edit('#fff'), bg: P.gold, action: handleModifier },
-                          { label: 'Supprimer', icon: Icons.trash('#fff'), bg: P.labelMuted, action: handleSupprimer },
-                          { label: 'Dupliquer', icon: Icons.copy('#fff'), bg: P.orange, action: handleDupliquer },
-                          { label: 'Imprimer', icon: Icons.printer('#fff'), bg: accent, action: handlePrint },
-                        ].map((btn, i) => (
-                          <button key={i} title={btn.label} onClick={btn.action}
-                            style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: btn.bg, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${btn.bg}44`, transition: 'all 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
-                            {btn.icon}
-                          </button>
-                        ))}
+                        {/* Bouton Modifier : Grisé si OP verrouillé (Visé CF, Payé, transmis AC, archivé) */}
+                        <button 
+                          title={isLockedForEdit ? "Verrouillé : OP déjà visé par le CF" : "Modifier"} 
+                          onClick={() => {
+                            if (isLockedForEdit) {
+                              showToast('warning', 'Action impossible', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
+                            } else {
+                              handleModifier();
+                            }
+                          }}
+                          style={{ 
+                            width: 42, height: 42, borderRadius: '50%', border: 'none', 
+                            background: isLockedForEdit ? P.bgSection : P.gold, 
+                            color: 'white', cursor: isLockedForEdit ? 'not-allowed' : 'pointer', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                            boxShadow: isLockedForEdit ? 'none' : `0 3px 12px ${P.gold}44`, transition: 'all 0.2s' 
+                          }}
+                          onMouseEnter={e => { if(!isLockedForEdit) e.currentTarget.style.transform = 'scale(1.12)'; }} 
+                          onMouseLeave={e => { if(!isLockedForEdit) e.currentTarget.style.transform = 'scale(1)'; }}
+                        >
+                          {Icons.edit(isLockedForEdit ? P.labelMuted : '#fff')}
+                        </button>
+
+                        <button title="Mettre à la corbeille" onClick={handleSupprimer}
+                          style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: P.labelMuted, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${P.labelMuted}44`, transition: 'all 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                          {Icons.trash('#fff')}
+                        </button>
+                        <button title="Dupliquer" onClick={handleDupliquer}
+                          style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: P.orange, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${P.orange}44`, transition: 'all 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                          {Icons.copy('#fff')}
+                        </button>
+                        <button title="Imprimer" onClick={handlePrint}
+                          style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: accent, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${accent}44`, transition: 'all 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                          {Icons.printer('#fff')}
+                        </button>
                       </div>
                     </div>
                   )}
