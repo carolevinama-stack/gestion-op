@@ -163,7 +163,7 @@ const PageListeOP = () => {
   const opsExercice = ops.filter(op => {
     if (op.exerciceId !== currentExerciceId) return false;
     if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
-    if (op.statut === 'SUPPRIME' && activeTab !== 'CORBEILLE') return false; // Logique corbeille
+    if (op.statut === 'SUPPRIME' && activeTab !== 'CORBEILLE') return false; 
     return true;
   });
 
@@ -192,7 +192,6 @@ const PageListeOP = () => {
   // Provisoires à annuler : OP Provisoires NON PAYÉS sans régularisation
   const provisoiresAnnuler = opsExercice.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    // Ne peut pas annuler s'il est payé, rejeté, archivé, etc.
     if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE', 'SUPPRIME'].includes(op.statut)) return false;
     
     const hasRegularisationActive = opsExercice.some(o => 
@@ -207,7 +206,7 @@ const PageListeOP = () => {
     CUMUL_OP: opsExercice.filter(o => o.statut !== 'SUPPRIME').length,
     PROV_A_ANNULER: provisoiresAnnuler.length,
     A_REGULARISER: provisoiresARegulariser.length,
-    CORBEILLE: opsExercice.filter(o => o.statut === 'SUPPRIME').length // Compteur Corbeille
+    CORBEILLE: opsExercice.filter(o => o.statut === 'SUPPRIME').length 
   };
 
   const getFilteredByTab = () => {
@@ -216,7 +215,7 @@ const PageListeOP = () => {
       case 'CUMUL_OP': break;
       case 'PROV_A_ANNULER': result = provisoiresAnnuler; break;
       case 'A_REGULARISER': result = provisoiresARegulariser; break;
-      case 'CORBEILLE': result = opsExercice.filter(o => o.statut === 'SUPPRIME'); break; // Filtre Corbeille
+      case 'CORBEILLE': result = opsExercice.filter(o => o.statut === 'SUPPRIME'); break; 
       default: break;
     }
     return result;
@@ -865,10 +864,11 @@ const PageListeOP = () => {
         })}
       </div>
 
-      {/* Barre des filtres ajustée visuellement */}
+      {/* Barre des filtres ajustée visuellement (Correction Chevauchement) */}
       <div style={{ background: '#FFFFFF', padding: '12px 16px', borderRadius: 12, marginBottom: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 110px 120px 1fr 110px 110px', gap: 12, alignItems: 'end' }}>
-          <div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          
+          <div style={{ flex: '2 1 200px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8 }}>Recherche</label>
             <div style={{ position: 'relative' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -877,16 +877,17 @@ const PageListeOP = () => {
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 placeholder="N°, bénéficiaire, objet..."
-                style={{ ...styles.input, marginBottom: 0, paddingLeft: 28, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
+                style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, paddingLeft: 28, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
               />
             </div>
           </div>
-          <div>
+
+          <div style={{ flex: '1 1 110px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8 }}>Type</label>
             <select
               value={filters.type}
               onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
+              style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
             >
               <option value="">Tous</option>
               <option value="PROVISOIRE">Provisoire</option>
@@ -895,12 +896,13 @@ const PageListeOP = () => {
               <option value="ANNULATION">Annulation</option>
             </select>
           </div>
-          <div>
+
+          <div style={{ flex: '1 1 120px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8 }}>Statut</label>
             <select
               value={filters.statut}
               onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
+              style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
             >
               <option value="">Tous</option>
               {Object.entries(statutConfig).map(([key, val]) => (
@@ -908,14 +910,15 @@ const PageListeOP = () => {
               ))}
             </select>
           </div>
-          <div style={{ position: 'relative' }}>
+
+          <div style={{ flex: '1.5 1 150px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8 }}>Ligne budgétaire</label>
             <input
               type="text"
               placeholder="Rechercher / Filtrer..."
               value={filters.ligneBudgetaire}
               onChange={(e) => setFilters({ ...filters, ligneBudgetaire: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
+              style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
               list="lignesBudgetairesList"
             />
             <datalist id="lignesBudgetairesList">
@@ -924,24 +927,27 @@ const PageListeOP = () => {
               ))}
             </datalist>
           </div>
-          <div>
+
+          <div style={{ flex: '1 1 110px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8 }}>Du</label>
             <input
               type="date"
               value={filters.dateDebut}
               onChange={(e) => setFilters({ ...filters, dateDebut: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
+              style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
             />
           </div>
-          <div>
+
+          <div style={{ flex: '1 1 110px', minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 9.5, fontWeight: 700, marginBottom: 3, color: '#888', textTransform: 'uppercase', letterSpacing: 0.8 }}>Au</label>
             <input
               type="date"
               value={filters.dateFin}
               onChange={(e) => setFilters({ ...filters, dateFin: e.target.value })}
-              style={{ ...styles.input, marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
+              style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 0, borderRadius: 8, border: '1.5px solid rgba(34,51,0,0.08)', background: '#FFFFFF', fontSize: 12 }}
             />
           </div>
+
         </div>
       </div>
 
@@ -1007,7 +1013,12 @@ const PageListeOP = () => {
                   }
                   
                   return (
-                    <tr key={isRejet ? op.id + '-rejet' : op.id} style={{ cursor: isRejet ? 'default' : 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#E8F5E9' : 'transparent', transition: 'background 0.1s' }} onClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
+                    <tr 
+                      key={isRejet ? op.id + '-rejet' : op.id} 
+                      style={{ cursor: isRejet ? 'default' : 'pointer', background: isRejet ? '#fff6f6' : drawerOp?.id === op.id && !isRejet ? '#E8F5E9' : 'transparent', transition: 'background 0.1s' }} 
+                      onClick={() => { if (!isRejet) setDrawerOp(op); }} 
+                      onDoubleClick={() => { if (!isRejet) { setConsultOpData(op); setCurrentPage('consulterOp'); } }}
+                    >
                       {activeSource === 'ALL' && (
                         <td style={{ ...styles.td, borderBottom: '1px solid #F7F5F2' }}>
                           <span style={{ 
@@ -1316,8 +1327,7 @@ const PageListeOP = () => {
         </div>
       )}
 
-      {/* Le reste de tes Modales restent inchangées et s'affichent en bas... */}
-      
+      {/* Modal Détail OP */}
       {showDetail && (
         <div style={styles.modal} onClick={() => setShowDetail(null)}>
           <div style={{ ...styles.modalContent, maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
@@ -1597,9 +1607,1353 @@ const PageListeOP = () => {
         </div>
       )}
 
-      {/* Reste des composants Modals (Paiement, Transmission, Archiver, Changement Statut, Edition, Drawer) ... */}
-      {/* (Ces modales n'ont pas été modifiées dans la logique, elles peuvent rester telles quelles) */}
+      {/* Modal Paiement */}
+      {showPaiementModal && (
+        <div style={styles.modal}>
+          <div style={styles.modalContent}>
+            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: '#E8F5E9' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#3B6B8A' }}>Enregistrer un paiement</h2>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, textAlign: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Montant OP</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace' }}>{formatMontant(showPaiementModal.montant)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Déjà payé</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#2e7d32' }}>{formatMontant(showPaiementModal.totalPaye || 0)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Reste à payer</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#E8B931' }}>{formatMontant(showPaiementModal.montant - (showPaiementModal.totalPaye || 0))}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date du paiement *</label>
+                  <input 
+                    type="date" 
+                    value={actionForm.date} 
+                    onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Référence *</label>
+                  <input 
+                    type="text" 
+                    value={actionForm.reference} 
+                    onChange={(e) => setActionForm({ ...actionForm, reference: e.target.value })}
+                    style={styles.input}
+                    placeholder="Ex: CHQ-045892, VIR-TRS-7821"
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Montant payé *</label>
+                <MontantInput 
+                  value={actionForm.montant} 
+                  onChange={(val) => setActionForm({ ...actionForm, montant: val })}
+                  style={{ ...styles.input, fontFamily: 'monospace', fontSize: 18, textAlign: 'right' }}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div style={{ padding: 24, borderTop: '1px solid #EDE9E3', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button onClick={() => { setShowPaiementModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+              <button onClick={handlePaiement} style={{ ...styles.button, background: '#3B6B8A' }}>
+                Enregistrer le paiement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Transmission (CF ou AC) */}
+      {showTransmissionModal && (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: 450 }}>
+            <div style={{ 
+              padding: 24, 
+              borderBottom: '1px solid #EDE9E3', 
+              background: showTransmissionModal.destination === 'CF' ? '#E8B93120' : '#C5961F15' 
+            }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: showTransmissionModal.destination === 'CF' ? '#E8B931' : '#C5961F' }}>
+                Transmettre {showTransmissionModal.destination === 'CF' ? 'au CF' : 'à l\'AC'}
+              </h2>
+              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showTransmissionModal.op.numero}</div>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date de transmission *</label>
+                <input 
+                  type="date" 
+                  value={actionForm.date} 
+                  onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                  N° Bordereau de transmission {showTransmissionModal.destination}
+                </label>
+                <input 
+                  type="text" 
+                  value={actionForm.bordereau} 
+                  onChange={(e) => setActionForm({ ...actionForm, bordereau: e.target.value })}
+                  style={styles.input}
+                  placeholder={`Ex: BT-${showTransmissionModal.destination}-2026-001`}
+                />
+                <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - référence du bordereau de transmission</span>
+              </div>
+            </div>
+            <div style={{ padding: 24, borderTop: '1px solid #EDE9E3', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button onClick={() => { setShowTransmissionModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '', bordereau: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+              <button onClick={handleConfirmTransmission} style={{ ...styles.button, background: showTransmissionModal.destination === 'CF' ? '#E8B931' : '#C5961F' }}>
+                Confirmer la transmission
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Archivage */}
+      {showArchiveModal && (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: 450 }}>
+            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: '#F7F5F2' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#888' }}>Archiver l'OP</h2>
+              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showArchiveModal.numero}</div>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date d'archivage *</label>
+                <input 
+                  type="date" 
+                  value={actionForm.date} 
+                  onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>N° Boîte / Classeur d'archive</label>
+                <input 
+                  type="text" 
+                  value={actionForm.boiteArchive} 
+                  onChange={(e) => setActionForm({ ...actionForm, boiteArchive: e.target.value })}
+                  style={styles.input}
+                  placeholder="Ex: BOX-2026-001, Classeur IDA-A3..."
+                />
+                <span style={{ fontSize: 11, color: '#6c757d' }}>Optionnel - pour faciliter la recherche physique</span>
+              </div>
+            </div>
+            <div style={{ padding: 24, borderTop: '1px solid #EDE9E3', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button onClick={() => { setShowArchiveModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', boiteArchive: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+              <button onClick={handleConfirmArchive} style={{ ...styles.button, background: '#888' }}>
+                Confirmer l'archivage
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Changement de statut */}
+      {showStatutModal && (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: 500 }}>
+            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: '#E8B93110' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#E8B931' }}>Changer le statut</h2>
+              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showStatutModal.op.numero}</div>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Nouveau statut *</label>
+                <select
+                  value={actionForm.nouveauStatut || ''}
+                  onChange={(e) => setActionForm({ ...actionForm, nouveauStatut: e.target.value })}
+                  style={styles.input}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  <option value="TRANSMIS_CF"> Transmis CF</option>
+                  <option value="DIFFERE_CF"> Différé CF</option>
+                  <option value="VISE_CF"> Visé CF</option>
+                  <option value="REJETE_CF"> Rejeté CF</option>
+                  <option value="TRANSMIS_AC"> Transmis AC</option>
+                  <option value="DIFFERE_AC"> Différé AC</option>
+                  <option value="PAYE_PARTIEL"> Payé partiel</option>
+                  <option value="PAYE"> Payé</option>
+                  <option value="REJETE_AC"> Rejeté AC</option>
+                  <option value="ARCHIVE"> Archivé</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Date *</label>
+                <input
+                  type="date"
+                  value={actionForm.date}
+                  onChange={(e) => setActionForm({ ...actionForm, date: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              {['DIFFERE_CF', 'DIFFERE_AC', 'REJETE_CF', 'REJETE_AC'].includes(actionForm.nouveauStatut) && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Motif *</label>
+                  <textarea
+                    value={actionForm.motif}
+                    onChange={(e) => setActionForm({ ...actionForm, motif: e.target.value })}
+                    style={{ ...styles.input, minHeight: 80 }}
+                    placeholder="Raison du différé ou rejet..."
+                  />
+                </div>
+              )}
+              {['REJETE_CF', 'REJETE_AC'].includes(actionForm.nouveauStatut) && (
+                <div style={{ marginTop: 16, padding: 12, background: '#E8B93120', borderRadius: 8, fontSize: 13 }}>
+                  Le rejet libérera le budget engagé.
+                </div>
+              )}
+            </div>
+            <div style={{ padding: 24, borderTop: '1px solid #EDE9E3', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <button onClick={() => { setShowStatutModal(null); setActionForm({ motif: '', date: new Date().toISOString().split('T')[0], reference: '', montant: '', nouveauStatut: '' }); }} style={styles.buttonSecondary}>Annuler</button>
+              <button onClick={handleChangeStatut} style={{ ...styles.button, background: '#E8B931' }}>
+                Appliquer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Modification OP */}
+      {showEditModal && (() => {
+        const editBeneficiaire = beneficiaires.find(b => b.id === editForm.beneficiaireId);
+        const editRibs = editBeneficiaire?.ribs || (editBeneficiaire?.rib ? [{ numero: editBeneficiaire.rib, banque: '' }] : []);
+        const editBudget = budgets
+          .filter(b => b.sourceId === showEditModal.sourceId && b.exerciceId === showEditModal.exerciceId)
+          .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+        const editSource = sources.find(s => s.id === showEditModal.sourceId);
+        
+        let dotation = showEditModal.dotationLigne;
+        const editLigne = editBudget?.lignes?.find(l => l.code === editForm.ligneBudgetaire);
+        if (dotation === undefined || dotation === null) {
+          dotation = editLigne?.dotation || 0;
+        }
+        const engagementsAnterieurs = ops
+          .filter(o => 
+            o.sourceId === showEditModal.sourceId &&
+            o.exerciceId === showEditModal.exerciceId &&
+            o.ligneBudgetaire === editForm.ligneBudgetaire &&
+            o.id !== showEditModal.id &&
+            !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(o.statut)
+          )
+          .reduce((sum, o) => sum + (o.montant || 0), 0);
+        const engagementActuel = parseFloat(editForm.montant) || 0;
+        const engagementsCumules = engagementsAnterieurs + engagementActuel;
+        const disponible = dotation - engagementsCumules;
+        
+        const handlePrintOP = () => {
+          const exercice = exercices.find(e => e.id === showEditModal.exerciceId);
+          const selectedRib = editRibs[editForm.ribIndex || 0] || {};
+          const isBailleur = editSource?.sigle?.includes('IDA') || editSource?.sigle?.includes('BAD') || editSource?.sigle?.includes('UE');
+          const isTresor = editSource?.sigle?.includes('BN') || editSource?.sigle?.includes('TRESOR') || editSource?.sigle?.includes('ETAT');
+          const codeImputationComplet = (editSource?.codeImputation || '') + ' ' + (editForm.ligneBudgetaire || '');
+          
+          const printContent = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>OP ${showEditModal.numero}</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    .toolbar { display: none !important; }
+    body { background: #fff !important; padding: 0 !important; }
+    .page-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { 
+    font-family: 'Century Gothic', 'Trebuchet MS', sans-serif; 
+    font-size: 11px; 
+    line-height: 1.4;
+    background: #e0e0e0;
+    padding: 0;
+  }
+  .toolbar {
+    background: #3B6B8A;
+    padding: 12px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .toolbar button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-print { background: #D4722A; color: #fff; }
+  .btn-print:hover { background: #3B6B8A; }
+  .btn-pdf { background: #D4722A; color: #fff; }
+  .btn-pdf:hover { background: #D4722A; }
+  .toolbar-title { color: #fff; font-size: 14px; margin-left: auto; }
+  .page-container {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    background: #fff;
+    padding: 8mm;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+  .inner-frame {
+    border: 2px solid #000;
+    height: 100%;
+  }
+  .header {
+    display: flex;
+    border-bottom: 1px solid #000;
+  }
+  .header-logo {
+    width: 22%;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #000;
+  }
+  .header-logo img { max-height: 75px; max-width: 100%; }
+  .header-center {
+    width: 56%;
+    padding: 6px;
+    text-align: center;
+    border-right: 1px solid #000;
+  }
+  .header-center .republic { font-weight: bold; font-size: 11px; }
+  .header-center .sep { font-size: 8px; letter-spacing: 0.5px; color: #333; }
+  .header-center .ministry { font-style: italic; font-size: 10px; }
+  .header-center .project { font-weight: bold; font-size: 10px; }
+  .header-right {
+    width: 22%;
+    padding: 8px;
+    font-size: 10px;
+    text-align: right;
+  }
+  .op-title-section {
+    text-align: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid #000;
+  }
+  .op-title { font-weight: bold; text-decoration: underline; font-size: 11px; }
+  .op-numero { font-size: 10px; margin-top: 2px; }
+  .body-content {
+    padding: 12px 15px;
+    border-bottom: 1px solid #000;
+  }
+  .exercice-line {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .type-red { color: #c00; font-weight: bold; }
+  .field { margin-bottom: 8px; }
+  .field-title { text-decoration: underline; font-size: 10px; margin-bottom: 6px; }
+  .field-value { font-weight: bold; }
+  .field-large {
+    margin: 15px 0;
+    min-height: 45px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  .checkbox-line {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .checkbox-label { min-width: 230px; }
+  .checkbox-options { display: flex; gap: 50px; }
+  .check-item { display: flex; align-items: center; gap: 6px; }
+  .box { 
+    width: 18px; 
+    height: 14px; 
+    border: 1px solid #000; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center;
+    font-size: 10px;
+  }
+  .budget-section { margin-top: 15px; }
+  .budget-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .budget-row .col-left { width: 33.33%; }
+  .budget-row .col-center { width: 33.33%; }
+  .budget-row .col-right { width: 33.33%; }
+  .value-box {
+    border: 1px solid #000;
+    padding: 4px 10px;
+    text-align: right;
+    font-weight: bold;
+    white-space: nowrap;
+    font-size: 10px;
+  }
+  .budget-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .budget-table td {
+    border: 1px solid #000;
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .budget-table .col-letter { 
+    width: 4%;
+    text-align: center; 
+    font-weight: bold; 
+  }
+  .budget-table .col-label { width: 29.33%; }
+  .budget-table .col-amount { 
+    width: 33.33%;
+    text-align: right;
+    padding-right: 10px;
+  }
+  .budget-table .col-empty {
+    width: 33.33%;
+    border: none;
+  }
+  .signatures-section {
+    display: flex;
+    border-bottom: 1px solid #000;
+  }
+  .sig-box {
+    width: 33.33%;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #000;
+  }
+  .sig-box:last-child { border-right: none; }
+  .sig-header {
+    text-align: center;
+    font-weight: bold;
+    font-size: 9px;
+    padding: 6px;
+    border-bottom: 1px solid #000;
+    line-height: 1.3;
+  }
+  .sig-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 8px;
+  }
+  .sig-name {
+    text-align: right;
+    font-weight: bold;
+    text-decoration: underline;
+    font-size: 9px;
+  }
+  .abidjan-row {
+    display: flex;
+    border-bottom: 1px solid #000;
+  }
+  .abidjan-cell {
+    width: 33.33%;
+    padding: 4px 10px;
+    font-size: 9px;
+    border-right: 1px solid #000;
+  }
+  .abidjan-cell:last-child { border-right: none; }
+  .acquit-section { display: flex; }
+  .acquit-empty { 
+    width: 66.66%;
+    border-right: 1px solid #000;
+  }
+  .acquit-box {
+    width: 33.33%;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+  }
+  .acquit-header {
+    text-align: center;
+    font-size: 9px;
+    padding: 6px;
+    border-bottom: 1px solid #000;
+  }
+  .acquit-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 8px;
+  }
+  .acquit-date {
+    font-size: 9px;
+    text-align: left;
+  }
+  @media print { 
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button class="btn-print" onclick="window.print()">Imprimer</button>
+  <button class="btn-pdf" onclick="window.print()">Exporter PDF</button>
+  <span class="toolbar-title">Aperçu – OP ${showEditModal.numero}</span>
+</div>
+<div class="page-container">
+<div class="inner-frame">
+  <div class="header">
+    <div class="header-logo">
+      <img src="${LOGO_PIF2}" alt="PIF2" />
+    </div>
+    <div class="header-center">
+      <div class="republic">REPUBLIQUE DE CÔTE D'IVOIRE</div>
+      <div class="sep">------------------------</div>
+      <div class="ministry">MINISTERE DES EAUX ET FORETS</div>
+      <div class="sep">------------------------</div>
+      <div class="project">PROJET D'INVESTISSEMENT FORESTIER 2</div>
+      <div class="sep">------------------------</div>
+    </div>
+    <div class="header-right">
+      <div style="text-align: center;">
+        <img src="${ARMOIRIE}" alt="Armoirie" style="max-height: 50px; max-width: 60px; margin-bottom: 3px;" />
+        <div>Union – Discipline – Travail</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="op-title-section">
+    <div class="op-title">ORDRE DE PAIEMENT</div>
+    <div class="op-numero">N°${showEditModal.numero}</div>
+  </div>
+  
+  <div class="body-content">
+    <div class="exercice-line">
+      <div>EXERCICE&nbsp;&nbsp;&nbsp;&nbsp;<strong>${exercice?.annee || ''}</strong></div>
+      <div class="type-red">${editForm.type}</div>
+    </div>
+    
+    <div class="field">
+      <div class="field-title">REFERENCE DU BENEFICIAIRE</div>
+    </div>
+    
+    <div class="field">
+      BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editBeneficiaire?.nom || ''}</span>
+    </div>
+    
+    <div class="field">
+      COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editBeneficiaire?.ncc || ''}</span>
+    </div>
+    
+    <div class="checkbox-line">
+      <span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span>
+      <div class="checkbox-options">
+        <span class="check-item">BAILLEUR <span class="box">${isBailleur ? 'x' : ''}</span></span>
+        <span class="check-item">TRESOR <span class="box">${isTresor ? 'x' : ''}</span></span>
+      </div>
+    </div>
+    
+    <div class="checkbox-line">
+      <span class="checkbox-label">MODE DE REGLEMENT :</span>
+      <div class="checkbox-options">
+        <span class="check-item">ESPECE <span class="box">${editForm.modeReglement === 'ESPECES' ? 'x' : ''}</span></span>
+        <span class="check-item">CHEQUE <span class="box">${editForm.modeReglement === 'CHEQUE' ? 'x' : ''}</span></span>
+        <span class="check-item">VIREMENT <span class="box">${editForm.modeReglement === 'VIREMENT' ? 'x' : ''}</span></span>
+      </div>
+    </div>
+    
+    <div class="field">
+      REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.modeReglement === 'VIREMENT' ? (selectedRib.banque ? selectedRib.banque + ' - ' : '') + (selectedRib.numero || '') : ''}</span>
+    </div>
+    
+    <div class="field-large">
+      OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.objet || ''}</span>
+    </div>
+    
+    <div class="field-large">
+      PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">${editForm.piecesJustificatives || ''}</span>
+    </div>
+    
+    <div class="budget-section">
+      <div class="budget-row">
+        <div class="col-left">MONTANT TOTAL :</div>
+        <div class="col-center">
+          <div class="value-box">${formatMontant(Math.abs(engagementActuel))}</div>
+        </div>
+        <div class="col-right"></div>
+      </div>
       
+      <div class="budget-row">
+        <div class="col-left">IMPUTATION BUDGETAIRE :</div>
+        <div class="col-center">
+          <div class="value-box">${codeImputationComplet.trim()}</div>
+        </div>
+        <div class="col-right"></div>
+      </div>
+      
+      <table class="budget-table">
+        <tr>
+          <td class="col-letter">A</td>
+          <td class="col-label">Dotation budgétaire</td>
+          <td class="col-amount">${formatMontant(dotation)}</td>
+          <td class="col-empty"></td>
+        </tr>
+        <tr>
+          <td class="col-letter">B</td>
+          <td class="col-label">Engagements antérieurs</td>
+          <td class="col-amount">${formatMontant(engagementsAnterieurs)}</td>
+          <td class="col-empty"></td>
+        </tr>
+        <tr>
+          <td class="col-letter">C</td>
+          <td class="col-label">Engagement actuel</td>
+          <td class="col-amount">${formatMontant(Math.abs(engagementActuel))}</td>
+          <td class="col-empty"></td>
+        </tr>
+        <tr>
+          <td class="col-letter">D</td>
+          <td class="col-label">Engagements cumulés (B + C)</td>
+          <td class="col-amount">${formatMontant(engagementsCumules)}</td>
+          <td class="col-empty"></td>
+        </tr>
+        <tr>
+          <td class="col-letter">E</td>
+          <td class="col-label">Disponible budgétaire (A - D)</td>
+          <td class="col-amount">${formatMontant(disponible)}</td>
+          <td class="col-empty"></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  
+  <div class="signatures-section">
+    <div class="sig-box">
+      <div class="sig-header">VISA<br/>COORDONNATRICE</div>
+      <div class="sig-content">
+        <div class="sig-name">ABE-KOFFI Thérèse</div>
+      </div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div>
+      <div class="sig-content"></div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-header">VISA AGENT<br/>COMPTABLE</div>
+      <div class="sig-content"></div>
+    </div>
+  </div>
+  
+  <div class="abidjan-row">
+    <div class="abidjan-cell">Abidjan, le</div>
+    <div class="abidjan-cell">Abidjan, le</div>
+    <div class="abidjan-cell">Abidjan, le</div>
+  </div>
+  
+  <div class="acquit-section">
+    <div class="acquit-empty"></div>
+    <div class="acquit-box">
+      <div class="acquit-header">ACQUIT LIBERATOIRE</div>
+      <div class="acquit-content">
+        <div class="acquit-date">Abidjan, le</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>`;
+          const printWindow = window.open('', '_blank', 'width=900,height=700');
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+        };
+        
+        return (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: 750 }}>
+            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: editSource?.couleur || '#D4722A' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, color: 'white' }}>Modifier l'OP</h2>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>{showEditModal.numero}</div>
+                </div>
+                <button 
+                  onClick={handlePrintOP}
+                  style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Imprimer
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: 24, maxHeight: '65vh', overflowY: 'auto' }}>
+              
+              {/* Type d'OP */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>TYPE D'OP</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { value: 'PROVISOIRE', label: 'Provisoire', color: '#E8B931' },
+                    { value: 'DIRECT', label: 'Direct', color: '#3B6B8A' },
+                    { value: 'DEFINITIF', label: 'Définitif', color: '#2e7d32' },
+                    { value: 'ANNULATION', label: 'Annulation', color: '#C43E3E' }
+                  ].map(type => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, type: type.value })}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        border: 'none',
+                        background: editForm.type === type.value ? type.color : '#EDE9E3',
+                        color: editForm.type === type.value ? 'white' : '#555',
+                        fontWeight: 600,
+                        fontSize: 12,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bénéficiaire */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>BÉNÉFICIAIRE</label>
+                  <Autocomplete
+                    options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
+                    value={editForm.beneficiaireId ? { value: editForm.beneficiaireId, label: editBeneficiaire?.nom || '' } : null}
+                    onChange={(option) => setEditForm({ ...editForm, beneficiaireId: option?.value || '', ribIndex: 0 })}
+                    placeholder="Rechercher un bénéficiaire..."
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>N°CC</label>
+                  <input 
+                    type="text" 
+                    value={editBeneficiaire?.ncc || ''} 
+                    readOnly 
+                    style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', padding: '10px 12px' }} 
+                  />
+                </div>
+              </div>
+
+              {/* Mode de règlement */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 8, color: '#6c757d' }}>MODE DE RÈGLEMENT</label>
+                <div style={{ display: 'flex', gap: 24 }}>
+                  {['ESPECES', 'CHEQUE', 'VIREMENT'].map(mode => (
+                    <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input 
+                        type="radio" 
+                        checked={editForm.modeReglement === mode}
+                        onChange={() => setEditForm({ ...editForm, modeReglement: mode })}
+                        style={{ width: 16, height: 16 }}
+                      />
+                      <span style={{ fontSize: 13 }}>{mode}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* RIB si virement */}
+              {editForm.modeReglement === 'VIREMENT' && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>RIB</label>
+                  {!editBeneficiaire ? (
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', color: '#adb5bd', fontStyle: 'italic' }}>
+                      Sélectionnez un bénéficiaire
+                    </div>
+                  ) : editRibs.length === 0 ? (
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#E8B93120', color: '#E8B931' }}>
+                      Aucun RIB enregistré
+                    </div>
+                  ) : editRibs.length === 1 ? (
+                    <div style={{ ...styles.input, marginBottom: 0, background: '#f8f9fa', fontFamily: 'monospace' }}>
+                      {editRibs[0].banque && <span style={{ background: '#E8B93110', color: '#E8B931', padding: '2px 8px', borderRadius: 4, marginRight: 8, fontSize: 11 }}>{editRibs[0].banque}</span>}
+                      {editRibs[0].numero}
+                    </div>
+                  ) : (
+                    <select
+                      value={editForm.ribIndex || 0}
+                      onChange={(e) => setEditForm({ ...editForm, ribIndex: parseInt(e.target.value) })}
+                      style={{ ...styles.input, marginBottom: 0 }}
+                    >
+                      {editRibs.map((rib, i) => (
+                        <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Objet */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>OBJET DE LA DÉPENSE</label>
+                <textarea
+                  value={editForm.objet || ''}
+                  onChange={(e) => setEditForm({ ...editForm, objet: e.target.value })}
+                  style={{ ...styles.input, minHeight: 70, marginBottom: 0 }}
+                />
+              </div>
+
+              {/* Pièces justificatives */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>PIÈCES JUSTIFICATIVES</label>
+                <textarea
+                  value={editForm.piecesJustificatives || ''}
+                  onChange={(e) => setEditForm({ ...editForm, piecesJustificatives: e.target.value })}
+                  style={{ ...styles.input, minHeight: 50, marginBottom: 0 }}
+                />
+              </div>
+
+              {/* Montant et Ligne budgétaire */}
+              <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>MONTANT (FCFA) </label>
+                  <MontantInput
+                    value={editForm.montant || ''}
+                    onChange={(val) => setEditForm({ ...editForm, montant: val })}
+                    style={{ ...styles.input, fontFamily: 'monospace', textAlign: 'right', marginBottom: 0, fontSize: 16, fontWeight: 600 }}
+                  />
+                  <span style={{ fontSize: 10, color: '#E8B931' }}>Protégé par mot de passe</span>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>LIGNE BUDGÉTAIRE</label>
+                  <Autocomplete
+                    options={(editBudget?.lignes || []).map(l => ({ value: l.code, label: `${l.code} - ${l.libelle}`, searchFields: [l.code, l.libelle] }))}
+                    value={editForm.ligneBudgetaire ? { value: editForm.ligneBudgetaire, label: `${editForm.ligneBudgetaire}${editLigne ? ' - ' + editLigne.libelle : ''}` } : null}
+                    onChange={(option) => setEditForm({ ...editForm, ligneBudgetaire: option?.value || '' })}
+                    placeholder="Rechercher une ligne..."
+                  />
+                </div>
+              </div>
+
+              {/* Infos budgétaires */}
+              {editForm.ligneBudgetaire && (
+                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Dotation budgétaire</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(dotation)}</span>
+                    
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements antérieurs</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsAnterieurs)}</span>
+                    
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagement actuel</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color: '#E8B931' }}>+{formatMontant(engagementActuel)}</span>
+                    
+                    <span style={{ fontSize: 12, color: '#6c757d' }}>Engagements cumulés</span>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 500 }}>{formatMontant(engagementsCumules)}</span>
+                    
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Disponible budgétaire</span>
+                    <span style={{ 
+                      fontSize: 14, 
+                      fontFamily: 'monospace', 
+                      textAlign: 'right', 
+                      fontWeight: 700,
+                      color: disponible >= 0 ? '#2e7d32' : '#C43E3E'
+                    }}>
+                      {formatMontant(disponible)}
+                    </span>
+                  </div>
+                  {disponible < 0 && editForm.type !== 'ANNULATION' && (
+                    <div style={{ marginTop: 12, padding: 8, background: '#C43E3E15', borderRadius: 4, color: '#C43E3E', fontSize: 12, fontWeight: 600 }}>
+                      Budget insuffisant
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Date et TVA */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>DATE DE CRÉATION</label>
+                  <input
+                    type="date"
+                    value={editForm.dateCreation || ''}
+                    onChange={(e) => setEditForm({ ...editForm, dateCreation: e.target.value })}
+                    style={{ ...styles.input, marginBottom: 0 }}
+                  />
+                </div>
+                {['DIRECT', 'DEFINITIF'].includes(editForm.type) && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#6c757d' }}>TVA RÉCUPÉRABLE</label>
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', height: 44 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input type="radio" checked={editForm.tvaRecuperable === true} onChange={() => setEditForm({ ...editForm, tvaRecuperable: true })} />
+                        <span>OUI</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                        <input type="radio" checked={editForm.tvaRecuperable === false || !editForm.tvaRecuperable} onChange={() => setEditForm({ ...editForm, tvaRecuperable: false })} />
+                        <span>NON</span>
+                      </label>
+                      {editForm.tvaRecuperable && (
+                        <MontantInput
+                          value={editForm.montantTVA || ''}
+                          onChange={(val) => setEditForm({ ...editForm, montantTVA: val })}
+                          style={{ ...styles.input, marginBottom: 0, width: 120, fontFamily: 'monospace', textAlign: 'right' }}
+                          placeholder="Montant TVA"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ padding: 24, borderTop: '1px solid #EDE9E3', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
+              <button 
+                onClick={() => { handleDeleteWithPassword(showEditModal); }} 
+                style={{ ...styles.buttonSecondary, background: '#C43E3E15', color: '#C43E3E' }}
+              >
+                Supprimer
+              </button>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button onClick={() => { setShowEditModal(null); setEditForm({}); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={handleSaveEdit} style={{ ...styles.button, background: editSource?.couleur || '#D4722A' }}>
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* Modal Gestion du Circuit */}
+      {showCircuitModal && (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: 750 }}>
+            <div style={{ padding: 24, borderBottom: '1px solid #EDE9E3', background: '#E8B93110' }}>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#E8B931' }}>Gérer le circuit</h2>
+              <div style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>{showCircuitModal.numero} • {showCircuitModal.objet?.substring(0, 50)}...</div>
+            </div>
+            <div style={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}>
+              {/* Statut actuel */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Statut actuel</label>
+                <select
+                  value={circuitForm.statut || ''}
+                  onChange={(e) => setCircuitForm({ ...circuitForm, statut: e.target.value })}
+                  style={{ ...styles.input, fontWeight: 600, fontSize: 14 }}
+                >
+                  <option value="EN_COURS"> En cours</option>
+                  <option value="TRANSMIS_CF"> Transmis CF</option>
+                  <option value="DIFFERE_CF"> Différé CF</option>
+                  <option value="VISE_CF"> Visé CF</option>
+                  <option value="REJETE_CF"> Rejeté CF</option>
+                  <option value="TRANSMIS_AC"> Transmis AC</option>
+                  <option value="DIFFERE_AC"> Différé AC</option>
+                  <option value="PAYE_PARTIEL"> Payé partiel</option>
+                  <option value="PAYE"> Payé</option>
+                  <option value="REJETE_AC"> Rejeté AC</option>
+                  <option value="ARCHIVE"> Archivé</option>
+                </select>
+              </div>
+
+              {/* Section CF - Transmission et Visa */}
+              <div style={{ background: '#E8B93120', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#E8B931' }}>CONTRÔLEUR FINANCIER (CF)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date transmission CF</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateTransmissionCF || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateTransmissionCF: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Bordereau transmission CF</label>
+                    <input
+                      type="text"
+                      value={circuitForm.bordereauCF || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, bordereauCF: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="BT-CF-2026-001"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date visa CF</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateVisaCF || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateVisaCF: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Visa CF</label>
+                    <input
+                      type="text"
+                      value={circuitForm.numeroVisaCF || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, numeroVisaCF: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="VISA-CF-2026-001"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Différé CF - Toujours visible pour correction */}
+              <div style={{ background: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#E8B93120' : '#F7F5F2', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '2px solid #E8B931' : '1px dashed #ddd' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '#E8B931' : '#999' }}>
+                  DIFFÉRÉ CF {circuitForm.dateDiffereCF || circuitForm.motifDiffereCF ? '(renseigné)' : '(optionnel)'}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date différé</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateDiffereCF || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateDiffereCF: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Motif du différé</label>
+                    <input
+                      type="text"
+                      value={circuitForm.motifDiffereCF || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, motifDiffereCF: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="Pièces manquantes, erreur de calcul..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section AC - Transmission et Paiement */}
+              <div style={{ background: '#E8F5E9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#2e7d32' }}>AGENT COMPTABLE (AC)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date transmission AC</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateTransmissionAC || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateTransmissionAC: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Bordereau transmission AC</label>
+                    <input
+                      type="text"
+                      value={circuitForm.bordereauAC || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, bordereauAC: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="BT-AC-2026-001"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date paiement</label>
+                    <input
+                      type="date"
+                      value={circuitForm.datePaiement || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, datePaiement: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Référence paiement</label>
+                    <input
+                      type="text"
+                      value={circuitForm.referencePaiement || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, referencePaiement: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="VIR-2026-001"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Différé AC - Toujours visible pour correction */}
+              <div style={{ background: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#E8B93120' : '#F7F5F2', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '2px solid #E8B931' : '1px dashed #ddd' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '#E8B931' : '#999' }}>
+                  DIFFÉRÉ AC {circuitForm.dateDiffereAC || circuitForm.motifDiffereAC ? '(renseigné)' : '(optionnel)'}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date différé</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateDiffereAC || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateDiffereAC: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Motif du différé</label>
+                    <input
+                      type="text"
+                      value={circuitForm.motifDiffereAC || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, motifDiffereAC: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="RIB incorrect, montant erroné..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Rejet - Toujours visible pour correction */}
+              <div style={{ background: circuitForm.dateRejet || circuitForm.motifRejet ? '#C43E3E15' : '#F7F5F2', padding: 16, borderRadius: 8, marginBottom: 16, border: circuitForm.dateRejet || circuitForm.motifRejet ? '2px solid #C43E3E' : '1px dashed #ddd' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: circuitForm.dateRejet || circuitForm.motifRejet ? '#C43E3E' : '#999' }}>
+                  REJET {circuitForm.dateRejet || circuitForm.motifRejet ? '(renseigné)' : '(optionnel)'}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date rejet</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateRejet || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateRejet: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Rejeté par</label>
+                    <select
+                      value={circuitForm.rejetePar || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, rejetePar: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    >
+                      <option value="">--</option>
+                      <option value="CF">CF</option>
+                      <option value="AC">AC</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Motif du rejet</label>
+                    <input
+                      type="text"
+                      value={circuitForm.motifRejet || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, motifRejet: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="Dépense non éligible..."
+                    />
+                  </div>
+                </div>
+                {(circuitForm.dateRejet || circuitForm.motifRejet) && (
+                  <div style={{ marginTop: 12, padding: 10, background: '#FFFFFF', borderRadius: 4, fontSize: 12, color: '#C43E3E' }}>
+                    Le rejet libère le budget engagé. Pour annuler le rejet, videz les champs ci-dessus.
+                  </div>
+                )}
+              </div>
+
+              {/* Section Archive */}
+              <div style={{ background: '#F7F5F2', padding: 16, borderRadius: 8 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 12, color: '#888' }}>ARCHIVAGE</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>Date archivage</label>
+                    <input
+                      type="date"
+                      value={circuitForm.dateArchivage || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, dateArchivage: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 10, color: '#6c757d', marginBottom: 4 }}>N° Boîte / Classeur d'archive</label>
+                    <input
+                      type="text"
+                      value={circuitForm.boiteArchive || ''}
+                      onChange={(e) => setCircuitForm({ ...circuitForm, boiteArchive: e.target.value })}
+                      style={{ ...styles.input, padding: '6px 8px', fontSize: 12 }}
+                      placeholder="BOX-IDA-2026-001"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: 24, borderTop: '1px solid #EDE9E3', background: '#f8f9fa', display: 'flex', justifyContent: 'space-between' }}>
+              <button 
+                onClick={() => { setShowPaiementModal(showCircuitModal); setShowCircuitModal(null); setActionForm({ ...actionForm, montant: String(showCircuitModal.montant - (showCircuitModal.totalPaye || 0)) }); }} 
+                style={{ ...styles.buttonSecondary, background: '#EDF2F7', color: '#3B6B8A' }}
+              >
+                Ajouter paiement
+              </button>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button onClick={() => { setShowCircuitModal(null); setCircuitForm({}); }} style={styles.buttonSecondary}>Annuler</button>
+                <button onClick={handleSaveCircuit} style={{ ...styles.button, background: '#E8B931' }}>
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== DRAWER APERÇU OP ===== */}
+      {drawerOp && (
+        <>
+          {/* Overlay */}
+          <div onClick={() => setDrawerOp(null)} style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(12,74,94,0.08)', zIndex: 90
+          }} />
+          {/* Panneau latéral */}
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: 400,
+            background: '#FFFFFF', zIndex: 100,
+            boxShadow: '-8px 0 32px rgba(12,74,94,0.12)',
+            borderRadius: '20px 0 0 20px',
+            display: 'flex', flexDirection: 'column',
+            animation: 'slideIn 0.3s ease'
+          }}>
+            {/* Header */}
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid #EDE9E3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#2C5A7A', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#D4722A" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                Aperçu OP
+              </h3>
+              <button onClick={() => setDrawerOp(null)} style={{
+                width: 30, height: 30, borderRadius: 8, border: 'none',
+                background: '#F7F5F2', cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', color: '#888'
+              }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            {/* Body - scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+              {(() => {
+                const ben = beneficiaires.find(b => b.id === drawerOp.beneficiaireId);
+                const source = sources.find(s => s.id === drawerOp.sourceId);
+                const msg = getDrawerMessage(drawerOp);
+                const steps = buildCircuitSteps(drawerOp);
+                const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '';
+
+                return (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #EDE9E3' }}>
+                      <div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#2C5A7A', marginBottom: 3 }}>{drawerOp.numero}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#2C5A7A' }}>{drawerOp.beneficiaireNom || ben?.nom || 'N/A'}</div>
+                        <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{drawerOp.objet || '-'}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#D4722A', fontFeatureSettings: "'tnum'" }}>{formatMontant(drawerOp.montant)}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>FCFA</div>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Circuit de validation</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, marginBottom: 10 }}>
+                      {steps.map((step, i) => {
+                        const dotStyle = {
+                          width: 28, height: 28, borderRadius: '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700,
+                          border: '2.5px solid',
+                          ...(step.state === 'done' ? { background: '#D4722A', borderColor: '#D4722A', color: 'white' } :
+                             step.state === 'current' ? { background: '#D4722A', borderColor: '#D4722A', color: 'white', boxShadow: '0 0 0 4px rgba(75,93,22,0.15)' } :
+                             step.state === 'deferred' ? { background: '#E8B931', borderColor: '#E8B931', color: 'white' } :
+                             step.state === 'rejected' ? { background: '#C43E3E', borderColor: '#C43E3E', color: 'white' } :
+                             { background: '#F7F5F2', borderColor: '#EDE9E3', color: '#ccc' })
+                        };
+                        const dotContent = step.state === 'done' ? '✓' :
+                                          step.state === 'rejected' ? '✕' :
+                                          step.state === 'deferred' ? '◌' :
+                                          step.state === 'current' ? '●' : '○';
+                        
+                        return (
+                          <React.Fragment key={i}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '0 0 auto' }}>
+                              <div style={dotStyle}>{dotContent}</div>
+                              <div style={{ fontSize: 8.5, fontWeight: 600, color: ['done', 'current'].includes(step.state) ? '#155A25' : '#888', marginTop: 4, textAlign: 'center', maxWidth: 52, lineHeight: '1.2' }}>{step.label}</div>
+                              {step.date && <div style={{ fontSize: 8, color: '#D4722A', fontWeight: 500 }}>{formatDate(step.date)}</div>}
+                            </div>
+                            {i < steps.length - 1 && (
+                              <div style={{ flex: 1, height: 2.5, background: steps[i + 1]?.state === 'done' || steps[i + 1]?.state === 'current' ? '#D4722A' : steps[i + 1]?.state === 'deferred' ? '#E8B931' : steps[i + 1]?.state === 'rejected' ? '#C43E3E' : '#EDE9E3', minWidth: 10, margin: '13px 2px 0' }} />
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+
+                    {msg && (
+                      <div style={{
+                        padding: '11px 14px', borderRadius: 10, fontSize: 12, marginTop: 10,
+                        display: 'flex', alignItems: 'flex-start', gap: 9,
+                        background: msg.type === 'warning' ? '#fef3cd' : msg.type === 'danger' ? '#fee2e2' : '#E8F5E9',
+                        color: msg.type === 'warning' ? '#C5961F' : msg.type === 'danger' ? '#C43E3E' : '#D4722A'
+                      }}>
+                        {msg.type === 'warning' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C5961F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>}
+                        {msg.type === 'danger' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C43E3E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>}
+                        {msg.type === 'success' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg></span>}
+                        {msg.type === 'info' && <span style={{ flexShrink: 0 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4722A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>}
+                        <div>
+                          {msg.title && <><strong>{msg.title}</strong>{msg.date ? ` — ${msg.date}` : ''}<br/></>}
+                          <span style={{ fontSize: 12 }}>{msg.text}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ height: 1, background: '#EDE9E3', margin: '16px 0' }} />
+
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Informations</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                      {[
+                        { label: 'Type', value: drawerOp.type },
+                        { label: 'Source', value: source?.nom || source?.sigle || '-' },
+                        { label: 'Ligne budgétaire', value: drawerOp.ligneBudgetaire || '-', mono: true },
+                        { label: 'Mode règlement', value: drawerOp.modeReglement || '-' },
+                        { label: 'Eng. antérieur', value: formatMontant(drawerOp.engagementAnterieur || 0), mono: true },
+                        { label: 'Disponible', value: formatMontant(drawerOp.disponible || 0), mono: true, color: (drawerOp.disponible || 0) >= 0 ? '#D4722A' : '#C43E3E' }
+                      ].map((item, i) => (
+                        <div key={i} style={{ padding: '9px 0', borderBottom: '1px solid #EDE9E3' }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>{item.label}</div>
+                          <div style={{ fontSize: 13, fontWeight: item.mono ? 600 : 500, color: item.color || '#155A25', marginTop: 2, fontFamily: item.mono ? 'monospace' : 'inherit' }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => { setConsultOpData(drawerOp); setCurrentPage('consulterOp'); setDrawerOp(null); }}
+                      style={{
+                        width: '100%', padding: 12, border: 'none', borderRadius: 10,
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        fontFamily: 'inherit', background: '#D4722A', color: 'white',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        marginTop: 20
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                      Voir détail complet
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+          <style>{`
+            @keyframes slideIn {
+              from { transform: translateX(100%); }
+              to { transform: translateX(0); }
+            }
+          `}</style>
+        </>
+      )}
+
       {showPasswordModal && (
         <PasswordModal
           isOpen={!!showPasswordModal}
