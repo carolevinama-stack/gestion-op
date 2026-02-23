@@ -73,10 +73,10 @@ const PageListeOP = () => {
     fontSize: 11, 
     color: P.textSec, 
     textTransform: 'uppercase', 
-    padding: '16px 12px', // Plus de marge interne pour agrandir la ligne
-    height: '48px',       // Hauteur forcée
+    padding: '16px 12px',
+    height: '48px',
     background: '#FAFAF8',
-    position: 'sticky',   // Garde l'en-tête visible quand on scrolle
+    position: 'sticky',
     top: 0,
     zIndex: 10
   };
@@ -273,10 +273,41 @@ const PageListeOP = () => {
                     <span style={{color:'#666',fontWeight:600}}>Transmis AC :</span>
                     <span style={{fontWeight:700}}>{livePreviewOp.dateTransmissionAC || 'En attente'}</span>
                  </div>
-                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
-                    <span style={{color:'#666',fontWeight:600}}>Paiement :</span>
+                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
+                    <span style={{color:'#666',fontWeight:600}}>Date Paiement :</span>
                     <span style={{fontWeight:700,color:livePreviewOp.datePaiement?P.gold:P.text}}>{livePreviewOp.datePaiement || 'En attente'}</span>
                  </div>
+                 
+                 {/* DÉTAILS DU PAIEMENT SI EXISTANT */}
+                 {(()=>{
+                    const pTab = livePreviewOp.paiements || [];
+                    const tPaye = pTab.reduce((s, p) => s + (p.montant || 0), 0);
+                    const reste = (livePreviewOp.montant || 0) - tPaye;
+                    const refs = pTab.map(p => p.reference).filter(Boolean).join(', ');
+
+                    if (tPaye > 0) {
+                      return (
+                        <>
+                          <hr style={{ border: 'none', borderTop: '1px dashed #DDD', margin: '12px 0' }} />
+                          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,fontSize:12}}>
+                            <span style={{color:'#666',fontWeight:600}}>Montant payé :</span>
+                            <span style={{fontWeight:800, color: P.greenDark}}>{formatMontant(tPaye)} F</span>
+                          </div>
+                          {reste > 0 && (
+                            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,fontSize:12}}>
+                              <span style={{color:'#666',fontWeight:600}}>Reste à payer :</span>
+                              <span style={{fontWeight:800, color: P.red}}>{formatMontant(reste)} F</span>
+                            </div>
+                          )}
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                            <span style={{color:'#666',fontWeight:600}}>Réf. Virement :</span>
+                            <span style={{fontWeight:700, color: P.text}}>{refs || 'Non renseignée'}</span>
+                          </div>
+                        </>
+                      );
+                    }
+                    return null;
+                 })()}
               </div>
 
               {(livePreviewOp.type === 'REJET' || livePreviewOp.statut.includes('REJETE') || livePreviewOp.statut.includes('DIFFERE')) && (
