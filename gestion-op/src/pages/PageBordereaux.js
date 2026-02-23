@@ -70,11 +70,17 @@ const ModalAlert = ({ data, onClose }) => {
 
       <div style={{display:'flex',gap:12,justifyContent:'center'}}>
         {isConfirm && <button onClick={onClose} style={{padding:'10px 24px',borderRadius:8,border:`1px solid ${P.border}`,background:'#f9f9f9',cursor:'pointer',fontWeight:600, color:P.text}}>Annuler</button>}
+        
+        {/* CORRECTION DU CONFLIT DE MODALES ICI : On attend 150ms pour laisser l'ancienne modale se fermer avant d'ouvrir la nouvelle */}
         <button onClick={() => { 
           if(isConfirm && (data.showInput || data.showPwd) && !val) return; 
-          if(isConfirm) data.onConfirm(val); 
+          const confirmFn = data.onConfirm;
+          const finalVal = val;
           setVal(''); 
           onClose(); 
+          if(isConfirm && confirmFn) {
+            setTimeout(() => confirmFn(finalVal), 150);
+          }
         }} style={{padding:'10px 32px',borderRadius:8,border:'none',background:color,color:'white',cursor:'pointer',fontWeight:700, minWidth: 120}}>
           {isConfirm ? 'Confirmer' : 'OK'}
         </button>
@@ -208,7 +214,7 @@ const PageBordereaux=()=>{
     const bad=selectedOps.filter(opId=>{const op=ops.find(o=>o.id===opId);return !op || !eligibles.includes(op.statut) || (op[bf] && op[bf] !== '');});
     if(bad.length>0){notify("error", "Erreur", `${bad.length} OP ne sont plus disponibles.`);setSelectedOps([]);return;}
     
-    ask("Génération Multiple", `Générer un bordereau pour ${selectedOps.length} OP ?`, async () => {
+    ask("Génération", `Générer un bordereau pour ${selectedOps.length} OP ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
@@ -239,7 +245,7 @@ const PageBordereaux=()=>{
     const d=readDate('trans_'+bt.id);
     if(!d){notify("error","Erreur","Saisissez une date.");return;}
     if(minDateLimit && d < minDateLimit) {
-      notify("error", "Erreur", `La date de transmission ne peut pas être antérieure à l'exercice actif.`);
+      notify("error", "Erreur", "La date de transmission ne peut pas être antérieure à l'exercice actif.");
       return;
     }
 
@@ -509,20 +515,18 @@ const PageBordereaux=()=>{
     });
   };
 
-  // Correction : Rétropédalage depuis les archives (désarchivage sécurisé)
+  // CORRECTION : Rétropédalage sans conflit de modale
   const handleRetropedalage=async(opId)=>{
     checkPwd(() => {
       ask("Rétropédalage", "Annuler la décision finale et renvoyer cet OP à l'étape précédente ?", async () => {
         setSaving(true);
         try{
           const op=ops.find(o=>o.id===opId);
-          let nextStatut = 'TRANSMIS_AC'; // Par défaut
+          let nextStatut = 'TRANSMIS_AC'; 
           
           if(op.statut === 'ANNULE') {
-             // Si c'est une annulation, on regarde s'il y a un BT AC. S'il n'y en a pas, c'est qu'il a été annulé au CF
              nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
           } else {
-             // S'il est PAYE ou ARCHIVE (solde)
              const paiem = op.paiements || [];
              const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
              nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
@@ -630,7 +634,7 @@ const PageBordereaux=()=>{
               </div>
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l&apos;icône de cadenas pour voir les détails.</div></div></div>}
+              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div></div></div>}
               {isPrep&&<div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -741,8 +745,8 @@ const PageBordereaux=()=>{
             </tr>;})}
         </tbody></table></div>}
         
-        {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
-          <div style={{fontWeight:700,fontSize:15,color:P.greenDark}}>{selectedOps.length} OP sélectionnés — {formatMontant(totalSelected)} F</div>
+        {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16}}>
+          <div style={{fontWeight:700,fontSize:14,color:P.text}}>{selectedOps.length} OP sélectionnés — <span style={{fontSize: 16, color: P.greenDark}}>{formatMontant(totalSelected)} F</span></div>
           <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.greenDark} onClick={()=>handleCreateBordereauMulti('CF')} disabled={saving}/>
         </div>}
       </div>}
@@ -780,7 +784,7 @@ const PageBordereaux=()=>{
         <STab active={subTabAC==='SUIVI'} label="Suivi" count={opsDifferesAC.length+opsRejetesAC.length} color={P.red} onClick={()=>chgSub(setSubTabAC,'SUIVI')}/>
       </div>
       {subTabAC==='NOUVEAU'&&<div style={crd}>
-        <h3 style={{margin:'0 0 16px',color:P.orange,fontSize:15}}>OP visés pour un bordereau à l&apos;AC</h3>
+        <h3 style={{margin:'0 0 16px',color:P.orange,fontSize:15}}>OP visés pour un bordereau à l'AC</h3>
         <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsEligiblesAC,searchBT).length===0?<Empty text="Aucun OP visé"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
@@ -799,8 +803,8 @@ const PageBordereaux=()=>{
             </tr>;})}
         </tbody></table></div>}
 
-        {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
-          <div style={{fontWeight:700,fontSize:15,color:P.orange}}>{selectedOps.length} OP sélectionnés — {formatMontant(totalSelected)} F</div>
+        {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16}}>
+          <div style={{fontWeight:700,fontSize:14,color:P.text}}>{selectedOps.length} OP sélectionnés — <span style={{fontSize: 16, color: P.orange}}>{formatMontant(totalSelected)} F</span></div>
           <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.orange} onClick={()=>handleCreateBordereauMulti('AC')} disabled={saving}/>
         </div>}
       </div>}
@@ -866,7 +870,7 @@ const PageBordereaux=()=>{
             <td style={{...styles.td,fontWeight:700,color:P.olive}}>{op.boiteArchivage||'-'}</td>
             <td style={{...styles.td,fontSize:12}}>{op.dateArchivage||'-'}</td>
             <td style={{...styles.td,display:'flex',gap:4}}>
-              <IBtn icon={I.settings(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
+              <IBtn icon={I.edit(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
               <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler la décision)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
             </td>
           </tr>)}</tbody></table></div>}
@@ -891,7 +895,7 @@ const PageBordereaux=()=>{
              {[{v:'VISE',l:'Visé',c:P.green,bg:P.greenLight},{v:'DIFFERE',l:'Différé',c:P.gold,bg:P.goldLight},{v:'REJETE',l:'Rejeté',c:P.red,bg:P.redLight}].map(o=><button key={o.v} onClick={()=>setResultatCF(o.v)} style={{flex:1,padding:'10px 6px',borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer',border:resultatCF===o.v?`2px solid ${o.c}`:`1px solid ${P.border}`,background:resultatCF===o.v?o.bg:P.card,color:resultatCF===o.v?o.c:P.textMuted,transition:'all .15s'}}>{o.l}</button>)}
            </div>
         </div>
-        <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date d&apos;action</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
+        <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date d'action</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
       </div>
       
       {(resultatCF==='DIFFERE'||resultatCF==='REJETE')&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6,color:P.red}}>Motif (obligatoire) *</label><textarea value={motifRetour} onChange={e=>setMotifRetour(e.target.value)} placeholder="Justification du retour..." style={{...styles.input,height:60,resize:'vertical',marginBottom:0}}/></div>}
@@ -914,7 +918,7 @@ const PageBordereaux=()=>{
           </div>;})}
         <div style={{fontSize:15,fontWeight:800,color:P.olive,marginTop:10,textAlign:'right'}}>Total : {formatMontant(totalSelected)} F</div>
       </div>
-      <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Référence de la Boîte d&apos;archivage</label><input type="text" value={boiteArchivage} onChange={e=>setBoiteArchivage(e.target.value)} placeholder="Ex: BOX-2025-001" style={iS}/></div>
+      <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Référence de la Boîte d'archivage</label><input type="text" value={boiteArchivage} onChange={e=>setBoiteArchivage(e.target.value)} placeholder="Ex: BOX-2025-001" style={iS}/></div>
       
       <div style={{display:'flex', justifyContent:'flex-end', gap:12}}>
          <button onClick={()=>setModalArchive(false)} style={{padding:'10px 20px',border:`1px solid ${P.border}`,borderRadius:8,background:'#fff',color:P.text,fontWeight:600,cursor:'pointer'}}>Annuler</button>
@@ -1018,7 +1022,7 @@ const PageBordereaux=()=>{
              <input type="date" value={editBtDate} onChange={e=>setEditBtDate(e.target.value)} style={{flex:1,...iS,borderRadius:8}}/>
              <ActionBtn label="Sauver Date" color={P.goldBorder} onClick={()=>handleSaveBtDate(modalEditBT)} disabled={saving}/>
           </div>
-          <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l&apos;année de l&apos;exercice en cours.</p>
+          <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l'année de l'exercice en cours.</p>
         </div>
       )}
 
