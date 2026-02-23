@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
@@ -28,6 +28,7 @@ const I={
   archive:(c=P.olive,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   search:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   lock:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
+  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   warn:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   fileText:(c=P.textMuted,s=40)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
@@ -46,7 +47,6 @@ const ActionBtn=React.memo(({label,icon,color,onClick,disabled,count})=><button 
 
 const Modal=React.memo(({title,titleColor,onClose,children,width=540})=><><div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',backdropFilter:'blur(3px)',zIndex:200}}/><div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxWidth:'92vw',maxHeight:'88vh',background:P.card,borderRadius:16,zIndex:201,boxShadow:'0 20px 60px rgba(0,0,0,.2)',display:'flex',flexDirection:'column',overflow:'hidden'}}><div style={{padding:'16px 22px',background:titleColor||P.green,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}><h3 style={{fontSize:16,fontWeight:700,color:'#fff',margin:0}}>{title}</h3><button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:'none',background:'rgba(255,255,255,.2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{I.close('#fff',16)}</button></div><div style={{flex:1,overflowY:'auto',padding:'20px 22px'}}>{children}</div></div></>);
 
-// Optimisation de la Modale d'Alerte : bouton plus petit, alignement corrigé
 const ModalAlert = ({ data, onClose }) => {
   const [val, setVal] = useState('');
   if (!data) return null;
@@ -94,7 +94,7 @@ const PageBordereaux=()=>{
   const[subTabSuiviCF,setSubTabSuiviCF]=useState('DIFFERES');
   const[subTabSuiviAC,setSubTabSuiviAC]=useState('DIFFERES');
   const[subTabArch,setSubTabArch]=useState('A_ARCHIVER');
-  const[activeSourceBT,setActiveSourceBT]=useState('ALL'); // Changement : "ALL" par défaut
+  const[activeSourceBT,setActiveSourceBT]=useState(sources[0]?.id || null); // Correction: 1ère source par défaut
   const[selectedOps,setSelectedOps]=useState([]);
   const[saving,setSaving]=useState(false);
   const[searchBT,setSearchBT]=useState('');
@@ -116,6 +116,7 @@ const PageBordereaux=()=>{
   const[boiteArchivage,setBoiteArchivage]=useState('');
   const[modalEditBT,setModalEditBT]=useState(null);
   const[editBtNumero,setEditBtNumero]=useState('');
+  const[editBtDate,setEditBtDate]=useState('');
   const[modalSuppressionHist,setModalSuppressionHist]=useState(false);
   const[expandedBT,setExpandedBT]=useState(null);
 
@@ -130,10 +131,10 @@ const PageBordereaux=()=>{
 
   // === DATA & CALCULS OPTIMISÉS ===
   const exerciceActif=exercices.find(e=>e.actif);
+  const minDateLimit = exerciceActif?.annee ? `${exerciceActif.annee}-01-01` : null; // Limite d'exercice
   
-  // Prise en compte de "Toutes les sources"
   const opsForSource = useMemo(() => {
-    return ops.filter(op => op.exerciceId === exerciceActif?.id && (activeSourceBT === 'ALL' || op.sourceId === activeSourceBT));
+    return ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT);
   }, [ops, activeSourceBT, exerciceActif]);
 
   const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && !op.bordereauCF), [opsForSource]);
@@ -149,11 +150,8 @@ const PageBordereaux=()=>{
   const opsAArchiver = useMemo(() => opsForSource.filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE'), [opsForSource]);
   const opsArchives = useMemo(() => opsForSource.filter(op => op.statut === 'ARCHIVE'), [opsForSource]);
   
-  // Modification : On exclut les bordereaux supprimés de la vue normale
-  const bordereauCF = useMemo(() => bordereaux.filter(bt => bt.type === 'CF' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && (activeSourceBT === 'ALL' || bt.sourceId === activeSourceBT)), [bordereaux, activeSourceBT, exerciceActif]);
-  const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && (activeSourceBT === 'ALL' || bt.sourceId === activeSourceBT)), [bordereaux, activeSourceBT, exerciceActif]);
-  
-  // Historique des bordereaux supprimés (Soft Delete)
+  const bordereauCF = useMemo(() => bordereaux.filter(bt => bt.type === 'CF' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, exerciceActif]);
+  const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, exerciceActif]);
   const bordereauxSupprimes = useMemo(() => bordereaux.filter(bt => bt.statut === 'SUPPRIME' && bt.exerciceId === exerciceActif?.id), [bordereaux, exerciceActif]);
 
   // === HELPERS ===
@@ -200,51 +198,36 @@ const PageBordereaux=()=>{
   const chgSub=(fn,v)=>{fn(v);setSelectedOps([]);setSearchBT('');setExpandedBT(null);setSearchSuivi('');};
 
   // ================================================================
-  // ACTIONS (BATCHES) - Incluant la génération Multi-Sources
+  // ACTIONS (BATCHES)
   // ================================================================
   const handleCreateBordereauMulti = async (typeBT) => {
     if(selectedOps.length===0){notify('error', 'Erreur', 'Sélectionnez au moins un OP.');return;}
     const bf=typeBT==='CF'?'bordereauCF':'bordereauAC';
     const eligibles=typeBT==='CF'?['EN_COURS','DIFFERE_CF']:['VISE_CF'];
     
-    // Vérification de validité
     const bad=selectedOps.filter(opId=>{const op=ops.find(o=>o.id===opId);return !op || !eligibles.includes(op.statut) || (op[bf] && op[bf] !== '');});
     if(bad.length>0){notify('error', 'Erreur', `${bad.length} OP ne sont plus disponibles.`);setSelectedOps([]);return;}
     
-    // Regroupement par sourceId
-    const opsBySource = {};
-    selectedOps.forEach(id => {
-       const op = ops.find(o => o.id === id);
-       if(!opsBySource[op.sourceId]) opsBySource[op.sourceId] = [];
-       opsBySource[op.sourceId].push(op);
-    });
-    const nbSources = Object.keys(opsBySource).length;
-
-    ask('Génération Multiple', `Générer automatiquement ${nbSources > 1 ? `${nbSources} bordereaux (un par source)` : 'un bordereau'} pour ${selectedOps.length} OP ?`, async () => {
+    ask('Génération Multiple', `Générer un bordereau pour ${selectedOps.length} OP ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
+        const num = await genNumeroBT(typeBT, activeSourceBT);
+        const btRef = doc(collection(db, 'bordereaux'));
         
-        for (const sourceId of Object.keys(opsBySource)) {
-            const groupOps = opsBySource[sourceId];
-            const num = await genNumeroBT(typeBT, sourceId);
-            const btRef = doc(collection(db, 'bordereaux'));
-            const totalM = groupOps.reduce((s,o)=>s+(o.montant||0),0);
-            
-            batch.set(btRef, {
-              numero: num, type: typeBT, sourceId: sourceId, exerciceId: exerciceActif.id,
-              dateCreation: new Date().toISOString().split('T')[0], dateTransmission: null,
-              opsIds: groupOps.map(o=>o.id), nbOps: groupOps.length, totalMontant: totalM,
-              statut: 'EN_COURS', createdAt: new Date().toISOString()
-            });
+        batch.set(btRef, {
+          numero: num, type: typeBT, sourceId: activeSourceBT, exerciceId: exerciceActif.id,
+          dateCreation: new Date().toISOString().split('T')[0], dateTransmission: null,
+          opsIds: selectedOps, nbOps: selectedOps.length, totalMontant: totalSelected,
+          statut: 'EN_COURS', createdAt: new Date().toISOString()
+        });
 
-            groupOps.forEach(op => {
-              batch.update(doc(db, 'ops', op.id), { [bf]: num, updatedAt: new Date().toISOString() });
-            });
-        }
+        selectedOps.forEach(opId => {
+          batch.update(doc(db, 'ops', opId), { [bf]: num, updatedAt: new Date().toISOString() });
+        });
 
         await batch.commit();
-        notify('success', 'Succès', nbSources > 1 ? `${nbSources} bordereaux ont été générés.` : `Le bordereau a été généré.`);
+        notify('success', 'Succès', `Le bordereau a été généré.`);
         setSelectedOps([]);
         if(typeBT==='CF')setSubTabCF('BORDEREAUX');else setSubTabAC('BORDEREAUX');
       }catch(e){notify('error', 'Erreur', e.message);}
@@ -253,7 +236,13 @@ const PageBordereaux=()=>{
   };
 
   const handleTransmettre=async(bt)=>{
-    const d=readDate('trans_'+bt.id);if(!d){notify('error','Erreur','Saisissez une date.');return;}
+    const d=readDate('trans_'+bt.id);
+    if(!d){notify('error','Erreur','Saisissez une date.');return;}
+    if(minDateLimit && d < minDateLimit) {
+      notify('error', 'Erreur', `La date de transmission ne peut pas être antérieure à ${exerciceActif.annee}.`);
+      return;
+    }
+
     const lab=bt.type==='CF'?'au CF':"à l'AC";
     ask('Confirmation', `Transmettre ${bt.numero} ${lab} le ${d} ?`, async () => {
       setSaving(true);
@@ -296,7 +285,46 @@ const PageBordereaux=()=>{
     });
   };
 
-  const handleOpenEditBT=(bt)=>{ setEditBtNumero(bt.numero||'');setModalEditBT(bt); };
+  const handleOpenEditBT=(bt)=>{ 
+    setEditBtNumero(bt.numero||'');
+    setEditBtDate(bt.dateTransmission||'');
+    setModalEditBT(bt); 
+  };
+
+  const handleSaveBtNumero=async(bt)=>{
+    const nn=editBtNumero.trim();if(!nn){notify('error', 'Erreur', 'Numéro vide.');return;}
+    if(nn===bt.numero)return;
+    checkPwd(async () => {
+      if(bordereaux.find(b=>b.numero===nn&&b.id!==bt.id&&b.type===bt.type)){notify('error', 'Doublon', 'Ce numéro existe déjà.');return;}
+      try{
+        await updateDoc(doc(db,'bordereaux',bt.id),{numero:nn,updatedAt:new Date().toISOString()});
+        const bf=bt.type==='CF'?'bordereauCF':'bordereauAC';
+        for(const opId of(bt.opsIds||[]))await updateDoc(doc(db,'ops',opId),{[bf]:nn,updatedAt:new Date().toISOString()});
+        setBordereaux(p=>p.map(b=>b.id===bt.id?{...b,numero:nn}:b));
+        setOps(p=>p.map(o=>(bt.opsIds||[]).includes(o.id)?{...o,[bf]:nn}:o));
+        setModalEditBT(p=>p?{...p,numero:nn}:null);
+        notify('success', 'Modifié', 'Numéro mis à jour.');
+      }catch(e){notify('error', 'Erreur', e.message);}
+    });
+  };
+
+  const handleSaveBtDate=async(bt)=>{
+    if(!editBtDate){notify('error', 'Erreur', 'Date requise.');return;}
+    if(minDateLimit && editBtDate < minDateLimit) {
+      notify('error', 'Erreur', `La date de transmission ne peut pas être antérieure à ${exerciceActif.annee}.`);
+      return;
+    }
+    if(editBtDate===bt.dateTransmission)return;
+    checkPwd(async () => {
+      try{
+        await updateDoc(doc(db,'bordereaux',bt.id),{dateTransmission:editBtDate,updatedAt:new Date().toISOString()});
+        const df=bt.type==='CF'?'dateTransmissionCF':'dateTransmissionAC';
+        for(const opId of(bt.opsIds||[]))await updateDoc(doc(db,'ops',opId),{[df]:editBtDate,updatedAt:new Date().toISOString()});
+        setModalEditBT(p=>p?{...p,dateTransmission:editBtDate}:null);
+        notify('success', 'Modifié', 'Date de transmission mise à jour.');
+      }catch(e){notify('error', 'Erreur', e.message);}
+    });
+  };
 
   const handleAddOpToBT=async(bt,opId)=>{
     if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Bordereau verrouillé."); return;}
@@ -324,7 +352,6 @@ const PageBordereaux=()=>{
     });
   };
 
-  // Modification : Suppression Logique (Soft Delete) avec Historique
   const handleDeleteBordereau=async(bt)=>{
     if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Des OP sont verrouillés."); return;}
     checkPwd(() => {
@@ -342,23 +369,6 @@ const PageBordereaux=()=>{
           if(expandedBT===bt.id)setExpandedBT(null);setModalEditBT(null);
         }catch(e){notify('error', 'Erreur', e.message);}
       }, false, true, "Motif obligatoire");
-    });
-  };
-
-  const handleSaveBtNumero=async(bt)=>{
-    const nn=editBtNumero.trim();if(!nn){notify('error', 'Erreur', 'Numéro vide.');return;}
-    if(nn===bt.numero)return;
-    checkPwd(async () => {
-      if(bordereaux.find(b=>b.numero===nn&&b.id!==bt.id&&b.type===bt.type)){notify('error', 'Doublon', 'Ce numéro existe déjà.');return;}
-      try{
-        await updateDoc(doc(db,'bordereaux',bt.id),{numero:nn,updatedAt:new Date().toISOString()});
-        const bf=bt.type==='CF'?'bordereauCF':'bordereauAC';
-        for(const opId of(bt.opsIds||[]))await updateDoc(doc(db,'ops',opId),{[bf]:nn,updatedAt:new Date().toISOString()});
-        setBordereaux(p=>p.map(b=>b.id===bt.id?{...b,numero:nn}:b));
-        setOps(p=>p.map(o=>(bt.opsIds||[]).includes(o.id)?{...o,[bf]:nn}:o));
-        setModalEditBT(p=>p?{...p,numero:nn}:null);
-        notify('success', 'Modifié', 'Numéro mis à jour.');
-      }catch(e){notify('error', 'Erreur', e.message);}
     });
   };
 
@@ -499,17 +509,22 @@ const PageBordereaux=()=>{
     });
   };
 
-  const handleDesarchiver=async(opId)=>{
+  // Correction : Rétropédalage depuis les archives
+  const handleRetropedalage=async(opId)=>{
     checkPwd(() => {
-      ask('Désarchiver', 'Remettre cet OP en circulation ?', async () => {
+      ask('Rétropédalage', 'Annuler la décision finale et renvoyer cet OP à l\'étape précédente ?', async () => {
         setSaving(true);
         try{
           const op=ops.find(o=>o.id===opId);
-          let prev = 'ANNULE';
-          if(op.statut !== 'ANNULE') {
-             prev=(op?.totalPaye&&op.totalPaye>=(op?.montant||0))?'PAYE':(op?.totalPaye>0?'PAYE_PARTIEL':'TRANSMIS_AC');
+          if(op.statut === 'ANNULE') {
+             await updateDoc(doc(db,'ops',opId),{statut:'TRANSMIS_CF', dateVisaCF:null, dateArchivage:null, boiteArchivage:null, updatedAt:new Date().toISOString()});
+          } else {
+             const paiem=op.paiements||[];
+             const tot=paiem.reduce((s,p)=>s+(p.montant||0),0);
+             const nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
+             await updateDoc(doc(db,'ops',opId),{statut:nextStatut, dateArchivage:null, boiteArchivage:null, updatedAt:new Date().toISOString()});
           }
-          await updateDoc(doc(db,'ops',opId),{statut:prev,boiteArchivage:null,dateArchivage:null,updatedAt:new Date().toISOString()});notify('success', 'OK', 'Désarchivé.');
+          notify('success', 'Rétropédalage', 'L\'OP a été renvoyé à l\'étape précédente.');
         }catch(e){notify('error', 'Erreur', e.message);}
         setSaving(false);
       });
@@ -599,11 +614,12 @@ const PageBordereaux=()=>{
               <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,marginLeft:'auto',color:P.greenDark}}>{formatMontant(bt.totalMontant)} F</span>
               <div style={{display:'flex',gap:8,marginLeft:16}} onClick={e=>e.stopPropagation()}>
                 <IBtn icon={I.print(P.greenDark,16)} title="Imprimer" bg={`${P.greenDark}15`} onClick={()=>handlePrintBordereau(bt)}/>
-                <ActionBtn label="Gérer" icon={I.settings(P.textSec,16)} color="#E0E0E0" onClick={()=>handleOpenEditBT(bt)} count={locked ? 'Verrou' : undefined}/>
+                {/* Remplacement du texte Gérer/Verrou par Icône Stylo ou Cadenas */}
+                <IBtn icon={locked ? I.lock(P.red, 16) : I.edit(P.greenDark, 16)} title={locked ? "Verrouillé" : "Modifier"} bg={locked ? P.redLight : `${P.greenDark}15`} onClick={()=>handleOpenEditBT(bt)} />
               </div>
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez le bouton "Gérer" pour voir les détails.</div></div></div>}
+              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div></div></div>}
               {isPrep&&<div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -668,8 +684,17 @@ const PageBordereaux=()=>{
       </button>
     </div>
     <div style={{display:'flex',gap:8,padding:'16px 0',flexWrap:'wrap'}}>
-      <button onClick={()=>{setActiveSourceBT('ALL');setSelectedOps([]);setExpandedBT(null);closeAllModals();}} style={{padding:'8px 20px',borderRadius:10,border:activeSourceBT==='ALL'?`2px solid ${P.text}`:'2px solid transparent',background:activeSourceBT==='ALL'?P.card:'#EDEAE5',color:activeSourceBT==='ALL'?P.text:P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:activeSourceBT==='ALL'?`0 2px 8px ${P.text}22`:'none'}}>TOUTES LES SOURCES</button>
-      {sources.map(src=><button key={src.id} onClick={()=>{setActiveSourceBT(src.id);setSelectedOps([]);setExpandedBT(null);closeAllModals();}} style={{padding:'8px 20px',borderRadius:10,border:activeSourceBT===src.id?`2px solid ${P.green}`:'2px solid transparent',background:activeSourceBT===src.id?P.card:'#EDEAE5',color:activeSourceBT===src.id?P.greenDark:P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:activeSourceBT===src.id?`0 2px 8px ${P.green}22`:'none'}}>{src.sigle}</button>)}
+      {sources.map(src=>{
+        const isActif = activeSourceBT === src.id;
+        // Application de la couleur paramétrée dans l'application (fallback sur P.green)
+        const srcColor = src.couleur || P.greenDark; 
+        return (
+          <button key={src.id} onClick={()=>{setActiveSourceBT(src.id);setSelectedOps([]);setExpandedBT(null);closeAllModals();}} 
+            style={{padding:'8px 20px',borderRadius:10,border:isActif?`2px solid ${srcColor}`:'2px solid transparent',background:isActif?srcColor:'#EDEAE5',color:isActif?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:isActif?`0 2px 8px ${srcColor}55`:'none'}}>
+            {src.sigle}
+          </button>
+        )
+      })}
     </div>
     <div style={{display:'flex',gap:4,marginBottom:20}}>
       {[{k:'CF',l:'Contrôle Financier',c:P.greenDark},{k:'AC',l:'Agent Comptable',c:P.orange},{k:'ARCHIVES',l:'Archives',c:P.olive}].map(t=><button key={t.k} onClick={()=>chgTab(t.k)} style={{flex:1,padding:'14px 12px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mainTab===t.k?t.c:'#EDEAE5',color:mainTab===t.k?'white':P.textSec,borderRadius:10,boxShadow:mainTab===t.k?`0 4px 12px ${t.c}33`:'none',transition:'all .2s'}}>{t.l}</button>)}
@@ -692,12 +717,11 @@ const PageBordereaux=()=>{
         {filterOps(opsEligiblesCF,searchBT).length===0?<Empty text="Aucun OP éligible"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesCF,searchBT).length&&filterOps(opsEligiblesCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesCF,searchBT))}/></th>
-          <th style={{...thS,width:80}}>SOURCE</th><th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:70}}>LIGNE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:80}}>STATUT</th>
+          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:70}}>LIGNE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:80}}>STATUT</th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesCF,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
-              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:700,color:P.greenDark}}>{getSigleSrc(op.sourceId)}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
@@ -707,10 +731,9 @@ const PageBordereaux=()=>{
             </tr>;})}
         </tbody></table></div>}
         
-        {/* Suppression du gros bloc vert pour une ligne épurée */}
         {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
           <div style={{fontWeight:700,fontSize:15,color:P.greenDark}}>{selectedOps.length} OP sélectionnés — {formatMontant(totalSelected)} F</div>
-          <ActionBtn label="Générer Bordereau(x)" icon={I.plus('#fff',14)} color={P.greenDark} onClick={()=>handleCreateBordereauMulti('CF')} disabled={saving}/>
+          <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.greenDark} onClick={()=>handleCreateBordereauMulti('CF')} disabled={saving}/>
         </div>}
       </div>}
       {subTabCF==='BORDEREAUX'&&renderBordereaux(bordereauCF)}
@@ -752,12 +775,11 @@ const PageBordereaux=()=>{
         {filterOps(opsEligiblesAC,searchBT).length===0?<Empty text="Aucun OP visé"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesAC,searchBT).length&&filterOps(opsEligiblesAC,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesAC,searchBT))}/></th>
-          <th style={{...thS,width:80}}>SOURCE</th><th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>VISA CF</th><th style={{...thS,width:36}}></th>
+          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>VISA CF</th><th style={{...thS,width:36}}></th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesAC,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
-              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:700,color:P.orange}}>{getSigleSrc(op.sourceId)}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
@@ -767,10 +789,9 @@ const PageBordereaux=()=>{
             </tr>;})}
         </tbody></table></div>}
 
-        {/* Suppression du bloc vert - Alignement propre à droite */}
         {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
           <div style={{fontWeight:700,fontSize:15,color:P.orange}}>{selectedOps.length} OP sélectionnés — {formatMontant(totalSelected)} F</div>
-          <ActionBtn label="Générer Bordereau(x)" icon={I.plus('#fff',14)} color={P.orange} onClick={()=>handleCreateBordereauMulti('AC')} disabled={saving}/>
+          <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.orange} onClick={()=>handleCreateBordereauMulti('AC')} disabled={saving}/>
         </div>}
       </div>}
       {subTabAC==='BORDEREAUX'&&renderBordereaux(bordereauAC)}
@@ -836,13 +857,13 @@ const PageBordereaux=()=>{
             <td style={{...styles.td,fontSize:12}}>{op.dateArchivage||'-'}</td>
             <td style={{...styles.td,display:'flex',gap:4}}>
               <IBtn icon={I.settings(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
-              <IBtn icon={I.undo(P.gold,14)} title="Désarchiver" bg={`${P.gold}15`} onClick={()=>handleDesarchiver(op.id)}/>
+              <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
             </td>
           </tr>)}</tbody></table></div>}
       </div>}
     </div>}
 
-    {/* MODALES RE-OPTIMISÉES (Structure Grid / Moins longues) */}
+    {/* MODALES RE-OPTIMISÉES */}
 
     {/* MODALE RETOUR CF */}
     {modalRetourCF&&selectedOps.length>0&&<Modal title={`Retour CF — ${selectedOps.length} OP`} titleColor={P.gold} onClose={()=>setModalRetourCF(false)}>
@@ -945,7 +966,6 @@ const PageBordereaux=()=>{
             </div>
           </div>}
 
-          {/* ... suite de la modale AC ... */}
           {op.statut==='TRANSMIS_AC'&&paiem.length===0&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:14,marginTop:14}}>
             <button onClick={async()=>{
               checkPwd(async () => {
@@ -979,8 +999,20 @@ const PageBordereaux=()=>{
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Numéro du bordereau</div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}><input type="text" value={editBtNumero} onChange={e=>setEditBtNumero(e.target.value)} style={{flex:1,...iS,fontFamily:'monospace',fontWeight:700,borderRadius:8}}/><ActionBtn label="Sauver" color={P.gold} onClick={()=>handleSaveBtNumero(modalEditBT)} disabled={saving}/></div>
-        <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Modification soumise à mot de passe.</p>
       </div>
+      
+      {/* NOUVEAU : Édition de la date de transmission */}
+      {modalEditBT.statut === 'ENVOYE' && (
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Date de transmission (Correction)</div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+             <input type="date" value={editBtDate} onChange={e=>setEditBtDate(e.target.value)} style={{flex:1,...iS,borderRadius:8}}/>
+             <ActionBtn label="Sauver Date" color={P.goldBorder} onClick={()=>handleSaveBtDate(modalEditBT)} disabled={saving}/>
+          </div>
+          <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l'année de l'exercice en cours.</p>
+        </div>
+      )}
+
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
         {(modalEditBT.opsIds||[]).map(id=>{const op=ops.find(o=>o.id===id);if(!op)return null;
@@ -999,7 +1031,7 @@ const PageBordereaux=()=>{
       
       {modalEditBT.statut === 'ENVOYE' && !isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20,borderTop:`1px solid ${P.border}`,paddingTop:16}}>
-           <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.goldBorder}`,borderRadius:10,background:P.goldLight,color:P.gold,fontWeight:700,fontSize:13,cursor:'pointer'}}>Annuler la transmission</button>
+           <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.goldBorder}`,borderRadius:10,background:P.goldLight,color:P.gold,fontWeight:700,fontSize:13,cursor:'pointer'}}>Annuler la transmission globale</button>
         </div>
       )}
 
@@ -1011,7 +1043,7 @@ const PageBordereaux=()=>{
       
       {isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20,padding:12,background:P.redLight,color:P.red,fontSize:12,borderRadius:8,textAlign:'center'}}>
-          <strong>Bordereau verrouillé.</strong><br/>Certains OP ont avancé dans le circuit (Paiement ou Visa).<br/>Annulez les étapes sur les OP individuels pour débloquer.
+          <strong>Bordereau verrouillé.</strong><br/>Certains OP ont avancé dans le circuit (Paiement ou Visa).<br/>Annulez les étapes sur les OP individuels pour débloquer le bordereau.
         </div>
       )}
     </Modal>}
