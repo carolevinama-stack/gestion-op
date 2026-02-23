@@ -34,12 +34,29 @@ const PageListeOP = () => {
       return { ...op, dotationLigne: dotation, engagementAnterieur, disponible: dotation - cumulParLigne[lb] };
     });
 
-    // Application des filtres de recherche
+    // Application des filtres de recherche et des menus déroulants
     return withCalculations.filter(op => {
-      if (filters.search && !`${op.numero} ${getBenNom(op)}`.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      // 1. Filtre Recherche (Numéro, Bénéficiaire, Montant)
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        // On inclut le montant brut et formaté pour faciliter la recherche
+        const searchString = `${op.numero} ${getBenNom(op)} ${op.montant} ${formatMontant(op.montant)}`.toLowerCase();
+        if (!searchString.includes(searchLower)) return false;
+      }
+      
+      // 2. Filtre Type
+      if (filters.type && op.type !== filters.type) return false;
+      
+      // 3. Filtre Statut
+      if (filters.statut && op.statut !== filters.statut) return false;
+      
+      // 4. Filtre Ligne Budgétaire
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
+      
+      // 5. Filtre Période
       if (filters.dateDebut && op.dateCreation < filters.dateDebut) return false;
       if (filters.dateFin && op.dateCreation > filters.dateFin) return false;
+      
       return true;
     }).reverse();
   }, [ops, activeSource, filters, exerciceActif, budgets, beneficiaires]);
@@ -60,7 +77,7 @@ const PageListeOP = () => {
         <div style={styles.filterGrid}>
           <div>
             <label style={styles.label}>Recherche</label>
-            <input type="text" style={styles.input} placeholder="N°, bénéficiaire..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
+            <input type="text" style={styles.input} placeholder="N°, bénéficiaire, montant..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
           </div>
           <div>
             <label style={styles.label}>Type</label>
@@ -68,6 +85,7 @@ const PageListeOP = () => {
               <option value="">Tous</option>
               <option value="DIRECT">Direct</option>
               <option value="PROVISOIRE">Provisoire</option>
+              <option value="DEFINITIF">Définitif</option>
             </select>
           </div>
           <div>
@@ -86,8 +104,14 @@ const PageListeOP = () => {
             <label style={styles.label}>Statut</label>
             <select style={styles.select} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
               <option value="">Tous</option>
-              <option value="EN_COURS">En cours</option>
+              <option value="BROUILLON">Brouillon</option>
+              <option value="TRANSMIS_CF">Transmis CF</option>
+              <option value="VISE_CF">Visé CF</option>
+              <option value="REJETE_CF">Rejeté CF</option>
+              <option value="TRANSMIS_AC">Transmis AC</option>
+              <option value="REJETE_AC">Rejeté AC</option>
               <option value="PAYE">Payé</option>
+              <option value="ANNULE">Annulé</option>
             </select>
           </div>
           <button style={styles.buttonIcon} onClick={() => setFilters({search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:'', statut:''})}>
@@ -99,18 +123,20 @@ const PageListeOP = () => {
       <div style={styles.tableWrapper}>
         <table style={styles.table}>
           <colgroup>
-            <col style={{ width: '16%' }} />
-            <col style={{ width: '22%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '18%' }} />
             <col style={{ width: '6%' }} />
             {activeSource !== 'ALL' && <col style={{ width: '11%' }} />}
             <col style={{ width: '11%' }} />
-            {activeSource !== 'ALL' && <><col style={{ width: '11%' }} /><col style={{ width: '11%' }} /></>}
+            {activeSource !== 'ALL' && <><col style={{ width: '11%' }} /><col style={{ width: '10%' }} /></>}
             <col style={{ width: '10%' }} />
             <col style={{ width: '3%' }} />
           </colgroup>
           <thead>
             <tr>
               <th style={styles.stickyTh}>N° OP</th>
+              <th style={styles.stickyTh}>Type</th>
               <th style={styles.stickyTh}>Bénéficiaire</th>
               <th style={styles.stickyTh}>Ligne</th>
               {activeSource !== 'ALL' && <th style={{ ...styles.stickyTh, textAlign: 'right' }}>Dotation</th>}
@@ -129,6 +155,7 @@ const PageListeOP = () => {
             {displayOps.map((op, i) => (
               <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #ddd', cursor: 'pointer' }}>
                 <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero}</td>
+                <td style={{ ...styles.td, fontSize: '11px', color: '#444' }}>{op.type}</td>
                 <td style={{ ...styles.td, fontWeight: 600 }}>{getBenNom(op)}</td>
                 <td style={styles.td}>{op.ligneBudgetaire}</td>
                 {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right' }}>{formatMontant(op.dotationLigne)}</td>}
