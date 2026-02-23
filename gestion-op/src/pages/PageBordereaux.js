@@ -28,7 +28,7 @@ const I={
   archive:(c=P.olive,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   search:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   lock:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   warn:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   fileText:(c=P.textMuted,s=40)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
@@ -170,7 +170,7 @@ const PageBordereaux=()=>{
   const checkPwd = (callback) => {
     ask("Sécurité", "Veuillez saisir le mot de passe administrateur :", (pwd) => {
       if(pwd === (projet?.motDePasseAdmin || 'admin123')) callback();
-      else notify('error', 'Erreur', 'Mot de passe incorrect');
+      else notify("error", "Erreur", "Mot de passe incorrect");
     }, true);
   };
 
@@ -201,14 +201,14 @@ const PageBordereaux=()=>{
   // ACTIONS (BATCHES)
   // ================================================================
   const handleCreateBordereauMulti = async (typeBT) => {
-    if(selectedOps.length===0){notify('error', 'Erreur', 'Sélectionnez au moins un OP.');return;}
+    if(selectedOps.length===0){notify("error", "Erreur", "Sélectionnez au moins un OP.");return;}
     const bf=typeBT==='CF'?'bordereauCF':'bordereauAC';
     const eligibles=typeBT==='CF'?['EN_COURS','DIFFERE_CF']:['VISE_CF'];
     
     const bad=selectedOps.filter(opId=>{const op=ops.find(o=>o.id===opId);return !op || !eligibles.includes(op.statut) || (op[bf] && op[bf] !== '');});
-    if(bad.length>0){notify('error', 'Erreur', `${bad.length} OP ne sont plus disponibles.`);setSelectedOps([]);return;}
+    if(bad.length>0){notify("error", "Erreur", `${bad.length} OP ne sont plus disponibles.`);setSelectedOps([]);return;}
     
-    ask('Génération Multiple', `Générer un bordereau pour ${selectedOps.length} OP ?`, async () => {
+    ask("Génération Multiple", `Générer un bordereau pour ${selectedOps.length} OP ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
@@ -227,24 +227,24 @@ const PageBordereaux=()=>{
         });
 
         await batch.commit();
-        notify('success', 'Succès', `Le bordereau a été généré.`);
+        notify("success", "Succès", "Le bordereau a été généré.");
         setSelectedOps([]);
         if(typeBT==='CF')setSubTabCF('BORDEREAUX');else setSubTabAC('BORDEREAUX');
-      }catch(e){notify('error', 'Erreur', e.message);}
+      }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     });
   };
 
   const handleTransmettre=async(bt)=>{
     const d=readDate('trans_'+bt.id);
-    if(!d){notify('error','Erreur','Saisissez une date.');return;}
+    if(!d){notify("error","Erreur","Saisissez une date.");return;}
     if(minDateLimit && d < minDateLimit) {
-      notify('error', 'Erreur', `La date de transmission ne peut pas être antérieure à ${exerciceActif.annee}.`);
+      notify("error", "Erreur", `La date de transmission ne peut pas être antérieure à l'exercice actif.`);
       return;
     }
 
     const lab=bt.type==='CF'?'au CF':"à l'AC";
-    ask('Confirmation', `Transmettre ${bt.numero} ${lab} le ${d} ?`, async () => {
+    ask("Confirmation", `Transmettre ${bt.numero} ${lab} le ${d} ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
@@ -254,16 +254,16 @@ const PageBordereaux=()=>{
           batch.update(doc(db, 'ops', opId), {statut:ns,[df]:d,updatedAt:new Date().toISOString()});
         });
         await batch.commit();
-        notify('success', 'Transmis', `Bordereau transmis ${lab}.`);
-      }catch(e){notify('error', 'Erreur', e.message);}
+        notify("success", "Transmis", `Bordereau transmis ${lab}.`);
+      }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     });
   };
 
   const handleAnnulerTransmission=async(bt)=>{
-    if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Impossible d'annuler : des OP ont déjà été traités."); return;}
+    if(isBordereauLocked(bt)){notify("error", "Bloqué", "Impossible d'annuler : des OP ont déjà été traités."); return;}
     checkPwd(async () => {
-      ask('Confirmation', `Annuler la transmission de ${bt.numero} ?`, async () => {
+      ask("Confirmation", `Annuler la transmission de ${bt.numero} ?`, async () => {
         setSaving(true);
         try{
           const batch = writeBatch(db);
@@ -277,9 +277,9 @@ const PageBordereaux=()=>{
             }
           });
           await batch.commit();
-          notify('success', 'Annulé', 'Transmission annulée.');
+          notify("success", "Annulé", "Transmission annulée.");
           setModalEditBT(prev => prev ? {...prev, dateTransmission: null, statut: 'EN_COURS'} : null);
-        }catch(e){notify('error', 'Erreur', e.message);}
+        }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     });
@@ -292,10 +292,10 @@ const PageBordereaux=()=>{
   };
 
   const handleSaveBtNumero=async(bt)=>{
-    const nn=editBtNumero.trim();if(!nn){notify('error', 'Erreur', 'Numéro vide.');return;}
+    const nn=editBtNumero.trim();if(!nn){notify("error", "Erreur", "Numéro vide.");return;}
     if(nn===bt.numero)return;
     checkPwd(async () => {
-      if(bordereaux.find(b=>b.numero===nn&&b.id!==bt.id&&b.type===bt.type)){notify('error', 'Doublon', 'Ce numéro existe déjà.');return;}
+      if(bordereaux.find(b=>b.numero===nn&&b.id!==bt.id&&b.type===bt.type)){notify("error", "Doublon", "Ce numéro existe déjà.");return;}
       try{
         await updateDoc(doc(db,'bordereaux',bt.id),{numero:nn,updatedAt:new Date().toISOString()});
         const bf=bt.type==='CF'?'bordereauCF':'bordereauAC';
@@ -303,15 +303,15 @@ const PageBordereaux=()=>{
         setBordereaux(p=>p.map(b=>b.id===bt.id?{...b,numero:nn}:b));
         setOps(p=>p.map(o=>(bt.opsIds||[]).includes(o.id)?{...o,[bf]:nn}:o));
         setModalEditBT(p=>p?{...p,numero:nn}:null);
-        notify('success', 'Modifié', 'Numéro mis à jour.');
-      }catch(e){notify('error', 'Erreur', e.message);}
+        notify("success", "Modifié", "Numéro mis à jour.");
+      }catch(e){notify("error", "Erreur", e.message);}
     });
   };
 
   const handleSaveBtDate=async(bt)=>{
-    if(!editBtDate){notify('error', 'Erreur', 'Date requise.');return;}
+    if(!editBtDate){notify("error", "Erreur", "Date requise.");return;}
     if(minDateLimit && editBtDate < minDateLimit) {
-      notify('error', 'Erreur', `La date de transmission ne peut pas être antérieure à ${exerciceActif.annee}.`);
+      notify("error", "Erreur", "La date de transmission ne peut pas être antérieure à l'année de l'exercice en cours.");
       return;
     }
     if(editBtDate===bt.dateTransmission)return;
@@ -321,41 +321,41 @@ const PageBordereaux=()=>{
         const df=bt.type==='CF'?'dateTransmissionCF':'dateTransmissionAC';
         for(const opId of(bt.opsIds||[]))await updateDoc(doc(db,'ops',opId),{[df]:editBtDate,updatedAt:new Date().toISOString()});
         setModalEditBT(p=>p?{...p,dateTransmission:editBtDate}:null);
-        notify('success', 'Modifié', 'Date de transmission mise à jour.');
-      }catch(e){notify('error', 'Erreur', e.message);}
+        notify("success", "Modifié", "Date de transmission mise à jour.");
+      }catch(e){notify("error", "Erreur", e.message);}
     });
   };
 
   const handleAddOpToBT=async(bt,opId)=>{
-    if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Bordereau verrouillé."); return;}
+    if(isBordereauLocked(bt)){notify("error", "Bloqué", "Bordereau verrouillé."); return;}
     try{
       const nIds=[...bt.opsIds,opId];const nT=nIds.reduce((s,id)=>s+(ops.find(x=>x.id===id)?.montant||0),0);
       await updateDoc(doc(db,'bordereaux',bt.id),{opsIds:nIds,nbOps:nIds.length,totalMontant:nT,updatedAt:new Date().toISOString()});
       await updateDoc(doc(db,'ops',opId),{[bt.type==='CF'?'bordereauCF':'bordereauAC']:bt.numero,updatedAt:new Date().toISOString()});
       setModalEditBT(p=>p?{...p,opsIds:nIds,nbOps:nIds.length,totalMontant:nT}:null);
-    }catch(e){notify('error', 'Erreur', e.message);}
+    }catch(e){notify("error", "Erreur", e.message);}
   };
 
   const handleRemoveOpFromBT=async(bt,opId)=>{
-    if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Bordereau verrouillé."); return;}
+    if(isBordereauLocked(bt)){notify("error", "Bloqué", "Bordereau verrouillé."); return;}
     const op = ops.find(o => o.id === opId);
-    if(bt.type === 'CF' && isOpLockedForCF(op)) { notify('error', 'Impossible', "Cet OP a déjà avancé."); return; }
-    if(bt.opsIds.length<=1){notify('warning', 'Attention', 'Un bordereau ne peut pas être vide.');return;}
-    ask('Retirer OP', 'Retirer cet OP du bordereau ?', async () => {
+    if(bt.type === 'CF' && isOpLockedForCF(op)) { notify("error", "Impossible", "Cet OP a déjà avancé."); return; }
+    if(bt.opsIds.length<=1){notify("warning", "Attention", "Un bordereau ne peut pas être vide.");return;}
+    ask("Retirer OP", "Retirer cet OP du bordereau ?", async () => {
       try{
         const nIds=bt.opsIds.filter(id=>id!==opId);const nT=nIds.reduce((s,id)=>s+(ops.find(x=>x.id===id)?.montant||0),0);
         await updateDoc(doc(db,'bordereaux',bt.id),{opsIds:nIds,nbOps:nIds.length,totalMontant:nT,updatedAt:new Date().toISOString()});
         const ps=bt.type==='CF'?'EN_COURS':'VISE_CF';
         await updateDoc(doc(db,'ops',opId),{[bt.type==='CF'?'bordereauCF':'bordereauAC']:null,statut:ps,updatedAt:new Date().toISOString()});
         setModalEditBT(p=>p?{...p,opsIds:nIds,nbOps:nIds.length,totalMontant:nT}:null);
-      }catch(e){notify('error', 'Erreur', e.message);}
+      }catch(e){notify("error", "Erreur", e.message);}
     });
   };
 
   const handleDeleteBordereau=async(bt)=>{
-    if(isBordereauLocked(bt)){notify('error', 'Bloqué', "Des OP sont verrouillés."); return;}
+    if(isBordereauLocked(bt)){notify("error", "Bloqué", "Des OP sont verrouillés."); return;}
     checkPwd(() => {
-      ask('Suppression Logique', `Motif de la suppression pour le bordereau ${bt.numero} ?\nLes OP seront libérés.`, async (motif) => {
+      ask("Suppression Logique", `Motif de la suppression pour le bordereau ${bt.numero} ?\nLes OP seront libérés.`, async (motif) => {
         if(!motif) return;
         try{
           const batch = writeBatch(db);
@@ -365,19 +365,19 @@ const PageBordereaux=()=>{
             batch.update(doc(db, 'ops', opId), {[bf]:null,statut:ps,[df]:null,updatedAt:new Date().toISOString()});
           });
           await batch.commit();
-          notify('success', 'Supprimé', 'Bordereau supprimé et archivé dans l\'historique.');
+          notify("success", "Supprimé", "Bordereau supprimé et archivé dans l'historique.");
           if(expandedBT===bt.id)setExpandedBT(null);setModalEditBT(null);
-        }catch(e){notify('error', 'Erreur', e.message);}
+        }catch(e){notify("error", "Erreur", e.message);}
       }, false, true, "Motif obligatoire");
     });
   };
 
   const handleRetourCF=async()=>{
-    if(selectedOps.length===0){notify('error', 'Erreur', 'Sélectionnez des OP.');return;}
-    const d=readDate('retourCF');if(!d){notify('error', 'Erreur', 'Date requise.');return;}
-    if((resultatCF==='DIFFERE'||resultatCF==='REJETE')&&!motifRetour.trim()){notify('error', 'Erreur', 'Motif obligatoire.');return;}
+    if(selectedOps.length===0){notify("error", "Erreur", "Sélectionnez des OP.");return;}
+    const d=readDate('retourCF');if(!d){notify("error", "Erreur", "Date requise.");return;}
+    if((resultatCF==='DIFFERE'||resultatCF==='REJETE')&&!motifRetour.trim()){notify("error", "Erreur", "Motif obligatoire.");return;}
     const exec = async () => {
-      ask('Confirmation', `Marquer ${selectedOps.length} OP comme "${resultatCF}" ?`, async () => {
+      ask("Confirmation", `Marquer ${selectedOps.length} OP comme "${resultatCF}" ?`, async () => {
         setSaving(true);
         try{
           const batch = writeBatch(db);
@@ -399,9 +399,9 @@ const PageBordereaux=()=>{
             batch.update(doc(db,'ops',opId), upd);
           }
           await batch.commit();
-          notify('success', 'Succès', 'Mise à jour effectuée.');
+          notify("success", "Succès", "Mise à jour effectuée.");
           setSelectedOps([]);setMotifRetour('');setModalRetourCF(false);
-        }catch(e){notify('error', 'Erreur', e.message);}
+        }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     };
@@ -410,29 +410,29 @@ const PageBordereaux=()=>{
 
   const handleAnnulerRetour=async(opId,statut)=>{
     checkPwd(() => {
-      ask('Annulation', `Annuler le statut actuel et revenir en arrière ?`, async () => {
+      ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
         setSaving(true);
         const ret=['DIFFERE_AC','REJETE_AC'].includes(statut)?'TRANSMIS_AC':'TRANSMIS_CF';
         const newStatut = (statut === 'VISE_CF') ? 'TRANSMIS_CF' : ret;
-        try{await updateDoc(doc(db,'ops',opId),{statut:newStatut,dateVisaCF:null,dateDiffere:null,motifDiffere:null,dateRejet:null,motifRejet:null,updatedAt:new Date().toISOString()});notify('success', 'Annulé', 'Retour arrière effectué.');}catch(e){notify('error', 'Erreur', e.message);}
+        try{await updateDoc(doc(db,'ops',opId),{statut:newStatut,dateVisaCF:null,dateDiffere:null,motifDiffere:null,dateRejet:null,motifRejet:null,updatedAt:new Date().toISOString()});notify("success", "Annulé", "Retour arrière effectué.");}catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     });
   };
 
   const handleRetourAC=async()=>{
-    if(!modalPaiement)return;if(!motifRetourAC.trim()){notify('error', 'Erreur', 'Motif obligatoire.');return;}
-    const d=readDate('retourAC');if(!d){notify('error', 'Erreur', 'Date requise.');return;}
+    if(!modalPaiement)return;if(!motifRetourAC.trim()){notify("error", "Erreur", "Motif obligatoire.");return;}
+    const d=readDate('retourAC');if(!d){notify("error", "Erreur", "Date requise.");return;}
     const exec = async () => {
-      ask('Confirmation', `Marquer comme "${resultatAC}" ?`, async () => {
+      ask("Confirmation", `Marquer comme "${resultatAC}" ?`, async () => {
         setSaving(true);
         try{
           let upd={updatedAt:new Date().toISOString()};
           if(resultatAC==='DIFFERE'){upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();}
           else{upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();}
           await updateDoc(doc(db,'ops',modalPaiement.id),upd);
-          notify('success', 'Succès', 'Mise à jour effectuée.');setModalPaiement(null);setMotifRetourAC('');
-        }catch(e){notify('error', 'Erreur', e.message);}
+          notify("success", "Succès", "Mise à jour effectuée.");setModalPaiement(null);setMotifRetourAC('');
+        }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     };
@@ -442,8 +442,8 @@ const PageBordereaux=()=>{
   const handlePaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);if(!op)return;
     const m=parseFloat(paiementMontant);
-    if(isNaN(m)){notify('error', 'Erreur', 'Montant invalide.');return;}
-    const d=readDate('paiement');if(!d){notify('error', 'Erreur', 'Date requise.');return;}
+    if(isNaN(m)){notify("error", "Erreur", "Montant invalide.");return;}
+    const d=readDate('paiement');if(!d){notify("error", "Erreur", "Date requise.");return;}
     const paiem=op.paiements||[];const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);const reste=(op.montant||0)-deja;
     
     const exec = async () => {
@@ -452,16 +452,16 @@ const PageBordereaux=()=>{
         const nP=[...paiem,{date:d,montant:m,reference:paiementReference.trim(),createdAt:new Date().toISOString()}];
         const tot=nP.reduce((s,p)=>s+(p.montant||0),0);const solde=(op.montant||0)-tot<1;
         await updateDoc(doc(db,'ops',opId),{paiements:nP,totalPaye:tot,datePaiement:d,updatedAt:new Date().toISOString(),statut:solde?'PAYE':'PAYE_PARTIEL'});
-        notify('success', 'Paiement', solde?'OP soldé.':'Paiement partiel enregistré.');
+        notify("success", "Paiement", solde?"OP soldé.":"Paiement partiel enregistré.");
         setPaiementMontant('');setPaiementReference('');
-      }catch(e){notify('error', 'Erreur', e.message);}
+      }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     };
 
     if(m>reste+1 && m > 0){
-      ask('Dépassement', `Le paiement dépasse le reste à payer.\nReste : ${formatMontant(reste)}\nPaiement : ${formatMontant(m)}\nContinuer ?`, exec);
+      ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste : ${formatMontant(reste)}\nPaiement : ${formatMontant(m)}\nContinuer ?`, exec);
     } else {
-      ask('Paiement', `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
+      ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
     }
   };
 
@@ -469,25 +469,25 @@ const PageBordereaux=()=>{
     const op=ops.find(o=>o.id===opId);const p=op?.paiements||[];if(p.length===0)return;
     const der=p[p.length-1];
     checkPwd(() => {
-      ask('Annulation', `Annuler le dernier paiement de ${formatMontant(der.montant)} F ?`, async () => {
+      ask("Annulation", `Annuler le dernier paiement de ${formatMontant(der.montant)} F ?`, async () => {
         setSaving(true);
         try{
           const nP=p.slice(0,-1);const tot=nP.reduce((s,x)=>s+(x.montant||0),0);
           const upd={paiements:nP,totalPaye:tot,statut:nP.length>0?'PAYE_PARTIEL':'TRANSMIS_AC',updatedAt:new Date().toISOString()};
           if(nP.length===0)upd.datePaiement=null;
-          await updateDoc(doc(db,'ops',opId),upd);notify('success', 'Annulé', 'Paiement annulé.');
-        }catch(e){notify('error', 'Erreur', e.message);}
+          await updateDoc(doc(db,'ops',opId),upd);notify("success", "Annulé", "Paiement annulé.");
+        }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     });
   };
 
   const handleArchiverDirect=async(opId,boite)=>{
-    if(!boite||!boite.trim()){notify('error', 'Erreur', "Renseignez la boîte.");return;}
+    if(!boite||!boite.trim()){notify("error", "Erreur", "Renseignez la boîte.");return;}
     checkPwd(() => {
-      ask('Archivage', `Archiver dans "${boite}" ?`, async () => {
+      ask("Archivage", `Archiver dans "${boite}" ?`, async () => {
         setSaving(true);
-        try{await updateDoc(doc(db,'ops',opId),{statut:'ARCHIVE',boiteArchivage:boite.trim(),dateArchivage:new Date().toISOString().split('T')[0],updatedAt:new Date().toISOString()});notify('success', 'Archivé', 'OP archivé.');setModalPaiement(null);setBoiteModalPaiement('');}catch(e){notify('error', 'Erreur', e.message);}
+        try{await updateDoc(doc(db,'ops',opId),{statut:'ARCHIVE',boiteArchivage:boite.trim(),dateArchivage:new Date().toISOString().split('T')[0],updatedAt:new Date().toISOString()});notify("success", "Archivé", "OP archivé.");setModalPaiement(null);setBoiteModalPaiement('');}catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     });
@@ -495,7 +495,7 @@ const PageBordereaux=()=>{
 
   const handleArchiver=async()=>{
     if(selectedOps.length===0||!boiteArchivage.trim())return;
-    ask('Archivage', `Archiver ${selectedOps.length} OP dans "${boiteArchivage}" ?`, async () => {
+    ask("Archivage", `Archiver ${selectedOps.length} OP dans "${boiteArchivage}" ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
@@ -503,29 +503,40 @@ const PageBordereaux=()=>{
           batch.update(doc(db,'ops',opId),{statut:'ARCHIVE',boiteArchivage:boiteArchivage.trim(),dateArchivage:new Date().toISOString().split('T')[0],updatedAt:new Date().toISOString()});
         });
         await batch.commit();
-        notify('success', 'Terminé', `${selectedOps.length} OP archivés.`);setSelectedOps([]);setBoiteArchivage('');setModalArchive(false);
-      }catch(e){notify('error', 'Erreur', e.message);}
+        notify("success", "Terminé", `${selectedOps.length} OP archivés.`);setSelectedOps([]);setBoiteArchivage('');setModalArchive(false);
+      }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     });
   };
 
-  // Correction : Rétropédalage depuis les archives
+  // Correction : Rétropédalage depuis les archives (désarchivage sécurisé)
   const handleRetropedalage=async(opId)=>{
     checkPwd(() => {
-      ask('Rétropédalage', 'Annuler la décision finale et renvoyer cet OP à l\'étape précédente ?', async () => {
+      ask("Rétropédalage", "Annuler la décision finale et renvoyer cet OP à l'étape précédente ?", async () => {
         setSaving(true);
         try{
           const op=ops.find(o=>o.id===opId);
+          let nextStatut = 'TRANSMIS_AC'; // Par défaut
+          
           if(op.statut === 'ANNULE') {
-             await updateDoc(doc(db,'ops',opId),{statut:'TRANSMIS_CF', dateVisaCF:null, dateArchivage:null, boiteArchivage:null, updatedAt:new Date().toISOString()});
+             // Si c'est une annulation, on regarde s'il y a un BT AC. S'il n'y en a pas, c'est qu'il a été annulé au CF
+             nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
           } else {
-             const paiem=op.paiements||[];
-             const tot=paiem.reduce((s,p)=>s+(p.montant||0),0);
-             const nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
-             await updateDoc(doc(db,'ops',opId),{statut:nextStatut, dateArchivage:null, boiteArchivage:null, updatedAt:new Date().toISOString()});
+             // S'il est PAYE ou ARCHIVE (solde)
+             const paiem = op.paiements || [];
+             const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+             nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
           }
-          notify('success', 'Rétropédalage', 'L\'OP a été renvoyé à l\'étape précédente.');
-        }catch(e){notify('error', 'Erreur', e.message);}
+          
+          await updateDoc(doc(db, 'ops', opId), { 
+            statut: nextStatut, 
+            dateArchivage: null, 
+            boiteArchivage: null, 
+            updatedAt: new Date().toISOString() 
+          });
+          
+          notify("success", "Rétropédalage", "L'OP a été renvoyé à l'étape précédente.");
+        }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     });
@@ -533,16 +544,16 @@ const PageBordereaux=()=>{
 
   const handleModifierBoite=async(opId)=>{
     checkPwd(() => {
-      ask('Modifier boîte', 'Nouvelle référence de boîte :', async (val) => {
+      ask("Modifier boîte", "Nouvelle référence de boîte :", async (val) => {
         if(!val) return;
-        try{await updateDoc(doc(db,'ops',opId),{boiteArchivage:val.trim(),updatedAt:new Date().toISOString()});notify('success', 'OK', 'Boîte modifiée.');}catch(e){notify('error', 'Erreur', e.message);}
+        try{await updateDoc(doc(db,'ops',opId),{boiteArchivage:val.trim(),updatedAt:new Date().toISOString()});notify("success", "OK", "Boîte modifiée.");}catch(e){notify("error", "Erreur", e.message);}
       }, false, true, "Référence boîte");
     });
   };
 
   const handleReintroduire=async(opIds,type='CF')=>{
-    const d=readDate('reintro');if(!d){notify('error', 'Erreur', 'Date requise.');return;}
-    ask('Réintroduction', `Réintroduire ${opIds.length} OP dans le circuit ?`, async () => {
+    const d=readDate('reintro');if(!d){notify("error", "Erreur", "Date requise.");return;}
+    ask("Réintroduction", `Réintroduire ${opIds.length} OP dans le circuit ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
@@ -554,8 +565,8 @@ const PageBordereaux=()=>{
           batch.update(doc(db,'ops',opId), upd);
         }
         await batch.commit();
-        notify('success', 'OK', `${opIds.length} OP réintroduits.`);setSelectedOps([]);
-      }catch(e){notify('error', 'Erreur', e.message);}
+        notify("success", "OK", `${opIds.length} OP réintroduits.`);setSelectedOps([]);
+      }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     });
   };
@@ -614,12 +625,12 @@ const PageBordereaux=()=>{
               <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,marginLeft:'auto',color:P.greenDark}}>{formatMontant(bt.totalMontant)} F</span>
               <div style={{display:'flex',gap:8,marginLeft:16}} onClick={e=>e.stopPropagation()}>
                 <IBtn icon={I.print(P.greenDark,16)} title="Imprimer" bg={`${P.greenDark}15`} onClick={()=>handlePrintBordereau(bt)}/>
-                {/* MODIFICATION : Remplacement du texte Gérer/Verrou par Icône Stylo (edit) ou Cadenas (lock) */}
+                {/* Icône Stylo (edit) ou Cadenas (lock) */}
                 <IBtn icon={locked ? I.lock(P.red, 16) : I.edit(P.greenDark, 16)} title={locked ? "Verrouillé" : "Modifier"} bg={locked ? P.redLight : `${P.greenDark}15`} onClick={()=>handleOpenEditBT(bt)} />
               </div>
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div></div></div>}
+              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l&apos;icône de cadenas pour voir les détails.</div></div></div>}
               {isPrep&&<div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -730,7 +741,6 @@ const PageBordereaux=()=>{
             </tr>;})}
         </tbody></table></div>}
         
-        {/* MODIFICATION : Suppression du bloc vert encadrant, alignement à droite */}
         {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
           <div style={{fontWeight:700,fontSize:15,color:P.greenDark}}>{selectedOps.length} OP sélectionnés — {formatMontant(totalSelected)} F</div>
           <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.greenDark} onClick={()=>handleCreateBordereauMulti('CF')} disabled={saving}/>
@@ -770,7 +780,7 @@ const PageBordereaux=()=>{
         <STab active={subTabAC==='SUIVI'} label="Suivi" count={opsDifferesAC.length+opsRejetesAC.length} color={P.red} onClick={()=>chgSub(setSubTabAC,'SUIVI')}/>
       </div>
       {subTabAC==='NOUVEAU'&&<div style={crd}>
-        <h3 style={{margin:'0 0 16px',color:P.orange,fontSize:15}}>OP visés pour un bordereau à l'AC</h3>
+        <h3 style={{margin:'0 0 16px',color:P.orange,fontSize:15}}>OP visés pour un bordereau à l&apos;AC</h3>
         <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsEligiblesAC,searchBT).length===0?<Empty text="Aucun OP visé"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
@@ -789,7 +799,6 @@ const PageBordereaux=()=>{
             </tr>;})}
         </tbody></table></div>}
 
-        {/* MODIFICATION : Suppression du bloc orange encadrant, alignement à droite */}
         {selectedOps.length>0&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
           <div style={{fontWeight:700,fontSize:15,color:P.orange}}>{selectedOps.length} OP sélectionnés — {formatMontant(totalSelected)} F</div>
           <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.orange} onClick={()=>handleCreateBordereauMulti('AC')} disabled={saving}/>
@@ -848,7 +857,7 @@ const PageBordereaux=()=>{
         <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsArchives,searchArch).length===0?<Empty text="Aucun OP archivé"/>:
         <div style={{maxHeight:500,overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:120}}>BOÎTE</th><th style={{...thS,width:90}}>DATE</th><th style={{...thS,width:70}}></th>
+          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:120}}>BOÎTE</th><th style={{...thS,width:90}}>DATE</th><th style={{...thS,width:80}}>ACTIONS</th>
         </tr></thead><tbody>
           {filterOps(opsArchives,searchArch).map(op=><tr key={op.id}>
             <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
@@ -858,7 +867,7 @@ const PageBordereaux=()=>{
             <td style={{...styles.td,fontSize:12}}>{op.dateArchivage||'-'}</td>
             <td style={{...styles.td,display:'flex',gap:4}}>
               <IBtn icon={I.settings(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
-              <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
+              <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler la décision)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
             </td>
           </tr>)}</tbody></table></div>}
       </div>}
@@ -882,7 +891,7 @@ const PageBordereaux=()=>{
              {[{v:'VISE',l:'Visé',c:P.green,bg:P.greenLight},{v:'DIFFERE',l:'Différé',c:P.gold,bg:P.goldLight},{v:'REJETE',l:'Rejeté',c:P.red,bg:P.redLight}].map(o=><button key={o.v} onClick={()=>setResultatCF(o.v)} style={{flex:1,padding:'10px 6px',borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer',border:resultatCF===o.v?`2px solid ${o.c}`:`1px solid ${P.border}`,background:resultatCF===o.v?o.bg:P.card,color:resultatCF===o.v?o.c:P.textMuted,transition:'all .15s'}}>{o.l}</button>)}
            </div>
         </div>
-        <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date d'action</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
+        <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date d&apos;action</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
       </div>
       
       {(resultatCF==='DIFFERE'||resultatCF==='REJETE')&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6,color:P.red}}>Motif (obligatoire) *</label><textarea value={motifRetour} onChange={e=>setMotifRetour(e.target.value)} placeholder="Justification du retour..." style={{...styles.input,height:60,resize:'vertical',marginBottom:0}}/></div>}
@@ -905,7 +914,7 @@ const PageBordereaux=()=>{
           </div>;})}
         <div style={{fontSize:15,fontWeight:800,color:P.olive,marginTop:10,textAlign:'right'}}>Total : {formatMontant(totalSelected)} F</div>
       </div>
-      <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Référence de la Boîte d'archivage</label><input type="text" value={boiteArchivage} onChange={e=>setBoiteArchivage(e.target.value)} placeholder="Ex: BOX-2025-001" style={iS}/></div>
+      <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Référence de la Boîte d&apos;archivage</label><input type="text" value={boiteArchivage} onChange={e=>setBoiteArchivage(e.target.value)} placeholder="Ex: BOX-2025-001" style={iS}/></div>
       
       <div style={{display:'flex', justifyContent:'flex-end', gap:12}}>
          <button onClick={()=>setModalArchive(false)} style={{padding:'10px 20px',border:`1px solid ${P.border}`,borderRadius:8,background:'#fff',color:P.text,fontWeight:600,cursor:'pointer'}}>Annuler</button>
@@ -970,9 +979,9 @@ const PageBordereaux=()=>{
           {op.statut==='TRANSMIS_AC'&&paiem.length===0&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:14,marginTop:14}}>
             <button onClick={async()=>{
               checkPwd(async () => {
-                ask('Annulation', "Annuler la transmission AC et renvoyer au CF ?", async () => {
+                ask("Annulation", "Annuler la transmission AC et renvoyer au CF ?", async () => {
                   setSaving(true);
-                  try{await updateDoc(doc(db,'ops',op.id),{statut:'VISE_CF',dateTransmissionAC:null,bordereauAC:null,updatedAt:new Date().toISOString()});notify('success', 'Annulée', 'Transmission annulée.');setModalPaiement(null);}catch(e){notify('error', 'Erreur', e.message);}
+                  try{await updateDoc(doc(db,'ops',op.id),{statut:'VISE_CF',dateTransmissionAC:null,bordereauAC:null,updatedAt:new Date().toISOString()});notify("success", "Annulée", "Transmission annulée.");setModalPaiement(null);}catch(e){notify("error", "Erreur", e.message);}
                   setSaving(false);
                 });
               });
@@ -1002,7 +1011,6 @@ const PageBordereaux=()=>{
         <div style={{display:'flex',gap:8,alignItems:'center'}}><input type="text" value={editBtNumero} onChange={e=>setEditBtNumero(e.target.value)} style={{flex:1,...iS,fontFamily:'monospace',fontWeight:700,borderRadius:8}}/><ActionBtn label="Sauver" color={P.gold} onClick={()=>handleSaveBtNumero(modalEditBT)} disabled={saving}/></div>
       </div>
       
-      {/* NOUVEAU : Édition de la date de transmission */}
       {modalEditBT.statut === 'ENVOYE' && (
         <div style={{marginBottom:20}}>
           <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Date de transmission (Correction)</div>
@@ -1010,7 +1018,7 @@ const PageBordereaux=()=>{
              <input type="date" value={editBtDate} onChange={e=>setEditBtDate(e.target.value)} style={{flex:1,...iS,borderRadius:8}}/>
              <ActionBtn label="Sauver Date" color={P.goldBorder} onClick={()=>handleSaveBtDate(modalEditBT)} disabled={saving}/>
           </div>
-          <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l'année de l'exercice en cours.</p>
+          <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l&apos;année de l&apos;exercice en cours.</p>
         </div>
       )}
 
@@ -1052,7 +1060,7 @@ const PageBordereaux=()=>{
     {/* MODALE HISTORIQUE SUPPRESSIONS */}
     {modalSuppressionHist && (
       <Modal title="Historique des Suppressions" titleColor={P.textSec} onClose={()=>setModalSuppressionHist(false)} width={600}>
-         {bordereauxSupprimes.length === 0 ? <Empty text="Aucun bordereau n'a été supprimé." /> : (
+         {bordereauxSupprimes.length === 0 ? <Empty text="Aucun bordereau supprimé" /> : (
             <table style={{...styles.table, fontSize: 11}}>
                <thead>
                   <tr>
