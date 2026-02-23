@@ -28,7 +28,7 @@ const I={
   archive:(c=P.olive,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   search:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   lock:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   warn:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   fileText:(c=P.textMuted,s=40)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
@@ -163,7 +163,6 @@ const PageBordereaux=()=>{
   const getBen=(op)=>op?.beneficiaireNom||beneficiaires.find(b=>b.id===op?.beneficiaireId)?.nom||'N/A';
   const getSigleSrc=(srcId)=>sources.find(s=>s.id===srcId)?.sigle||'SRC';
   
-  // MODIFICATION : Ajout des statuts Différés et Rejetés dans la règle de verrouillage des bordereaux
   const isOpLockedForCF = (op) => ['VISE_CF','DIFFERE_CF','REJETE_CF','TRANSMIS_AC','PAYE_PARTIEL','PAYE','ARCHIVE','ANNULE','DIFFERE_AC','REJETE_AC'].includes(op.statut);
   const isOpLockedForAC = (op) => ['PAYE','PAYE_PARTIEL','DIFFERE_AC','REJETE_AC','ARCHIVE'].includes(op.statut);
   const isBordereauLocked = (bt) => {
@@ -590,6 +589,7 @@ const PageBordereaux=()=>{
     });
   };
 
+  // CORRECTION : L'OP retourne dans son onglet de transmission (Retour CF ou Paiement AC), il ne perd pas son bordereau
   const handleReintroduire=async(opIds,type='CF')=>{
     ask("Réintroduction", `Réintroduire ${opIds.length} OP dans le circuit ?`, async () => {
       setSaving(true);
@@ -599,8 +599,14 @@ const PageBordereaux=()=>{
         for(const opId of opIds){
           const op=ops.find(o=>o.id===opId);
           const hist=[...(op?.historiqueDifferes||[]),{dateDiffere:op?.dateDiffere,motifDiffere:op?.motifDiffere,dateReintroduction:d,type}];
-          const upd={statut:type==='CF'?'EN_COURS':'TRANSMIS_AC',dateReintroduction:d,historiqueDifferes:hist,dateDiffere:null,motifDiffere:null,updatedAt:new Date().toISOString()};
-          if(type==='CF'){upd.bordereauCF=null;upd.dateTransmissionCF=null;}
+          const upd={
+            statut: type==='CF' ? 'TRANSMIS_CF' : 'TRANSMIS_AC',
+            dateReintroduction:d,
+            historiqueDifferes:hist,
+            dateDiffere:null,
+            motifDiffere:null,
+            updatedAt:new Date().toISOString()
+          };
           batch.update(doc(db,'ops',opId), upd);
         }
         await batch.commit();
@@ -668,7 +674,16 @@ const PageBordereaux=()=>{
               </div>
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:`${P.gold}12`,borderRadius:10,marginBottom:14,border:`1px solid ${P.goldBorder}`}}>{I.lock(P.gold,18)}<div><div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div><div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div></div></div>}
+              
+              {/* MODIFICATION : Nettoyage du bloc alerte orange */}
+              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                 {I.lock(P.gold,16)}
+                 <div>
+                    <div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div>
+                    <div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div>
+                 </div>
+              </div>}
+
               {isPrep&&<div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -706,7 +721,6 @@ const PageBordereaux=()=>{
           <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
         </tr>;})}</tbody></table></div>
       
-      {/* MODIFICATION : Nettoyage du bloc jaune dans Différés */}
       {selectedOps.length>0&&selectedOps.some(id=>differes.find(o=>o.id===id))&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
         <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
            <label style={{fontSize:13,fontWeight:600,color:P.text}}>Date de réintroduction :</label>
@@ -1094,8 +1108,12 @@ const PageBordereaux=()=>{
       )}
       
       {isBordereauLocked(modalEditBT) && (
-        <div style={{marginTop:20,padding:12,background:P.redLight,color:P.red,fontSize:12,borderRadius:8,textAlign:'center'}}>
-          <strong>Bordereau verrouillé.</strong><br/>Certains OP ont avancé dans le circuit (Paiement ou Visa).<br/>Annulez les étapes sur les OP individuels pour débloquer le bordereau.
+        <div style={{marginTop:20, display:'flex', alignItems:'center', gap:10, color:P.textSec, fontSize:12, borderTop:`1px solid ${P.border}`, paddingTop:16}}>
+          {I.lock(P.gold, 20)}
+          <div>
+            <strong style={{color: P.gold}}>Bordereau verrouillé.</strong><br/>
+            Certains OP ont avancé. Annulez les étapes sur les OP individuels pour débloquer.
+          </div>
         </div>
       )}
     </Modal>}
