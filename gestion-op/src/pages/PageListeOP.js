@@ -21,6 +21,16 @@ const PageListeOP = () => {
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
 
+  // NOUVEAUTÉ : Fonction de formatage des dates (AAAA-MM-JJ vers JJ/MM/AAAA)
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    if (dateString.length >= 10) {
+      const [year, month, day] = dateString.substring(0, 10).split('-');
+      if (year && month && day) return `${day}/${month}/${year}`;
+    }
+    return dateString;
+  };
+
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
       if (op.exerciceId !== exerciceActif?.id) return false;
@@ -257,25 +267,26 @@ const PageListeOP = () => {
               </div>
               
               <div style={{background:'#F9F9F9',border:'1px solid #EEE',borderRadius:10,padding:16,marginBottom:24}}>
+                 {/* APPLICATION DU FORMATAGE JJ/MM/AAAA AUX DATES */}
                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
                     <span style={{color:'#666',fontWeight:600}}>Saisie le :</span>
-                    <span style={{fontWeight:700}}>{livePreviewOp.dateCreation || 'N/A'}</span>
+                    <span style={{fontWeight:700}}>{formatDate(livePreviewOp.dateCreation) || 'N/A'}</span>
                  </div>
                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
                     <span style={{color:'#666',fontWeight:600}}>Transmis CF :</span>
-                    <span style={{fontWeight:700}}>{livePreviewOp.dateTransmissionCF || 'En attente'}</span>
+                    <span style={{fontWeight:700}}>{formatDate(livePreviewOp.dateTransmissionCF) || 'En attente'}</span>
                  </div>
                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
                     <span style={{color:'#666',fontWeight:600}}>Visa CF :</span>
-                    <span style={{fontWeight:700,color:livePreviewOp.dateVisaCF?P.greenDark:P.text}}>{livePreviewOp.dateVisaCF || 'En attente'}</span>
+                    <span style={{fontWeight:700,color:livePreviewOp.dateVisaCF?P.greenDark:P.text}}>{formatDate(livePreviewOp.dateVisaCF) || 'En attente'}</span>
                  </div>
                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
                     <span style={{color:'#666',fontWeight:600}}>Transmis AC :</span>
-                    <span style={{fontWeight:700}}>{livePreviewOp.dateTransmissionAC || 'En attente'}</span>
+                    <span style={{fontWeight:700}}>{formatDate(livePreviewOp.dateTransmissionAC) || 'En attente'}</span>
                  </div>
-                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
-                    <span style={{color:'#666',fontWeight:600}}>Date Paiement :</span>
-                    <span style={{fontWeight:700,color:livePreviewOp.datePaiement?P.gold:P.text}}>{livePreviewOp.datePaiement || 'En attente'}</span>
+                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                    <span style={{color:'#666',fontWeight:600}}>Paiement :</span>
+                    <span style={{fontWeight:700,color:livePreviewOp.datePaiement?P.gold:P.text}}>{formatDate(livePreviewOp.datePaiement) || 'En attente'}</span>
                  </div>
                  
                  {/* DÉTAILS DU PAIEMENT SI EXISTANT */}
