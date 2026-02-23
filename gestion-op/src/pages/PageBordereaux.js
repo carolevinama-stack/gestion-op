@@ -37,7 +37,7 @@ const I={
 };
 
 // ============================================================
-// COMPOSANTS UI
+// COMPOSANTS UI & HELPERS
 // ============================================================
 const Badge=React.memo(({bg,color,children})=><span style={{background:bg,color,padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:600,whiteSpace:'nowrap',letterSpacing:.3}}>{children}</span>);
 const Empty=React.memo(({text})=><div style={{textAlign:'center',padding:40,color:P.textMuted}}><div style={{marginBottom:12,opacity:.5}}>{I.fileText(P.textMuted,40)}</div><p style={{fontSize:14,margin:0}}>{text}</p></div>);
@@ -86,6 +86,16 @@ const ModalAlert = ({ data, onClose }) => {
       </div>
     </div>
   </div>;
+};
+
+// HELPER DATES
+const formatDate = (ds) => {
+  if (!ds) return '-';
+  if (ds.length >= 10) {
+    const [y, m, d] = ds.substring(0, 10).split('-');
+    if (y && m && d) return `${d}/${m}/${y}`;
+  }
+  return ds;
 };
 
 // ============================================================
@@ -249,7 +259,7 @@ const PageBordereaux=()=>{
     }
 
     const lab=bt.type==='CF'?'au CF':"à l'AC";
-    ask("Confirmation", `Transmettre ${bt.numero} ${lab} le ${d} ?`, async () => {
+    ask("Confirmation", `Transmettre ${bt.numero} ${lab} le ${formatDate(d)} ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
@@ -399,22 +409,8 @@ const PageBordereaux=()=>{
             } else if(resultatCF==='DIFFERE'){
                upd.statut='DIFFERE_CF';upd.dateDiffere=d;upd.motifDiffere=motifRetour.trim();
             } else{
+               // MODIFICATION: Juste une mise à jour du statut, PAS de clone en négatif.
                upd.statut='REJETE_CF';upd.dateRejet=d;upd.motifRejet=motifRetour.trim();
-               const cloneRef = doc(collection(db, 'ops'));
-               const cloneOp = { ...op };
-               delete cloneOp.id;
-               cloneOp.type = 'REJET';
-               cloneOp.montant = -Math.abs(op.montant || 0);
-               cloneOp.statut = 'REJETE_CF';
-               cloneOp.dateRejet = d;
-               cloneOp.motifRejet = motifRetour.trim();
-               cloneOp.bordereauCF = null;
-               cloneOp.bordereauAC = null;
-               cloneOp.dateTransmissionCF = null;
-               cloneOp.dateTransmissionAC = null;
-               cloneOp.createdAt = new Date().toISOString();
-               cloneOp.updatedAt = new Date().toISOString();
-               batch.set(cloneRef, cloneOp);
             }
             batch.update(doc(db,'ops',opId), upd);
           }
@@ -449,25 +445,12 @@ const PageBordereaux=()=>{
         try{
           const batch = writeBatch(db);
           let upd={updatedAt:new Date().toISOString()};
-          const op = ops.find(o => o.id === modalPaiement.id);
 
           if(resultatAC==='DIFFERE'){
             upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();
           } else {
+            // MODIFICATION: Juste une mise à jour du statut, PAS de clone en négatif.
             upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();
-            const cloneRef = doc(collection(db, 'ops'));
-            const cloneOp = { ...op };
-            delete cloneOp.id;
-            cloneOp.type = 'REJET';
-            cloneOp.montant = -Math.abs(op.montant || 0);
-            cloneOp.statut = 'REJETE_AC';
-            cloneOp.dateRejet = d;
-            cloneOp.motifRejet = motifRetourAC.trim();
-            cloneOp.bordereauAC = null;
-            cloneOp.dateTransmissionAC = null;
-            cloneOp.createdAt = new Date().toISOString();
-            cloneOp.updatedAt = new Date().toISOString();
-            batch.set(cloneRef, cloneOp);
           }
           batch.update(doc(db,'ops',modalPaiement.id),upd);
           await batch.commit();
@@ -482,7 +465,7 @@ const PageBordereaux=()=>{
 
   const handlePaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);if(!op)return;
-    const m=parseFloat(paiementMontant);
+    const m=parseFloat(paiementMontant.replace(/\s/g, '')); // On nettoie les espaces
     if(isNaN(m)){notify("error", "Erreur", "Montant invalide.");return;}
     const d=readDate('paiement');if(!d){notify("error", "Erreur", "Date requise.");return;}
     const paiem=op.paiements||[];const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);const reste=(op.montant||0)-deja;
@@ -589,7 +572,6 @@ const PageBordereaux=()=>{
     });
   };
 
-  // CORRECTION : L'OP retourne dans son onglet de transmission (Retour CF ou Paiement AC), il ne perd pas son bordereau
   const handleReintroduire=async(opIds,type='CF')=>{
     ask("Réintroduction", `Réintroduire ${opIds.length} OP dans le circuit ?`, async () => {
       setSaving(true);
@@ -664,7 +646,7 @@ const PageBordereaux=()=>{
             <div onClick={()=>setExpandedBT(isExp?null:bt.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:isExp?P.greenLight:isPrep?'#fffde7':P.card,borderRadius:isExp?'12px 12px 0 0':12,border:isExp?`2px solid ${P.green}`:isPrep?`1px dashed ${P.goldBorder}`:`1px solid ${P.border}`,borderBottom:isExp?'none':undefined,cursor:'pointer',transition:'all .15s'}}>
               <span style={{display:'inline-flex',transform:isExp?'rotate(90deg)':'none',transition:'transform .2s'}}>{I.chevron(P.green,14)}</span>
               <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,minWidth:200}}>{bt.numero}</span>
-              <span style={{fontSize:12,color:P.textSec}}>{bt.dateTransmission||bt.dateCreation}</span>
+              <span style={{fontSize:12,color:P.textSec}}>{formatDate(bt.dateTransmission)||formatDate(bt.dateCreation)}</span>
               <Badge bg={isPrep?P.goldLight:P.greenLight} color={isPrep?P.gold:P.greenDark}>{isPrep?'En cours':'Transmis'}</Badge>
               <span style={{fontSize:12,color:P.textSec}}>{bt.nbOps} OP</span>
               <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,marginLeft:'auto',color:P.greenDark}}>{formatMontant(bt.totalMontant)} F</span>
@@ -674,8 +656,6 @@ const PageBordereaux=()=>{
               </div>
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              
-              {/* MODIFICATION : Nettoyage du bloc alerte orange */}
               {locked&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
                  {I.lock(P.gold,16)}
                  <div>
@@ -683,7 +663,6 @@ const PageBordereaux=()=>{
                     <div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div>
                  </div>
               </div>}
-
               {isPrep&&<div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -709,14 +688,23 @@ const PageBordereaux=()=>{
       {filterOps(differes,searchSuivi).length===0?<Empty text="Aucun différé"/>:<>
       <div style={{maxHeight:350,overflowY:'auto'}}><table style={styles.table}><thead><tr>
         <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(differes,searchSuivi).length&&selectedOps.length>0} onChange={()=>toggleAll(filterOps(differes,searchSuivi))}/></th>
-        <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>DATE</th><th style={thS}>MOTIF</th><th style={{...thS,width:36}}></th>
+        <th style={{...thS,width:110}}>N° OP</th>
+        <th style={{...thS,width:70}}>TYPE</th>
+        <th style={thS}>BÉNÉFICIAIRE</th>
+        <th style={thS}>OBJET</th>
+        <th style={{...thS,width:90,textAlign:'right'}}>MONTANT</th>
+        <th style={{...thS,width:80}}>DATE</th>
+        <th style={thS}>MOTIF</th>
+        <th style={{...thS,width:36}}></th>
       </tr></thead><tbody>{filterOps(differes,searchSuivi).map(op=>{const ch=selectedOps.includes(op.id);
         return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
           <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
           <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
+          <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
           <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
+          <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
           <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
-          <td style={{...styles.td,fontSize:12}}>{op.dateDiffere||'-'}</td>
+          <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateDiffere)}</td>
           <td style={{...styles.td,fontSize:11}}>{op.motifDiffere||'-'}</td>
           <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
         </tr>;})}</tbody></table></div>
@@ -732,12 +720,21 @@ const PageBordereaux=()=>{
     {subTab==='REJETES'&&<div style={crd}>
       {filterOps(rejetes,searchSuivi).length===0?<Empty text="Aucun rejeté"/>:
       <div style={{maxHeight:350,overflowY:'auto'}}><table style={styles.table}><thead><tr>
-        <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>DATE</th><th style={thS}>MOTIF</th><th style={{...thS,width:36}}></th>
+        <th style={{...thS,width:110}}>N° OP</th>
+        <th style={{...thS,width:70}}>TYPE</th>
+        <th style={thS}>BÉNÉFICIAIRE</th>
+        <th style={thS}>OBJET</th>
+        <th style={{...thS,width:90,textAlign:'right'}}>MONTANT</th>
+        <th style={{...thS,width:80}}>DATE</th>
+        <th style={thS}>MOTIF</th>
+        <th style={{...thS,width:36}}></th>
       </tr></thead><tbody>{filterOps(rejetes,searchSuivi).map(op=><tr key={op.id} style={{background:P.redLight}}>
         <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
+        <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
         <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
+        <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
         <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600,color:P.red}}>{formatMontant(op.montant)}</td>
-        <td style={{...styles.td,fontSize:12}}>{op.dateRejet||'-'}</td>
+        <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateRejet)}</td>
         <td style={{...styles.td,fontSize:11}}>{op.motifRejet||'-'}</td>
         <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'REJETE_CF':'REJETE_AC')}/></td>
       </tr>)}</tbody></table></div>}
@@ -784,14 +781,21 @@ const PageBordereaux=()=>{
         {filterOps(opsEligiblesCF,searchBT).length===0?<Empty text="Aucun OP éligible"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesCF,searchBT).length&&filterOps(opsEligiblesCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesCF,searchBT))}/></th>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:70}}>LIGNE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:80}}>STATUT</th>
+          <th style={{...thS,width:110}}>N° OP</th>
+          <th style={{...thS,width:70}}>TYPE</th>
+          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:70}}>LIGNE</th>
+          <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
+          <th style={{...thS,width:80}}>STATUT</th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesCF,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
+              <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
-              <td style={{...styles.td,fontSize:11,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:11}}>{op.ligneBudgetaire||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={styles.td}><Badge bg={op.statut==='DIFFERE_CF'?P.goldLight:P.greenLight} color={op.statut==='DIFFERE_CF'?P.gold:P.greenDark}>{op.statut==='DIFFERE_CF'?'Différé':'En cours'}</Badge></td>
@@ -811,16 +815,24 @@ const PageBordereaux=()=>{
         {filterOps(opsTransmisCF,searchBT).length===0?<Empty text="Aucun OP"/>:
         <div style={{maxHeight:400,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsTransmisCF,searchBT).length&&filterOps(opsTransmisCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsTransmisCF,searchBT))}/></th>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:100}}>N° BT</th><th style={{...thS,width:90}}>TRANSMIS</th>
+          <th style={{...thS,width:110}}>N° OP</th>
+          <th style={{...thS,width:70}}>TYPE</th>
+          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
+          <th style={{...thS,width:100}}>N° BT</th>
+          <th style={{...thS,width:90}}>TRANSMIS</th>
         </tr></thead><tbody>
           {filterOps(opsTransmisCF,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?`${P.gold}10`:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
+              <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:9}}>{op.bordereauCF||'-'}</td>
-              <td style={{...styles.td,fontSize:12}}>{op.dateTransmissionCF||'-'}</td>
+              <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateTransmissionCF)}</td>
             </tr>;})}
         </tbody></table></div>}
         {selectedOps.length>0&&<div style={{marginTop:14,textAlign:'right'}}><ActionBtn label="Retour CF" count={selectedOps.length} color={P.gold} onClick={()=>{setModalRetourCF(true);setResultatCF('VISE');setMotifRetour('');}}/></div>}
@@ -842,16 +854,23 @@ const PageBordereaux=()=>{
         {filterOps(opsEligiblesAC,searchBT).length===0?<Empty text="Aucun OP visé"/>:
         <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesAC,searchBT).length&&filterOps(opsEligiblesAC,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesAC,searchBT))}/></th>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:90}}>VISA CF</th><th style={{...thS,width:36}}></th>
+          <th style={{...thS,width:110}}>N° OP</th>
+          <th style={{...thS,width:70}}>TYPE</th>
+          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
+          <th style={{...thS,width:90}}>VISA CF</th>
+          <th style={{...thS,width:36}}></th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesAC,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
+              <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
-              <td style={{...styles.td,fontSize:11,maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
-              <td style={{...styles.td,fontSize:12}}>{op.dateVisaCF||'-'}</td>
+              <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateVisaCF)}</td>
               <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler visa" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,'VISE_CF')}/></td>
             </tr>;})}
         </tbody></table></div>}
@@ -862,22 +881,55 @@ const PageBordereaux=()=>{
         </div>}
       </div>}
       {subTabAC==='BORDEREAUX'&&renderBordereaux(bordereauAC)}
+      
+      {/* MODIFICATION: L'onglet PAIEMENT devient un tableau complet avec Type et Objet */}
       {subTabAC==='PAIEMENT'&&<div style={crd}>
         <h3 style={{margin:'0 0 6px',color:P.gold,fontSize:15}}>Paiements ({opsTransmisAC.length})</h3>
         <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Cliquez sur un OP pour gérer.</p>
         <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsTransmisAC,searchBT).length===0?<Empty text="Aucun OP"/>:
-        <div style={{maxHeight:'55vh',overflowY:'auto'}}>{filterOps(opsTransmisAC,searchBT).map(op=>{
-          const paiem=op.paiements||[];const tot=paiem.reduce((s,p)=>s+(p.montant||0),0);const reste=(op.montant||0)-tot;
-          return<div key={op.id} onClick={()=>{setModalPaiement(op);setPaiementMontant('');setPaiementReference('');setMotifRetourAC('');setBoiteModalPaiement('');setResultatAC('DIFFERE');}}
-            style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',border:`1px solid ${P.border}`,borderRadius:12,marginBottom:4,cursor:'pointer',background:modalPaiement?.id===op.id?P.goldLight:P.card,transition:'all .15s'}}>
-            <span style={{fontFamily:'monospace',fontWeight:700,fontSize:11}}>{op.numero}</span>
-            <span style={{fontSize:12,flex:1}}>{getBen(op)}</span>
-            {tot>0&&<Badge bg={P.goldLight} color={P.gold}>{Math.round(tot/(op.montant||1)*100)}%</Badge>}
-            <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,color:P.greenDark}}>{formatMontant(op.montant)} F</span>
-            {tot>0&&<span style={{fontSize:11,color:reste>0?P.red:P.green,fontWeight:600}}>Reste {formatMontant(reste)}</span>}
-            <span style={{display:'inline-flex'}}>{I.chevron(P.gold,14)}</span>
-          </div>;})}</div>}
+        <div style={{maxHeight:'55vh',overflowY:'auto'}}>
+          <table style={styles.table}>
+            <thead style={{position:'sticky',top:0,zIndex:1}}>
+              <tr>
+                <th style={{...thS,width:110}}>N° OP</th>
+                <th style={{...thS,width:70}}>TYPE</th>
+                <th style={thS}>BÉNÉFICIAIRE</th>
+                <th style={thS}>OBJET</th>
+                <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
+                <th style={{...thS,width:90,textAlign:'center'}}>PROG.</th>
+                <th style={{...thS,width:100,textAlign:'right'}}>RESTE</th>
+                <th style={{...thS,width:30}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filterOps(opsTransmisAC,searchBT).map(op=>{
+                const paiem=op.paiements||[];
+                const tot=paiem.reduce((s,p)=>s+(p.montant||0),0);
+                const reste=(op.montant||0)-tot;
+                const pct = Math.round(tot/Math.max(op.montant||1,1)*100);
+                
+                return (
+                  <tr key={op.id} onClick={()=>{setModalPaiement(op);setPaiementMontant('');setPaiementReference('');setMotifRetourAC('');setBoiteModalPaiement('');setResultatAC('DIFFERE');}}
+                    style={{cursor:'pointer',background:modalPaiement?.id===op.id?P.goldLight:'transparent', transition:'all .15s'}}>
+                    <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{op.numero}</td>
+                    <td style={{...styles.td, fontSize:10, fontWeight:600}}>{op.type}</td>
+                    <td style={{...styles.td, fontSize:12, fontWeight:600}}>{getBen(op)}</td>
+                    <td style={{...styles.td, fontSize:11, maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+                    <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:700, color:P.greenDark}}>{formatMontant(op.montant)}</td>
+                    <td style={{...styles.td, textAlign:'center'}}>
+                       {tot>0&&<Badge bg={P.goldLight} color={P.gold}>{pct}%</Badge>}
+                    </td>
+                    <td style={{...styles.td, textAlign:'right', fontWeight:700, color:reste>0?P.red:P.greenDark}}>
+                       {reste > 0 ? formatMontant(reste) : 'Soldé'}
+                    </td>
+                    <td style={styles.td}>{I.chevron(P.gold,14)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>}
       </div>}
       {subTabAC==='SUIVI'&&renderSuivi(opsDifferesAC,opsRejetesAC,'AC',subTabSuiviAC,setSubTabSuiviAC)}
     </div>}
@@ -895,16 +947,24 @@ const PageBordereaux=()=>{
         {filterOps(opsAArchiver,searchArch).length===0?<Empty text="Aucun OP à archiver"/>:
         <div style={{maxHeight:400,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsAArchiver,searchArch).length&&filterOps(opsAArchiver,searchArch).length>0} onChange={()=>toggleAll(filterOps(opsAArchiver,searchArch))}/></th>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:80}}>STATUT</th><th style={{...thS,width:100}}>DATE</th>
+          <th style={{...thS,width:110}}>N° OP</th>
+          <th style={{...thS,width:70}}>TYPE</th>
+          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
+          <th style={{...thS,width:80}}>STATUT</th>
+          <th style={{...thS,width:90}}>DATE</th>
         </tr></thead><tbody>
           {filterOps(opsAArchiver,searchArch).map(op=>{const ch=selectedOps.includes(op.id);
             return<tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
+              <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={styles.td}>{op.statut==='ANNULE'?<Badge bg={P.redLight} color={P.red}>Annulé</Badge>:<Badge bg={P.greenLight} color={P.greenDark}>Payé</Badge>}</td>
-              <td style={{...styles.td,fontSize:12}}>{op.datePaiement||op.dateVisaCF||'-'}</td>
+              <td style={{...styles.td,fontSize:11}}>{formatDate(op.datePaiement)||formatDate(op.dateVisaCF)}</td>
             </tr>;})}
         </tbody></table></div>}
         {selectedOps.length>0&&<div style={{marginTop:14,textAlign:'right'}}><ActionBtn label="Archiver" icon={I.archive('#fff',14)} count={selectedOps.length} color={P.olive} onClick={()=>{setModalArchive(true);setBoiteArchivage('');}}/></div>}
@@ -914,14 +974,23 @@ const PageBordereaux=()=>{
         <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsArchives,searchArch).length===0?<Empty text="Aucun OP archivé"/>:
         <div style={{maxHeight:500,overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
-          <th style={{...thS,width:130}}>N° OP</th><th style={thS}>BÉNÉFICIAIRE</th><th style={{...thS,width:110,textAlign:'right'}}>MONTANT</th><th style={{...thS,width:120}}>BOÎTE</th><th style={{...thS,width:90}}>DATE</th><th style={{...thS,width:80}}>ACTIONS</th>
+          <th style={{...thS,width:110}}>N° OP</th>
+          <th style={{...thS,width:70}}>TYPE</th>
+          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
+          <th style={{...thS,width:100}}>BOÎTE</th>
+          <th style={{...thS,width:80}}>DATE</th>
+          <th style={{...thS,width:80}}>ACTIONS</th>
         </tr></thead><tbody>
           {filterOps(opsArchives,searchArch).map(op=><tr key={op.id}>
             <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
+            <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
             <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
+            <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
             <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
             <td style={{...styles.td,fontWeight:700,color:P.olive}}>{op.boiteArchivage||'-'}</td>
-            <td style={{...styles.td,fontSize:12}}>{op.dateArchivage||'-'}</td>
+            <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateArchivage)}</td>
             <td style={{...styles.td,display:'flex',gap:4}}>
               <IBtn icon={I.edit(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
               <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler la décision)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
@@ -996,7 +1065,7 @@ const PageBordereaux=()=>{
           
           {paiem.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Historique des paiements</div>
-            {paiem.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:i%2===0?P.goldLight:P.card,borderRadius:8,marginBottom:2}}><div><span style={{fontSize:12}}>{p.date}</span><span style={{fontSize:11,color:P.textMuted,marginLeft:8}}>{p.reference||'Sans réf.'}</span></div><span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,color:P.gold}}>{formatMontant(p.montant)} F</span></div>)}
+            {paiem.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:i%2===0?P.goldLight:P.card,borderRadius:8,marginBottom:2}}><div><span style={{fontSize:12}}>{formatDate(p.date)}</span><span style={{fontSize:11,color:P.textMuted,marginLeft:8}}>{p.reference||'Sans réf.'}</span></div><span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,color:P.gold}}>{formatMontant(p.montant)} F</span></div>)}
             <button onClick={()=>handleAnnulerPaiement(op.id)} disabled={saving} style={{marginTop:8,padding:'6px 14px',background:P.redLight,color:P.red,border:'none',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}>{I.undo(P.red,13)} Annuler dernier paiement</button>
           </div>}
           
@@ -1004,7 +1073,17 @@ const PageBordereaux=()=>{
             <div style={{fontSize:11,fontWeight:700,color:P.gold,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Enregistrer un paiement</div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
               <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
-              <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label><input type="number" value={paiementMontant} onChange={e=>setPaiementMontant(e.target.value)} placeholder={String(reste)} style={iS}/></div>
+              <div style={{flex:1,minWidth:100}}>
+                 <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
+                 {/* MODIFICATION: Input text avec formatage séparateur de milliers en direct */}
+                 <input 
+                   type="text" 
+                   value={paiementMontant.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} 
+                   onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} 
+                   placeholder={String(reste).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} 
+                   style={iS}
+                 />
+              </div>
               <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Réf. Virement</label><input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/></div>
             </div>
             <div style={{textAlign:'right'}}>
@@ -1136,7 +1215,7 @@ const PageBordereaux=()=>{
                      <tr key={b.id} style={{background: P.bg}}>
                         <td style={{...styles.td, fontFamily: 'monospace', fontWeight: 700}}>{b.numero}</td>
                         <td style={styles.td}>{getSigleSrc(b.sourceId)}</td>
-                        <td style={styles.td}>{b.deletedAt ? b.deletedAt.substring(0, 10) : '-'}</td>
+                        <td style={styles.td}>{formatDate(b.deletedAt)}</td>
                         <td style={{...styles.td, color: P.red, fontWeight: 600}}>{b.motifSuppression || 'Non renseigné'}</td>
                      </tr>
                   ))}
