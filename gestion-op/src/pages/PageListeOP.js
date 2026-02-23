@@ -67,6 +67,20 @@ const PageListeOP = () => {
   // L'OP affiché dans la modale est récupéré en direct, donc il s'actualise seul
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
 
+  // Style épaissi pour l'en-tête du tableau
+  const thStyle = {
+    ...styles.th, 
+    fontSize: 11, 
+    color: P.textSec, 
+    textTransform: 'uppercase', 
+    padding: '16px 12px', // Plus de marge interne pour agrandir la ligne
+    height: '48px',       // Hauteur forcée
+    background: '#FAFAF8',
+    position: 'sticky',   // Garde l'en-tête visible quand on scrolle
+    top: 0,
+    zIndex: 10
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -82,7 +96,7 @@ const PageListeOP = () => {
         </button>
         {sources.map(s => {
           const isActif = activeSource === s.id;
-          const srcColor = s.couleur || P.greenDark; // Couleur paramétrée ou vert par défaut
+          const srcColor = s.couleur || P.greenDark;
           return (
             <button key={s.id} onClick={() => setActiveSource(s.id)} 
               style={{padding:'8px 20px',borderRadius:10,border:isActif?`2px solid ${srcColor}`:'2px solid transparent',background:isActif?srcColor:'#EDEAE5',color:isActif?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:isActif?`0 2px 8px ${srcColor}55`:'none'}}>
@@ -92,14 +106,14 @@ const PageListeOP = () => {
         })}
       </div>
 
-      {/* FILTRES AVEC DATES RESTAURÉES */}
+      {/* FILTRES AJUSTÉS AU CONTENU */}
       <div style={{ ...styles.card, background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, marginBottom: 20 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end' }}>
-          <div style={{ flex: 2, minWidth: '200px' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Recherche globale</label>
             <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="N°, bénéficiaire, montant..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
           </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
+          <div style={{ width: '130px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Type</label>
             <select style={{...styles.select, marginBottom: 0}} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
               <option value="">Tous les types</option>
@@ -107,22 +121,22 @@ const PageListeOP = () => {
               <option value="PROVISOIRE">Provisoire</option>
               <option value="DEFINITIF">Définitif</option>
               <option value="ANNULATION">Annulation</option>
-              <option value="REJET">Rejet (Contre-passation)</option>
+              <option value="REJET">Rejet</option>
             </select>
           </div>
-          <div style={{ flex: 1, minWidth: '100px' }}>
+          <div style={{ width: '90px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Ligne Budg.</label>
             <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Code" value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
           </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
+          <div style={{ width: '130px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Du (Date saisie)</label>
             <input type="date" style={{...styles.input, marginBottom: 0}} value={filters.dateDebut} onChange={e => setFilters({...filters, dateDebut: e.target.value})} />
           </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
+          <div style={{ width: '130px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Au</label>
             <input type="date" style={{...styles.input, marginBottom: 0}} value={filters.dateFin} onChange={e => setFilters({...filters, dateFin: e.target.value})} />
           </div>
-          <div style={{ flex: 1, minWidth: '140px' }}>
+          <div style={{ width: '150px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Statut</label>
             <select style={{...styles.select, marginBottom: 0}} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
               <option value="">Tous les statuts</option>
@@ -148,7 +162,8 @@ const PageListeOP = () => {
         </div>
       </div>
 
-      <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'hidden' }}>
+      {/* TABLEAU AVEC SCROLL RÉTABLI ET EN-TÊTE ÉPAISSI */}
+      <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '65vh' }}>
         <table style={styles.table}>
           <colgroup>
             <col style={{ width: '12%' }} />
@@ -163,20 +178,20 @@ const PageListeOP = () => {
           </colgroup>
           <thead>
             <tr>
-              <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase'}}>N° OP</th>
-              <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase'}}>Type</th>
-              <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase'}}>Bénéficiaire</th>
-              <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase'}}>Ligne</th>
-              {activeSource !== 'ALL' && <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase', textAlign: 'right'}}>Dotation</th>}
-              <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase', textAlign: 'right'}}>Montant</th>
+              <th style={{...thStyle}}>N° OP</th>
+              <th style={{...thStyle}}>Type</th>
+              <th style={{...thStyle}}>Bénéficiaire</th>
+              <th style={{...thStyle}}>Ligne</th>
+              {activeSource !== 'ALL' && <th style={{...thStyle, textAlign: 'right'}}>Dotation</th>}
+              <th style={{...thStyle, textAlign: 'right'}}>Montant</th>
               {activeSource !== 'ALL' && (
                 <>
-                  <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase', textAlign: 'right'}}>Engag. Ant.</th>
-                  <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase', textAlign: 'right'}}>Disponible</th>
+                  <th style={{...thStyle, textAlign: 'right'}}>Engag. Ant.</th>
+                  <th style={{...thStyle, textAlign: 'right'}}>Disponible</th>
                 </>
               )}
-              <th style={{...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase', textAlign: 'center'}}>Statut</th>
-              <th style={{...styles.th, background: '#FAFAF8'}}></th>
+              <th style={{...thStyle, textAlign: 'center'}}>Statut</th>
+              <th style={{...thStyle, background: '#FAFAF8'}}></th>
             </tr>
           </thead>
           <tbody>
@@ -191,7 +206,7 @@ const PageListeOP = () => {
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
                   {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.dotationLigne)}</td>}
                   
-                  {/* Mise en évidence du montant si c'est un REJET négatif */}
+                  {/* Montant en Rouge si c'est un rejet (Négatif) */}
                   <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800, color: op.montant < 0 ? P.red : P.greenDark }}>
                     {formatMontant(op.montant)}
                   </td>
