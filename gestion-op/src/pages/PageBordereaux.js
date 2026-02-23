@@ -18,7 +18,6 @@ const P = {
 
 const I={
   print:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
-  settings:(c=P.textSec,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
   trash:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
   undo:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>,
   check:(c='#fff',s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
@@ -88,7 +87,7 @@ const ModalAlert = ({ data, onClose }) => {
   </div>;
 };
 
-// HELPER DATES
+// FORMATAGE DATE (YYYY-MM-DD -> DD/MM/YYYY)
 const formatDate = (ds) => {
   if (!ds) return '-';
   if (ds.length >= 10) {
@@ -465,7 +464,7 @@ const PageBordereaux=()=>{
 
   const handlePaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);if(!op)return;
-    const m=parseFloat(paiementMontant.replace(/\s/g, '')); // On nettoie les espaces
+    const m=parseFloat(paiementMontant.replace(/\s/g, '')); // Nettoyage des espaces pour le calcul
     if(isNaN(m)){notify("error", "Erreur", "Montant invalide.");return;}
     const d=readDate('paiement');if(!d){notify("error", "Erreur", "Date requise.");return;}
     const paiem=op.paiements||[];const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);const reste=(op.montant||0)-deja;
@@ -656,13 +655,12 @@ const PageBordereaux=()=>{
               </div>
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              {locked&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-                 {I.lock(P.gold,16)}
-                 <div>
-                    <div style={{fontWeight:700,fontSize:13,color:P.gold}}>Bordereau verrouillé</div>
-                    <div style={{fontSize:12,color:P.textSec,marginTop:2}}>Des OP ont avancé. Utilisez l'icône de cadenas pour voir les détails.</div>
-                 </div>
+              
+              {/* MODIFICATION : Nettoyage total du bloc verrouillé (plus de bloc orange, texte simple) */}
+              {locked&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,color:P.gold,fontSize:13,fontWeight:600}}>
+                 {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
               </div>}
+
               {isPrep&&<div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -709,6 +707,7 @@ const PageBordereaux=()=>{
           <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
         </tr>;})}</tbody></table></div>
       
+      {/* MODIFICATION : Nettoyage du bloc de réintroduction */}
       {selectedOps.length>0&&selectedOps.some(id=>differes.find(o=>o.id===id))&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
         <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
            <label style={{fontSize:13,fontWeight:600,color:P.text}}>Date de réintroduction :</label>
@@ -882,7 +881,7 @@ const PageBordereaux=()=>{
       </div>}
       {subTabAC==='BORDEREAUX'&&renderBordereaux(bordereauAC)}
       
-      {/* MODIFICATION: L'onglet PAIEMENT devient un tableau complet avec Type et Objet */}
+      {/* MODIFICATION: L'onglet PAIEMENT est un tableau complet avec Type et Objet */}
       {subTabAC==='PAIEMENT'&&<div style={crd}>
         <h3 style={{margin:'0 0 6px',color:P.gold,fontSize:15}}>Paiements ({opsTransmisAC.length})</h3>
         <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Cliquez sur un OP pour gérer.</p>
@@ -992,6 +991,7 @@ const PageBordereaux=()=>{
             <td style={{...styles.td,fontWeight:700,color:P.olive}}>{op.boiteArchivage||'-'}</td>
             <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateArchivage)}</td>
             <td style={{...styles.td,display:'flex',gap:4}}>
+              {/* MODIFICATION DE L'ICÔNE : Remplacement de I.settings par I.edit (Stylo) */}
               <IBtn icon={I.edit(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
               <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler la décision)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
             </td>
@@ -1075,12 +1075,12 @@ const PageBordereaux=()=>{
               <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
               <div style={{flex:1,minWidth:100}}>
                  <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
-                 {/* MODIFICATION: Input text avec formatage séparateur de milliers en direct */}
+                 {/* MODIFICATION: Nettoyage du placeholder et formatage en direct avec séparateur */}
                  <input 
                    type="text" 
                    value={paiementMontant.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} 
                    onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} 
-                   placeholder={String(reste).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} 
+                   placeholder="0" 
                    style={iS}
                  />
               </div>
@@ -1108,11 +1108,13 @@ const PageBordereaux=()=>{
             {resultatAC==='REJETE'&&<div style={{fontSize:11,color:P.red,marginBottom:10}}>{I.warn(P.red,12)} Sécurisé par mot de passe.</div>}
             
             <div style={{textAlign:'right'}}>
-               <ActionBtn label="Appliquer Décision" color={resultatAC==='DIFFERE'?P.goldBorder:P.red} onClick={handleRetourAC} disabled={saving}/>
+               {/* MODIFICATION: Texte Valider au lieu de Appliquer Décision */}
+               <ActionBtn label="Valider" color={resultatAC==='DIFFERE'?P.goldBorder:P.red} onClick={handleRetourAC} disabled={saving}/>
             </div>
           </div>}
 
-          {op.statut==='TRANSMIS_AC'&&paiem.length===0&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:14,marginTop:14}}>
+          {/* MODIFICATION: Bouton plat sans encadré pour Annuler la transmission */}
+          {op.statut==='TRANSMIS_AC'&&paiem.length===0&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:14,marginTop:14, textAlign:'center'}}>
             <button onClick={async()=>{
               checkPwd(async () => {
                 ask("Annulation", "Annuler la transmission AC et renvoyer au CF ?", async () => {
@@ -1121,7 +1123,7 @@ const PageBordereaux=()=>{
                   setSaving(false);
                 });
               });
-            }} disabled={saving} style={{width:'100%',padding:10,border:`1px solid ${P.goldBorder}`,borderRadius:10,background:P.goldLight,color:P.gold,fontWeight:600,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.undo(P.gold,14)} Annuler la transmission AC</button>
+            }} disabled={saving} style={{background:'transparent', border:'none', color:P.gold, fontSize:12, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6, textDecoration:'underline'}}>{I.undo(P.gold,14)} Annuler la transmission AC</button>
           </div>}
           
           {op.statut!=='ARCHIVE'&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:16}}>
@@ -1174,9 +1176,10 @@ const PageBordereaux=()=>{
           return<div style={{background:P.greenLight,borderRadius:10,padding:12,maxHeight:200,overflowY:'auto'}}>{avails.length===0?<span style={{fontSize:12,color:P.textMuted}}>Aucun OP disponible</span>:avails.map(op=><div key={op.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderBottom:`1px solid ${P.border}`}}><span style={{fontSize:11}}><strong style={{fontFamily:'monospace'}}>{op.numero}</strong> — {getBen(op)} — {formatMontant(op.montant)} F</span><IBtn icon={I.plusCircle(P.green,16)} title="Ajouter" bg={P.greenLight} onClick={()=>handleAddOpToBT(modalEditBT,op.id)}/></div>)}</div>;})()}
       </div>}
       
+      {/* MODIFICATION: Bouton plat sans encadré pour Annuler la transmission globale */}
       {modalEditBT.statut === 'ENVOYE' && !isBordereauLocked(modalEditBT) && (
-        <div style={{marginTop:20,borderTop:`1px solid ${P.border}`,paddingTop:16}}>
-           <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.goldBorder}`,borderRadius:10,background:P.goldLight,color:P.gold,fontWeight:700,fontSize:13,cursor:'pointer'}}>Annuler la transmission globale</button>
+        <div style={{marginTop:20,borderTop:`1px solid ${P.border}`,paddingTop:16, textAlign:'center'}}>
+           <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{background:'transparent', border:'none', color:P.gold, fontSize:13, fontWeight:700, cursor:'pointer', textDecoration:'underline'}}>Annuler la transmission globale</button>
         </div>
       )}
 
@@ -1186,13 +1189,10 @@ const PageBordereaux=()=>{
         </div>
       )}
       
+      {/* MODIFICATION: Nettoyage du bloc verrouillé dans la modale */}
       {isBordereauLocked(modalEditBT) && (
-        <div style={{marginTop:20, display:'flex', alignItems:'center', gap:10, color:P.textSec, fontSize:12, borderTop:`1px solid ${P.border}`, paddingTop:16}}>
-          {I.lock(P.gold, 20)}
-          <div>
-            <strong style={{color: P.gold}}>Bordereau verrouillé.</strong><br/>
-            Certains OP ont avancé. Annulez les étapes sur les OP individuels pour débloquer.
-          </div>
+        <div style={{marginTop:20, borderTop:`1px solid ${P.border}`, paddingTop:16, display:'flex', alignItems:'center', gap:8, color:P.gold, fontSize:12, fontWeight:600}}>
+          {I.lock(P.gold, 16)} <span>Bordereau verrouillé (Certains OP ont avancé).</span>
         </div>
       )}
     </Modal>}
