@@ -18,6 +18,7 @@ const P = {
 
 const I={
   print:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+  settings:(c=P.textSec,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
   trash:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
   undo:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>,
   check:(c='#fff',s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
@@ -408,7 +409,7 @@ const PageBordereaux=()=>{
             } else if(resultatCF==='DIFFERE'){
                upd.statut='DIFFERE_CF';upd.dateDiffere=d;upd.motifDiffere=motifRetour.trim();
             } else{
-               // MODIFICATION: Juste une mise à jour du statut, PAS de clone en négatif.
+               // Juste une mise à jour du statut, PAS de clone en négatif.
                upd.statut='REJETE_CF';upd.dateRejet=d;upd.motifRejet=motifRetour.trim();
             }
             batch.update(doc(db,'ops',opId), upd);
@@ -448,7 +449,7 @@ const PageBordereaux=()=>{
           if(resultatAC==='DIFFERE'){
             upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();
           } else {
-            // MODIFICATION: Juste une mise à jour du statut, PAS de clone en négatif.
+            // Juste une mise à jour du statut, PAS de clone en négatif.
             upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();
           }
           batch.update(doc(db,'ops',modalPaiement.id),upd);
@@ -656,7 +657,6 @@ const PageBordereaux=()=>{
             </div>
             {isExp&&<div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
               
-              {/* MODIFICATION : Nettoyage total du bloc verrouillé (plus de bloc orange, texte simple) */}
               {locked&&<div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,color:P.gold,fontSize:13,fontWeight:600}}>
                  {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
               </div>}
@@ -707,7 +707,6 @@ const PageBordereaux=()=>{
           <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
         </tr>;})}</tbody></table></div>
       
-      {/* MODIFICATION : Nettoyage du bloc de réintroduction */}
       {selectedOps.length>0&&selectedOps.some(id=>differes.find(o=>o.id===id))&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
         <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
            <label style={{fontSize:13,fontWeight:600,color:P.text}}>Date de réintroduction :</label>
@@ -881,7 +880,6 @@ const PageBordereaux=()=>{
       </div>}
       {subTabAC==='BORDEREAUX'&&renderBordereaux(bordereauAC)}
       
-      {/* MODIFICATION: L'onglet PAIEMENT est un tableau complet avec Type et Objet */}
       {subTabAC==='PAIEMENT'&&<div style={crd}>
         <h3 style={{margin:'0 0 6px',color:P.gold,fontSize:15}}>Paiements ({opsTransmisAC.length})</h3>
         <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Cliquez sur un OP pour gérer.</p>
@@ -991,7 +989,6 @@ const PageBordereaux=()=>{
             <td style={{...styles.td,fontWeight:700,color:P.olive}}>{op.boiteArchivage||'-'}</td>
             <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateArchivage)}</td>
             <td style={{...styles.td,display:'flex',gap:4}}>
-              {/* MODIFICATION DE L'ICÔNE : Remplacement de I.settings par I.edit (Stylo) */}
               <IBtn icon={I.edit(P.olive,14)} title="Modifier boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
               <IBtn icon={I.undo(P.gold,14)} title="Rétropédaler (Annuler la décision)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
             </td>
@@ -1054,9 +1051,25 @@ const PageBordereaux=()=>{
         const op=ops.find(o=>o.id===modalPaiement.id)||modalPaiement;
         const paiem=op.paiements||[];const tot=paiem.reduce((s,p)=>s+(p.montant||0),0);const reste=(op.montant||0)-tot;const pct=Math.round(tot/Math.max(op.montant||1,1)*100);const isSolde=reste<1;
         return<>
-          <div style={{marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${P.border}`}}>
+          <div style={{marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${P.border}`, position:'relative'}}>
             <div style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:P.greenDark}}>{op.numero}</div>
-            <div style={{fontSize:15,fontWeight:600,marginTop:2}}>{getBen(op)}</div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:2}}>
+               <div style={{fontSize:15,fontWeight:600}}>{getBen(op)}</div>
+               
+               {/* MODIFICATION : Icône Annuler Transmission placée en haut à droite alignée sur le bénéficiaire */}
+               {op.statut==='TRANSMIS_AC'&&paiem.length===0&&(
+                  <IBtn icon={I.undo(P.gold,16)} title="Annuler la transmission AC" bg={`${P.gold}15`} disabled={saving} onClick={() => {
+                    checkPwd(async () => {
+                      ask("Annulation", "Annuler la transmission AC et renvoyer au CF ?", async () => {
+                        setSaving(true);
+                        try{await updateDoc(doc(db,'ops',op.id),{statut:'VISE_CF',dateTransmissionAC:null,bordereauAC:null,updatedAt:new Date().toISOString()});notify("success", "Annulée", "Transmission annulée.");setModalPaiement(null);}catch(e){notify("error", "Erreur", e.message);}
+                        setSaving(false);
+                      });
+                    });
+                  }} />
+               )}
+            </div>
+            
             <div style={{fontSize:12,color:P.textSec,marginTop:2}}>{op.objet||'-'}</div>
             <div style={{fontSize:22,fontWeight:800,color:P.gold,marginTop:10}}>{formatMontant(op.montant)} <span style={{fontSize:12,color:P.textSec,fontWeight:500}}>FCFA</span></div>
             <div style={{marginTop:10,background:P.border,borderRadius:6,height:8,overflow:'hidden'}}><div style={{width:`${Math.min(pct,100)}%`,height:'100%',background:pct>=100?P.green:P.gold,borderRadius:6}}/></div>
@@ -1075,12 +1088,11 @@ const PageBordereaux=()=>{
               <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
               <div style={{flex:1,minWidth:100}}>
                  <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
-                 {/* MODIFICATION: Nettoyage du placeholder et formatage en direct avec séparateur */}
                  <input 
                    type="text" 
                    value={paiementMontant.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} 
                    onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} 
-                   placeholder="0" 
+                   placeholder="" 
                    style={iS}
                  />
               </div>
@@ -1108,22 +1120,8 @@ const PageBordereaux=()=>{
             {resultatAC==='REJETE'&&<div style={{fontSize:11,color:P.red,marginBottom:10}}>{I.warn(P.red,12)} Sécurisé par mot de passe.</div>}
             
             <div style={{textAlign:'right'}}>
-               {/* MODIFICATION: Texte Valider au lieu de Appliquer Décision */}
                <ActionBtn label="Valider" color={resultatAC==='DIFFERE'?P.goldBorder:P.red} onClick={handleRetourAC} disabled={saving}/>
             </div>
-          </div>}
-
-          {/* MODIFICATION: Bouton plat sans encadré pour Annuler la transmission */}
-          {op.statut==='TRANSMIS_AC'&&paiem.length===0&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:14,marginTop:14, textAlign:'center'}}>
-            <button onClick={async()=>{
-              checkPwd(async () => {
-                ask("Annulation", "Annuler la transmission AC et renvoyer au CF ?", async () => {
-                  setSaving(true);
-                  try{await updateDoc(doc(db,'ops',op.id),{statut:'VISE_CF',dateTransmissionAC:null,bordereauAC:null,updatedAt:new Date().toISOString()});notify("success", "Annulée", "Transmission annulée.");setModalPaiement(null);}catch(e){notify("error", "Erreur", e.message);}
-                  setSaving(false);
-                });
-              });
-            }} disabled={saving} style={{background:'transparent', border:'none', color:P.gold, fontSize:12, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6, textDecoration:'underline'}}>{I.undo(P.gold,14)} Annuler la transmission AC</button>
           </div>}
           
           {op.statut!=='ARCHIVE'&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:16}}>
@@ -1176,7 +1174,6 @@ const PageBordereaux=()=>{
           return<div style={{background:P.greenLight,borderRadius:10,padding:12,maxHeight:200,overflowY:'auto'}}>{avails.length===0?<span style={{fontSize:12,color:P.textMuted}}>Aucun OP disponible</span>:avails.map(op=><div key={op.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderBottom:`1px solid ${P.border}`}}><span style={{fontSize:11}}><strong style={{fontFamily:'monospace'}}>{op.numero}</strong> — {getBen(op)} — {formatMontant(op.montant)} F</span><IBtn icon={I.plusCircle(P.green,16)} title="Ajouter" bg={P.greenLight} onClick={()=>handleAddOpToBT(modalEditBT,op.id)}/></div>)}</div>;})()}
       </div>}
       
-      {/* MODIFICATION: Bouton plat sans encadré pour Annuler la transmission globale */}
       {modalEditBT.statut === 'ENVOYE' && !isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20,borderTop:`1px solid ${P.border}`,paddingTop:16, textAlign:'center'}}>
            <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{background:'transparent', border:'none', color:P.gold, fontSize:13, fontWeight:700, cursor:'pointer', textDecoration:'underline'}}>Annuler la transmission globale</button>
@@ -1189,10 +1186,13 @@ const PageBordereaux=()=>{
         </div>
       )}
       
-      {/* MODIFICATION: Nettoyage du bloc verrouillé dans la modale */}
       {isBordereauLocked(modalEditBT) && (
-        <div style={{marginTop:20, borderTop:`1px solid ${P.border}`, paddingTop:16, display:'flex', alignItems:'center', gap:8, color:P.gold, fontSize:12, fontWeight:600}}>
-          {I.lock(P.gold, 16)} <span>Bordereau verrouillé (Certains OP ont avancé).</span>
+        <div style={{marginTop:20, display:'flex', alignItems:'center', gap:10, color:P.textSec, fontSize:12, borderTop:`1px solid ${P.border}`, paddingTop:16}}>
+          {I.lock(P.gold, 20)}
+          <div>
+            <strong style={{color: P.gold}}>Bordereau verrouillé.</strong><br/>
+            Certains OP ont avancé. Annulez les étapes sur les OP individuels pour débloquer.
+          </div>
         </div>
       )}
     </Modal>}
