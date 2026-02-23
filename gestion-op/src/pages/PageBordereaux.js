@@ -28,7 +28,7 @@ const I={
   archive:(c=P.olive,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
   search:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   lock:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  edit:(c=P.greenDark,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   warn:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   fileText:(c=P.textMuted,s=40)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
@@ -71,7 +71,6 @@ const ModalAlert = ({ data, onClose }) => {
       <div style={{display:'flex',gap:12,justifyContent:'center'}}>
         {isConfirm && <button onClick={onClose} style={{padding:'10px 24px',borderRadius:8,border:`1px solid ${P.border}`,background:'#f9f9f9',cursor:'pointer',fontWeight:600, color:P.text}}>Annuler</button>}
         
-        {/* CORRECTION DU CONFLIT DE MODALES ICI : On attend 150ms pour laisser l'ancienne modale se fermer avant d'ouvrir la nouvelle */}
         <button onClick={() => { 
           if(isConfirm && (data.showInput || data.showPwd) && !val) return; 
           const confirmFn = data.onConfirm;
@@ -164,8 +163,9 @@ const PageBordereaux=()=>{
   const getBen=(op)=>op?.beneficiaireNom||beneficiaires.find(b=>b.id===op?.beneficiaireId)?.nom||'N/A';
   const getSigleSrc=(srcId)=>sources.find(s=>s.id===srcId)?.sigle||'SRC';
   
-  const isOpLockedForCF = (op) => ['VISE_CF','TRANSMIS_AC','PAYE_PARTIEL','PAYE','ARCHIVE','ANNULE','DIFFERE_AC','REJETE_AC'].includes(op.statut);
-  const isOpLockedForAC = (op) => ['PAYE','ARCHIVE'].includes(op.statut);
+  // MODIFICATION : Ajout des statuts Différés et Rejetés dans la règle de verrouillage des bordereaux
+  const isOpLockedForCF = (op) => ['VISE_CF','DIFFERE_CF','REJETE_CF','TRANSMIS_AC','PAYE_PARTIEL','PAYE','ARCHIVE','ANNULE','DIFFERE_AC','REJETE_AC'].includes(op.statut);
+  const isOpLockedForAC = (op) => ['PAYE','PAYE_PARTIEL','DIFFERE_AC','REJETE_AC','ARCHIVE'].includes(op.statut);
   const isBordereauLocked = (bt) => {
     if (!bt.opsIds) return false;
     if (bt.type === 'CF') return bt.opsIds.some(id => { const op = ops.find(o => o.id === id); return op && isOpLockedForCF(op); });
@@ -371,7 +371,7 @@ const PageBordereaux=()=>{
             batch.update(doc(db, 'ops', opId), {[bf]:null,statut:ps,[df]:null,updatedAt:new Date().toISOString()});
           });
           await batch.commit();
-          notify("success", "Supprimé", "Bordereau supprimé et archivé dans l'historique.");
+          notify("success", "Supprimé", "Bordereau archivé dans l'historique.");
           if(expandedBT===bt.id)setExpandedBT(null);setModalEditBT(null);
         }catch(e){notify("error", "Erreur", e.message);}
       }, false, true, "Motif obligatoire");
@@ -401,11 +401,26 @@ const PageBordereaux=()=>{
                upd.statut='DIFFERE_CF';upd.dateDiffere=d;upd.motifDiffere=motifRetour.trim();
             } else{
                upd.statut='REJETE_CF';upd.dateRejet=d;upd.motifRejet=motifRetour.trim();
+               const cloneRef = doc(collection(db, 'ops'));
+               const cloneOp = { ...op };
+               delete cloneOp.id;
+               cloneOp.type = 'REJET';
+               cloneOp.montant = -Math.abs(op.montant || 0);
+               cloneOp.statut = 'REJETE_CF';
+               cloneOp.dateRejet = d;
+               cloneOp.motifRejet = motifRetour.trim();
+               cloneOp.bordereauCF = null;
+               cloneOp.bordereauAC = null;
+               cloneOp.dateTransmissionCF = null;
+               cloneOp.dateTransmissionAC = null;
+               cloneOp.createdAt = new Date().toISOString();
+               cloneOp.updatedAt = new Date().toISOString();
+               batch.set(cloneRef, cloneOp);
             }
             batch.update(doc(db,'ops',opId), upd);
           }
           await batch.commit();
-          notify("success", "Succès", "Mise à jour effectuée.");
+          notify("success", "Succès", "Mise à jour effectuée avec succès.");
           setSelectedOps([]);setMotifRetour('');setModalRetourCF(false);
         }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
@@ -433,10 +448,31 @@ const PageBordereaux=()=>{
       ask("Confirmation", `Marquer comme "${resultatAC}" ?`, async () => {
         setSaving(true);
         try{
+          const batch = writeBatch(db);
           let upd={updatedAt:new Date().toISOString()};
-          if(resultatAC==='DIFFERE'){upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();}
-          else{upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();}
-          await updateDoc(doc(db,'ops',modalPaiement.id),upd);
+          const op = ops.find(o => o.id === modalPaiement.id);
+
+          if(resultatAC==='DIFFERE'){
+            upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();
+          } else {
+            upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();
+            const cloneRef = doc(collection(db, 'ops'));
+            const cloneOp = { ...op };
+            delete cloneOp.id;
+            cloneOp.type = 'REJET';
+            cloneOp.montant = -Math.abs(op.montant || 0);
+            cloneOp.statut = 'REJETE_AC';
+            cloneOp.dateRejet = d;
+            cloneOp.motifRejet = motifRetourAC.trim();
+            cloneOp.bordereauAC = null;
+            cloneOp.dateTransmissionAC = null;
+            cloneOp.createdAt = new Date().toISOString();
+            cloneOp.updatedAt = new Date().toISOString();
+            batch.set(cloneRef, cloneOp);
+          }
+          batch.update(doc(db,'ops',modalPaiement.id),upd);
+          await batch.commit();
+
           notify("success", "Succès", "Mise à jour effectuée.");setModalPaiement(null);setMotifRetourAC('');
         }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
@@ -515,7 +551,6 @@ const PageBordereaux=()=>{
     });
   };
 
-  // CORRECTION : Rétropédalage sans conflit de modale
   const handleRetropedalage=async(opId)=>{
     checkPwd(() => {
       ask("Rétropédalage", "Annuler la décision finale et renvoyer cet OP à l'étape précédente ?", async () => {
@@ -556,10 +591,10 @@ const PageBordereaux=()=>{
   };
 
   const handleReintroduire=async(opIds,type='CF')=>{
-    const d=readDate('reintro');if(!d){notify("error", "Erreur", "Date requise.");return;}
     ask("Réintroduction", `Réintroduire ${opIds.length} OP dans le circuit ?`, async () => {
       setSaving(true);
       try{
+        const d=readDate('reintro') || new Date().toISOString().split('T')[0];
         const batch = writeBatch(db);
         for(const opId of opIds){
           const op=ops.find(o=>o.id===opId);
@@ -629,7 +664,6 @@ const PageBordereaux=()=>{
               <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,marginLeft:'auto',color:P.greenDark}}>{formatMontant(bt.totalMontant)} F</span>
               <div style={{display:'flex',gap:8,marginLeft:16}} onClick={e=>e.stopPropagation()}>
                 <IBtn icon={I.print(P.greenDark,16)} title="Imprimer" bg={`${P.greenDark}15`} onClick={()=>handlePrintBordereau(bt)}/>
-                {/* Icône Stylo (edit) ou Cadenas (lock) */}
                 <IBtn icon={locked ? I.lock(P.red, 16) : I.edit(P.greenDark, 16)} title={locked ? "Verrouillé" : "Modifier"} bg={locked ? P.redLight : `${P.greenDark}15`} onClick={()=>handleOpenEditBT(bt)} />
               </div>
             </div>
@@ -671,9 +705,14 @@ const PageBordereaux=()=>{
           <td style={{...styles.td,fontSize:11}}>{op.motifDiffere||'-'}</td>
           <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,type==='CF'?'DIFFERE_CF':'DIFFERE_AC')}/></td>
         </tr>;})}</tbody></table></div>
-      {selectedOps.length>0&&selectedOps.some(id=>differes.find(o=>o.id===id))&&<div style={{marginTop:12,padding:12,background:P.goldLight,borderRadius:10,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
-        <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:4}}>Date</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('reintro',el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/></div>
-        <ActionBtn label={`Réintroduire (${selectedOps.length})`} color={P.goldBorder} onClick={()=>handleReintroduire(selectedOps,type)} disabled={saving}/>
+      
+      {/* MODIFICATION : Nettoyage du bloc jaune dans Différés */}
+      {selectedOps.length>0&&selectedOps.some(id=>differes.find(o=>o.id===id))&&<div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
+        <div style={{display:'flex', alignItems:'center', gap: '10px'}}>
+           <label style={{fontSize:13,fontWeight:600,color:P.text}}>Date de réintroduction :</label>
+           <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('reintro',el)} style={{...styles.input,marginBottom:0,width:150,borderRadius:8,border:`1px solid ${P.border}`}}/>
+        </div>
+        <ActionBtn label={`Réintroduire (${selectedOps.length})`} color={P.gold} onClick={()=>handleReintroduire(selectedOps,type)} disabled={saving}/>
       </div>}</>}
     </div>}
     {subTab==='REJETES'&&<div style={crd}>
