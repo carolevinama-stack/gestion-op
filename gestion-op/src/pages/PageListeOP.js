@@ -59,7 +59,7 @@ const PageListeOP = () => {
     return withCalculations.filter(op => {
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
-        const searchString = `${op.numero} ${getBenNom(op)} ${op.montant} ${formatMontant(op.montant)}`.toLowerCase();
+        const searchString = `${op.numero} ${getBenNom(op)} ${op.objet || ''} ${op.montant} ${formatMontant(op.montant)}`.toLowerCase();
         if (!searchString.includes(searchLower)) return false;
       }
       if (filters.type && op.type !== filters.type) return false;
@@ -80,10 +80,10 @@ const PageListeOP = () => {
   // Style ajusté pour l'en-tête : texte plus grand, hauteur naturelle ajustée
   const thStyle = {
     ...styles.th, 
-    fontSize: 12, // Texte légèrement agrandi
+    fontSize: 12, 
     color: P.textSec, 
     textTransform: 'uppercase', 
-    padding: '12px 10px', // Marges réduites pour éviter une ligne trop haute
+    padding: '12px 10px', 
     background: '#FAFAF8',
     position: 'sticky',
     top: 0,
@@ -175,21 +175,23 @@ const PageListeOP = () => {
       <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '65vh' }}>
         <table style={styles.table}>
           <colgroup>
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '6%' }} />
-            {activeSource !== 'ALL' && <col style={{ width: '11%' }} />}
-            <col style={{ width: '11%' }} />
-            {activeSource !== 'ALL' && <><col style={{ width: '11%' }} /><col style={{ width: '10%' }} /></>}
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '3%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '14%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '7%' : '8%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '14%' : '20%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '12%' : '20%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '6%' : '8%' }} />
+            {activeSource !== 'ALL' && <col style={{ width: '10%' }} />}
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} />
+            {activeSource !== 'ALL' && <><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /></>}
+            <col style={{ width: activeSource !== 'ALL' ? '8%' : '12%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '3%' : '6%' }} />
           </colgroup>
           <thead>
             <tr>
               <th style={{...thStyle}}>N° OP</th>
               <th style={{...thStyle}}>Type</th>
               <th style={{...thStyle}}>Bénéficiaire</th>
+              <th style={{...thStyle}}>Objet</th>
               <th style={{...thStyle}}>Ligne</th>
               {activeSource !== 'ALL' && <th style={{...thStyle, textAlign: 'right'}}>Dotation</th>}
               <th style={{...thStyle, textAlign: 'right'}}>Montant</th>
@@ -212,6 +214,7 @@ const PageListeOP = () => {
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700, color: isRejet ? P.red : P.text }}>{op.numero}</td>
                   <td style={{ ...styles.td, fontSize: '10px', fontWeight: isRejet ? 800 : 600, color: isRejet ? P.red : '#666' }}>{op.type}</td>
                   <td style={{ ...styles.td, fontWeight: 600, fontSize: 12 }}>{getBenNom(op)}</td>
+                  <td style={{ ...styles.td, fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet || '-'}</td>
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
                   {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.dotationLigne)}</td>}
                   
@@ -237,7 +240,7 @@ const PageListeOP = () => {
             })}
             {displayOps.length === 0 && (
               <tr>
-                <td colSpan={activeSource !== 'ALL' ? 10 : 7} style={{ textAlign: 'center', padding: '40px', color: P.textMuted }}>
+                <td colSpan={activeSource !== 'ALL' ? 11 : 8} style={{ textAlign: 'center', padding: '40px', color: P.textMuted }}>
                   Aucun ordre de paiement trouvé avec ces filtres.
                 </td>
               </tr>
