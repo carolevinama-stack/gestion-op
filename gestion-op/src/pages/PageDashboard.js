@@ -3,6 +3,22 @@ import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 
+// ============================================================
+// ICÔNES SVG (Harmonisées avec le reste de l'application)
+// ============================================================
+const I = {
+  wallet: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4H6a2 2 0 01-2-2V6z"/></svg>,
+  file: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  checkCircle: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  percent: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
+  arrowRight: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+  alert: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  clock: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  xCircle: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  refresh: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>,
+  coins: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="7"/><line x1="8" y1="12" x2="8" y2="12"/><line x1="8" y1="4" x2="8" y2="4"/><line x1="4" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="12" y2="8"/><path d="M16 16v-4a4 4 0 00-4-4h-4"/></svg>,
+};
+
 // Calcul du nombre de jours entre une date et aujourd'hui
 const joursDepuis = (dateStr) => {
   if (!dateStr) return 0;
@@ -14,7 +30,6 @@ const joursDepuis = (dateStr) => {
 const thStyle = { padding: '10px 16px', fontSize: 11, fontWeight: 700, color: '#999', letterSpacing: 0.5 };
 
 const PageDashboard = () => {
-  // CORRECTION ICI : Ajout de setConsultOpData et setCurrentPage
   const { exerciceActif, budgets, ops, sources, beneficiaires, userProfile, setConsultOpData, setCurrentPage } = useAppContext();
   const [activeAlert, setActiveAlert] = useState('transfert_cf');
 
@@ -23,12 +38,11 @@ const PageDashboard = () => {
   // === DONNÉES DE BASE ===
   const budgetsActifs = useMemo(() => budgets.filter(b => b.exerciceId === exerciceActifId), [budgets, exerciceActifId]);
   
-  // On récupère tous les OP de l'exercice (y compris pour les vérifications de liaisons)
+  // On récupère tous les OP de l'exercice
   const allOpsExercice = useMemo(() => ops.filter(op => op.exerciceId === exerciceActifId), [ops, exerciceActifId]);
   
-  // Pour les calculs de KPI budgétaires : Uniquement les directs et définitifs valides
+  // RÈGLE : Engagements sans condition sur la dotation (On prend tout sauf les annulés/rejetés/supprimés)
   const opsActifs = useMemo(() => allOpsExercice.filter(op => 
-    ['DIRECT', 'DEFINITIF'].includes(op.type) && 
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(op.statut)
   ), [allOpsExercice]);
 
@@ -90,7 +104,7 @@ const PageDashboard = () => {
       .filter(op => op.statut === 'TRANSMIS_CF')
       .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionCF || op.dateCreation) }));
 
-    // 5. À annuler : PROVISOIRE + NON PAYÉ + pas de régularisation liée
+    // 5. À annuler : RÈGLE (OP Provisoires à annuler)
     const annuler = opsForAlerts
       .filter(op => {
         if (op.type !== 'PROVISOIRE') return false;
@@ -108,22 +122,19 @@ const PageDashboard = () => {
       })
       .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
-    // 7. À solder : paiement partiel (totalPaye > 0 et < montant)
+    // 7. À solder : RÈGLE (OP en paiement chez AC non soldé)
     const solder = opsForAlerts
-      .filter(op => {
-        if (['REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
-        return op.statut === 'PAYE_PARTIEL' || (op.totalPaye > 0 && op.totalPaye < op.montant);
-      })
-      .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
+      .filter(op => ['TRANSMIS_AC', 'PAYE_PARTIEL'].includes(op.statut))
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionAC || op.dateCreation) }));
 
     return {
-      transfert_cf: { label: "À transférer au CF", icon: "→", color: "#555", ops: transfert_cf },
-      transfert_ac: { label: "À transférer à l'AC", icon: "→", color: "#2e7d32", ops: transfert_ac },
-      differe: { label: "Différés", icon: "!", color: "#C5961F", ops: differe },
-      attente_cf: { label: "Attente CF", icon: "○", color: "#D4722A", ops: attente_cf },
-      annuler: { label: "À annuler", icon: "×", color: "#C43E3E", ops: annuler },
-      regulariser: { label: "À régulariser", icon: "~", color: "#C5961F", ops: regulariser },
-      solder: { label: "À solder", icon: "•", color: "#555", ops: solder },
+      transfert_cf: { label: "À transférer au CF", icon: I.arrowRight('#555'), color: "#555", ops: transfert_cf },
+      transfert_ac: { label: "À transférer à l'AC", icon: I.arrowRight('#2e7d32'), color: "#2e7d32", ops: transfert_ac },
+      differe: { label: "Différés", icon: I.alert('#C5961F'), color: "#C5961F", ops: differe },
+      attente_cf: { label: "Attente CF", icon: I.clock('#D4722A'), color: "#D4722A", ops: attente_cf },
+      annuler: { label: "À annuler", icon: I.xCircle('#C43E3E'), color: "#C43E3E", ops: annuler },
+      regulariser: { label: "À régulariser", icon: I.refresh('#C5961F'), color: "#C5961F", ops: regulariser },
+      solder: { label: "À solder", icon: I.coins('#555'), color: "#555", ops: solder },
     };
   }, [allOpsExercice]);
 
@@ -155,10 +166,10 @@ const PageDashboard = () => {
       {/* ====== 4 CARTES KPI ====== */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { icon: 'D', label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#2E9940', accent: '#E8F5E9' },
-          { icon: 'E', label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP validés`, color: '#C5961F', accent: '#fff3e0' },
-          { icon: 'R', label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#C43E3E', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
-          { icon: '%', label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Définitifs + Directs', color: '#D4722A', accent: '#FFF3E8', isPercent: true },
+          { icon: I.wallet('#2E9940'), label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#2E9940', accent: '#E8F5E9' },
+          { icon: I.file('#C5961F'), label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP validés`, color: '#C5961F', accent: '#fff3e0' },
+          { icon: I.checkCircle(totalDisponible >= 0 ? '#2e7d32' : '#C43E3E'), label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#C43E3E', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
+          { icon: I.percent('#D4722A'), label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Engagements globaux', color: '#D4722A', accent: '#FFF3E8', isPercent: true },
         ].map((card, i) => (
           <div key={i} style={{ background: 'white', borderRadius: 14, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: card.color }} />
@@ -168,7 +179,7 @@ const PageDashboard = () => {
                 <div style={{ fontSize: 20, fontWeight: 800, color: card.color, fontFamily: 'monospace', letterSpacing: -0.5 }}>{card.value}</div>
                 <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{card.sub}</div>
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: card.color }}>{card.icon}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{card.icon}</div>
             </div>
             {card.isPercent && (
               <div style={{ marginTop: 12, background: '#eee', borderRadius: 10, height: 6, overflow: 'hidden' }}>
@@ -237,7 +248,7 @@ const PageDashboard = () => {
                 marginBottom: -2, transition: 'all 0.2s',
                 display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
               }}>
-                <span style={{ fontSize: 13 }}>{a.icon}</span>
+                {a.icon}
                 {a.label}
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
@@ -279,65 +290,68 @@ const PageDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {selectedOps.map((op, i) => (
-                  <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3', cursor: 'pointer' }} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
-                        {(op.numero || '').split('/')[0] || `N°${op.numero}`}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#bbb' }}>
-                        {getSourceSigle(op.sourceId)} • {op.dateCreation || ''}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500 }}>
-                      {getBenefNom(op.beneficiaireId)}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#555', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {op.objet || '—'}
-                    </td>
-                    {activeAlert === 'solder' ? (
-                      <>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#333' }}>
-                          {formatMontant(op.montant)}
-                        </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
-                          {formatMontant(op.totalPaye || 0)}
-                        </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#C43E3E' }}>
-                          {formatMontant(op.montant - (op.totalPaye || 0))}
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#f0f0f0', color: '#555' }}>
-                            {getLigneBudgetaire(op)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 13 }}>
-                          {formatMontant(op.montant)}
-                        </td>
-                      </>
-                    )}
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      {op._jours > 0 ? (
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
-                          background: op._jours > 15 ? '#ffebee' : '#f5f5f5',
-                          color: op._jours > 15 ? '#C43E3E' : '#999'
-                        }}>
-                          {op._jours}j
-                        </span>
-                      ) : op.motifDiffereCF || op.motifDiffereAC ? (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: '#fff3e0', color: '#C5961F' }}>
-                          Motif renseigné
-                        </span>
+                {selectedOps.map((op, i) => {
+                  const mtPaye = op.montantPaye || op.totalPaye || 0;
+                  return (
+                    <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3', cursor: 'pointer' }} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
+                          {(op.numero || '').split('/')[0] || `N°${op.numero}`}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#bbb' }}>
+                          {getSourceSigle(op.sourceId)} • {op.dateCreation || ''}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500 }}>
+                        {getBenefNom(op.beneficiaireId)}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 12, color: '#555', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {op.objet || '—'}
+                      </td>
+                      {activeAlert === 'solder' ? (
+                        <>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#333' }}>
+                            {formatMontant(op.montant)}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
+                            {formatMontant(mtPaye)}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#C43E3E' }}>
+                            {formatMontant((op.montant || 0) - mtPaye)}
+                          </td>
+                        </>
                       ) : (
-                        <span style={{ fontSize: 10, color: '#ccc' }}>—</span>
+                        <>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#f0f0f0', color: '#555' }}>
+                              {getLigneBudgetaire(op)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 13 }}>
+                            {formatMontant(op.montant)}
+                          </td>
+                        </>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        {op._jours > 0 ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
+                            background: op._jours > 15 ? '#ffebee' : '#f5f5f5',
+                            color: op._jours > 15 ? '#C43E3E' : '#999'
+                          }}>
+                            {op._jours}j
+                          </span>
+                        ) : op.motifDiffereCF || op.motifDiffereAC ? (
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: '#fff3e0', color: '#C5961F' }}>
+                            Motif renseigné
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, color: '#ccc' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
