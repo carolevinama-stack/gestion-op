@@ -30,6 +30,7 @@ const I = {
   checkCircle: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   loader: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>,
   close: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  search: (c='#999', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
 };
 
 // ============================================================
@@ -109,6 +110,7 @@ export default function PageRapport() {
   const [activeTab, setActiveTab] = useState('compta');
   const [dateRef, setDateRef] = useState(new Date().toISOString().split('T')[0]);
   const [filtreEx, setFiltreEx] = useState('tous');
+  const [searchTerm, setSearchTerm] = useState('');
   const [sel, setSel] = useState([]);
   const [obsText, setObsText] = useState('');
   const [savingObs, setSavingObs] = useState(false);
@@ -133,7 +135,6 @@ export default function PageRapport() {
   }, [ops, filtreEx]);
 
   // === DONNÉES PAR ONGLET ===
-  // RETRAIT DES REJETS SUR DEMANDE
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
 
   const opsNonVisesCF = useMemo(() => mainOps.filter(op => op.statut === 'TRANSMIS_CF').map(op => ({ ...op, delai: joursOuvres(op.dateTransmissionCF, dateRef) })), [mainOps, dateRef]);
@@ -146,11 +147,36 @@ export default function PageRapport() {
     return { ...op, delai, provs, ecart };
   }), [mainOps, ops, dateRef]);
 
-  const opsAAnnuler = useMemo(() => mainOps.filter(op => op.type === 'PROVISOIRE' && !['PAYE', 'PAYE_PARTIEL', 'ARCHIVE', 'ANNULE'].includes(op.statut) && !ops.some(o => o.type === 'ANNULATION' && o.opProvisoireId === op.id)).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
+  const opsAAnnuler = useMemo(() => mainOps.filter(op => {
+    if (op.type !== 'PROVISOIRE') return false;
+    if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
+    
+    // Vérification stricte Dashboard : Pas de définitif ou annulation valide lié
+    const hasValidReg = ops.some(o => 
+      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
+      o.opProvisoireId === op.id &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+    return !hasValidReg;
+  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
 
   const opsAReg = useMemo(() => mainOps.filter(op => op.type === 'PROVISOIRE' && ['PAYE', 'PAYE_PARTIEL'].includes(op.statut) && !ops.some(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id)).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement, dateRef) })), [mainOps, ops, dateRef]);
 
   const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
+
+  // === RECHERCHE GLOBALE ===
+  const rawData = getData();
+  const displayData = useMemo(() => {
+    if (!searchTerm) return rawData;
+    const lowerSearch = searchTerm.toLowerCase();
+    return rawData.filter(op => {
+      const num = (op.numero || '').toLowerCase();
+      const ben = (getBen(op) || '').toLowerCase();
+      const obj = (op.objet || '').toLowerCase();
+      const mt = String(op.montant || '');
+      return num.includes(lowerSearch) || ben.includes(lowerSearch) || obj.includes(lowerSearch) || mt.includes(lowerSearch);
+    });
+  }, [rawData, searchTerm, getBen]);
 
   const tabs = [
     { id: 'compta', label: 'En cours compta', icon: I.building, count: opsCompta.length, color: P.olive },
@@ -163,8 +189,8 @@ export default function PageRapport() {
 
   // === ACTIONS ===
   const toggleSel = (id) => setSel(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const toggleAll = () => { const d = getData(); setSel(sel.length === d.length ? [] : d.map(o => o.id)); };
-  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); };
+  const toggleAll = () => setSel(sel.length === displayData.length && displayData.length > 0 ? [] : displayData.map(o => o.id));
+  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); setSearchTerm(''); };
 
   const saveObs = async () => {
     if (sel.length === 0) return;
@@ -337,36 +363,47 @@ export default function PageRapport() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button onClick={handleDownloadTemplate} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#FAFAF8', color: P.textSec, border: `1px solid ${P.border}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-          {I.download(P.textSec, 14)} Télécharger Canevas
-        </button>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.orange, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', boxShadow: `0 2px 8px ${P.orange}44`, opacity: importing ? 0.6 : 1 }}>
-          {importing ? I.loader('#fff', 14) : I.upload('#fff', 14)}
-          {importing ? 'Import en cours...' : 'Importer des OP antérieurs'}
-          <input type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} disabled={importing} />
-        </label>
-      </div>
+      {/* ZONE ONGLETS + RECHERCHE + BOUTONS ACTIONS */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        
+        {/* Les Onglets */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {tabs.map(t => {
+            const isActive = activeTab === t.id;
+            return (
+              <button key={t.id} onClick={() => changeTab(t.id)} style={{
+                padding: '10px 18px', borderRadius: 10,
+                border: isActive ? `2px solid ${t.color}` : '2px solid transparent',
+                background: isActive ? t.color : P.card,
+                color: isActive ? '#fff' : P.textSec,
+                fontWeight: 600, cursor: 'pointer', fontSize: 12,
+                display: 'flex', alignItems: 'center', gap: 6,
+                transition: 'all .2s',
+                boxShadow: isActive ? `0 4px 12px ${t.color}33` : '0 1px 3px rgba(0,0,0,.06)'
+              }}>
+                {t.icon(isActive ? '#fff' : t.color, 16)} {t.label}
+                <span style={{ background: isActive ? 'rgba(255,255,255,.25)' : P.border, padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{t.count}</span>
+              </button>
+            );
+          })}
+        </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {tabs.map(t => {
-          const isActive = activeTab === t.id;
-          return (
-            <button key={t.id} onClick={() => changeTab(t.id)} style={{
-              padding: '10px 18px', borderRadius: 10,
-              border: isActive ? `2px solid ${t.color}` : '2px solid transparent',
-              background: isActive ? t.color : P.card,
-              color: isActive ? '#fff' : P.textSec,
-              fontWeight: 600, cursor: 'pointer', fontSize: 12,
-              display: 'flex', alignItems: 'center', gap: 6,
-              transition: 'all .2s',
-              boxShadow: isActive ? `0 4px 12px ${t.color}33` : '0 1px 3px rgba(0,0,0,.06)'
-            }}>
-              {t.icon(isActive ? '#fff' : t.color, 16)} {t.label}
-              <span style={{ background: isActive ? 'rgba(255,255,255,.25)' : P.border, padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{t.count}</span>
-            </button>
-          );
-        })}
+        {/* Barre de Recherche et Icônes de Téléchargement/Import à l'extrême droite */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 12, top: 10 }}>{I.search(P.textMuted, 14)}</div>
+            <input type="text" placeholder="N°, Objet, Montant..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ ...styles.input, marginBottom: 0, width: 240, fontSize: 12, borderRadius: 8, paddingLeft: 34, border: `1px solid ${P.border}` }} />
+          </div>
+          
+          <button onClick={handleDownloadTemplate} title="Télécharger le canevas d'importation Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: '#FAFAF8', color: P.textSec, border: `1px solid ${P.border}`, borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+            {I.download(P.textSec, 16)}
+          </button>
+          
+          <label title="Importer des OP antérieurs (Excel)" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.orange, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.orange}44`, opacity: importing ? 0.6 : 1 }}>
+            {importing ? I.loader('#fff', 16) : I.upload('#fff', 16)}
+            <input type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} disabled={importing} />
+          </label>
+        </div>
       </div>
 
       {sel.length > 0 && (
@@ -393,66 +430,67 @@ export default function PageRapport() {
       )}
 
       <div style={{ background: P.card, borderRadius: 10, padding: '12px 20px', marginBottom: 20, fontSize: 13, display: 'flex', gap: 24, flexWrap: 'wrap', border: `1px solid ${P.border}`, boxShadow: '0 2px 6px rgba(0,0,0,.02)' }}>
-        {activeTab === 'compta' && <span style={{ color: P.text }}>Montant total en cours : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.olive }}>{formatMontant(opsCompta.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
-        {activeTab === 'nonvise' && <><span style={{ color: P.text }}>Montant total en attente : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.gold }}>{formatMontant(opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{opsNonVisesCF.filter(o => o.delai > 5).length}</strong></span></>}
-        {activeTab === 'nonsolde' && <><span style={{ color: P.text }}>Montant total non soldé : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.orange }}>{formatMontant(opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{opsNonSoldes.filter(o => o.delai > 5).length}</strong></span></>}
-        {activeTab === 'annuler' && <><span style={{ color: P.text }}>Montant total à annuler : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.red }}>{formatMontant(opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}2j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{opsAAnnuler.filter(o => o.delai > 2).length}</strong></span></>}
-        {activeTab === 'regulariser' && <><span style={{ color: P.text }}>Montant total à régulariser : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.textSec }}>{formatMontant(opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}60j calendaires) : <strong style={{ color: P.red, fontSize: 14 }}>{opsAReg.filter(o => o.delaiJ > 60).length}</strong></span></>}
-        {activeTab === 'extratraite' && <span style={{ color: P.text }}>Montant total classé (Extra) : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.greenDark }}>{formatMontant(opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
+        {activeTab === 'compta' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.olive }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
+        {activeTab === 'nonvise' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.gold }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 5).length}</strong></span></>}
+        {activeTab === 'nonsolde' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.orange }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 5).length}</strong></span></>}
+        {activeTab === 'annuler' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.red }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}2j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 2).length}</strong></span></>}
+        {activeTab === 'regulariser' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.textSec }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}60j calendaires) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delaiJ > 60).length}</strong></span></>}
+        {activeTab === 'extratraite' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.greenDark }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
       </div>
 
-      <div style={{ background: P.card, borderRadius: 12, overflow: 'auto', border: `1px solid ${P.border}`, maxHeight: 'calc(100vh - 350px)' }}>
+      {/* HAuteur du tableau étirée vers le bas */}
+      <div style={{ background: P.card, borderRadius: 12, overflow: 'auto', border: `1px solid ${P.border}`, height: 'calc(100vh - 300px)' }}>
         {activeTab === 'compta' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={opsCompta} /></th><th style={th}>N° OP</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date création</th><th style={th}>Statut</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date création</th><th style={th}>Statut</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {opsCompta.length === 0 && <tr><td colSpan={9} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun OP en cours</td></tr>}
-              {opsCompta.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.length === 0 && <tr><td colSpan={9} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'nonvise' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={opsNonVisesCF} /></th><th style={th}>N° OP</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {opsNonVisesCF.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun OP en attente</td></tr>}
-              {opsNonVisesCF.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'nonsolde' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={opsNonSoldes} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov.</th><th style={{ ...th, textAlign: 'right' }}>Écart</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov.</th><th style={{ ...th, textAlign: 'right' }}>Écart</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {opsNonSoldes.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun OP non soldé</td></tr>}
-              {opsNonSoldes.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.provs?.length > 0 ? op.provs.map(p => p.numero).join(', ') : '—'}</td><td style={tdR}>{op.ecart !== null && op.ecart !== undefined ? <span style={{ color: op.ecart > 0 ? P.red : op.ecart < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.ecart > 0 ? '+' + formatMontant(op.ecart) : op.ecart < 0 ? formatMontant(op.ecart) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.provs?.length > 0 ? op.provs.map(p => p.numero).join(', ') : '—'}</td><td style={tdR}>{op.ecart !== null && op.ecart !== undefined ? <span style={{ color: op.ecart > 0 ? P.red : op.ecart < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.ecart > 0 ? '+' + formatMontant(op.ecart) : op.ecart < 0 ? formatMontant(op.ecart) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'annuler' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={opsAAnnuler} /></th><th style={th}>N° OP</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date visa CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date visa CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {opsAAnnuler.length === 0 && <tr><td colSpan={9} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun OP à annuler</td></tr>}
-              {opsAAnnuler.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.length === 0 && <tr><td colSpan={9} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'regulariser' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={opsAReg} /></th><th style={th}>N° OP prov.</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date paiement</th><th style={th}>Délai</th><th style={th}>OP définitif</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date paiement</th><th style={th}>Délai</th><th style={th}>OP définitif</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {opsAReg.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun OP à régulariser</td></tr>}
-              {opsAReg.map(op => { const def = ops.find(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id); return <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{formatDate(op.datePaiement)}</td><td style={td}><DelaiBadge jours={op.delaiJ} seuilOrange={45} seuilRouge={60} unite="jours" /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{def?.numero || '—'}</td><td style={td}><ObsCell op={op} /></td></tr>; })}
+              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {displayData.map(op => { const def = ops.find(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id); return <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{formatDate(op.datePaiement)}</td><td style={td}><DelaiBadge jours={op.delaiJ} seuilOrange={45} seuilRouge={60} unite="jours" /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{def?.numero || '—'}</td><td style={td}><ObsCell op={op} /></td></tr>; })}
             </tbody>
           </table>
         )}
         {activeTab === 'extratraite' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={opsExtraTraites} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Source</th><th style={th}>Date création</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Source</th><th style={th}>Date création</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {opsExtraTraites.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun OP importé traité</td></tr>}
-              {opsExtraTraites.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
