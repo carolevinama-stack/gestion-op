@@ -175,16 +175,17 @@ const PageListeOP = () => {
       <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '65vh' }}>
         <table style={styles.table}>
           <colgroup>
-            <col style={{ width: activeSource !== 'ALL' ? '10%' : '14%' }} />
-            <col style={{ width: activeSource !== 'ALL' ? '7%' : '8%' }} />
-            <col style={{ width: activeSource !== 'ALL' ? '14%' : '20%' }} />
-            <col style={{ width: activeSource !== 'ALL' ? '12%' : '20%' }} />
-            <col style={{ width: activeSource !== 'ALL' ? '6%' : '8%' }} />
-            {activeSource !== 'ALL' && <col style={{ width: '10%' }} />}
-            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} />
-            {activeSource !== 'ALL' && <><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /></>}
-            <col style={{ width: activeSource !== 'ALL' ? '8%' : '12%' }} />
-            <col style={{ width: activeSource !== 'ALL' ? '3%' : '6%' }} />
+            {/* Ligne réduite, Objet élargi */}
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} /> {/* N° OP */}
+            <col style={{ width: activeSource !== 'ALL' ? '6%' : '7%' }} />   {/* Type */}
+            <col style={{ width: activeSource !== 'ALL' ? '13%' : '18%' }} /> {/* Bénéficiaire */}
+            <col style={{ width: activeSource !== 'ALL' ? '16%' : '28%' }} /> {/* Objet (Élargi) */}
+            <col style={{ width: activeSource !== 'ALL' ? '4%' : '5%' }} />   {/* Ligne (Rétréci) */}
+            {activeSource !== 'ALL' && <col style={{ width: '10%' }} />}      {/* Dotation */}
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} /> {/* Montant */}
+            {activeSource !== 'ALL' && <><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /></>} {/* Engag. Ant. + Disponible */}
+            <col style={{ width: activeSource !== 'ALL' ? '8%' : '12%' }} />  {/* Statut */}
+            <col style={{ width: activeSource !== 'ALL' ? '3%' : '6%' }} />   {/* Actions */}
           </colgroup>
           <thead>
             <tr>
@@ -214,7 +215,8 @@ const PageListeOP = () => {
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700, color: isRejet ? P.red : P.text }}>{op.numero}</td>
                   <td style={{ ...styles.td, fontSize: '10px', fontWeight: isRejet ? 800 : 600, color: isRejet ? P.red : '#666' }}>{op.type}</td>
                   <td style={{ ...styles.td, fontWeight: 600, fontSize: 12 }}>{getBenNom(op)}</td>
-                  <td style={{ ...styles.td, fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet || '-'}</td>
+                  {/* MODIFICATION maxWidth dynamique en fonction de la vue pour laisser Objet respirer */}
+                  <td style={{ ...styles.td, fontSize: 11, maxWidth: activeSource !== 'ALL' ? 180 : 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet || '-'}</td>
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
                   {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.dotationLigne)}</td>}
                   
