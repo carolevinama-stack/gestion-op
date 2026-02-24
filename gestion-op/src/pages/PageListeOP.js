@@ -21,7 +21,7 @@ const PageListeOP = () => {
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
 
-  // NOUVEAUTÉ : Fonction de formatage des dates (AAAA-MM-JJ vers JJ/MM/AAAA)
+  // Fonction de formatage des dates (AAAA-MM-JJ vers JJ/MM/AAAA)
   const formatDate = (dateString) => {
     if (!dateString) return null;
     if (dateString.length >= 10) {
@@ -77,14 +77,13 @@ const PageListeOP = () => {
   // L'OP affiché dans la modale est récupéré en direct, donc il s'actualise seul
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
 
-  // Style épaissi pour l'en-tête du tableau
+  // Style ajusté pour l'en-tête : texte plus grand, hauteur naturelle ajustée
   const thStyle = {
     ...styles.th, 
-    fontSize: 11, 
+    fontSize: 12, // Texte légèrement agrandi
     color: P.textSec, 
     textTransform: 'uppercase', 
-    padding: '16px 12px',
-    height: '48px',
+    padding: '12px 10px', // Marges réduites pour éviter une ligne trop haute
     background: '#FAFAF8',
     position: 'sticky',
     top: 0,
@@ -172,7 +171,7 @@ const PageListeOP = () => {
         </div>
       </div>
 
-      {/* TABLEAU AVEC SCROLL RÉTABLI ET EN-TÊTE ÉPAISSI */}
+      {/* TABLEAU AVEC SCROLL RÉTABLI ET EN-TÊTE AJUSTÉ */}
       <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '65vh' }}>
         <table style={styles.table}>
           <colgroup>
