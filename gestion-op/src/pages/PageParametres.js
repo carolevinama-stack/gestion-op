@@ -53,6 +53,7 @@ const ActionBtn = ({ label, icon, color, onClick, disabled }) => (
   </button>
 );
 
+// AJOUT DES COMPOSANTS MANQUANTS POUR VERCEL
 const Badge = React.memo(({ bg, color, children }) => (
   <span style={{ background: bg, color, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: .3 }}>{children}</span>
 ));
@@ -315,7 +316,7 @@ const TabSources = () => {
           <div style={{ background: '#fff', borderRadius: 16, width: 500, boxShadow: '0 20px 60px rgba(0,0,0,.2)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', background: P.greenDark, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: 16 }}>{editSource ? 'Modifier la source' : 'Nouvelle source'}</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{I.close()}</button>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{I.close('#fff')}</button>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
@@ -475,9 +476,6 @@ const TabMaintenance = () => {
     if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; }
     return true;
   };
-
-  // Ajout de la fonction manquante
-  const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
 
   // 1. PURGE
   const handlePurge = async () => {
