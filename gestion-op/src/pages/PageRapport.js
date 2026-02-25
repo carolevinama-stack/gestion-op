@@ -176,7 +176,6 @@ export default function PageRapport() {
         return num.includes(lowerSearch) || ben.includes(lowerSearch) || obj.includes(lowerSearch) || mt.includes(lowerSearch);
       });
     }
-    // Tri du plus ancien au plus récent (Ordre chronologique)
     return data.sort((a, b) => (a.dateCreation || '').localeCompare(b.dateCreation || ''));
   }, [rawData, searchTerm, getBen]);
 
@@ -310,7 +309,6 @@ export default function PageRapport() {
     setImporting(false); e.target.value = '';
   };
 
-  // Règle d'observation par défaut pour l'affichage et l'export
   const getDefaultObs = (op) => {
     if (op.observation) return op.observation;
     if (['EN_COURS', 'CREE'].includes(op.statut)) return 'À transférer au CF';
@@ -323,7 +321,6 @@ export default function PageRapport() {
       const XLSX = await import('xlsx');
       const dl = (j, s) => j === null ? '' : j > s ? 'DÉPASSÉ' : 'OK';
       
-      // Fonction pour ajouter la ligne de Total en bas de l'export
       const appendTotal = (dataArray, totalMt, totalPaye) => {
         if (!dataArray.length) return dataArray;
         const keys = Object.keys(dataArray[0]);
@@ -346,10 +343,29 @@ export default function PageRapport() {
       const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
 
       const wb = XLSX.utils.book_new();
-      const add = (data, name) => { const ws = XLSX.utils.json_to_sheet(data.length ? data : [{ 'Aucune donnée': '' }]); if (data.length) ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length, ...data.map(r => String(r[k] || '').length)) + 2 })); XLSX.utils.book_append_sheet(wb, ws, name); };
-      add(d1, 'En cours compta'); add(d2, 'Non visés CF'); add(d3, 'Non soldés');
-      add(d4, 'À annuler'); add(d5, 'À régulariser'); add(d6, 'Importés Traités');
-      XLSX.writeFile(wb, `Rapport_OP_${dateRef}.xlsx`);
+      const fDate = dateRef.split('-').reverse().join('/'); 
+      
+      const addSheet = (data, sheetName, titleText) => {
+        const ws = XLSX.utils.json_to_sheet(data.length ? data : [{ 'Aucune donnée': '' }], { origin: "A3" });
+        XLSX.utils.sheet_add_aoa(ws, [[titleText]], { origin: "A1" });
+        if (data.length) ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length + 2, 15) }));
+        for (let cellRef in ws) {
+          if (cellRef[0] === '!') continue;
+          const cell = ws[cellRef];
+          if (cell.t === 'n') cell.z = '#,##0'; // Formatage des nombres
+        }
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      };
+
+      addSheet(d1, 'En cours compta', `OP a la comptabilité au ${fDate}`);
+      addSheet(d2, 'Non visés CF', `OP en attente au Controle Financier au ${fDate}`);
+      addSheet(d3, 'Non soldés', `OP en attente chez l'Agent comptable au ${fDate}`);
+      addSheet(d4, 'À annuler', `OP en attente a annuler au ${fDate}`);
+      addSheet(d5, 'À régulariser', `OP a regulariser au ${fDate}`);
+      addSheet(d6, 'Importés Traités', `OP importés et traités au ${fDate}`);
+
+      const fileNameDate = dateRef.split('-').reverse().join('-');
+      XLSX.writeFile(wb, `OP EN TRAITEMENT AU ${fileNameDate}.xlsx`);
     } catch (err) { alert('Erreur : ' + err.message); }
   };
 
@@ -397,10 +413,7 @@ export default function PageRapport() {
         </div>
       </div>
 
-      {/* ZONE ONGLETS + RECHERCHE + BOUTONS ACTIONS A DROITE */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        
-        {/* Les Onglets */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {tabs.map(t => {
             const isActive = activeTab === t.id;
@@ -422,7 +435,6 @@ export default function PageRapport() {
           })}
         </div>
 
-        {/* Barre de Recherche et Icônes de Téléchargement/Import/Export à l'extrême droite */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', left: 12, top: 10 }}>{I.search(P.textMuted, 14)}</div>
@@ -467,7 +479,6 @@ export default function PageRapport() {
         </div>
       )}
 
-      {/* BLOC MONTANT DEVENU TEXTE SIMPLE SANS CADRE */}
       <div style={{ padding: '0 8px', marginBottom: 16, fontSize: 13, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
         {activeTab === 'compta' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.olive }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
         {activeTab === 'nonvise' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.gold }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 5).length}</strong></span></>}
@@ -477,7 +488,6 @@ export default function PageRapport() {
         {activeTab === 'extratraite' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.greenDark }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
       </div>
 
-      {/* HAUTEUR DU TABLEAU MAXIMISÉE */}
       <div style={{ background: P.card, borderRadius: 12, overflow: 'auto', border: `1px solid ${P.border}`, height: 'calc(100vh - 210px)' }}>
         {activeTab === 'compta' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
