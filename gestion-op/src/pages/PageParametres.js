@@ -28,6 +28,8 @@ const I = {
   edit: (c = P.textSec, s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>,
   eye: (c = P.textSec, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
   eyeOff: (c = P.textSec, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
+  close: (c = P.textMuted, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
+  fileText: (c = P.textMuted, s = 40) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
 };
 
 // ============================================================
@@ -50,6 +52,19 @@ const ActionBtn = ({ label, icon, color, onClick, disabled }) => (
     {icon}{label}
   </button>
 );
+
+// AJOUT DES COMPOSANTS MANQUANTS POUR VERCEL
+const Badge = React.memo(({ bg, color, children }) => (
+  <span style={{ background: bg, color, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: .3 }}>{children}</span>
+));
+
+const Empty = React.memo(({ text }) => (
+  <div style={{ textAlign: 'center', padding: 40, color: P.textMuted }}>
+    <div style={{ marginBottom: 12, opacity: .5 }}>{I.fileText(P.textMuted, 40)}</div>
+    <p style={{ fontSize: 14, margin: 0 }}>{text}</p>
+  </div>
+));
+
 
 // ============================================================
 // PAGE PARAMÈTRES
@@ -74,7 +89,7 @@ const PageParametres = () => {
       </div>
       
       {/* Onglets */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 24, borderBottom: `2px solid ${P.border}`, paddingBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, borderBottom: `2px solid ${P.border}`, paddingBottom: 10, flexWrap: 'wrap' }}>
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           return (
@@ -301,7 +316,7 @@ const TabSources = () => {
           <div style={{ background: '#fff', borderRadius: 16, width: 500, boxShadow: '0 20px 60px rgba(0,0,0,.2)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', background: P.greenDark, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: 16 }}>{editSource ? 'Modifier la source' : 'Nouvelle source'}</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{I.close()}</button>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{I.close('#fff')}</button>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}>
@@ -409,7 +424,7 @@ const TabExercices = () => {
           <div style={{ background: '#fff', borderRadius: 16, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,.2)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', background: P.greenDark, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: '#fff', margin: 0, fontSize: 16 }}>Nouvel exercice</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{I.close()}</button>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{I.close('#fff')}</button>
             </div>
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 20 }}>
@@ -432,11 +447,12 @@ const TabExercices = () => {
   );
 };
 
+
 // ============================================================
-// ONGLET MAINTENANCE (ADMIN ONLY)
+// ONGLET MAINTENANCE (ADMIN ONLY) - Logique Intégrale Conservée
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux, beneficiaires } = useAppContext();
+  const { projet, sources, exercices, ops, bordereaux, beneficiaires, setOps, setBordereaux } = useAppContext();
   const [tool, setTool] = useState(null); 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -447,24 +463,275 @@ const TabMaintenance = () => {
   const [purgeScope, setPurgeScope] = useState('exercice'); 
   const [importExercice, setImportExercice] = useState('');
   const [importData, setImportData] = useState(null); 
+  const [importFile, setImportFile] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
   const [compteurExercice, setCompteurExercice] = useState('');
   const [doublonExercice, setDoublonExercice] = useState('');
   const [doublons, setDoublons] = useState(null);
 
   const showMsg = (text, type = 'success') => { setMessage({ text, type }); setTimeout(() => setMessage(null), 5000); };
-  const checkPwd = () => { const p = window.prompt('Mot de passe admin requis :'); if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; } return true; };
+  
+  const checkPwd = () => {
+    const p = window.prompt('Mot de passe admin requis :');
+    if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; }
+    return true;
+  };
 
-  // Les fonctions de traitement restent identiques (handlePurge, handleDownloadCanevas, handleImport, handleRecalerCompteurs, handleFixDoublon)
-  // ... (Je conserve la logique interne exacte pour éviter tout bug)
-  const handlePurge = async () => { /* Logique inchangée */ };
-  const handleDownloadCanevas = async () => { /* Logique inchangée */ };
-  const handleFileUpload = async (e) => { /* Logique inchangée */ };
-  const handleImport = async () => { /* Logique inchangée */ };
-  const handleRecalerCompteurs = async () => { /* Logique inchangée */ };
-  const handleDetecterDoublons = () => { /* Logique inchangée */ };
-  const handleFixDoublon = async (dup) => { /* Logique inchangée */ };
+  // 1. PURGE
+  const handlePurge = async () => {
+    if (!checkPwd()) return;
+    if (purgeScope === 'exercice' && !purgeExercice) { alert('Sélectionnez un exercice.'); return; }
+    if (purgeConfirm !== 'SUPPRIMER') { alert('Tapez exactement SUPPRIMER pour confirmer.'); return; }
 
+    const exLabel = purgeScope === 'tout' ? 'TOUS LES EXERCICES' : exercices.find(e => e.id === purgeExercice)?.annee;
+    if (!window.confirm(`DERNIÈRE CONFIRMATION :\n\nSupprimer tous les OP et bordereaux de ${exLabel} ?\n\nCette action est IRRÉVERSIBLE.`)) return;
+
+    setSaving(true);
+    try {
+      let opsToDelete, btsToDelete;
+      if (purgeScope === 'tout') {
+        opsToDelete = ops;
+        btsToDelete = bordereaux;
+      } else {
+        opsToDelete = ops.filter(o => o.exerciceId === purgeExercice);
+        btsToDelete = bordereaux.filter(b => b.exerciceId === purgeExercice);
+      }
+
+      const batchSize = 400;
+      for (let i = 0; i < opsToDelete.length; i += batchSize) {
+        const batch = writeBatch(db);
+        opsToDelete.slice(i, i + batchSize).forEach(o => batch.delete(doc(db, 'ops', o.id)));
+        await batch.commit();
+      }
+      for (let i = 0; i < btsToDelete.length; i += batchSize) {
+        const batch = writeBatch(db);
+        btsToDelete.slice(i, i + batchSize).forEach(b => batch.delete(doc(db, 'bordereaux', b.id)));
+        await batch.commit();
+      }
+
+      if (purgeScope === 'tout') {
+        const comptSnap = await getDocs(collection(db, 'compteurs'));
+        for (const d of comptSnap.docs) await deleteDoc(doc(db, 'compteurs', d.id));
+      } else {
+        const comptSnap = await getDocs(collection(db, 'compteurs'));
+        for (const d of comptSnap.docs) {
+          if (d.data().exerciceId === purgeExercice) await deleteDoc(doc(db, 'compteurs', d.id));
+        }
+      }
+
+      showMsg(`Purge terminée : ${opsToDelete.length} OP et ${btsToDelete.length} bordereaux supprimés.`);
+      setPurgeConfirm('');
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // 2. TÉLÉCHARGER CANEVAS IMPORT
+  const handleDownloadCanevas = async () => {
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+
+    const colonnes = ['N° OP', 'Type', 'Bénéficiaire', 'Objet', 'Montant', 'Ligne budgétaire', 'Mode règlement',
+      'Date création', 'Statut', 'Date transmission CF', 'N° Bordereau CF', 'Date visa CF',
+      'Date transmission AC', 'N° Bordereau AC', 'Date paiement', 'Montant payé', 'Référence paiement',
+      'N° OP Provisoire', 'Observation'];
+
+    sources.forEach(src => {
+      const data = [colonnes]; 
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = colonnes.map((c) => ({ wch: c.length < 12 ? 15 : c.length + 4 }));
+      XLSX.utils.book_append_sheet(wb, ws, src.sigle || src.nom);
+    });
+
+    const exRows = [colonnes,
+      ['N°0001/PIF2-IDA/2026', 'PROVISOIRE', 'ENTREPRISE ABC', 'Fourniture bureau', 1500000, 'Biens', 'VIREMENT', '2026-01-15', 'PAYE', '2026-01-16', 'BT-CF-0001/PIF2-IDA/2026', '2026-01-18', '2026-01-20', 'BT-AC-0001/PIF2-IDA/2026', '2026-01-25', 1500000, 'REF-001', '', 'Paiement complet'],
+      ['N°0002/PIF2-IDA/2026', 'PROVISOIRE', 'CABINET XYZ', 'Étude faisabilité', 3000000, 'Services', 'VIREMENT', '2026-01-20', 'VISE_CF', '2026-01-22', 'BT-CF-0002/PIF2-IDA/2026', '2026-01-25', '', '', '', '', '', '', 'En attente AC'],
+      ['N°0003/PIF2-IDA/2026', 'PROVISOIRE', 'ENTREPRISE ABC', 'Formation agents', 800000, 'Services', 'CHEQUE', '2026-02-01', 'TRANSMIS_CF', '2026-02-03', 'BT-CF-0003/PIF2-IDA/2026', '', '', '', '', '', '', '', 'En attente visa'],
+      ['N°0004/PIF2-IDA/2026', 'PROVISOIRE', 'FOURNISSEUR DEF', 'Achat matériel', 5000000, 'Biens', 'VIREMENT', '2026-02-05', 'PAYE', '2026-02-06', 'BT-CF-0004/PIF2-IDA/2026', '2026-02-08', '2026-02-10', 'BT-AC-0002/PIF2-IDA/2026', '2026-02-15', 4000000, 'REF-002', '', 'Paiement partiel 4M/5M'],
+      ['N°0005/PIF2-IDA/2026', 'DEFINITIF', 'FOURNISSEUR DEF', 'Régularisation matériel', 4800000, 'Biens', 'VIREMENT', '2026-02-20', 'CREE', '', '', '', '', '', '', '', '', 'N°0004/PIF2-IDA/2026', 'Définitif du provisoire 0004'],
+    ];
+    const wsEx = XLSX.utils.aoa_to_sheet(exRows);
+    wsEx['!cols'] = colonnes.map((c) => ({ wch: c.length < 12 ? 15 : c.length + 4 }));
+    XLSX.utils.book_append_sheet(wb, wsEx, 'EXEMPLE');
+
+    const leg = [
+      ['Colonne', 'Description', 'Valeurs acceptées', 'Obligatoire'],
+      ['N° OP', 'Numéro unique de l\'OP', 'Ex: N°0001/PIF2-IDA/2026', 'OUI'],
+      ['Type', 'Type d\'ordre de paiement', 'PROVISOIRE, DEFINITIF, ANNULATION', 'OUI'],
+      ['Bénéficiaire', 'Nom exact du bénéficiaire', 'Ex: ENTREPRISE ABC', 'OUI'],
+      ['Objet', 'Objet de la dépense', 'Texte libre', 'OUI'],
+      ['Montant', 'Montant en FCFA (nombre)', 'Ex: 1500000', 'OUI'],
+      ['Ligne budgétaire', 'Libellé exact de la ligne', 'Ex: Biens', 'OUI'],
+      ['Mode règlement', 'Mode de paiement', 'VIREMENT, CHEQUE, ESPECES, ORDRE_PAIEMENT', 'OUI'],
+      ['Date création', 'Date de création de l\'OP', 'AAAA-MM-JJ', 'OUI'],
+      ['Statut', 'Statut actuel de l\'OP', 'CREE, TRANSMIS_CF, VISE_CF, DIFFERE_CF, REJETE_CF, TRANSMIS_AC, PAYE, DIFFERE_AC, REJETE_AC', 'OUI'],
+    ];
+    const wsLeg = XLSX.utils.aoa_to_sheet(leg);
+    wsLeg['!cols'] = [{ wch: 22 }, { wch: 50 }, { wch: 55 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsLeg, 'LÉGENDE');
+
+    XLSX.writeFile(wb, 'Canevas_Import_OP_Complet.xlsx');
+    showMsg('Canevas téléchargé !');
+  };
+
+  // 3. IMPORT OP
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportFile(file);
+    const XLSX = await import('xlsx');
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data);
+
+    const parsed = {};
+    let totalOps = 0;
+    sources.forEach(src => {
+      const sheetName = wb.SheetNames.find(s => s === (src.sigle || src.nom));
+      if (sheetName) {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        if (rows.length > 0) { parsed[src.id] = { sigle: src.sigle, rows }; totalOps += rows.length; }
+      }
+    });
+
+    setImportData(parsed);
+    setImportPreview({ total: totalOps, parSource: Object.entries(parsed).map(([id, d]) => ({ sigle: d.sigle, count: d.rows.length })) });
+  };
+
+  const handleImport = async () => {
+    if (!importData || !importExercice) { alert('Sélectionnez un exercice et un fichier.'); return; }
+    if (!checkPwd()) return;
+
+    const exercice = exercices.find(e => e.id === importExercice);
+    if (!window.confirm(`Importer ${importPreview.total} OP dans l'exercice ${exercice?.annee} ?\n\nLes OP existants ne seront PAS supprimés.`)) return;
+
+    setSaving(true);
+    let imported = 0, errors = [];
+    try {
+      for (const [sourceId, { rows }] of Object.entries(importData)) {
+        for (const row of rows) {
+          try {
+            const numero = String(row['N° OP'] || '').trim();
+            const type = String(row['Type'] || 'PROVISOIRE').trim().toUpperCase();
+            const benNom = String(row['Bénéficiaire'] || '').trim();
+            const objet = String(row['Objet'] || '').trim();
+            const montant = parseFloat(String(row['Montant'] || '0').replace(/\s/g, '').replace(/,/g, '.')) || 0;
+            const ligne = String(row['Ligne budgétaire'] || '').trim();
+            const mode = String(row['Mode règlement'] || 'VIREMENT').trim().toUpperCase();
+            const dateCrea = String(row['Date création'] || '').trim();
+            const statut = String(row['Statut'] || 'CREE').trim().toUpperCase();
+
+            if (!numero || !benNom || !montant) { errors.push(`Ligne ignorée (données manquantes) : ${numero || '?'}`); continue; }
+
+            const ben = beneficiaires.find(b => (b.nom || '').toLowerCase().trim() === benNom.toLowerCase());
+            if (!ben) { errors.push(`Bénéficiaire introuvable : "${benNom}" (OP ${numero})`); continue; }
+
+            const opData = {
+              numero, type: ['PROVISOIRE', 'DEFINITIF', 'ANNULATION'].includes(type) ? type : 'PROVISOIRE',
+              sourceId, exerciceId: importExercice,
+              beneficiaireId: ben.id, objet, montant, ligneBudgetaire: ligne,
+              modeReglement: ['VIREMENT', 'CHEQUE', 'ESPECES', 'ORDRE_PAIEMENT'].includes(mode) ? mode : 'VIREMENT',
+              dateCreation: dateCrea || new Date().toISOString().split('T')[0],
+              statut: statut || 'CREE',
+              dateTransmissionCF: String(row['Date transmission CF'] || '').trim() || null,
+              bordereauCF: String(row['N° Bordereau CF'] || '').trim() || null,
+              dateVisaCF: String(row['Date visa CF'] || '').trim() || null,
+              dateTransmissionAC: String(row['Date transmission AC'] || '').trim() || null,
+              bordereauAC: String(row['N° Bordereau AC'] || '').trim() || null,
+              datePaiement: String(row['Date paiement'] || '').trim() || null,
+              montantPaye: row['Montant payé'] ? parseFloat(String(row['Montant payé']).replace(/\s/g, '').replace(/,/g, '.')) : null,
+              referencePaiement: String(row['Référence paiement'] || '').trim() || null,
+              opProvisoireNumero: String(row['N° OP Provisoire'] || '').trim() || null,
+              opProvisoireId: null,
+              observation: String(row['Observation'] || '').trim() || null,
+              rib: null, montantTVA: null, tvaRecuperable: false, piecesJustificatives: '',
+              importedAt: new Date().toISOString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+            };
+
+            await addDoc(collection(db, 'ops'), opData);
+            imported++;
+          } catch (rowErr) { errors.push(`Erreur ligne : ${rowErr.message}`); }
+        }
+      }
+
+      if (imported > 0) {
+        const allOps = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', importExercice)));
+        const opsMap = {};
+        allOps.docs.forEach(d => { opsMap[d.data().numero] = d.id; });
+        for (const d of allOps.docs) {
+          const data = d.data();
+          if (data.opProvisoireNumero && !data.opProvisoireId && opsMap[data.opProvisoireNumero]) {
+            await updateDoc(doc(db, 'ops', d.id), { opProvisoireId: opsMap[data.opProvisoireNumero] });
+          }
+        }
+      }
+
+      let msg = `${imported} OP importés avec succès !`;
+      if (errors.length > 0) msg += `\n\n${errors.length} erreur(s) :\n` + errors.slice(0, 10).join('\n');
+      if (errors.length > 10) msg += `\n... et ${errors.length - 10} autres.`;
+      alert(msg);
+      showMsg(`${imported} OP importés.`);
+      setImportData(null); setImportPreview(null); setImportFile(null);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // 4. RECALER COMPTEURS
+  const handleRecalerCompteurs = async () => {
+    if (!compteurExercice) { alert('Sélectionnez un exercice.'); return; }
+    if (!checkPwd()) return;
+    setSaving(true);
+    try {
+      let fixed = 0;
+      for (const src of sources) {
+        for (const typeBT of ['CF', 'AC']) {
+          const bts = bordereaux.filter(b => b.type === typeBT && b.sourceId === src.id && b.exerciceId === compteurExercice);
+          let maxNum = 0;
+          bts.forEach(b => { const m = (b.numero || '').match(/(\d{4})\//); if (m) maxNum = Math.max(maxNum, parseInt(m[1])); });
+
+          const compteurId = `${typeBT}_${src.id}_${compteurExercice}`;
+          await setDoc(doc(db, 'compteurs', compteurId), { count: maxNum, type: typeBT, sourceId: src.id, exerciceId: compteurExercice });
+          fixed++;
+        }
+      }
+      showMsg(`${fixed} compteurs recalés pour ${sources.length} source(s).`);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  // 5. CORRECTION DOUBLONS
+  const handleDetecterDoublons = () => {
+    if (!doublonExercice) { alert('Sélectionnez un exercice.'); return; }
+    const opsEx = ops.filter(o => o.exerciceId === doublonExercice);
+    const numCount = {};
+    opsEx.forEach(o => { numCount[o.numero] = (numCount[o.numero] || 0) + 1; });
+    const dups = Object.entries(numCount).filter(([, c]) => c > 1).map(([num, count]) => ({
+      numero: num, count, ops: opsEx.filter(o => o.numero === num)
+    }));
+    setDoublons(dups);
+  };
+
+  const handleFixDoublon = async (dup) => {
+    if (!checkPwd()) return;
+    setSaving(true);
+    try {
+      const opsToFix = dup.ops.slice(1); 
+      const opsEx = ops.filter(o => o.exerciceId === doublonExercice);
+      let maxNum = 0;
+      opsEx.forEach(o => { const m = (o.numero || '').match(/N°(\d+)\//); if (m) maxNum = Math.max(maxNum, parseInt(m[1])); });
+
+      for (const op of opsToFix) {
+        maxNum++;
+        const newNumero = op.numero.replace(/N°\d+\//, `N°${String(maxNum).padStart(4, '0')}/`);
+        await updateDoc(doc(db, 'ops', op.id), { numero: newNumero, updatedAt: new Date().toISOString() });
+      }
+      showMsg(`${opsToFix.length} doublon(s) corrigé(s) pour ${dup.numero}`);
+      handleDetecterDoublons();
+    } catch (e) { alert('Erreur : ' + e.message); }
+    setSaving(false);
+  };
+
+  const cardStyle = { background: 'white', borderRadius: 12, padding: 24, marginBottom: 16, border: `1px solid ${P.border}` };
+  
   const btnTool = (id, iconSvg, label, desc, color) => (
     <div key={id} onClick={() => setTool(tool === id ? null : id)}
       style={{ flex: 1, minWidth: 220, padding: 20, borderRadius: 12, border: tool === id ? `2px solid ${color}` : `1px solid ${P.border}`, background: tool === id ? `${color}10` : 'white', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -490,9 +757,151 @@ const TabMaintenance = () => {
         {btnTool('doublons', I.source(P.gold, 20), 'Doublons', 'Détecter et renommer les OP avec le même numéro.', P.gold)}
       </div>
 
-      {/* Les interfaces des outils s'affichent ici en fonction de 'tool' (La logique et les formulaires restent les mêmes) */}
-      {/* ... */}
-      {tool === 'purge' && <div style={{...styles.card, background: P.card, borderRadius: 12, border: `1px solid ${P.border}`}}><h3>(Interface Purge conservée - en cours d'intégration)</h3></div>}
+      {/* === PURGE === */}
+      {tool === 'purge' && (
+        <div style={cardStyle}>
+          <h3 style={{ color: P.red, margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Purge des données</h3>
+          <div style={{ display: 'flex', gap: 20, marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+              <input type="radio" checked={purgeScope === 'exercice'} onChange={() => setPurgeScope('exercice')} /> Par exercice
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+              <input type="radio" checked={purgeScope === 'tout'} onChange={() => setPurgeScope('tout')} />
+              <span style={{ color: P.red, fontWeight: 700 }}>Tout purger </span>
+            </label>
+          </div>
+          {purgeScope === 'exercice' && (
+            <select value={purgeExercice} onChange={e => setPurgeExercice(e.target.value)} style={{ ...styles.input, width: 200, marginBottom: 0 }}>
+              <option value="">-- Sélectionner l'exercice --</option>
+              {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
+            </select>
+          )}
+          <div style={{ marginTop: 20 }}>
+            <Label>Tapez SUPPRIMER pour confirmer :</Label>
+            <input value={purgeConfirm} onChange={e => setPurgeConfirm(e.target.value)} placeholder="SUPPRIMER" style={{ ...styles.input, width: 200, marginTop: 4, fontFamily: 'monospace', fontWeight: 700, letterSpacing: 2, marginBottom: 0 }} />
+          </div>
+          {purgeScope === 'exercice' && purgeExercice && (
+            <div style={{ fontSize: 12, color: P.textSec, marginTop: 12, background: P.bg, padding: '8px 12px', borderRadius: 6, display: 'inline-block' }}>
+              {ops.filter(o => o.exerciceId === purgeExercice).length} OP et {bordereaux.filter(b => b.exerciceId === purgeExercice).length} bordereaux à supprimer.
+            </div>
+          )}
+          {purgeScope === 'tout' && (
+            <div style={{ fontSize: 12, color: P.red, fontWeight: 700, marginTop: 12, background: P.redLight, padding: '8px 12px', borderRadius: 6, display: 'inline-block' }}>
+              ⚠️ {ops.length} OP et {bordereaux.length} bordereaux seront supprimés DÉFINITIVEMENT.
+            </div>
+          )}
+          <div style={{ marginTop: 20 }}>
+            <ActionBtn label={saving ? "Suppression en cours..." : "Exécuter la purge"} icon={I.trash('#fff')} color={P.red} onClick={handlePurge} disabled={saving || purgeConfirm !== 'SUPPRIMER'} />
+          </div>
+        </div>
+      )}
+
+      {/* === IMPORT === */}
+      {tool === 'import' && (
+        <div style={cardStyle}>
+          <h3 style={{ color: '#3B6B8A', margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Import OP depuis Excel</h3>
+
+          <div style={{ background: P.bg, borderRadius: 10, padding: 16, marginBottom: 16, border: `1px solid ${P.border}` }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: P.text }}>Étape 1 : Télécharger le canevas</p>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: P.textSec }}>Le fichier contiendra un onglet par source ({sources.map(s => s.sigle).join(', ')}) + un onglet EXEMPLE + un onglet LÉGENDE.</p>
+            <ActionBtn label="Télécharger le canevas Excel" icon={I.download()} color="#3B6B8A" onClick={handleDownloadCanevas} />
+          </div>
+
+          <div style={{ background: P.bg, borderRadius: 10, padding: 16, marginBottom: 16, border: `1px solid ${P.border}` }}>
+            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: P.text }}>Étape 2 : Importer les données</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div>
+                <Label>Exercice de destination</Label>
+                <select value={importExercice} onChange={e => setImportExercice(e.target.value)} style={{ ...styles.input, marginBottom: 0 }}>
+                  <option value="">-- Exercice --</option>
+                  {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label>Fichier Excel rempli</Label>
+                <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} style={{ padding: '8px 0', fontSize: 13, width: '100%' }} />
+              </div>
+            </div>
+          </div>
+
+          {importPreview && (
+            <div style={{ background: P.greenLight, borderRadius: 10, padding: 16, marginBottom: 16, border: `1px solid ${P.green}44` }}>
+              <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: P.greenDark }}>Aperçu : {importPreview.total} OP trouvés dans le fichier</p>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {importPreview.parSource.map((s, i) => (
+                  <Badge key={i} bg="#fff" color={P.greenDark}>{s.sigle} : {s.count} OP</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {importPreview && importExercice && (
+            <div style={{ marginTop: 20, textAlign: 'right' }}>
+              <ActionBtn label={saving ? "Import en cours..." : `Valider et Importer ${importPreview.total} OP`} icon={I.check()} color="#3B6B8A" onClick={handleImport} disabled={saving} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === COMPTEURS === */}
+      {tool === 'compteurs' && (
+        <div style={cardStyle}>
+          <h3 style={{ color: P.gold, margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Recaler les compteurs de bordereaux</h3>
+          <p style={{ fontSize: 12, color: P.textSec, marginBottom: 16 }}>Remet les compteurs en cohérence avec le plus grand numéro de bordereau existant pour chaque source.</p>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+            <div>
+              <Label>Exercice à recaler</Label>
+              <select value={compteurExercice} onChange={e => setCompteurExercice(e.target.value)} style={{ ...styles.input, width: 200, marginBottom: 0 }}>
+                <option value="">-- Exercice --</option>
+                {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
+              </select>
+            </div>
+            <ActionBtn label={saving ? "Recalage..." : "Lancer le recalage"} icon={I.check()} color={P.gold} onClick={handleRecalerCompteurs} disabled={saving || !compteurExercice} />
+          </div>
+        </div>
+      )}
+
+      {/* === DOUBLONS === */}
+      {tool === 'doublons' && (
+        <div style={cardStyle}>
+          <h3 style={{ color: P.gold, margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Détection des doublons de numéros</h3>
+          <p style={{ fontSize: 12, color: P.textSec, marginBottom: 16 }}>Recherche les OP ayant un numéro identique au sein d'un même exercice et permet de renuméroter automatiquement les copies.</p>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', marginBottom: 20 }}>
+            <div>
+              <Label>Exercice à scanner</Label>
+              <select value={doublonExercice} onChange={e => setDoublonExercice(e.target.value)} style={{ ...styles.input, width: 200, marginBottom: 0 }}>
+                <option value="">-- Exercice --</option>
+                {exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}
+              </select>
+            </div>
+            <ActionBtn label="Scanner" icon={I.search('#fff')} color={P.gold} onClick={handleDetecterDoublons} disabled={!doublonExercice} />
+          </div>
+          
+          {doublons !== null && (
+            doublons.length === 0 ? (
+              <div style={{ padding: 20, textAlign: 'center', background: P.greenLight, color: P.greenDark, borderRadius: 8, fontWeight: 600, fontSize: 13 }}>✓ Aucun numéro en doublon détecté pour cet exercice !</div>
+            ) : (
+              <div>
+                <div style={{ padding: '10px 14px', background: P.redLight, color: P.red, borderRadius: 8, fontWeight: 700, fontSize: 13, marginBottom: 16 }}>⚠️ {doublons.length} numéro(s) utilisé(s) plusieurs fois</div>
+                {doublons.map((dup, i) => (
+                  <div key={i} style={{ padding: 16, background: '#FAFAF8', border: `1px solid ${P.border}`, borderRadius: 8, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14 }}>{dup.numero}</span>
+                        <Badge bg={P.goldLight} color={P.gold}>{dup.count} exemplaires</Badge>
+                      </div>
+                      <div style={{ fontSize: 11, color: P.textSec, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {dup.ops.map(o => <span key={o.id}>• {o.type} - {formatMontant(o.montant)} F - {getBen(o)}</span>)}
+                      </div>
+                    </div>
+                    <ActionBtn label="Corriger automatiquement" icon={I.edit('#fff')} color={P.gold} onClick={() => handleFixDoublon(dup)} disabled={saving} />
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 };
