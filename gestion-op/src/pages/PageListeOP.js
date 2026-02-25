@@ -11,6 +11,10 @@ const P = {
   border:'#E2DFD8', text:'#3A3A3A', textSec:'#7A7A7A', textMuted:'#A0A0A0',
 };
 
+const I = {
+  download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+};
+
 const PageListeOP = () => {
   const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
@@ -20,6 +24,7 @@ const PageListeOP = () => {
   const [previewOpId, setPreviewOpId] = useState(null);
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
+  const getSrcSigle = (srcId) => sources.find(s => s.id === srcId)?.sigle || 'SRC';
 
   // Fonction de formatage des dates (AAAA-MM-JJ vers JJ/MM/AAAA)
   const formatDate = (dateString) => {
@@ -77,6 +82,60 @@ const PageListeOP = () => {
   // L'OP affiché dans la modale est récupéré en direct, donc il s'actualise seul
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
 
+  // Fonction d'exportation vers Excel
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      const exportData = displayOps.map(op => {
+        const row = {
+          'N° OP': op.numero,
+          'Type': op.type || '',
+          'Source': getSrcSigle(op.sourceId),
+          'Bénéficiaire': getBenNom(op),
+          'Objet': op.objet || '',
+          'Ligne Budgétaire': op.ligneBudgetaire || '',
+          'Montant': Number(op.montant || 0),
+          'Statut': op.statut.replace('_', ' '),
+          'Date Saisie': formatDate(op.dateCreation) || '',
+        };
+        
+        // Ajouter les colonnes de cumul si on n'est pas sur "CUMUL GENERAL"
+        if (activeSource !== 'ALL') {
+          row['Dotation'] = Number(op.dotationLigne || 0);
+          row['Engagement Antérieur'] = Number(op.engagementAnterieur || 0);
+          row['Disponible'] = Number(op.disponible || 0);
+        }
+        
+        return row;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData.length ? exportData : [{ 'Aucune donnée': '' }]);
+      
+      // Ajustement de la largeur des colonnes
+      if (exportData.length) {
+        ws['!cols'] = Object.keys(exportData[0]).map(k => ({ wch: Math.max(k.length + 2, 15) }));
+      }
+
+      // Formatage des montants (séparateur de milliers)
+      for (let cellRef in ws) {
+        if (cellRef[0] === '!') continue;
+        const cell = ws[cellRef];
+        if (cell.t === 'n') cell.z = '#,##0'; 
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Liste OP");
+      
+      const dRef = new Date().toISOString().split('T')[0].split('-').reverse().join('-');
+      const srcName = activeSource === 'ALL' ? 'GLOBAL' : getSrcSigle(activeSource);
+      XLSX.writeFile(wb, `Liste_OP_${srcName}_${dRef}.xlsx`);
+      
+    } catch (err) {
+      alert("Erreur lors de l'export : " + err.message);
+    }
+  };
+
   // Style ajusté pour l'en-tête : texte plus grand, hauteur naturelle ajustée
   const thStyle = {
     ...styles.th, 
@@ -97,22 +156,34 @@ const PageListeOP = () => {
         <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
       </div>
 
-      {/* BOUTONS DES SOURCES AVEC COULEURS DYNAMIQUES */}
-      <div style={{display:'flex',gap:8,paddingBottom:'20px',flexWrap:'wrap'}}>
-        <button onClick={() => setActiveSource('ALL')} 
-          style={{padding:'8px 20px',borderRadius:10,border:activeSource==='ALL'?`2px solid ${P.text}`:'2px solid transparent',background:activeSource==='ALL'?P.card:'#EDEAE5',color:activeSource==='ALL'?P.text:P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:activeSource==='ALL'?`0 2px 8px ${P.text}22`:'none'}}>
-          CUMUL GENERAL
+      {/* ZONE SOURCES ET EXPORT */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        {/* BOUTONS DES SOURCES AVEC COULEURS DYNAMIQUES */}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button onClick={() => { setActiveSource('ALL'); setFilters({...filters, ligneBudgetaire: ''}); }} 
+            style={{padding:'8px 20px',borderRadius:10,border:activeSource==='ALL'?`2px solid ${P.text}`:'2px solid transparent',background:activeSource==='ALL'?P.card:'#EDEAE5',color:activeSource==='ALL'?P.text:P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:activeSource==='ALL'?`0 2px 8px ${P.text}22`:'none'}}>
+            CUMUL GENERAL
+          </button>
+          {sources.map(s => {
+            const isActif = activeSource === s.id;
+            const srcColor = s.couleur || P.greenDark;
+            return (
+              <button key={s.id} onClick={() => setActiveSource(s.id)} 
+                style={{padding:'8px 20px',borderRadius:10,border:isActif?`2px solid ${srcColor}`:'2px solid transparent',background:isActif?srcColor:'#EDEAE5',color:isActif?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:isActif?`0 2px 8px ${srcColor}55`:'none'}}>
+                {s.sigle}
+              </button>
+            )
+          })}
+        </div>
+        
+        {/* BOUTON EXPORT EXCEL (ALIGNÉ À DROITE) */}
+        <button 
+          onClick={handleExportExcel} 
+          title="Exporter la vue actuelle en Excel" 
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 10, cursor: 'pointer', width: 40, height: 40, boxShadow: `0 2px 8px ${P.greenDark}44`, flexShrink: 0 }}
+        >
+          {I.download('#fff', 18)}
         </button>
-        {sources.map(s => {
-          const isActif = activeSource === s.id;
-          const srcColor = s.couleur || P.greenDark;
-          return (
-            <button key={s.id} onClick={() => setActiveSource(s.id)} 
-              style={{padding:'8px 20px',borderRadius:10,border:isActif?`2px solid ${srcColor}`:'2px solid transparent',background:isActif?srcColor:'#EDEAE5',color:isActif?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:isActif?`0 2px 8px ${srcColor}55`:'none'}}>
-              {s.sigle}
-            </button>
-          )
-        })}
       </div>
 
       {/* FILTRES AJUSTÉS AU CONTENU */}
@@ -288,10 +359,24 @@ const PageListeOP = () => {
                     <span style={{color:'#666',fontWeight:600}}>Transmis AC :</span>
                     <span style={{fontWeight:700}}>{formatDate(livePreviewOp.dateTransmissionAC) || 'En attente'}</span>
                  </div>
-                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12, marginBottom: livePreviewOp.dateDiffere || livePreviewOp.dateRejet ? 12 : 0}}>
                     <span style={{color:'#666',fontWeight:600}}>Paiement :</span>
                     <span style={{fontWeight:700,color:livePreviewOp.datePaiement?P.gold:P.text}}>{formatDate(livePreviewOp.datePaiement) || 'En attente'}</span>
                  </div>
+
+                 {/* AFFICHAGE CONDITIONNEL DATE DIFFÉRÉ / REJET */}
+                 {livePreviewOp.dateDiffere && (
+                   <div style={{display:'flex',justifyContent:'space-between',fontSize:12, marginBottom: livePreviewOp.dateRejet ? 12 : 0}}>
+                      <span style={{color:P.gold,fontWeight:700}}>Différé le :</span>
+                      <span style={{fontWeight:700, color:P.gold}}>{formatDate(livePreviewOp.dateDiffere)}</span>
+                   </div>
+                 )}
+                 {livePreviewOp.dateRejet && (
+                   <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                      <span style={{color:P.red,fontWeight:700}}>Rejeté le :</span>
+                      <span style={{fontWeight:700, color:P.red}}>{formatDate(livePreviewOp.dateRejet)}</span>
+                   </div>
+                 )}
                  
                  {/* DÉTAILS DU PAIEMENT SI EXISTANT */}
                  {(()=>{
