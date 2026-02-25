@@ -10,23 +10,26 @@ const COLLAPSED = 68;
 // ===================== ICÔNES SVG =====================
 const I = {
   dashboard: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  
+  // Icônes des dossiers principaux
+  operations: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
+  circuit: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>,
+  gestion: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+  config: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+
+  // Sous-icônes
   nouvelOp: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>,
   consulterOp: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   ops: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
-  
-  // Icône réseau/circuit pour le menu principal dépliant
-  circuit: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>,
-  
-  // Sous-icônes
   cf: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>,
   ac: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>,
   archives: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
-
   suivi: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   budget: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/><path d="M6 14h.01"/><path d="M10 14h.01"/></svg>,
   beneficiaires: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   parametres: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
   admin: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  
   logout: (c, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   chevron: (c, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
 };
@@ -34,12 +37,18 @@ const I = {
 // ===================== CONFIG MENU =====================
 const menuConfig = [
   { id: 'dashboard', icon: 'dashboard', label: 'Tableau de bord' },
-  { section: 'OPÉRATIONS' },
-  { id: 'nouvelOp', icon: 'nouvelOp', label: 'Nouvel OP' },
-  { id: 'consulterOp', icon: 'consulterOp', label: 'Consulter OP' },
-  { id: 'ops', icon: 'ops', label: 'Liste des OP' },
+  { isDivider: true },
   
-  // NOUVEAU MENU DÉPLIANT (ACCORDÉON)
+  { 
+    id: 'grp_operations', 
+    icon: 'operations', 
+    label: 'Opérations',
+    subItems: [
+      { id: 'nouvelOp', icon: 'nouvelOp', label: 'Nouvel OP' },
+      { id: 'consulterOp', icon: 'consulterOp', label: 'Consulter OP' },
+      { id: 'ops', icon: 'ops', label: 'Liste des OP' },
+    ]
+  },
   { 
     id: 'circuit', 
     icon: 'circuit', 
@@ -50,13 +59,24 @@ const menuConfig = [
       { id: 'archives', icon: 'archives', label: 'Salle des Archives' },
     ]
   },
-  
-  { section: 'GESTION' },
-  { id: 'suivi', icon: 'suivi', label: 'Rapport' },
-  { id: 'budget', icon: 'budget', label: 'Budget' },
-  { id: 'beneficiaires', icon: 'beneficiaires', label: 'Bénéficiaires' },
-  { section: 'CONFIG' },
-  { id: 'parametres', icon: 'parametres', label: 'Paramètres' },
+  { 
+    id: 'grp_gestion', 
+    icon: 'gestion', 
+    label: 'Gestion',
+    subItems: [
+      { id: 'suivi', icon: 'suivi', label: 'Rapport' },
+      { id: 'budget', icon: 'budget', label: 'Budget' },
+      { id: 'beneficiaires', icon: 'beneficiaires', label: 'Bénéficiaires' },
+    ]
+  },
+  { 
+    id: 'grp_config', 
+    icon: 'config', 
+    label: 'Configuration',
+    subItems: [
+      { id: 'parametres', icon: 'parametres', label: 'Paramètres' },
+    ]
+  },
 ];
 
 // ===================== NAVITEM =====================
@@ -94,14 +114,14 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick, hasChildren, isO
         }}>{label}</span>
       )}
       
-      {/* Petite flèche si c'est un menu dépliant */}
+      {/* Flèche pour les menus dépliants */}
       {hasChildren && !collapsed && (
         <div style={{ display: 'flex', alignItems: 'center', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.25s ease' }}>
           {I.chevron(active ? '#fff' : 'rgba(255,255,255,0.4)', 14)}
         </div>
       )}
 
-      {/* Tooltip pour la barre latérale rétractée */}
+      {/* Infobulle barre rétractée */}
       {collapsed && isH && (
         <div style={{
           position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
@@ -121,29 +141,45 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick, hasChildren, isO
 const Sidebar = () => {
   const { currentPage, setCurrentPage, projet, exerciceActif, user, handleLogout, userProfile } = useAppContext();
   const [collapsed, setCollapsed] = useState(false);
-  const [openGroups, setOpenGroups] = useState({ circuit: true }); // Ouvre le menu Circuit par défaut
+  
+  // Par défaut, Opérations et Circuit sont ouverts
+  const [openGroups, setOpenGroups] = useState({ grp_operations: true, circuit: true }); 
   
   const w = collapsed ? COLLAPSED : EXPANDED;
 
   useEffect(() => { document.documentElement.style.setProperty('--sidebar-w', w + 'px'); }, [w]);
 
-  const items = [...menuConfig];
-  if (userProfile?.role === 'admin') items.push({ id: 'admin', icon: 'admin', label: 'Administration' });
+  // Clonage profond de menuConfig pour ajouter l'Admin dynamiquement
+  const items = JSON.parse(JSON.stringify(menuConfig)); 
+  if (userProfile?.role === 'admin') {
+    const configGrp = items.find(i => i.id === 'grp_config');
+    if(configGrp) configGrp.subItems.push({ id: 'admin', icon: 'admin', label: 'Administration' });
+  }
 
-  // Gère le clic sur un menu accordéon (dépliant)
   const handleGroupClick = (id) => {
-    if (collapsed) setCollapsed(false); // Déplie la barre latérale si elle était fermée
+    if (collapsed) setCollapsed(false); 
     setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
     <div style={{
+      fontFamily: "'Century Gothic', 'Trebuchet MS', sans-serif", // POLICE AJOUTÉE ICI
       width: w, minWidth: w, height: '100vh', position: 'fixed',
       background: `linear-gradient(180deg, ${PRIMARY} 0%, ${PRIMARY_DARK} 100%)`,
       color: '#fff', display: 'flex', flexDirection: 'column',
       transition: 'width 0.25s cubic-bezier(.4,0,.2,1), min-width 0.25s cubic-bezier(.4,0,.2,1)',
       overflow: 'hidden', zIndex: 10,
     }}>
+      
+      {/* STYLES INJECTÉS POUR LA BELLE BARRE DE DÉFILEMENT ET L'ANIMATION */}
+      <style>{`
+        .modern-scroll::-webkit-scrollbar { width: 4px; }
+        .modern-scroll::-webkit-scrollbar-track { background: transparent; }
+        .modern-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        .modern-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
       {/* Bouton replier */}
       <button onClick={() => setCollapsed(c => !c)} style={{
         position: 'absolute', top: 28, right: -14, width: 28, height: 28, borderRadius: '50%',
@@ -169,12 +205,12 @@ const Sidebar = () => {
         )}
       </div>
 
-      {/* Menu Principal */}
-      <nav style={{ flex: 1, padding: '4px 0', overflowY: 'auto', overflowX: 'hidden' }}>
+      {/* Menu Principal avec barre de défilement esthétique */}
+      <nav className="modern-scroll" style={{ flex: 1, padding: '4px 0', overflowY: 'auto', overflowX: 'hidden' }}>
         {items.map((item, idx) => {
           
-          // RENDU DES SÉPARATEURS ÉLÉGANTS (La fameuse "barre plus jolie")
-          if (item.section) {
+          // LA LIGNE SÉPARATRICE ESTHÉTIQUE
+          if (item.isDivider) {
             return (
               <div key={'s'+idx} style={{ margin: collapsed ? '15px 0' : '20px 0 10px 0' }}>
                 <div style={{ 
@@ -182,30 +218,22 @@ const Sidebar = () => {
                   background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%)', 
                   margin: '0 20px' 
                 }}/>
-                {!collapsed && (
-                  <div style={{ padding: '12px 24px 0', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 }}>
-                    {item.section}
-                  </div>
-                )}
               </div>
             );
           }
 
-          // RENDU DU MENU DÉPLIANT (ACCORDÉON)
+          // MENU DÉPLIANT (ACCORDÉON)
           if (item.subItems) {
             const isOpen = openGroups[item.id];
             const isActiveGroup = item.subItems.some(sub => sub.id === currentPage);
             
             return (
               <div key={item.id}>
-                {/* Le bouton parent */}
                 <NavItem 
                   id={item.id} icon={item.icon} label={item.label} active={isActiveGroup} 
                   collapsed={collapsed} onClick={() => handleGroupClick(item.id)} 
                   hasChildren isOpen={isOpen} 
                 />
-                
-                {/* Les sous-menus qui apparaissent en dessous */}
                 {!collapsed && isOpen && (
                   <div style={{ 
                     marginLeft: 30, paddingLeft: 12, borderLeft: '1px solid rgba(255,255,255,0.15)', 
@@ -221,12 +249,10 @@ const Sidebar = () => {
                     ))}
                   </div>
                 )}
-                <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }`}</style>
               </div>
             );
           }
 
-          // RENDU DES MENUS SIMPLES
           return <NavItem key={item.id} id={item.id} icon={item.icon} label={item.label} active={currentPage === item.id} collapsed={collapsed} onClick={setCurrentPage}/>;
         })}
       </nav>
