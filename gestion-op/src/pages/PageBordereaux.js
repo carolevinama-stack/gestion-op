@@ -409,7 +409,6 @@ const PageBordereaux=()=>{
             } else if(resultatCF==='DIFFERE'){
                upd.statut='DIFFERE_CF';upd.dateDiffere=d;upd.motifDiffere=motifRetour.trim();
             } else{
-               // Juste une mise à jour du statut, PAS de clone en négatif.
                upd.statut='REJETE_CF';upd.dateRejet=d;upd.motifRejet=motifRetour.trim();
             }
             batch.update(doc(db,'ops',opId), upd);
@@ -449,7 +448,6 @@ const PageBordereaux=()=>{
           if(resultatAC==='DIFFERE'){
             upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();
           } else {
-            // Juste une mise à jour du statut, PAS de clone en négatif.
             upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();
           }
           batch.update(doc(db,'ops',modalPaiement.id),upd);
@@ -465,25 +463,41 @@ const PageBordereaux=()=>{
 
   const handlePaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);if(!op)return;
-    const m=parseFloat(paiementMontant.replace(/\s/g, '')); // Nettoyage des espaces pour le calcul
-    if(isNaN(m)){notify("error", "Erreur", "Montant invalide.");return;}
+    const m=parseFloat(paiementMontant.replace(/\s/g, ''));
+    if(isNaN(m) || m <= 0){notify("error", "Erreur", "Veuillez saisir un montant valide.");return;}
     const d=readDate('paiement');if(!d){notify("error", "Erreur", "Date requise.");return;}
-    const paiem=op.paiements||[];const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);const reste=(op.montant||0)-deja;
+    
+    // Calcul de l'historique et du reste
+    const paiem=op.paiements||[];
+    const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);
+    const reste=Math.round((op.montant||0) - deja);
     
     const exec = async () => {
       setSaving(true);
       try{
         const nP=[...paiem,{date:d,montant:m,reference:paiementReference.trim(),createdAt:new Date().toISOString()}];
-        const tot=nP.reduce((s,p)=>s+(p.montant||0),0);const solde=(op.montant||0)-tot<1;
-        await updateDoc(doc(db,'ops',opId),{paiements:nP,totalPaye:tot,datePaiement:d,updatedAt:new Date().toISOString(),statut:solde?'PAYE':'PAYE_PARTIEL'});
-        notify("success", "Paiement", solde?"OP soldé.":"Paiement partiel enregistré.");
+        const tot=Math.round(nP.reduce((s,p)=>s+(p.montant||0),0));
+        const montantInitial = Math.round(op.montant||0);
+        
+        // Règle stricte pour solder : Si le Total payé est supérieur ou égal au montant initial.
+        const estSolde = (tot >= montantInitial);
+        
+        await updateDoc(doc(db,'ops',opId),{
+          paiements:nP,
+          totalPaye:tot,
+          datePaiement:d, // Conserve la date du dernier paiement
+          updatedAt:new Date().toISOString(),
+          statut: estSolde ? 'PAYE' : 'PAYE_PARTIEL'
+        });
+        
+        notify("success", "Paiement", estSolde ? "OP totalement soldé." : "Paiement partiel enregistré.");
         setPaiementMontant('');setPaiementReference('');
       }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     };
 
-    if(m>reste+1 && m > 0){
-      ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste : ${formatMontant(reste)}\nPaiement : ${formatMontant(m)}\nContinuer ?`, exec);
+    if(m > reste){
+      ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste théorique : ${formatMontant(reste)} F\nPaiement saisi : ${formatMontant(m)} F\nVoulez-vous forcer ce paiement et solder l'OP ?`, exec);
     } else {
       ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
     }
@@ -796,7 +810,7 @@ const PageBordereaux=()=>{
               <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:11}}>{op.ligneBudgetaire||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
-              <td style={styles.td}><Badge bg={op.statut==='DIFFERE_CF'?P.goldLight:P.greenLight} color={op.statut==='DIFFERE_CF'?P.gold:P.greenDark}>{op.statut==='DIFFERE_CF'?'Différé':'En cours'}</Badge></td>
+              <td style={styles.td}><Badge bg={op.statut==='DIFFERE_CF'?P.goldLight:P.gold:P.greenDark}>{op.statut==='DIFFERE_CF'?'Différé':'En cours'}</Badge></td>
             </tr>;})}
         </tbody></table></div>}
         
