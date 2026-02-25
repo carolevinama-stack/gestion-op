@@ -43,11 +43,36 @@ const Badge=React.memo(({bg,color,children})=><span style={{background:bg,color,
 const Empty=React.memo(({text})=><div style={{textAlign:'center',padding:40,color:P.textMuted}}><div style={{marginBottom:12,opacity:.5}}>{I.fileText(P.textMuted,40)}</div><p style={{fontSize:14,margin:0}}>{text}</p></div>);
 const STab=React.memo(({active,label,count,color,onClick})=><button onClick={onClick} style={{padding:'10px 18px',borderRadius:10,border:active?`2px solid ${color}`:'2px solid transparent',background:active?color:P.card,color:active?'#fff':P.textSec,fontWeight:600,cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',gap:6,transition:'all .2s',boxShadow:active?`0 4px 12px ${color}33`:'0 1px 3px rgba(0,0,0,.06)'}}>{label}{count!==undefined&&<span style={{background:active?'rgba(255,255,255,.25)':P.border,padding:'1px 7px',borderRadius:10,fontSize:10,fontWeight:700}}>{count}</span>}</button>);
 
-// CORRECTION OPACITÉ ICI
-const IBtn=React.memo(({icon,title,bg,onClick,disabled,size=30})=><button onClick={onClick} disabled={disabled} title={title} style={{width:size,height:size,borderRadius:8,border:'none',background:bg||P.greenLight,display:'flex',alignItems:'center',justifyContent:'center',cursor:disabled?'not-allowed':'pointer',opacity: disabled ? 0.4 : 1, transition:'all .15s',padding:0}}>{icon}</button>);
+const IBtn = React.memo(({icon, title, bg, onClick, disabled, size = 30}) => (
+  <button 
+    onClick={onClick} 
+    disabled={disabled} 
+    title={title} 
+    style={{
+      width: size, height: size, borderRadius: 8, border: 'none', background: bg || P.greenLight, 
+      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'not-allowed' : 'pointer', 
+      opacity: disabled ? 0.4 : 1, transition: 'all .15s', padding: 0
+    }}
+  >
+    {icon}
+  </button>
+));
 
-// CORRECTION OPACITÉ ICI
-const ActionBtn=React.memo(({label,icon,color,onClick,disabled,count})=><button onClick={onClick} disabled={disabled} style={{padding:'10px 20px',background:color,color:'#fff',border:'none',borderRadius:10,fontWeight:700,fontSize:13,cursor:disabled?'not-allowed':'pointer',display:'inline-flex',alignItems:'center',gap:8,opacity: disabled ? 0.5 : 1, boxShadow:`0 4px 12px ${color}33`,transition:'all .2s',minHeight:40}}>{icon}{label}{count!==undefined&&<span style={{background:'rgba(255,255,255,.25)',padding:'2px 8px',borderRadius:6,fontSize:11}}>{count}</span>}</button>);
+const ActionBtn = React.memo(({label, icon, color, onClick, disabled, count}) => (
+  <button 
+    onClick={onClick} 
+    disabled={disabled} 
+    style={{
+      padding: '10px 20px', background: color, color: '#fff', border: 'none', borderRadius: 10, 
+      fontWeight: 700, fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', 
+      alignItems: 'center', gap: 8, opacity: disabled ? 0.5 : 1, boxShadow: `0 4px 12px ${color}33`, 
+      transition: 'all .2s', minHeight: 40
+    }}
+  >
+    {icon}{label}
+    {count !== undefined && <span style={{background: 'rgba(255,255,255,.25)', padding: '2px 8px', borderRadius: 6, fontSize: 11}}>{count}</span>}
+  </button>
+));
 
 const Modal=React.memo(({title,titleColor,onClose,children,width=540})=><><div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',backdropFilter:'blur(3px)',zIndex:200}}/><div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxWidth:'92vw',maxHeight:'88vh',background:P.card,borderRadius:16,zIndex:201,boxShadow:'0 20px 60px rgba(0,0,0,.2)',display:'flex',flexDirection:'column',overflow:'hidden'}}><div style={{padding:'16px 22px',background:titleColor||P.green,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}><h3 style={{fontSize:16,fontWeight:700,color:'#fff',margin:0}}>{title}</h3><button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:'none',background:'rgba(255,255,255,.2)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{I.close('#fff',16)}</button></div><div style={{flex:1,overflowY:'auto',padding:'20px 22px'}}>{children}</div></div></>);
 
@@ -467,11 +492,10 @@ const PageBordereaux=()=>{
 
   const handlePaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);if(!op)return;
-    const m=parseFloat(paiementMontant.replace(/\s/g, ''));
+    const m = parseFloat(String(paiementMontant).replace(/\s/g, ''));
     if(isNaN(m) || m <= 0){notify("error", "Erreur", "Veuillez saisir un montant valide.");return;}
     const d=readDate('paiement');if(!d){notify("error", "Erreur", "Date requise.");return;}
     
-    // Calcul de l'historique et du reste
     const paiem=op.paiements||[];
     const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);
     const reste=Math.round((op.montant||0) - deja);
@@ -483,13 +507,12 @@ const PageBordereaux=()=>{
         const tot=Math.round(nP.reduce((s,p)=>s+(p.montant||0),0));
         const montantInitial = Math.round(op.montant||0);
         
-        // Règle stricte pour solder : Si le Total payé est supérieur ou égal au montant initial.
         const estSolde = (tot >= montantInitial);
         
         await updateDoc(doc(db,'ops',opId),{
           paiements:nP,
           totalPaye:tot,
-          datePaiement:d, // Conserve la date du dernier paiement
+          datePaiement:d,
           updatedAt:new Date().toISOString(),
           statut: estSolde ? 'PAYE' : 'PAYE_PARTIEL'
         });
@@ -757,13 +780,14 @@ const PageBordereaux=()=>{
     </div>}
   </div>;
 
-  return<div>
+  return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
       <h1 style={{fontSize:22,fontWeight:700,color:P.greenDark,margin:0}}>Circuit de validation</h1>
       <button onClick={() => setModalSuppressionHist(true)} style={{padding:'8px 16px',background:P.card,border:`1px solid ${P.border}`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,fontWeight:600,color:P.textSec,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}>
         {I.history(P.textSec,14)} Historique Suppressions
       </button>
     </div>
+    
     <div style={{display:'flex',gap:8,padding:'16px 0',flexWrap:'wrap'}}>
       {sources.map(src=>{
         const isActif = activeSourceBT === src.id;
@@ -776,6 +800,7 @@ const PageBordereaux=()=>{
         )
       })}
     </div>
+    
     <div style={{display:'flex',gap:4,marginBottom:20}}>
       {[{k:'CF',l:'Contrôle Financier',c:P.greenDark},{k:'AC',l:'Agent Comptable',c:P.orange},{k:'ARCHIVES',l:'Archives',c:P.olive}].map(t=><button key={t.k} onClick={()=>chgTab(t.k)} style={{flex:1,padding:'14px 12px',border:'none',cursor:'pointer',fontSize:14,fontWeight:700,background:mainTab===t.k?t.c:'#EDEAE5',color:mainTab===t.k?'white':P.textSec,borderRadius:10,boxShadow:mainTab===t.k?`0 4px 12px ${t.c}33`:'none',transition:'all .2s'}}>{t.l}</button>)}
     </div>
@@ -814,7 +839,7 @@ const PageBordereaux=()=>{
               <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:11}}>{op.ligneBudgetaire||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
-              <td style={styles.td}><Badge bg={op.statut==='DIFFERE_CF'?P.goldLight:P.gold:P.greenDark}>{op.statut==='DIFFERE_CF'?'Différé':'En cours'}</Badge></td>
+              <td style={styles.td}><Badge bg={op.statut==='DIFFERE_CF'?P.goldLight:P.greenLight} color={op.statut==='DIFFERE_CF'?P.gold:P.greenDark}>{op.statut==='DIFFERE_CF'?'Différé':'En cours'}</Badge></td>
             </tr>;})}
         </tbody></table></div>}
         
@@ -1015,8 +1040,7 @@ const PageBordereaux=()=>{
     </div>}
 
     {/* MODALES RE-OPTIMISÉES */}
-
-    {/* MODALE RETOUR CF */}
+    
     {modalRetourCF&&selectedOps.length>0&&<Modal title={`Retour CF — ${selectedOps.length} OP`} titleColor={P.gold} onClose={()=>setModalRetourCF(false)}>
       <div style={{marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${P.border}`}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>OP sélectionnés</div>
@@ -1024,7 +1048,6 @@ const PageBordereaux=()=>{
           return<div key={opId} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:`${P.gold}10`,borderRadius:8,marginBottom:3,fontSize:12}}><span><strong style={{fontFamily:'monospace'}}>{op.numero}</strong> — {getBen(op)}</span><span style={{fontFamily:'monospace',fontWeight:700}}>{formatMontant(op.montant)} F</span></div>;})}
         <div style={{fontSize:15,fontWeight:800,color:P.gold,marginTop:10,textAlign:'right'}}>Total : {formatMontant(totalSelected)} F</div>
       </div>
-      
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16}}>
         <div>
            <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Décision</div>
@@ -1034,17 +1057,14 @@ const PageBordereaux=()=>{
         </div>
         <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date d'action</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
       </div>
-      
       {(resultatCF==='DIFFERE'||resultatCF==='REJETE')&&<div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6,color:P.red}}>Motif (obligatoire) *</label><textarea value={motifRetour} onChange={e=>setMotifRetour(e.target.value)} placeholder="Justification du retour..." style={{...styles.input,height:60,resize:'vertical',marginBottom:0}}/></div>}
       {resultatCF==='REJETE'&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:P.redLight,borderRadius:8,marginBottom:14}}>{I.warn(P.red,16)}<span style={{fontSize:12,color:P.red,fontWeight:600}}>La validation demandera le mot de passe admin.</span></div>}
-      
       <div style={{display:'flex', justifyContent:'flex-end', gap:12, marginTop:20}}>
          <button onClick={()=>setModalRetourCF(false)} style={{padding:'10px 20px',border:`1px solid ${P.border}`,borderRadius:8,background:'#fff',color:P.text,fontWeight:600,cursor:'pointer'}}>Annuler</button>
          <button onClick={handleRetourCF} disabled={saving} style={{padding:'10px 24px',border:'none',borderRadius:8,background:resultatCF==='VISE'?P.green:resultatCF==='DIFFERE'?P.gold:P.red,color:'white',fontWeight:700,fontSize:14,cursor:'pointer',minWidth: 150}}>{saving?'Patientez...':`Valider (${selectedOps.length})`}</button>
       </div>
     </Modal>}
 
-    {/* MODALE ARCHIVAGE */}
     {modalArchive&&selectedOps.length>0&&<Modal title={`Archivage — ${selectedOps.length} OP`} titleColor={P.olive} onClose={()=>setModalArchive(false)}>
       <div style={{marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${P.border}`}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>OP sélectionnés</div>
@@ -1056,14 +1076,12 @@ const PageBordereaux=()=>{
         <div style={{fontSize:15,fontWeight:800,color:P.olive,marginTop:10,textAlign:'right'}}>Total : {formatMontant(totalSelected)} F</div>
       </div>
       <div style={{marginBottom:16}}><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Référence de la Boîte d'archivage</label><input type="text" value={boiteArchivage} onChange={e=>setBoiteArchivage(e.target.value)} placeholder="Ex: BOX-2025-001" style={iS}/></div>
-      
       <div style={{display:'flex', justifyContent:'flex-end', gap:12}}>
          <button onClick={()=>setModalArchive(false)} style={{padding:'10px 20px',border:`1px solid ${P.border}`,borderRadius:8,background:'#fff',color:P.text,fontWeight:600,cursor:'pointer'}}>Annuler</button>
          <button onClick={handleArchiver} disabled={saving||!boiteArchivage.trim()} style={{padding:'10px 24px',border:'none',borderRadius:8,background:P.olive,color:'white',fontWeight:700,cursor:'pointer',opacity:(!boiteArchivage.trim() || saving) ? 0.5 : 1}}>{saving?'Archivage...':`Archiver`}</button>
       </div>
     </Modal>}
 
-    {/* MODALE PAIEMENT AC */}
     {modalPaiement&&<Modal title="Gestion Financière OP" titleColor={P.greenDark} onClose={()=>setModalPaiement(null)} width={600}>
       {(()=>{
         const op=ops.find(o=>o.id===modalPaiement.id)||modalPaiement;
@@ -1073,8 +1091,6 @@ const PageBordereaux=()=>{
             <div style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:P.greenDark}}>{op.numero}</div>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:2}}>
                <div style={{fontSize:15,fontWeight:600}}>{getBen(op)}</div>
-               
-               {/* MODIFICATION : Icône Annuler Transmission placée en haut à droite alignée sur le bénéficiaire */}
                {op.statut==='TRANSMIS_AC'&&paiem.length===0&&(
                   <IBtn icon={I.undo(P.gold,16)} title="Annuler la transmission AC" bg={`${P.gold}15`} disabled={saving} onClick={() => {
                     checkPwd(async () => {
@@ -1087,32 +1103,23 @@ const PageBordereaux=()=>{
                   }} />
                )}
             </div>
-            
             <div style={{fontSize:12,color:P.textSec,marginTop:2}}>{op.objet||'-'}</div>
             <div style={{fontSize:22,fontWeight:800,color:P.gold,marginTop:10}}>{formatMontant(op.montant)} <span style={{fontSize:12,color:P.textSec,fontWeight:500}}>FCFA</span></div>
             <div style={{marginTop:10,background:P.border,borderRadius:6,height:8,overflow:'hidden'}}><div style={{width:`${Math.min(pct,100)}%`,height:'100%',background:pct>=100?P.green:P.gold,borderRadius:6}}/></div>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginTop:6}}><span style={{color:P.gold,fontWeight:600}}>Payé : {formatMontant(tot)} ({pct}%)</span><span style={{color:reste>0?P.red:P.green,fontWeight:600}}>Reste à payer : {formatMontant(reste)}</span></div>
           </div>
-          
           {paiem.length>0&&<div style={{marginBottom:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Historique des paiements</div>
             {paiem.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:i%2===0?P.goldLight:P.card,borderRadius:8,marginBottom:2}}><div><span style={{fontSize:12}}>{formatDate(p.date)}</span><span style={{fontSize:11,color:P.textMuted,marginLeft:8}}>{p.reference||'Sans réf.'}</span></div><span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,color:P.gold}}>{formatMontant(p.montant)} F</span></div>)}
             <button onClick={()=>handleAnnulerPaiement(op.id)} disabled={saving} style={{marginTop:8,padding:'6px 14px',background:P.redLight,color:P.red,border:'none',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}>{I.undo(P.red,13)} Annuler dernier paiement</button>
           </div>}
-          
           {!isSolde&&(op.statut==='TRANSMIS_AC'||op.statut==='PAYE_PARTIEL')&&<div style={{background:P.goldLight,borderRadius:12,padding:16,marginBottom:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.gold,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Enregistrer un paiement</div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
               <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
               <div style={{flex:1,minWidth:100}}>
                  <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
-                 <input 
-                   type="text" 
-                   value={paiementMontant.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")} 
-                   onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} 
-                   placeholder="" 
-                   style={iS}
-                 />
+                 <input type="text" value={String(paiementMontant).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} placeholder="" style={iS} />
               </div>
               <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Réf. Virement</label><input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/></div>
             </div>
@@ -1120,9 +1127,7 @@ const PageBordereaux=()=>{
                <ActionBtn label="Valider Paiement" color={P.gold} onClick={()=>handlePaiement(op.id)} disabled={saving}/>
             </div>
           </div>}
-          
           {isSolde&&<div style={{background:P.greenLight,borderRadius:10,padding:12,textAlign:'center',color:P.greenDark,fontWeight:700,fontSize:13,marginBottom:16}}>OP entièrement soldé</div>}
-          
           {op.statut==='TRANSMIS_AC'&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Action Rejet / Différé</div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:10}}>
@@ -1133,19 +1138,15 @@ const PageBordereaux=()=>{
               </div>
               <div><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourAC',el)} style={iS}/></div>
             </div>
-            
             <textarea value={motifRetourAC} onChange={e=>setMotifRetourAC(e.target.value)} placeholder="Motif de la décision..." style={{...styles.input,height:50,resize:'vertical',marginBottom:10}}/>
             {resultatAC==='REJETE'&&<div style={{fontSize:11,color:P.red,marginBottom:10}}>{I.warn(P.red,12)} Sécurisé par mot de passe.</div>}
-            
             <div style={{textAlign:'right'}}>
                <ActionBtn label="Valider" color={resultatAC==='DIFFERE'?P.goldBorder:P.red} onClick={handleRetourAC} disabled={saving}/>
             </div>
           </div>}
-          
           {op.statut!=='ARCHIVE'&&<div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Mise en Archive</div>
             {!isSolde&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:P.goldLight,borderRadius:8,color:P.gold,fontSize:12,marginBottom:12}}>{I.warn(P.gold,16)} OP non soldé (reste {formatMontant(reste)} F) — mot de passe requis.</div>}
-            
             <div style={{display:'flex', gap:10, alignItems:'flex-end'}}>
                <div style={{flex:1}}>
                  <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Référence Boîte</label>
@@ -1158,13 +1159,11 @@ const PageBordereaux=()=>{
       })()}
     </Modal>}
 
-    {/* MODALE GESTION BORDEREAU */}
     {modalEditBT&&<Modal title={`Gestion Bordereau — ${modalEditBT.numero}`} titleColor={P.text} onClose={()=>setModalEditBT(null)} width={580}>
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Numéro du bordereau</div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}><input type="text" value={editBtNumero} onChange={e=>setEditBtNumero(e.target.value)} style={{flex:1,...iS,fontFamily:'monospace',fontWeight:700,borderRadius:8}}/><ActionBtn label="Sauver" color={P.gold} onClick={()=>handleSaveBtNumero(modalEditBT)} disabled={saving}/></div>
       </div>
-      
       {modalEditBT.statut === 'ENVOYE' && (
         <div style={{marginBottom:20}}>
           <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Date de transmission (Correction)</div>
@@ -1175,7 +1174,6 @@ const PageBordereaux=()=>{
           <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l'année de l'exercice en cours.</p>
         </div>
       )}
-
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
         {(modalEditBT.opsIds||[]).map(id=>{const op=ops.find(o=>o.id===id);if(!op)return null;
@@ -1191,19 +1189,16 @@ const PageBordereaux=()=>{
         {(()=>{const avails=modalEditBT.type==='CF'?opsForSource.filter(op=>op.sourceId===modalEditBT.sourceId&&(op.statut==='EN_COURS'||op.statut==='DIFFERE_CF')&&!op.bordereauCF&&!(modalEditBT.opsIds||[]).includes(op.id)):opsForSource.filter(op=>op.sourceId===modalEditBT.sourceId&&op.statut==='VISE_CF'&&!op.bordereauAC&&!(modalEditBT.opsIds||[]).includes(op.id));
           return<div style={{background:P.greenLight,borderRadius:10,padding:12,maxHeight:200,overflowY:'auto'}}>{avails.length===0?<span style={{fontSize:12,color:P.textMuted}}>Aucun OP disponible</span>:avails.map(op=><div key={op.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderBottom:`1px solid ${P.border}`}}><span style={{fontSize:11}}><strong style={{fontFamily:'monospace'}}>{op.numero}</strong> — {getBen(op)} — {formatMontant(op.montant)} F</span><IBtn icon={I.plusCircle(P.green,16)} title="Ajouter" bg={P.greenLight} onClick={()=>handleAddOpToBT(modalEditBT,op.id)}/></div>)}</div>;})()}
       </div>}
-      
       {modalEditBT.statut === 'ENVOYE' && !isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20,borderTop:`1px solid ${P.border}`,paddingTop:16, textAlign:'center'}}>
            <button onClick={()=>handleAnnulerTransmission(modalEditBT)} style={{background:'transparent', border:'none', color:P.gold, fontSize:13, fontWeight:700, cursor:'pointer', textDecoration:'underline'}}>Annuler la transmission globale</button>
         </div>
       )}
-
       {!isBordereauLocked(modalEditBT) && (
         <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:20}}>
           <button onClick={()=>handleDeleteBordereau(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.red}33`,borderRadius:10,background:P.redLight,color:P.red,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.trash(P.red,15)} Supprimer logiquement (Historique)</button>
         </div>
       )}
-      
       {isBordereauLocked(modalEditBT) && (
         <div style={{marginTop:20, display:'flex', alignItems:'center', gap:10, color:P.textSec, fontSize:12, borderTop:`1px solid ${P.border}`, paddingTop:16}}>
           {I.lock(P.gold, 20)}
@@ -1215,7 +1210,6 @@ const PageBordereaux=()=>{
       )}
     </Modal>}
 
-    {/* MODALE HISTORIQUE SUPPRESSIONS */}
     {modalSuppressionHist && (
       <Modal title="Historique des Suppressions" titleColor={P.textSec} onClose={()=>setModalSuppressionHist(false)} width={600}>
          {bordereauxSupprimes.length === 0 ? <Empty text="Aucun bordereau supprimé" /> : (
