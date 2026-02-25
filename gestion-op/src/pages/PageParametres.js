@@ -36,7 +36,7 @@ const I = {
 // COMPOSANTS COMMUNS
 // ============================================================
 const SectionTitle = ({ title }) => (
-  <h3 style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 20, paddingBottom: 10, borderBottom: `1px solid ${P.border}`, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+  <h3 style={{ fontSize: 13, fontWeight: 800, color: P.text, marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${P.border}`, textTransform: 'uppercase', letterSpacing: 0.5 }}>
     {title}
   </h3>
 );
@@ -53,7 +53,6 @@ const ActionBtn = ({ label, icon, color, onClick, disabled }) => (
   </button>
 );
 
-// AJOUT DES COMPOSANTS MANQUANTS POUR VERCEL
 const Badge = React.memo(({ bg, color, children }) => (
   <span style={{ background: bg, color, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: .3 }}>{children}</span>
 ));
@@ -121,7 +120,7 @@ const PageParametres = () => {
 };
 
 // ============================================================
-// ONGLET PROJET
+// ONGLET PROJET (RESTRUCTURÉ EN 2 COLONNES)
 // ============================================================
 const TabProjet = () => {
   const { projet, setProjet } = useAppContext();
@@ -156,80 +155,102 @@ const TabProjet = () => {
     setSaving(false);
   };
 
-  const cardStyle = { ...styles.card, background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, marginBottom: 20 };
+  const cardStyle = { background: P.card, borderRadius: 12, padding: 20, border: `1px solid ${P.border}`, boxShadow: '0 2px 6px rgba(0,0,0,0.02)' };
   const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8 };
 
   return (
     <div>
-      <div style={cardStyle}>
-        <SectionTitle title="Informations générales" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-          <div><Label>Pays</Label><input value={form.pays || ''} onChange={e => setForm({...form, pays: e.target.value})} style={inputStyle} /></div>
-          <div><Label>Devise nationale</Label><input value={form.devise || ''} onChange={e => setForm({...form, devise: e.target.value})} style={inputStyle} /></div>
-          <div style={{ gridColumn: '1 / -1' }}><Label>Ministère de tutelle</Label><input value={form.ministere || ''} onChange={e => setForm({...form, ministere: e.target.value})} style={inputStyle} placeholder="Ex: Ministère des Eaux et Forêts" /></div>
-          <div style={{ gridColumn: '1 / -1' }}><Label>Nom complet du projet</Label><input value={form.nomProjet || ''} onChange={e => setForm({...form, nomProjet: e.target.value})} style={inputStyle} placeholder="Ex: Projet d'Investissement Forestier 2" /></div>
-          <div><Label>Sigle du projet</Label><input value={form.sigle || ''} onChange={e => setForm({...form, sigle: e.target.value})} style={inputStyle} placeholder="Ex: PIF2" /></div>
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <SectionTitle title="Configuration technique" />
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
-          <div><Label>Code imputation budgétaire (préfixe)</Label><input value={form.codeImputation || ''} onChange={e => setForm({...form, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 90042200006 90 11409374" /></div>
-          <div><Label>Nb caractères ligne budgétaire</Label>
-            <select value={form.nbCaracteresLigne || 4} onChange={e => setForm({...form, nbCaracteresLigne: parseInt(e.target.value)})} style={inputStyle}>
-              <option value={4}>4 caractères</option>
-              <option value={6}>6 caractères</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <SectionTitle title="Responsable / Signataire" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div><Label>Nom du Coordonnateur/trice</Label><input value={form.coordonnateur || ''} onChange={e => setForm({...form, coordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: ABE-KOFFI Thérèse" /></div>
-          <div><Label>Titre officiel</Label><input value={form.titreCoordonnateur || ''} onChange={e => setForm({...form, titreCoordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: LA COORDONNATRICE DU PIF 2" /></div>
-        </div>
-      </div>
-
-      <div style={cardStyle}>
-        <SectionTitle title="Configuration impressions" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div><Label>Nombre d'exemplaires pour le CF</Label><input type="number" min="1" value={form.nbExemplairesCF ?? 4} onChange={e => setForm({...form, nbExemplairesCF: parseInt(e.target.value) || 4})} style={inputStyle} /></div>
-          <div><Label>Nombre d'exemplaires pour l'AC</Label><input type="number" min="1" value={form.nbExemplairesAC ?? 2} onChange={e => setForm({...form, nbExemplairesAC: parseInt(e.target.value) || 2})} style={inputStyle} /></div>
-        </div>
-      </div>
-
-      <div style={{ ...cardStyle, background: P.goldLight, border: `1px solid ${P.goldBorder}` }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: P.gold, marginBottom: 20, paddingBottom: 10, borderBottom: `1px solid ${P.goldBorder}`, textTransform: 'uppercase', letterSpacing: 0.5 }}>Sécurité administrative</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 16 }}>
-          <div>
-            <Label>Mot de passe administrateur</Label>
-            <div style={{ position: 'relative' }}>
-              <input type={showPassword ? 'text' : 'password'} value={form.adminPassword || ''} onChange={e => setForm({...form, adminPassword: e.target.value})} style={{ ...inputStyle, paddingRight: 40 }} placeholder="Définir un mot de passe sécurisé" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                {showPassword ? I.eyeOff() : I.eye()}
-              </button>
+      {/* GRILLE PRINCIPALE 2 COLONNES */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24, alignItems: 'start' }}>
+        
+        {/* COLONNE GAUCHE */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          
+          {/* Bloc : Informations générales */}
+          <div style={cardStyle}>
+            <SectionTitle title="Informations générales" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div><Label>Pays</Label><input value={form.pays || ''} onChange={e => setForm({...form, pays: e.target.value})} style={inputStyle} /></div>
+                <div><Label>Devise nationale</Label><input value={form.devise || ''} onChange={e => setForm({...form, devise: e.target.value})} style={inputStyle} /></div>
+              </div>
+              <div><Label>Ministère de tutelle</Label><input value={form.ministere || ''} onChange={e => setForm({...form, ministere: e.target.value})} style={inputStyle} placeholder="Ex: Ministère des Eaux et Forêts" /></div>
+              <div><Label>Nom complet du projet</Label><input value={form.nomProjet || ''} onChange={e => setForm({...form, nomProjet: e.target.value})} style={inputStyle} placeholder="Ex: Projet d'Investissement Forestier 2" /></div>
+              <div><Label>Sigle du projet</Label><input value={form.sigle || ''} onChange={e => setForm({...form, sigle: e.target.value})} style={inputStyle} placeholder="Ex: PIF2" /></div>
             </div>
           </div>
-          <div>
-            <Label>Confirmer le mot de passe</Label>
-            <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} placeholder="Confirmer le mot de passe" />
-            <div style={{ marginTop: 6, minHeight: 16 }}>
-              {form.adminPassword && confirmPassword && form.adminPassword !== confirmPassword && <span style={{ color: P.red, fontSize: 11, fontWeight: 600 }}>Les mots de passe ne correspondent pas</span>}
-              {form.adminPassword && confirmPassword && form.adminPassword === confirmPassword && <span style={{ color: P.green, fontSize: 11, fontWeight: 600 }}>Mots de passe identiques</span>}
+
+          {/* Bloc : Responsable */}
+          <div style={cardStyle}>
+            <SectionTitle title="Responsable / Signataire" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div><Label>Nom Coordonnateur/trice</Label><input value={form.coordonnateur || ''} onChange={e => setForm({...form, coordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: ABE-KOFFI" /></div>
+              <div><Label>Titre officiel</Label><input value={form.titreCoordonnateur || ''} onChange={e => setForm({...form, titreCoordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: LA COORDONNATRICE" /></div>
             </div>
           </div>
+
         </div>
-        <div style={{ background: '#fff', padding: 12, borderRadius: 8, fontSize: 12, color: P.textSec, border: `1px dashed ${P.goldBorder}` }}>
-          <strong style={{ color: P.gold }}>Ce mot de passe protège les actions sensibles :</strong> Modification/Suppression d'OP, révision budgétaire, purge de la base de données.
+
+        {/* COLONNE DROITE */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          
+          {/* Bloc : Config technique */}
+          <div style={cardStyle}>
+            <SectionTitle title="Configuration technique" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div><Label>Code imputation budgétaire (préfixe)</Label><input value={form.codeImputation || ''} onChange={e => setForm({...form, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 90042200006 90" /></div>
+              <div><Label>Nb caractères ligne budgétaire</Label>
+                <select value={form.nbCaracteresLigne || 4} onChange={e => setForm({...form, nbCaracteresLigne: parseInt(e.target.value)})} style={inputStyle}>
+                  <option value={4}>4 caractères (ex: 3111)</option>
+                  <option value={6}>6 caractères (ex: 311100)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Bloc : Impressions */}
+          <div style={cardStyle}>
+            <SectionTitle title="Configuration impressions" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div><Label>Nbre d'exemplaires CF</Label><input type="number" min="1" value={form.nbExemplairesCF ?? 4} onChange={e => setForm({...form, nbExemplairesCF: parseInt(e.target.value) || 4})} style={inputStyle} /></div>
+              <div><Label>Nbre d'exemplaires AC</Label><input type="number" min="1" value={form.nbExemplairesAC ?? 2} onChange={e => setForm({...form, nbExemplairesAC: parseInt(e.target.value) || 2})} style={inputStyle} /></div>
+            </div>
+          </div>
+
+          {/* Bloc : Sécurité */}
+          <div style={{ ...cardStyle, background: P.goldLight, border: `1px solid ${P.goldBorder}` }}>
+            <h3 style={{ fontSize: 13, fontWeight: 800, color: P.gold, marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${P.goldBorder}`, textTransform: 'uppercase', letterSpacing: 0.5 }}>Sécurité administrative</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <Label>Mot de passe administrateur</Label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPassword ? 'text' : 'password'} value={form.adminPassword || ''} onChange={e => setForm({...form, adminPassword: e.target.value})} style={{ ...inputStyle, paddingRight: 40 }} placeholder="Définir un mot de passe sécurisé" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    {showPassword ? I.eyeOff() : I.eye()}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label>Confirmer le mot de passe</Label>
+                <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} placeholder="Confirmer le mot de passe" />
+                <div style={{ marginTop: 6, minHeight: 16 }}>
+                  {form.adminPassword && confirmPassword && form.adminPassword !== confirmPassword && <span style={{ color: P.red, fontSize: 11, fontWeight: 700 }}>Les mots de passe ne correspondent pas</span>}
+                  {form.adminPassword && confirmPassword && form.adminPassword === confirmPassword && <span style={{ color: P.green, fontSize: 11, fontWeight: 700 }}>Mots de passe identiques</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{ background: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: P.textSec, border: `1px dashed ${P.goldBorder}`, marginTop: 16 }}>
+              <strong style={{ color: P.gold }}>Ce mot de passe protège les actions sensibles :</strong> Modification/Suppression d'OP, révision budgétaire, purge de la base de données.
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, marginTop: 30 }}>
-        {saved && <span style={{ color: P.green, fontWeight: 700, fontSize: 13 }}>Sauvegarde réussie !</span>}
-        <ActionBtn label="Enregistrer les paramètres" icon={I.check()} color={P.greenDark} onClick={handleSave} disabled={saving} />
+      {/* ZONE DE SAUVEGARDE EN BAS */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, marginTop: 24, paddingTop: 20, borderTop: `1px solid ${P.border}` }}>
+        {saved && <span style={{ color: P.green, fontWeight: 700, fontSize: 13, background: P.greenLight, padding: '8px 12px', borderRadius: 8 }}>✓ Modifications enregistrées !</span>}
+        <ActionBtn label={saving ? "Enregistrement..." : "Enregistrer les paramètres"} icon={I.check()} color={P.greenDark} onClick={handleSave} disabled={saving} />
       </div>
     </div>
   );
@@ -449,10 +470,10 @@ const TabExercices = () => {
 
 
 // ============================================================
-// ONGLET MAINTENANCE (ADMIN ONLY) - Logique Intégrale Conservée
+// ONGLET MAINTENANCE (ADMIN ONLY)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux, beneficiaires, setOps, setBordereaux } = useAppContext();
+  const { projet, sources, exercices, ops, bordereaux, beneficiaires } = useAppContext();
   const [tool, setTool] = useState(null); 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -476,6 +497,9 @@ const TabMaintenance = () => {
     if (p !== (projet?.motDePasseAdmin || 'admin123')) { if (p !== null) alert('Mot de passe incorrect'); return false; }
     return true;
   };
+
+  // Ajout de la fonction manquante pour les doublons
+  const getBen = (op) => op?.beneficiaireNom || beneficiaires?.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
 
   // 1. PURGE
   const handlePurge = async () => {
