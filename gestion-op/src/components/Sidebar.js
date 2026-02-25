@@ -9,23 +9,26 @@ const COLLAPSED = 68;
 
 // ===================== ICÔNES SVG =====================
 const I = {
-  dashboard: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
-  nouvelOp: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>,
-  consulterOp: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  ops: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
+  dashboard: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  nouvelOp: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>,
+  consulterOp: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  ops: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
   
-  // NOUVELLES ICÔNES POUR LE CIRCUIT FRAGMENTÉ
-  cf: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>,
-  ac: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>,
-  archives: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
+  // Icône réseau/circuit pour le menu principal dépliant
+  circuit: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>,
+  
+  // Sous-icônes
+  cf: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>,
+  ac: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>,
+  archives: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
 
-  suivi: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-  budget: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/><path d="M6 14h.01"/><path d="M10 14h.01"/></svg>,
-  beneficiaires: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  parametres: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-  admin: (c) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  logout: (c) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  chevron: (c) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  suivi: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  budget: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/><path d="M6 14h.01"/><path d="M10 14h.01"/></svg>,
+  beneficiaires: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  parametres: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+  admin: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  logout: (c, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  chevron: (c, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
 };
 
 // ===================== CONFIG MENU =====================
@@ -35,10 +38,19 @@ const menuConfig = [
   { id: 'nouvelOp', icon: 'nouvelOp', label: 'Nouvel OP' },
   { id: 'consulterOp', icon: 'consulterOp', label: 'Consulter OP' },
   { id: 'ops', icon: 'ops', label: 'Liste des OP' },
-  { section: 'CIRCUIT DE VALIDATION' },
-  { id: 'circuitCF', icon: 'cf', label: 'Contrôle Financier' },
-  { id: 'circuitAC', icon: 'ac', label: 'Agent Comptable' },
-  { id: 'archives', icon: 'archives', label: 'Salle des Archives' },
+  
+  // NOUVEAU MENU DÉPLIANT (ACCORDÉON)
+  { 
+    id: 'circuit', 
+    icon: 'circuit', 
+    label: 'Circuit Validation',
+    subItems: [
+      { id: 'circuitCF', icon: 'cf', label: 'Contrôle Financier' },
+      { id: 'circuitAC', icon: 'ac', label: 'Agent Comptable' },
+      { id: 'archives', icon: 'archives', label: 'Salle des Archives' },
+    ]
+  },
+  
   { section: 'GESTION' },
   { id: 'suivi', icon: 'suivi', label: 'Rapport' },
   { id: 'budget', icon: 'budget', label: 'Budget' },
@@ -48,35 +60,48 @@ const menuConfig = [
 ];
 
 // ===================== NAVITEM =====================
-const NavItem = ({ id, icon, label, active, collapsed, onClick }) => {
+const NavItem = ({ id, icon, label, active, collapsed, onClick, hasChildren, isOpen, isSubItem }) => {
   const [hov, setHov] = useState(false);
   const isH = hov && !active;
+  
   return (
     <div onClick={() => onClick(id)} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       title={collapsed ? label : undefined}
       style={{
-        display: 'flex', alignItems: 'center', gap: 14,
-        padding: collapsed ? 0 : '0 12px', margin: collapsed ? '2px 10px' : '2px 12px',
-        height: 44, borderRadius: 12, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: isSubItem ? 10 : 14,
+        padding: collapsed ? 0 : (isSubItem ? '0 8px' : '0 12px'), 
+        margin: collapsed ? '2px 10px' : (isSubItem ? '2px 0' : '2px 12px'),
+        height: isSubItem ? 38 : 44, 
+        borderRadius: 12, cursor: 'pointer',
         justifyContent: collapsed ? 'center' : 'flex-start',
         background: active ? 'rgba(255,255,255,0.13)' : isH ? 'rgba(255,255,255,0.06)' : 'transparent',
         transition: 'all 0.15s ease', position: 'relative',
       }}>
       <div style={{
-        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+        width: isSubItem ? 30 : 38, height: isSubItem ? 30 : 38, borderRadius: 10, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: active ? 'rgba(255,255,255,0.18)' : 'transparent',
+        background: active && !isSubItem ? 'rgba(255,255,255,0.18)' : 'transparent',
         transition: 'all 0.2s ease',
       }}>
-        {I[icon]?.(active ? '#fff' : isH ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)')}
+        {I[icon]?.(active ? '#fff' : isH ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)', isSubItem ? 16 : 20)}
       </div>
       {!collapsed && (
         <span style={{
-          fontSize: 13.5, fontWeight: active ? 700 : 500,
+          fontSize: isSubItem ? 12.5 : 13.5, fontWeight: active ? 700 : 500,
           color: active ? '#fff' : isH ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.6)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color 0.15s',
+          flex: 1
         }}>{label}</span>
       )}
+      
+      {/* Petite flèche si c'est un menu dépliant */}
+      {hasChildren && !collapsed && (
+        <div style={{ display: 'flex', alignItems: 'center', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.25s ease' }}>
+          {I.chevron(active ? '#fff' : 'rgba(255,255,255,0.4)', 14)}
+        </div>
+      )}
+
+      {/* Tooltip pour la barre latérale rétractée */}
       {collapsed && isH && (
         <div style={{
           position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
@@ -96,12 +121,20 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick }) => {
 const Sidebar = () => {
   const { currentPage, setCurrentPage, projet, exerciceActif, user, handleLogout, userProfile } = useAppContext();
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState({ circuit: true }); // Ouvre le menu Circuit par défaut
+  
   const w = collapsed ? COLLAPSED : EXPANDED;
 
   useEffect(() => { document.documentElement.style.setProperty('--sidebar-w', w + 'px'); }, [w]);
 
   const items = [...menuConfig];
   if (userProfile?.role === 'admin') items.push({ id: 'admin', icon: 'admin', label: 'Administration' });
+
+  // Gère le clic sur un menu accordéon (dépliant)
+  const handleGroupClick = (id) => {
+    if (collapsed) setCollapsed(false); // Déplie la barre latérale si elle était fermée
+    setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   return (
     <div style={{
@@ -119,7 +152,7 @@ const Sidebar = () => {
         zIndex: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }} title={collapsed ? 'Déplier' : 'Replier'}>
         <span style={{ display: 'flex', transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}>
-          {I.chevron('#fff')}
+          {I.chevron('#fff', 16)}
         </span>
       </button>
 
@@ -136,13 +169,64 @@ const Sidebar = () => {
         )}
       </div>
 
-      {/* Menu */}
+      {/* Menu Principal */}
       <nav style={{ flex: 1, padding: '4px 0', overflowY: 'auto', overflowX: 'hidden' }}>
         {items.map((item, idx) => {
+          
+          // RENDU DES SÉPARATEURS ÉLÉGANTS (La fameuse "barre plus jolie")
           if (item.section) {
-            if (collapsed) return <div key={'s'+idx} style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '10px 14px' }}/>;
-            return <div key={'s'+idx} style={{ padding: '20px 24px 6px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5 }}>{item.section}</div>;
+            return (
+              <div key={'s'+idx} style={{ margin: collapsed ? '15px 0' : '20px 0 10px 0' }}>
+                <div style={{ 
+                  height: 1, 
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%)', 
+                  margin: '0 20px' 
+                }}/>
+                {!collapsed && (
+                  <div style={{ padding: '12px 24px 0', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 }}>
+                    {item.section}
+                  </div>
+                )}
+              </div>
+            );
           }
+
+          // RENDU DU MENU DÉPLIANT (ACCORDÉON)
+          if (item.subItems) {
+            const isOpen = openGroups[item.id];
+            const isActiveGroup = item.subItems.some(sub => sub.id === currentPage);
+            
+            return (
+              <div key={item.id}>
+                {/* Le bouton parent */}
+                <NavItem 
+                  id={item.id} icon={item.icon} label={item.label} active={isActiveGroup} 
+                  collapsed={collapsed} onClick={() => handleGroupClick(item.id)} 
+                  hasChildren isOpen={isOpen} 
+                />
+                
+                {/* Les sous-menus qui apparaissent en dessous */}
+                {!collapsed && isOpen && (
+                  <div style={{ 
+                    marginLeft: 30, paddingLeft: 12, borderLeft: '1px solid rgba(255,255,255,0.15)', 
+                    marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4, 
+                    animation: 'fadeIn 0.2s ease forwards' 
+                  }}>
+                    {item.subItems.map(sub => (
+                      <NavItem 
+                        key={sub.id} id={sub.id} icon={sub.icon} label={sub.label} 
+                        active={currentPage === sub.id} collapsed={false} 
+                        onClick={setCurrentPage} isSubItem 
+                      />
+                    ))}
+                  </div>
+                )}
+                <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+              </div>
+            );
+          }
+
+          // RENDU DES MENUS SIMPLES
           return <NavItem key={item.id} id={item.id} icon={item.icon} label={item.label} active={currentPage === item.id} collapsed={collapsed} onClick={setCurrentPage}/>;
         })}
       </nav>
