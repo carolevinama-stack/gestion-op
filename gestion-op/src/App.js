@@ -15,7 +15,15 @@ import PageHistoriqueBudget from './pages/PageHistoriqueBudget';
 import PageLignesBudgetaires from './pages/PageLignesBudgetaires';
 import PageNouvelOp from './pages/PageNouvelOp';
 import PageConsulterOp from './pages/PageConsulterOp';
+
+// ANCIENNE PAGE (que l'on garde pour l'instant au cas où)
 import PageBordereaux from './pages/PageBordereaux';
+
+// NOUVELLES PAGES FRAGMENTÉES
+import PageCircuitCF from './pages/PageCircuitCF';
+import PageCircuitAC from './pages/PageCircuitAC';
+import PageArchives from './pages/PageArchives';
+
 import PageListeOP from './pages/PageListeOP';
 import PageRapport from './pages/PageRapport';
 import PageEnConstruction from './pages/PageEnConstruction';
@@ -66,7 +74,15 @@ function AppLayout() {
         {currentPage === 'ops' && <PageListeOP />}
         {currentPage === 'nouvelOp' && <PageNouvelOp />}
         {currentPage === 'consulterOp' && <PageConsulterOp />}
+        
+        {/* Nouveaux branchements du circuit fragmenté */}
+        {currentPage === 'circuitCF' && <PageCircuitCF />}
+        {currentPage === 'circuitAC' && <PageCircuitAC />}
+        {currentPage === 'archives' && <PageArchives />}
+        
+        {/* L'ancienne page reste branchée temporairement, même si plus utilisée dans le menu */}
         {currentPage === 'bordereaux' && <PageBordereaux />}
+        
         {currentPage === 'suivi' && <PageRapport />}
         {currentPage === 'admin' && <PageAdmin />}
       </main>
