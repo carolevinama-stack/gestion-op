@@ -135,9 +135,10 @@ const PageListeOP = () => {
           {/* LE BOUTON CORBEILLE */}
           <button 
             onClick={() => setModalSuppression(true)} 
-            style={{padding:'8px 16px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,fontWeight:700,color:P.red,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}
+            title="Corbeille (OP Supprimés)"
+            style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}
           >
-            {I.trash(P.red, 16)} Corbeille
+            {I.trash(P.red, 18)}
           </button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
@@ -417,6 +418,8 @@ const PageListeOP = () => {
                       <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>N° OP</th>
                       <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Type</th>
                       <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Bénéficiaire</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Objet</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Ligne</th>
                       <th style={{...thStyle, borderBottom:`2px solid ${P.border}`, textAlign:'right'}}>Montant</th>
                       <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Motif de Suppression</th>
                     </tr>
@@ -427,6 +430,8 @@ const PageListeOP = () => {
                         <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, padding:'12px 10px'}}>{op.numero}</td>
                         <td style={{...styles.td, fontSize:10, fontWeight:600, padding:'12px 10px'}}>{op.type}</td>
                         <td style={{...styles.td, fontSize:12, padding:'12px 10px'}}>{getBenNom(op)}</td>
+                        <td style={{...styles.td, fontSize:11, padding:'12px 10px', maxWidth:150, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
+                        <td style={{...styles.td, fontFamily:'monospace', fontSize:11, padding:'12px 10px'}}>{op.ligneBudgetaire || '-'}</td>
                         <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:800, color:P.red, padding:'12px 10px'}}>{formatMontant(op.montant)}</td>
                         <td style={{...styles.td, fontSize:12, color:P.red, padding:'12px 10px', fontStyle: 'italic'}}>{op.motifSuppression || 'Suppression logique'}</td>
                       </tr>
