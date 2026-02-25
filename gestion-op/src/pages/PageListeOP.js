@@ -13,7 +13,8 @@ const P = {
 
 const I = {
   download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  trash: (c=P.red, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+  trash: (c=P.red, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
+  close: (c='#fff', s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
 };
 
 const PageListeOP = () => {
@@ -24,8 +25,8 @@ const PageListeOP = () => {
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false); // Gestion de la corbeille
 
-  const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
-  const getSrcSigle = (srcId) => sources.find(s => s.id === srcId)?.sigle || 'SRC';
+  const getBenNom = (op) => op.beneficiaireNom || beneficiaires?.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
+  const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
 
   const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -131,8 +132,11 @@ const PageListeOP = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
-          {/* LE BOUTON CORBEILLE EST LÀ */}
-          <button onClick={() => setModalSuppression(true)} style={{padding:'8px 16px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,fontWeight:700,color:P.red,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}>
+          {/* LE BOUTON CORBEILLE */}
+          <button 
+            onClick={() => setModalSuppression(true)} 
+            style={{padding:'8px 16px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,fontWeight:700,color:P.red,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}
+          >
             {I.trash(P.red, 16)} Corbeille
           </button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
@@ -288,11 +292,11 @@ const PageListeOP = () => {
 
       {/* MODALE D'APERÇU EN TEMPS RÉEL */}
       {livePreviewOp && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.25)',backdropFilter:'blur(3px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{background:'#fff',borderRadius:16,width:400,boxShadow:'0 20px 60px rgba(0,0,0,.2)',overflow:'hidden'}}>
+        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:'#fff',borderRadius:16,width:400,boxShadow:'0 20px 60px rgba(0,0,0,.3)',overflow:'hidden'}}>
             <div style={{padding:'16px 20px',borderBottom:'1px solid #eee',background:'#FAFAF8',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontWeight:800,fontSize:13,color:P.oliveDark,letterSpacing:1}}>APERÇU DIRECT</span>
-              <button onClick={() => setPreviewOpId(null)} style={{border:'none',background:'none',cursor:'pointer'}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={P.textMuted} strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <button onClick={() => setPreviewOpId(null)} style={{border:'none',background:'none',cursor:'pointer'}}>{I.close(P.textMuted, 20)}</button>
             </div>
             <div style={{padding:'24px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
@@ -386,38 +390,45 @@ const PageListeOP = () => {
         </div>
       )}
 
-      {/* LA FENÊTRE DE LA CORBEILLE */}
+      {/* LA FENÊTRE DE LA CORBEILLE (BLINDÉE AVEC Z-INDEX 99999) */}
       {modalSuppression && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(3px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{background:P.card,borderRadius:16,width:750,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,.2)',overflow:'hidden'}}>
-            <div style={{padding:'16px 20px',background:P.red,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
-              <h3 style={{color:'#fff',margin:0,fontSize:15, display:'flex', alignItems:'center', gap:8}}>
-                {I.trash('#fff', 18)} Corbeille (OP Supprimés)
+        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:P.card, borderRadius:16, width:800, maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,.4)', overflow:'hidden'}}>
+            
+            <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+              <h3 style={{color:'#fff', margin:0, fontSize:16, display:'flex', alignItems:'center', gap:10}}>
+                {I.trash('#fff', 20)} Corbeille (OP Supprimés)
               </h3>
-              <button onClick={()=>setModalSuppression(false)} style={{background:'none',border:'none',cursor:'pointer'}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>
+                {I.close('#fff', 22)}
+              </button>
             </div>
-            <div style={{padding:20,overflowY:'auto',flex:1}}>
+            
+            <div style={{padding:20, overflowY:'auto', flex:1}}>
               {opsSupprimes.length === 0 ? (
-                <div style={{textAlign:'center',padding:40,color:P.textMuted}}>La corbeille est vide.</div>
+                <div style={{textAlign:'center', padding:60, color:P.textMuted}}>
+                  <div style={{marginBottom: 10}}>{I.trash(P.border, 40)}</div>
+                  <p style={{margin:0, fontSize: 15}}>La corbeille est vide.</p>
+                </div>
               ) : (
                 <table style={{...styles.table, borderCollapse: 'collapse', width: '100%'}}>
                   <thead>
                     <tr>
-                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>N° OP</th>
-                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>Type</th>
-                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>Bénéficiaire</th>
-                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`, textAlign:'right'}}>Montant</th>
-                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>Motif de Suppression</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>N° OP</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Type</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Bénéficiaire</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`, textAlign:'right'}}>Montant</th>
+                      <th style={{...thStyle, borderBottom:`2px solid ${P.border}`}}>Motif de Suppression</th>
                     </tr>
                   </thead>
                   <tbody>
                     {opsSupprimes.sort((a,b)=>(b.deletedAt||b.updatedAt||'').localeCompare(a.deletedAt||a.updatedAt||'')).map(op => (
                       <tr key={op.id} style={{background: P.redLight, borderBottom: `1px solid ${P.border}`}}>
-                        <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, padding:'10px'}}>{op.numero}</td>
-                        <td style={{...styles.td, fontSize:10, fontWeight:600, padding:'10px'}}>{op.type}</td>
-                        <td style={{...styles.td, fontSize:12, padding:'10px'}}>{getBenNom(op)}</td>
-                        <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:600, color:P.red, padding:'10px'}}>{formatMontant(op.montant)}</td>
-                        <td style={{...styles.td, fontSize:11, color:P.red, padding:'10px', fontStyle: 'italic'}}>{op.motifSuppression || 'Suppression logique'}</td>
+                        <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, padding:'12px 10px'}}>{op.numero}</td>
+                        <td style={{...styles.td, fontSize:10, fontWeight:600, padding:'12px 10px'}}>{op.type}</td>
+                        <td style={{...styles.td, fontSize:12, padding:'12px 10px'}}>{getBenNom(op)}</td>
+                        <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:800, color:P.red, padding:'12px 10px'}}>{formatMontant(op.montant)}</td>
+                        <td style={{...styles.td, fontSize:12, color:P.red, padding:'12px 10px', fontStyle: 'italic'}}>{op.motifSuppression || 'Suppression logique'}</td>
                       </tr>
                     ))}
                   </tbody>
