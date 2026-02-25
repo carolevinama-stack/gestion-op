@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 
-// Palette de couleurs pour harmoniser avec le reste de l'application
+// Palette de couleurs
 const P = {
   bg:'#F6F4F1', card:'#FFFFFF', green:'#2E9940', greenDark:'#1B6B2E', greenLight:'#E8F5E9',
   olive:'#5D6A55', oliveDark:'#4A5A42', gold:'#C5961F', goldLight:'#FFF8E1', goldBorder:'#E8B931',
@@ -13,6 +13,7 @@ const P = {
 
 const I = {
   download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  history: (c=P.textSec, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
 };
 
 const PageListeOP = () => {
@@ -20,13 +21,12 @@ const PageListeOP = () => {
   const [activeSource, setActiveSource] = useState('ALL');
   const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statut: '' });
   
-  // Stockage uniquement de l'ID pour la mise à jour en temps réel
   const [previewOpId, setPreviewOpId] = useState(null);
+  const [modalSuppression, setModalSuppression] = useState(false); // Gestion de la modale historique
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
   const getSrcSigle = (srcId) => sources.find(s => s.id === srcId)?.sigle || 'SRC';
 
-  // Fonction de formatage des dates (AAAA-MM-JJ vers JJ/MM/AAAA)
   const formatDate = (dateString) => {
     if (!dateString) return null;
     if (dateString.length >= 10) {
@@ -36,14 +36,20 @@ const PageListeOP = () => {
     return dateString;
   };
 
+  // Liste des OPs supprimés pour l'historique
+  const opsSupprimes = useMemo(() => {
+    return ops.filter(op => op.exerciceId === exerciceActif?.id && op.statut === 'SUPPRIME');
+  }, [ops, exerciceActif]);
+
+  // Liste principale (EXCLUT LES SUPPRIMÉS)
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
       if (op.exerciceId !== exerciceActif?.id) return false;
+      if (op.statut === 'SUPPRIME') return false; // C'est ici qu'on cache les OP supprimés !
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
       return true;
     });
 
-    // Tri chronologique pour le calcul exact des cumuls (Engagement Antérieur)
     const sorted = [...baseOps].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     const cumulParLigne = {};
     
@@ -53,14 +59,11 @@ const PageListeOP = () => {
       const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
       
       const engagementAnterieur = cumulParLigne[lb] || 0;
-      
-      // Si l'OP est un rejet (montant négatif), il va naturellement faire baisser le cumul
       cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (op.montant || 0);
 
       return { ...op, dotationLigne: dotation, engagementAnterieur, disponible: dotation - cumulParLigne[lb] };
     });
 
-    // Application des filtres et inversion pour l'affichage (le plus récent en haut)
     return withCalculations.filter(op => {
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
@@ -70,8 +73,6 @@ const PageListeOP = () => {
       if (filters.type && op.type !== filters.type) return false;
       if (filters.statut && op.statut !== filters.statut) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
-      
-      // Filtres de date
       if (filters.dateDebut && (op.dateCreation || '') < filters.dateDebut) return false;
       if (filters.dateFin && (op.dateCreation || '') > filters.dateFin) return false;
       
@@ -79,14 +80,11 @@ const PageListeOP = () => {
     }).reverse();
   }, [ops, activeSource, filters, exerciceActif, budgets, beneficiaires]);
 
-  // L'OP affiché dans la modale est récupéré en direct, donc il s'actualise seul
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
 
-  // Fonction d'exportation vers Excel
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
-      
       const exportData = displayOps.map(op => {
         const row = {
           'N° OP': op.numero,
@@ -99,25 +97,16 @@ const PageListeOP = () => {
           'Statut': op.statut.replace('_', ' '),
           'Date Saisie': formatDate(op.dateCreation) || '',
         };
-        
-        // Ajouter les colonnes de cumul si on n'est pas sur "CUMUL GENERAL"
         if (activeSource !== 'ALL') {
           row['Dotation'] = Number(op.dotationLigne || 0);
           row['Engagement Antérieur'] = Number(op.engagementAnterieur || 0);
           row['Disponible'] = Number(op.disponible || 0);
         }
-        
         return row;
       });
 
       const ws = XLSX.utils.json_to_sheet(exportData.length ? exportData : [{ 'Aucune donnée': '' }]);
-      
-      // Ajustement de la largeur des colonnes
-      if (exportData.length) {
-        ws['!cols'] = Object.keys(exportData[0]).map(k => ({ wch: Math.max(k.length + 2, 15) }));
-      }
-
-      // Formatage des montants (séparateur de milliers)
+      if (exportData.length) ws['!cols'] = Object.keys(exportData[0]).map(k => ({ wch: Math.max(k.length + 2, 15) }));
       for (let cellRef in ws) {
         if (cellRef[0] === '!') continue;
         const cell = ws[cellRef];
@@ -126,39 +115,30 @@ const PageListeOP = () => {
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Liste OP");
-      
       const dRef = new Date().toISOString().split('T')[0].split('-').reverse().join('-');
       const srcName = activeSource === 'ALL' ? 'GLOBAL' : getSrcSigle(activeSource);
       XLSX.writeFile(wb, `Liste_OP_${srcName}_${dRef}.xlsx`);
-      
-    } catch (err) {
-      alert("Erreur lors de l'export : " + err.message);
-    }
+    } catch (err) { alert("Erreur lors de l'export : " + err.message); }
   };
 
-  // Style ajusté pour l'en-tête : texte plus grand, hauteur naturelle ajustée
   const thStyle = {
-    ...styles.th, 
-    fontSize: 12, 
-    color: P.textSec, 
-    textTransform: 'uppercase', 
-    padding: '12px 10px', 
-    background: '#FAFAF8',
-    position: 'sticky',
-    top: 0,
-    zIndex: 10
+    ...styles.th, fontSize: 12, color: P.textSec, textTransform: 'uppercase', 
+    padding: '12px 10px', background: '#FAFAF8', position: 'sticky', top: 0, zIndex: 10
   };
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
-        <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
+        <div style={{display:'flex', gap:10}}>
+          <button onClick={() => setModalSuppression(true)} style={{padding:'8px 16px',background:P.card,border:`1px solid ${P.border}`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,fontWeight:600,color:P.textSec,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}>
+            {I.history(P.textSec, 14)} Historique Suppressions
+          </button>
+          <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
+        </div>
       </div>
 
-      {/* ZONE SOURCES ET EXPORT */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        {/* BOUTONS DES SOURCES AVEC COULEURS DYNAMIQUES */}
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <button onClick={() => { setActiveSource('ALL'); setFilters({...filters, ligneBudgetaire: ''}); }} 
             style={{padding:'8px 20px',borderRadius:10,border:activeSource==='ALL'?`2px solid ${P.text}`:'2px solid transparent',background:activeSource==='ALL'?P.card:'#EDEAE5',color:activeSource==='ALL'?P.text:P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:activeSource==='ALL'?`0 2px 8px ${P.text}22`:'none'}}>
@@ -176,17 +156,11 @@ const PageListeOP = () => {
           })}
         </div>
         
-        {/* BOUTON EXPORT EXCEL (ALIGNÉ À DROITE) */}
-        <button 
-          onClick={handleExportExcel} 
-          title="Exporter la vue actuelle en Excel" 
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 10, cursor: 'pointer', width: 40, height: 40, boxShadow: `0 2px 8px ${P.greenDark}44`, flexShrink: 0 }}
-        >
+        <button onClick={handleExportExcel} title="Exporter la vue actuelle en Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 10, cursor: 'pointer', width: 40, height: 40, boxShadow: `0 2px 8px ${P.greenDark}44`, flexShrink: 0 }}>
           {I.download('#fff', 18)}
         </button>
       </div>
 
-      {/* FILTRES AJUSTÉS AU CONTENU */}
       <div style={{ ...styles.card, background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, marginBottom: 20 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
@@ -242,21 +216,19 @@ const PageListeOP = () => {
         </div>
       </div>
 
-      {/* TABLEAU AVEC SCROLL RÉTABLI ET EN-TÊTE AJUSTÉ */}
       <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '65vh' }}>
         <table style={styles.table}>
           <colgroup>
-            {/* Ligne réduite, Objet élargi */}
-            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} /> {/* N° OP */}
-            <col style={{ width: activeSource !== 'ALL' ? '6%' : '7%' }} />   {/* Type */}
-            <col style={{ width: activeSource !== 'ALL' ? '13%' : '18%' }} /> {/* Bénéficiaire */}
-            <col style={{ width: activeSource !== 'ALL' ? '16%' : '28%' }} /> {/* Objet (Élargi) */}
-            <col style={{ width: activeSource !== 'ALL' ? '4%' : '5%' }} />   {/* Ligne (Rétréci) */}
-            {activeSource !== 'ALL' && <col style={{ width: '10%' }} />}      {/* Dotation */}
-            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} /> {/* Montant */}
-            {activeSource !== 'ALL' && <><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /></>} {/* Engag. Ant. + Disponible */}
-            <col style={{ width: activeSource !== 'ALL' ? '8%' : '12%' }} />  {/* Statut */}
-            <col style={{ width: activeSource !== 'ALL' ? '3%' : '6%' }} />   {/* Actions */}
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '6%' : '7%' }} />  
+            <col style={{ width: activeSource !== 'ALL' ? '13%' : '18%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '16%' : '28%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '4%' : '5%' }} />  
+            {activeSource !== 'ALL' && <col style={{ width: '10%' }} />}     
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} />
+            {activeSource !== 'ALL' && <><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /></>}
+            <col style={{ width: activeSource !== 'ALL' ? '8%' : '12%' }} /> 
+            <col style={{ width: activeSource !== 'ALL' ? '3%' : '6%' }} />  
           </colgroup>
           <thead>
             <tr>
@@ -280,22 +252,17 @@ const PageListeOP = () => {
           <tbody>
             {displayOps.map((op, i) => {
               const isRejet = op.type === 'REJET';
-              
               return (
                 <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #eee', cursor: 'pointer', background: isRejet ? P.redLight : 'transparent' }}>
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700, color: isRejet ? P.red : P.text }}>{op.numero}</td>
                   <td style={{ ...styles.td, fontSize: '10px', fontWeight: isRejet ? 800 : 600, color: isRejet ? P.red : '#666' }}>{op.type}</td>
                   <td style={{ ...styles.td, fontWeight: 600, fontSize: 12 }}>{getBenNom(op)}</td>
-                  {/* MODIFICATION maxWidth dynamique en fonction de la vue pour laisser Objet respirer */}
                   <td style={{ ...styles.td, fontSize: 11, maxWidth: activeSource !== 'ALL' ? 180 : 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet || '-'}</td>
                   <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
                   {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.dotationLigne)}</td>}
-                  
-                  {/* Montant en Rouge si c'est un rejet (Négatif) */}
                   <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800, color: op.montant < 0 ? P.red : P.greenDark }}>
                     {formatMontant(op.montant)}
                   </td>
-                  
                   {activeSource !== 'ALL' && (
                     <>
                       <td style={{ ...styles.td, textAlign: 'right', color: '#666', fontSize: 12 }}>{formatMontant(op.engagementAnterieur)}</td>
@@ -312,11 +279,7 @@ const PageListeOP = () => {
               );
             })}
             {displayOps.length === 0 && (
-              <tr>
-                <td colSpan={activeSource !== 'ALL' ? 11 : 8} style={{ textAlign: 'center', padding: '40px', color: P.textMuted }}>
-                  Aucun ordre de paiement trouvé avec ces filtres.
-                </td>
-              </tr>
+              <tr><td colSpan={activeSource !== 'ALL' ? 11 : 8} style={{ textAlign: 'center', padding: '40px', color: P.textMuted }}>Aucun ordre de paiement trouvé avec ces filtres.</td></tr>
             )}
           </tbody>
         </table>
@@ -342,7 +305,6 @@ const PageListeOP = () => {
               </div>
               
               <div style={{background:'#F9F9F9',border:'1px solid #EEE',borderRadius:10,padding:16,marginBottom:24}}>
-                 {/* APPLICATION DU FORMATAGE JJ/MM/AAAA AUX DATES */}
                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:12,fontSize:12}}>
                     <span style={{color:'#666',fontWeight:600}}>Saisie le :</span>
                     <span style={{fontWeight:700}}>{formatDate(livePreviewOp.dateCreation) || 'N/A'}</span>
@@ -364,7 +326,6 @@ const PageListeOP = () => {
                     <span style={{fontWeight:700,color:livePreviewOp.datePaiement?P.gold:P.text}}>{formatDate(livePreviewOp.datePaiement) || 'En attente'}</span>
                  </div>
 
-                 {/* AFFICHAGE CONDITIONNEL DATE DIFFÉRÉ / REJET */}
                  {livePreviewOp.dateDiffere && (
                    <div style={{display:'flex',justifyContent:'space-between',fontSize:12, marginBottom: livePreviewOp.dateRejet ? 12 : 0}}>
                       <span style={{color:P.gold,fontWeight:700}}>Différé le :</span>
@@ -378,7 +339,6 @@ const PageListeOP = () => {
                    </div>
                  )}
                  
-                 {/* DÉTAILS DU PAIEMENT SI EXISTANT */}
                  {(()=>{
                     const pTab = livePreviewOp.paiements || [];
                     const tPaye = pTab.reduce((s, p) => s + (p.montant || 0), 0);
@@ -420,6 +380,46 @@ const PageListeOP = () => {
               <button onClick={() => { setConsultOpData(livePreviewOp); setCurrentPage('consulterOp'); setPreviewOpId(null); }} style={{width:'100%',padding:'12px',background:P.orange,color:'#fff',border:'none',borderRadius:10,fontWeight:700,cursor:'pointer',display:'flex',justifyContent:'center',gap:8}}>
                  Ouvrir le dossier complet <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE HISTORIQUE DES OP SUPPRIMÉS */}
+      {modalSuppression && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',backdropFilter:'blur(3px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:P.card,borderRadius:16,width:750,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,.2)',overflow:'hidden'}}>
+            <div style={{padding:'16px 20px',background:P.textSec,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+              <h3 style={{color:'#fff',margin:0,fontSize:15}}>Historique des OP Supprimés</h3>
+              <button onClick={()=>setModalSuppression(false)} style={{background:'none',border:'none',cursor:'pointer'}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style={{padding:20,overflowY:'auto',flex:1}}>
+              {opsSupprimes.length === 0 ? (
+                <div style={{textAlign:'center',padding:40,color:P.textMuted}}>Aucun OP supprimé pour l'instant.</div>
+              ) : (
+                <table style={{...styles.table, borderCollapse: 'collapse', width: '100%'}}>
+                  <thead>
+                    <tr>
+                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>N° OP</th>
+                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>Type</th>
+                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>Bénéficiaire</th>
+                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`, textAlign:'right'}}>Montant</th>
+                      <th style={{...thStyle, borderBottom:`1px solid ${P.border}`}}>Motif de Suppression</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {opsSupprimes.sort((a,b)=>(b.deletedAt||b.updatedAt||'').localeCompare(a.deletedAt||a.updatedAt||'')).map(op => (
+                      <tr key={op.id} style={{background: P.redLight, borderBottom: `1px solid ${P.border}`}}>
+                        <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, padding:'10px'}}>{op.numero}</td>
+                        <td style={{...styles.td, fontSize:10, fontWeight:600, padding:'10px'}}>{op.type}</td>
+                        <td style={{...styles.td, fontSize:12, padding:'10px'}}>{getBenNom(op)}</td>
+                        <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:600, color:P.red, padding:'10px'}}>{formatMontant(op.montant)}</td>
+                        <td style={{...styles.td, fontSize:11, color:P.red, padding:'10px'}}>{op.motifSuppression || 'Suppression logique'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
