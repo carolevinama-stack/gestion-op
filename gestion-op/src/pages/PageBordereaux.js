@@ -416,10 +416,12 @@ const PageBordereaux=()=>{
     });
   };
 
-  const handleRetourCF=async()=>{
-    if(selectedOps.length===0){notify("error", "Erreur", "Sélectionnez des OP.");return;}
-    const d=readDate('retourCF');if(!d){notify("error", "Erreur", "Date requise.");return;}
-    if((resultatCF==='DIFFERE'||resultatCF==='REJETE')&&!motifRetour.trim()){notify("error", "Erreur", "Motif obligatoire.");return;}
+  // CORRECTION MAJEURE ICI : Création du clone négatif en cas de REJETE
+  const handleRetourCF = async () => {
+    if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez des OP."); return;}
+    const d = readDate('retourCF'); if(!d){notify("error", "Erreur", "Date requise."); return;}
+    if((resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && !motifRetour.trim()){notify("error", "Erreur", "Motif obligatoire."); return;}
+    
     const exec = async () => {
       ask("Confirmation", `Marquer ${selectedOps.length} OP comme "${resultatCF}" ?`, async () => {
         setSaving(true);
@@ -427,29 +429,49 @@ const PageBordereaux=()=>{
           const batch = writeBatch(db);
           for(const opId of selectedOps) {
             const op = ops.find(o => o.id === opId);
-            let upd={updatedAt:new Date().toISOString()};
+            let upd = { updatedAt: new Date().toISOString() };
             
             if(resultatCF === 'VISE' && op.type === 'ANNULATION') {
                upd.statut = 'ANNULE';
                upd.dateVisaCF = d;
                upd.dateArchivage = d; 
-            } else if(resultatCF==='VISE'){
-               upd.statut='VISE_CF';upd.dateVisaCF=d;
-            } else if(resultatCF==='DIFFERE'){
-               upd.statut='DIFFERE_CF';upd.dateDiffere=d;upd.motifDiffere=motifRetour.trim();
-            } else{
-               upd.statut='REJETE_CF';upd.dateRejet=d;upd.motifRejet=motifRetour.trim();
+            } else if(resultatCF === 'VISE'){
+               upd.statut = 'VISE_CF'; upd.dateVisaCF = d;
+            } else if(resultatCF === 'DIFFERE'){
+               upd.statut = 'DIFFERE_CF'; upd.dateDiffere = d; upd.motifDiffere = motifRetour.trim();
+            } else {
+               // 1. Mise à jour de l'original
+               upd.statut = 'REJETE_CF'; upd.dateRejet = d; upd.motifRejet = motifRetour.trim();
+               
+               // 2. CRÉATION DU CLONE EN NÉGATIF POUR ÉQUILIBRER LE BUDGET
+               const cloneRef = doc(collection(db, 'ops'));
+               const cloneData = {
+                 ...op,
+                 type: 'REJET',
+                 numero: op.numero + '-R',
+                 montant: -Math.abs(op.montant || 0),
+                 statut: 'REJETE_CF',
+                 dateRejet: d,
+                 motifRejet: motifRetour.trim(),
+                 opOriginalId: op.id,
+                 bordereauCF: null,
+                 bordereauAC: null,
+                 createdAt: new Date().toISOString(),
+                 updatedAt: new Date().toISOString()
+               };
+               delete cloneData.id;
+               batch.set(cloneRef, cloneData);
             }
-            batch.update(doc(db,'ops',opId), upd);
+            batch.update(doc(db, 'ops', opId), upd);
           }
           await batch.commit();
           notify("success", "Succès", "Mise à jour effectuée avec succès.");
-          setSelectedOps([]);setMotifRetour('');setModalRetourCF(false);
+          setSelectedOps([]); setMotifRetour(''); setModalRetourCF(false);
         }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     };
-    if(resultatCF==='REJETE') checkPwd(exec); else exec();
+    if(resultatCF === 'REJETE') checkPwd(exec); else exec();
   };
 
   const handleAnnulerRetour=async(opId,statut)=>{
@@ -464,38 +486,62 @@ const PageBordereaux=()=>{
     });
   };
 
-  const handleRetourAC=async()=>{
-    if(!modalPaiement)return;if(!motifRetourAC.trim()){notify("error", "Erreur", "Motif obligatoire.");return;}
-    const d=readDate('retourAC');if(!d){notify("error", "Erreur", "Date requise.");return;}
+  // CORRECTION MAJEURE ICI : Création du clone négatif en cas de REJETE
+  const handleRetourAC = async () => {
+    if(!modalPaiement) return; 
+    if(!motifRetourAC.trim()){notify("error", "Erreur", "Motif obligatoire."); return;}
+    const d = readDate('retourAC'); if(!d){notify("error", "Erreur", "Date requise."); return;}
+    
     const exec = async () => {
       ask("Confirmation", `Marquer comme "${resultatAC}" ?`, async () => {
         setSaving(true);
         try{
           const batch = writeBatch(db);
-          let upd={updatedAt:new Date().toISOString()};
+          let upd = { updatedAt: new Date().toISOString() };
 
-          if(resultatAC==='DIFFERE'){
-            upd.statut='DIFFERE_AC';upd.dateDiffere=d;upd.motifDiffere=motifRetourAC.trim();
+          if(resultatAC === 'DIFFERE'){
+            upd.statut = 'DIFFERE_AC'; upd.dateDiffere = d; upd.motifDiffere = motifRetourAC.trim();
           } else {
-            upd.statut='REJETE_AC';upd.dateRejet=d;upd.motifRejet=motifRetourAC.trim();
+            // 1. Mise à jour de l'original
+            upd.statut = 'REJETE_AC'; upd.dateRejet = d; upd.motifRejet = motifRetourAC.trim();
+            
+            // 2. CRÉATION DU CLONE EN NÉGATIF POUR ÉQUILIBRER LE BUDGET
+            const cloneRef = doc(collection(db, 'ops'));
+            const cloneData = {
+              ...modalPaiement,
+              type: 'REJET',
+              numero: modalPaiement.numero + '-R',
+              montant: -Math.abs(modalPaiement.montant || 0),
+              statut: 'REJETE_AC',
+              dateRejet: d,
+              motifRejet: motifRetourAC.trim(),
+              opOriginalId: modalPaiement.id,
+              bordereauCF: null,
+              bordereauAC: null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            delete cloneData.id;
+            batch.set(cloneRef, cloneData);
           }
-          batch.update(doc(db,'ops',modalPaiement.id),upd);
+          batch.update(doc(db, 'ops', modalPaiement.id), upd);
           await batch.commit();
 
-          notify("success", "Succès", "Mise à jour effectuée.");setModalPaiement(null);setMotifRetourAC('');
+          notify("success", "Succès", "Mise à jour effectuée."); setModalPaiement(null); setMotifRetourAC('');
         }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);
       });
     };
-    if(resultatAC==='REJETE') checkPwd(exec); else exec();
+    if(resultatAC === 'REJETE') checkPwd(exec); else exec();
   };
 
   const handlePaiement=async(opId)=>{
     const op=ops.find(o=>o.id===opId);if(!op)return;
-    const m = parseFloat(String(paiementMontant).replace(/\s/g, ''));
+    const m=parseFloat(String(paiementMontant).replace(/\s/g, ''));
     if(isNaN(m) || m <= 0){notify("error", "Erreur", "Veuillez saisir un montant valide.");return;}
     const d=readDate('paiement');if(!d){notify("error", "Erreur", "Date requise.");return;}
     
+    // Calcul de l'historique et du reste
     const paiem=op.paiements||[];
     const deja=paiem.reduce((s,p)=>s+(p.montant||0),0);
     const reste=Math.round((op.montant||0) - deja);
@@ -507,12 +553,13 @@ const PageBordereaux=()=>{
         const tot=Math.round(nP.reduce((s,p)=>s+(p.montant||0),0));
         const montantInitial = Math.round(op.montant||0);
         
+        // Règle stricte pour solder : Si le Total payé est supérieur ou égal au montant initial.
         const estSolde = (tot >= montantInitial);
         
         await updateDoc(doc(db,'ops',opId),{
           paiements:nP,
           totalPaye:tot,
-          datePaiement:d,
+          datePaiement:d, // Conserve la date du dernier paiement
           updatedAt:new Date().toISOString(),
           statut: estSolde ? 'PAYE' : 'PAYE_PARTIEL'
         });
