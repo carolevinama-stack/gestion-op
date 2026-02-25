@@ -84,9 +84,9 @@ const PageDashboard = () => {
     // On exclut de base les OP supprimés de toutes les alertes
     const opsForAlerts = allOpsExercice.filter(op => op.statut !== 'SUPPRIME');
 
-    // 1. À transférer au CF : statut EN_COURS ou CREE (Sauf les annulations auto)
+    // 1. À transférer au CF : statut EN_COURS ou CREE (Inclut désormais les annulations)
     const transfert_cf = opsForAlerts
-      .filter(op => ['EN_COURS', 'CREE'].includes(op.statut) && op.type !== 'ANNULATION')
+      .filter(op => ['EN_COURS', 'CREE'].includes(op.statut))
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
     // 2. À transférer à l'AC : statut VISE_CF (visés par CF, pas encore transmis à AC)
