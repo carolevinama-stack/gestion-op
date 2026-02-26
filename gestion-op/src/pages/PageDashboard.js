@@ -5,14 +5,14 @@ import { formatMontant } from '../utils/formatters';
 
 const I = {
   wallet: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4H6a2 2 0 01-2-2V6z"/></svg>,
-  file: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+  file: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   checkCircle: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   percent: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
   arrowRight: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
   clock: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   xCircle: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
   refresh: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>,
-  coins: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="7"/><path d="M16 16v-4a4 4 0 0 0-4-4h-4"/></svg>,
+  coins: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="7"/><path d="M16 16v-4a4 4 0 00-4-4h-4"/></svg>,
 };
 
 const joursDepuis = (dateStr) => {
@@ -22,7 +22,6 @@ const joursDepuis = (dateStr) => {
   return Math.floor((now - d) / (1000 * 60 * 60 * 24));
 };
 
-// Style pour l'en-tête fixé
 const thStyle = { 
   padding: '14px 16px', 
   fontSize: 11, 
@@ -32,7 +31,7 @@ const thStyle = {
   background: '#fff',
   position: 'sticky',
   top: 0,
-  zIndex: 2,
+  zIndex: 10,
   borderBottom: '2px solid #f0f0f0'
 };
 
@@ -51,14 +50,6 @@ const PageDashboard = () => {
 
   const getBenefNom = (id) => beneficiaires.find(b => b.id === id)?.nom || 'Inconnu';
   const getSourceSigle = (id) => sources.find(s => s.id === id)?.sigle || '—';
-
-  const sourceStats = useMemo(() => sources.map(source => {
-    const sBudgets = budgetsActifs.filter(b => b.sourceId === source.id);
-    const sOps = opsActifs.filter(op => op.sourceId === source.id);
-    const dot = sBudgets.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0);
-    const eng = sOps.reduce((sum, op) => sum + (op.montant || 0), 0);
-    return { ...source, dotation: dot, engagement: eng, disponible: dot - eng, nbOps: sOps.length };
-  }), [sources, budgetsActifs, opsActifs]);
 
   const alertes = useMemo(() => {
     const hasValidRegul = (id) => allOpsExercice.some(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && o.opProvisoireId === id && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut));
@@ -85,7 +76,6 @@ const PageDashboard = () => {
         <p style={{ color: '#6c757d', fontSize: 13, margin: '6px 0 0' }}>Tableau de bord — Exercice {exerciceActif?.annee || '...'}</p>
       </div>
 
-      {/* KPI */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Dotation totale', value: formatMontant(totalDotation), color: '#2E9940', accent: '#E8F5E9', icon: I.wallet('#2E9940') },
@@ -106,7 +96,6 @@ const PageDashboard = () => {
         ))}
       </div>
 
-      {/* TAB OPTIONS */}
       <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: '2px solid #f0f0f0', overflowX: 'auto', background: '#fff' }}>
           {Object.keys(alertes).map((key) => (
@@ -121,8 +110,7 @@ const PageDashboard = () => {
           ))}
         </div>
 
-        {/* TABLEAU AVEC EN-TÊTE FIXE ET HAUTEUR 500PX */}
-        <div style={{ maxHeight: 600, overflowY: 'auto', position: 'relative' }}>
+        <div style={{ maxHeight: 600, overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
               <tr>
@@ -141,7 +129,7 @@ const PageDashboard = () => {
                 selectedOps.map((op, i) => (
                   <tr key={i} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ cursor: 'pointer', borderTop: '1px solid #f8f8f8' }}>
                     <td style={{ padding: '14px 16px', fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }}>{(op.numero || '').split('/')[0]}</td>
-                    <td style={{ padding: '14px 16px', fontSize: 11, fontWeight: 700, color: op.type === 'DEFINITIF' ? '#1976d2' : op.type === 'ANNULATION' ? '#c62828' : '#999' }}>{op.type}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 11, fontWeight: 700, color: op.type === 'DEFINITIF' ? '#1976d2' : op.type === 'ANNULATION' ? '#c62828' : '#666' }}>{op.type}</td>
                     <td style={{ padding: '14px 16px', fontSize: 13 }}>{getBenefNom(op.beneficiaireId)}</td>
                     <td style={{ padding: '14px 16px', fontSize: 12, color: '#666' }}>{op.objet}</td>
                     <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{formatMontant(op.montant)}</td>
