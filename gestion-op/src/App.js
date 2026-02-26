@@ -15,56 +15,64 @@ import PageHistoriqueBudget from './pages/PageHistoriqueBudget';
 import PageLignesBudgetaires from './pages/PageLignesBudgetaires';
 import PageNouvelOp from './pages/PageNouvelOp';
 import PageConsulterOp from './pages/PageConsulterOp';
-
-// ANCIENNE PAGE (que l'on garde pour l'instant au cas où)
-import PageBordereaux from './pages/PageBordereaux';
-
-// NOUVELLES PAGES FRAGMENTÉES
 import PageCircuitCF from './pages/PageCircuitCF';
 import PageCircuitAC from './pages/PageCircuitAC';
 import PageArchives from './pages/PageArchives';
-
 import PageListeOP from './pages/PageListeOP';
 import PageRapport from './pages/PageRapport';
-import PageEnConstruction from './pages/PageEnConstruction';
 import PageAdmin from './pages/PageAdmin';
 
-// ==================== MAIN LAYOUT ====================
+// ==================== COMPOSANT DE CHARGEMENT UNIQUE ====================
+// On crée un composant réutilisable pour garantir que le design est strictement le même
+const LoaderPIF = ({ label }) => (
+  <div style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    height: '100vh', 
+    width: '100vw', 
+    background: '#F7F5F2',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    zIndex: 9999
+  }}>
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{ 
+          width: 10, 
+          height: 10, 
+          borderRadius: '50%', 
+          background: '#2E9940', 
+          opacity: 0.3, 
+          animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` 
+        }} />
+      ))}
+    </div>
+    <div style={{ fontSize: 11, color: '#888', letterSpacing: 2, marginTop: 18, fontWeight: 600, textTransform: 'uppercase' }}>
+      {label}
+    </div>
+    <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.4); } }`}</style>
+  </div>
+);
+
 function AppLayout() {
   const { currentPage, loading } = useAppContext();
 
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <Sidebar />
-        <main style={styles.main}>
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2E9940', opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` }} />)}
-            </div>
-            <div style={{ fontSize: 11, color: '#888', letterSpacing: 2, marginTop: 16 }}>Chargement des données...</div>
-            <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }`}</style>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  // Second chargement (données) : strictement identique au premier
+  if (loading) return <LoaderPIF label="Chargement des données..." />;
 
   return (
-    <div style={styles.container}>
-      {/* Style global pour cacher les spinners des inputs numériques */}
+    <div style={{ ...styles.container, minHeight: '100vh', width: '100vw', margin: 0, padding: 0 }}>
       <style>{`
+        body { margin: 0; padding: 0; overflow-x: hidden; }
         input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-        input[type="number"] {
-          -moz-appearance: textfield;
-        }
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
       `}</style>
       <Sidebar />
-      <main style={styles.main}>
+      <main style={{ ...styles.main, flex: 1 }}>
         {currentPage === 'dashboard' && <PageDashboard />}
         {currentPage === 'parametres' && <PageParametres />}
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
@@ -74,15 +82,9 @@ function AppLayout() {
         {currentPage === 'ops' && <PageListeOP />}
         {currentPage === 'nouvelOp' && <PageNouvelOp />}
         {currentPage === 'consulterOp' && <PageConsulterOp />}
-        
-        {/* Nouveaux branchements du circuit fragmenté */}
         {currentPage === 'circuitCF' && <PageCircuitCF />}
         {currentPage === 'circuitAC' && <PageCircuitAC />}
         {currentPage === 'archives' && <PageArchives />}
-        
-        {/* L'ancienne page reste branchée temporairement, même si plus utilisée dans le menu */}
-        {currentPage === 'bordereaux' && <PageBordereaux />}
-        
         {currentPage === 'suivi' && <PageRapport />}
         {currentPage === 'admin' && <PageAdmin />}
       </main>
@@ -90,7 +92,6 @@ function AppLayout() {
   );
 }
 
-// ==================== APP (AUTH WRAPPER) ====================
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -109,49 +110,15 @@ export default function App() {
       setAuthError('');
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      console.error('Erreur de connexion:', error);
-      if (error.code === 'auth/invalid-credential') {
-        setAuthError('Email ou mot de passe incorrect');
-      } else if (error.code === 'auth/too-many-requests') {
-        setAuthError('Trop de tentatives. Veuillez réessayer plus tard.');
-      } else {
-        setAuthError('Erreur de connexion. Veuillez réessayer.');
-      }
+      setAuthError('Email ou mot de passe incorrect');
     }
   };
 
-  const handleForgotPassword = async (email) => {
-    try {
-      await sendPasswordResetEmail(auth, email);
-      return { success: true };
-    } catch (error) {
-      if (error.code === 'auth/user-not-found') return { success: false, error: 'Aucun compte associé à cet e-mail.' };
-      if (error.code === 'auth/invalid-email') return { success: false, error: 'Adresse e-mail invalide.' };
-      return { success: false, error: 'Erreur. Veuillez réessayer.' };
-    }
-  };
+  // Premier chargement (authentification)
+  if (authLoading) return <LoaderPIF label="Connexion au système..." />;
 
-  // Auth loading
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F5F2' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#2E9940', opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s` }} />)}
-          </div>
-          <div style={{ fontSize: 11, color: '#888', letterSpacing: 2, marginTop: 16 }}>Chargement</div>
-          <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }`}</style>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
 
-  // Not logged in
-  if (!user) {
-    return <LoginPage onLogin={handleLogin} onForgotPassword={handleForgotPassword} error={authError} />;
-  }
-
-  // Logged in - wrap in AppProvider
   return (
     <AppProvider user={user}>
       <AppLayout />
