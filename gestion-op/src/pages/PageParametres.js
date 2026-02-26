@@ -43,14 +43,6 @@ const Label = ({ children }) => (
   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: P.textSec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{children}</label>
 );
 
-// Composant pour forcer une largeur fixe propre
-const Field = ({ label, width, children }) => (
-  <div style={{ width: width, flexShrink: 0 }}>
-    <Label>{label}</Label>
-    {children}
-  </div>
-);
-
 const ActionBtn = ({ label, icon, color, onClick, disabled }) => (
   <button onClick={onClick} disabled={disabled} style={{ padding: '10px 24px', background: color, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, opacity: disabled ? 0.6 : 1, transition: 'all .2s' }}>
     {icon}{label}
@@ -118,8 +110,9 @@ const ModalAlert = ({ data, onClose }) => {
   );
 };
 
+
 // ============================================================
-// PAGE PARAMÈTRES (LAYOUT PRINCIPAL)
+// PAGE PARAMÈTRES
 // ============================================================
 const PageParametres = () => {
   const { userProfile } = useAppContext();
@@ -133,13 +126,13 @@ const PageParametres = () => {
   if (isAdmin) tabs.push({ id: 'maintenance', label: 'Maintenance', icon: 'maintenance' });
 
   return (
-    <div style={{ width: '100%' }}>
+    <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: P.greenDark, margin: 0, letterSpacing: -0.5 }}>Paramètres Système</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: P.greenDark, margin: 0, letterSpacing: -0.5 }}>Paramètres</h1>
       </div>
       
       {/* Onglets */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, borderBottom: `2px solid ${P.border}`, paddingBottom: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: `2px solid ${P.border}`, paddingBottom: 10, flexWrap: 'wrap' }}>
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           return (
@@ -158,6 +151,7 @@ const PageParametres = () => {
         })}
       </div>
 
+      {/* Contenu des onglets */}
       {activeTab === 'infos' && <TabInfos />}
       {activeTab === 'maintenance' && isAdmin && <TabMaintenance />}
       {activeTab === 'utilisateurs' && isAdmin && <PageAdmin />}
@@ -166,7 +160,7 @@ const PageParametres = () => {
 };
 
 // ============================================================
-// ONGLET INFOS (DESIGN STRIPE / APPLE ÉQUILIBRÉ)
+// ONGLET INFOS (DESIGN APPLE + GRILLE STRICTE)
 // ============================================================
 const TabInfos = () => {
   const { projet, setProjet, sources, setSources, exercices, setExercices, ops, budgets } = useAppContext();
@@ -266,9 +260,12 @@ const TabInfos = () => {
     });
   };
 
-  // --- Styles Communs de ce layout
-  const baseInputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '12px 14px', boxSizing: 'border-box', border: `1px solid ${P.border}`, width: '100%' };
-  const cardStyle = { background: P.card, borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.03)' };
+  // --- Styles Communs
+  // inputStyle : on met width: 100% car c'est la grille qui va contraindre la largeur de chaque champ.
+  const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '10px 14px', boxSizing: 'border-box', border: `1px solid ${P.border}`, width: '100%', background: '#FAFAF8' };
+  
+  // cardStyle : largeur maximale du bloc droit définie ici (800px) pour éviter l'étirement infini
+  const cardStyle = { background: P.card, borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.03)', maxWidth: 800 };
   
   const SettingRow = ({ title, desc, children }) => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, padding: '32px 0', borderBottom: `1px solid ${P.border}` }}>
@@ -276,7 +273,7 @@ const TabInfos = () => {
         <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.text }}>{title}</h3>
         <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{desc}</p>
       </div>
-      <div style={{ flex: 1, minWidth: 320 }}>
+      <div style={{ flex: 1 }}>
         <div style={cardStyle}>{children}</div>
       </div>
     </div>
@@ -290,26 +287,34 @@ const TabInfos = () => {
         
         {/* ================= IDENTITÉ DU PROJET ================= */}
         <SettingRow title="Identité du Projet" desc="Informations officielles qui s'afficheront sur les entêtes des bordereaux de transmission.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          
+          {/* Grille stricte à 12 colonnes. C'est elle qui définit la largeur des champs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
             
-            <Field label="Nom complet du projet" width={450}>
-              <input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={baseInputStyle} placeholder="Ex: Projet d'Investissement..." />
-            </Field>
-            
-            <Field label="Ministère de tutelle" width={450}>
-              <input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={baseInputStyle} placeholder="Ex: Ministère de l'Économie..." />
-            </Field>
+            {/* Ligne 1 : Nom Complet prend 12/12 */}
+            <div style={{ gridColumn: 'span 12' }}>
+              <Label>Nom complet du projet</Label>
+              <input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={inputStyle} />
+            </div>
 
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <Field label="Sigle officiel" width={150}>
-                <input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={baseInputStyle} placeholder="Ex: PIF2" />
-              </Field>
-              <Field label="Pays" width={220}>
-                <input value={formProj.pays || ''} onChange={e => setFormProj({...formProj, pays: e.target.value})} style={baseInputStyle} />
-              </Field>
-              <Field label="Devise Nationale" width={220}>
-                <input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={baseInputStyle} />
-              </Field>
+            {/* Ligne 2 : Ministère prend 12/12 */}
+            <div style={{ gridColumn: 'span 12' }}>
+              <Label>Ministère de tutelle</Label>
+              <input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={inputStyle} />
+            </div>
+
+            {/* Ligne 3 : Sigle, Pays et Devise parfaitement divisés en 3 (4 + 4 + 4 = 12) */}
+            <div style={{ gridColumn: 'span 4' }}>
+              <Label>Sigle officiel</Label>
+              <input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={inputStyle} placeholder="Ex: PIF2" />
+            </div>
+            <div style={{ gridColumn: 'span 4' }}>
+              <Label>Pays</Label>
+              <input value={formProj.pays || ''} onChange={e => setFormProj({...formProj, pays: e.target.value})} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: 'span 4' }}>
+              <Label>Devise Nationale</Label>
+              <input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={inputStyle} />
             </div>
 
           </div>
@@ -317,38 +322,42 @@ const TabInfos = () => {
 
         {/* ================= SIGNATAIRE & TECHNIQUE ================= */}
         <SettingRow title="Signataire & Technique" desc="Configurez le signataire habilité, les préfixes d'imputation budgétaire et le nombre de tirages de vos bordereaux.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
             
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <Field label="Nom du Signataire (Coordonnateur)" width={300}>
-                <input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={baseInputStyle} placeholder="Ex: ABE-KOFFI Thérèse" />
-              </Field>
-              <Field label="Titre officiel (Bordereaux)" width={300}>
-                <input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={baseInputStyle} placeholder="Ex: LA COORDONNATRICE" />
-              </Field>
+            {/* Ligne 1 : Signataire, 50% chacun (6 + 6) */}
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Nom du Signataire</Label>
+              <input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: ABE-KOFFI Thérèse" />
+            </div>
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Titre (Affiché en bas de page)</Label>
+              <input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: LA COORDONNATRICE" />
             </div>
 
-            <hr style={{ border: 'none', borderTop: `1px solid ${P.border}`, margin: 0 }} />
+            {/* Séparateur */}
+            <div style={{ gridColumn: 'span 12', height: 1, background: P.border, margin: '8px 0' }} />
 
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <Field label="Préfixe Budgétaire" width={250}>
-                <input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={baseInputStyle} placeholder="Ex: 345 9004..." />
-              </Field>
-              <Field label="Format de Ligne" width={180}>
-                <select value={formProj.nbCaracteresLigne || 4} onChange={e => setFormProj({...formProj, nbCaracteresLigne: parseInt(e.target.value)})} style={baseInputStyle}>
-                  <option value={4}>4 chiffres (ex: 3111)</option>
-                  <option value={6}>6 chiffres (ex: 311100)</option>
-                </select>
-              </Field>
+            {/* Ligne 2 : Technique, 50% chacun (6 + 6) */}
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Préfixe Budgétaire</Label>
+              <input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 9004..." />
+            </div>
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Format de Ligne</Label>
+              <select value={formProj.nbCaracteresLigne || 4} onChange={e => setFormProj({...formProj, nbCaracteresLigne: parseInt(e.target.value)})} style={inputStyle}>
+                <option value={4}>4 chiffres (ex: 3111)</option>
+                <option value={6}>6 chiffres (ex: 311100)</option>
+              </select>
             </div>
 
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <Field label="Tirages (Bordereau CF)" width={150}>
-                <input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={baseInputStyle} />
-              </Field>
-              <Field label="Tirages (Bordereau AC)" width={150}>
-                <input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={baseInputStyle} />
-              </Field>
+            {/* Ligne 3 : Tirages, petites colonnes (3 + 3) on laisse le reste vide (6) */}
+            <div style={{ gridColumn: 'span 3' }}>
+              <Label>Tirages CF</Label>
+              <input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={{...inputStyle, textAlign: 'center'}} />
+            </div>
+            <div style={{ gridColumn: 'span 3' }}>
+              <Label>Tirages AC</Label>
+              <input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={{...inputStyle, textAlign: 'center'}} />
             </div>
 
           </div>
@@ -356,25 +365,32 @@ const TabInfos = () => {
 
         {/* ================= SÉCURITÉ ADMINISTRATEUR ================= */}
         <SettingRow title="Sécurité Administrateur" desc="Définissez un mot de passe unique. Il sera exigé lors de la suppression d'OP, purges de base de données ou modifications critiques.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-              <Field label="Mot de passe" width={250}>
-                <div style={{ position: 'relative' }}>
-                  <input type={showPassword ? 'text' : 'password'} value={formProj.adminPassword || ''} onChange={e => setFormProj({...formProj, adminPassword: e.target.value})} style={{ ...baseInputStyle, paddingRight: 40 }} />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    {showPassword ? I.eyeOff(P.textSec, 18) : I.eye(P.textSec, 18)}
-                  </button>
-                </div>
-              </Field>
-              <Field label="Confirmation" width={250}>
-                <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={baseInputStyle} />
-              </Field>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
+            
+            {/* Ligne 1 : Mots de passe, 50% chacun (6 + 6) */}
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Mot de passe</Label>
+              <div style={{ position: 'relative' }}>
+                <input type={showPassword ? 'text' : 'password'} value={formProj.adminPassword || ''} onChange={e => setFormProj({...formProj, adminPassword: e.target.value})} style={{ ...inputStyle, paddingRight: 40 }} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  {showPassword ? I.eyeOff(P.textSec, 18) : I.eye(P.textSec, 18)}
+                </button>
+              </div>
             </div>
-            {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 13, fontWeight: 700 }}>⚠️ Les mots de passe diffèrent</div>}
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Confirmation</Label>
+              <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} />
+            </div>
+
+            {/* Ligne 2 : Message d'erreur (Span 12) */}
+            <div style={{ gridColumn: 'span 12', minHeight: 16 }}>
+              {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 12, fontWeight: 700 }}>⚠️ Les mots de passe diffèrent</div>}
+            </div>
+
           </div>
         </SettingRow>
 
-        {/* ================= BOUTON SAUVEGARDE GÉNÉRAL ================= */}
+        {/* ================= BOUTON SAUVEGARDE GÉNÉRAL (EN BAS À DROITE) ================= */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 20, padding: '24px 0', borderBottom: `1px solid ${P.border}` }}>
            {savedProj && <span style={{ color: P.greenDark, fontWeight: 700, fontSize: 14 }}>✓ Modifications enregistrées avec succès</span>}
            <button onClick={handleSaveProjet} disabled={savingProj} style={{ padding: '12px 28px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 14, cursor: savingProj ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -384,9 +400,9 @@ const TabInfos = () => {
 
 
         {/* ================= SOURCES DE FINANCEMENT ================= */}
-        <SettingRow title="Sources de financement" desc="Gérez les différents bailleurs qui financent le projet. Chaque source maintient sa propre série de numéros de bordereaux.">
+        <SettingRow title="Sources de financement" desc="Gérez les différents bailleurs qui financent le projet. Le Compte à débiter a été retiré, seul le Sigle et les Détails sont conservés.">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-             <ActionBtn label="Ajouter une source" icon={I.plus()} color={P.greenDark} onClick={openNewSrc} />
+             <ActionBtn label="Nouvelle source" icon={I.plus()} color={P.greenDark} onClick={openNewSrc} />
           </div>
           {sources.length === 0 ? <Empty text="Aucune source configurée" /> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -414,9 +430,9 @@ const TabInfos = () => {
         </SettingRow>
 
         {/* ================= EXERCICES BUDGÉTAIRES ================= */}
-        <SettingRow title="Exercices budgétaires" desc="L'exercice actif détermine l'année en cours pour la saisie des OP. Activer un nouvel exercice clôturera l'ancien.">
+        <SettingRow title="Exercices budgétaires" desc="Un seul exercice peut être actif à la fois. L'activer clôturera automatiquement le précédent.">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-             <ActionBtn label="Créer un exercice" icon={I.plus()} color={P.greenDark} onClick={() => { setFormEx({ annee: new Date().getFullYear() + 1, actif: false }); setShowExModal(true); }} />
+             <ActionBtn label="Nouvel exercice" icon={I.plus()} color={P.greenDark} onClick={() => { setFormEx({ annee: new Date().getFullYear() + 1, actif: false }); setShowExModal(true); }} />
           </div>
           {exercices.length === 0 ? <Empty text="Aucun exercice défini" /> : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -454,17 +470,20 @@ const TabInfos = () => {
               <button onClick={() => setShowSrcModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding:0 }}>{I.close('#fff', 20)}</button>
             </div>
             <div style={{ padding: 24 }}>
-              <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
-                <Field label="Sigle de la source *" width={150}>
-                  <input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={baseInputStyle} placeholder="Ex: IDA" />
-                </Field>
-                <Field label="Couleur visuelle" width={100}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16, marginBottom: 16 }}>
+                <div style={{ gridColumn: 'span 8' }}>
+                  <Label>Sigle de la source *</Label>
+                  <input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={inputStyle} placeholder="Ex: IDA" />
+                </div>
+                <div style={{ gridColumn: 'span 4' }}>
+                  <Label>Couleur</Label>
                   <input type="color" value={formSrc.couleur} onChange={e => setFormSrc({...formSrc, couleur: e.target.value})} style={{ width: '100%', height: 42, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }} />
-                </Field>
+                </div>
+                <div style={{ gridColumn: 'span 12' }}>
+                  <Label>Détails / Nom complet *</Label>
+                  <input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={inputStyle} placeholder="Ex: Financement Banque Mondiale..." />
+                </div>
               </div>
-              <Field label="Détails / Nom complet *" width="100%">
-                <input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={baseInputStyle} placeholder="Ex: Financement Banque Mondiale..." />
-              </Field>
             </div>
             <div style={{ padding: '16px 24px', background: '#FAFAF8', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => setShowSrcModal(false)} style={{ padding: '10px 20px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: P.textSec }}>Annuler</button>
@@ -482,9 +501,9 @@ const TabInfos = () => {
               <button onClick={() => setShowExModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding:0 }}>{I.close('#fff', 20)}</button>
             </div>
             <div style={{ padding: 24 }}>
-              <div style={{ width: 150, margin: '0 auto 24px' }}>
+              <div style={{ marginBottom: 20 }}>
                 <Label style={{textAlign: 'center'}}>Année budgétaire</Label>
-                <input type="number" value={formEx.annee} onChange={e => setFormEx({...formEx, annee: parseInt(e.target.value)})} style={{...baseInputStyle, fontSize: 24, fontWeight: 800, textAlign:'center', height: 60}} />
+                <input type="number" value={formEx.annee} onChange={e => setFormEx({...formEx, annee: parseInt(e.target.value)})} style={{...inputStyle, fontSize: 24, fontWeight: 800, textAlign:'center', height: 60}} />
               </div>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent:'center', gap: 10, cursor: 'pointer', background: P.bg, padding: '14px', borderRadius: 10 }}>
                 <input type="checkbox" checked={formEx.actif} onChange={e => setFormEx({...formEx, actif: e.target.checked})} style={{ width: 16, height: 16 }} />
