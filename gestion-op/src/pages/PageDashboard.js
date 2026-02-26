@@ -8,7 +8,7 @@ import { formatMontant } from '../utils/formatters';
 // ============================================================
 const I = {
   wallet: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4H6a2 2 0 01-2-2V6z"/></svg>,
-  file: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  file: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
   checkCircle: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   percent: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
   arrowRight: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
@@ -261,8 +261,8 @@ const PageDashboard = () => {
           })}
         </div>
 
-        {/* ====== LISTE DES OP ====== */}
-        <div className="op-list" style={{ maxHeight: 340, overflowY: 'auto' }}>
+        {/* ====== LISTE DES OP (HAUTEUR AUGMENTÉE À 500PX) ====== */}
+        <div className="op-list" style={{ maxHeight: 500, overflowY: 'auto' }}>
           {selectedOps.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#999', fontSize: 13 }}>
               Aucun OP dans cette catégorie
@@ -272,6 +272,7 @@ const PageDashboard = () => {
               <thead>
                 <tr style={{ background: '#fafafa' }}>
                   <th style={{ ...thStyle, textAlign: 'left' }}>N° OP</th>
+                  <th style={{ ...thStyle, textAlign: 'left' }}>TYPE</th>
                   <th style={{ ...thStyle, textAlign: 'left' }}>BÉNÉFICIAIRE</th>
                   <th style={{ ...thStyle, textAlign: 'left' }}>OBJET</th>
                   {activeAlert === 'solder' ? (
@@ -301,6 +302,19 @@ const PageDashboard = () => {
                         <div style={{ fontSize: 11, color: '#bbb' }}>
                           {getSourceSigle(op.sourceId)} • {op.dateCreation || ''}
                         </div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ 
+                          fontSize: 10, 
+                          fontWeight: 700, 
+                          padding: '2px 6px', 
+                          borderRadius: 4, 
+                          background: op.type === 'DEFINITIF' ? '#e3f2fd' : op.type === 'ANNULATION' ? '#ffebee' : '#f5f5f5',
+                          color: op.type === 'DEFINITIF' ? '#1976d2' : op.type === 'ANNULATION' ? '#c62828' : '#666',
+                          border: '1px solid currentColor'
+                        }}>
+                          {op.type}
+                        </span>
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500 }}>
                         {getBenefNom(op.beneficiaireId)}
