@@ -37,14 +37,14 @@ const I = {
 };
 
 // ============================================================
-// COMPOSANTS COMMUNS & MODALES PERSONNALISÉES
+// COMPOSANTS COMMUNS & MODALES
 // ============================================================
 const Label = ({ children }) => (
   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: P.textSec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{children}</label>
 );
 
 const ActionBtn = ({ label, icon, color, onClick, disabled }) => (
-  <button onClick={onClick} disabled={disabled} style={{ padding: '10px 24px', background: color, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, opacity: disabled ? 0.5 : 1, transition: 'all .2s' }}>
+  <button onClick={onClick} disabled={disabled} style={{ padding: '10px 24px', background: color, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, opacity: disabled ? 0.6 : 1, transition: 'all .2s' }}>
     {icon}{label}
   </button>
 );
@@ -59,7 +59,6 @@ const Empty = React.memo(({ text }) => (
   </div>
 ));
 
-// Modale d'Alerte et de Confirmation ultra-propre (remplace window.confirm et window.prompt)
 const ModalAlert = ({ data, onClose }) => {
   const [val, setVal] = useState('');
   useEffect(() => { setVal(''); }, [data]); 
@@ -133,7 +132,7 @@ const PageParametres = () => {
       </div>
       
       {/* Onglets */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 30, borderBottom: `2px solid ${P.border}`, paddingBottom: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, borderBottom: `2px solid ${P.border}`, paddingBottom: 10, flexWrap: 'wrap' }}>
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           return (
@@ -152,6 +151,7 @@ const PageParametres = () => {
         })}
       </div>
 
+      {/* Contenu des onglets */}
       {activeTab === 'infos' && <TabInfos />}
       {activeTab === 'maintenance' && isAdmin && <TabMaintenance />}
       {activeTab === 'utilisateurs' && isAdmin && <PageAdmin />}
@@ -181,7 +181,7 @@ const TabInfos = () => {
 
   const [showSrcModal, setShowSrcModal] = useState(false);
   const [editSource, setEditSource] = useState(null);
-  const [formSrc, setFormSrc] = useState({ nom: '', sigle: '', description: '', compteDebiter: '', couleur: '#1B6B2E' });
+  const [formSrc, setFormSrc] = useState({ nom: '', sigle: '', couleur: '#1B6B2E' }); 
 
   const [showExModal, setShowExModal] = useState(false);
   const [formEx, setFormEx] = useState({ annee: new Date().getFullYear(), actif: true });
@@ -196,7 +196,6 @@ const TabInfos = () => {
     }
   }, [projet]);
 
-  // --- Handlers Projet
   const handleSaveProjet = async () => {
     if (formProj.adminPassword && formProj.adminPassword !== confirmPassword) { notify('error', 'Erreur de saisie', 'Les mots de passe ne correspondent pas.'); return; }
     setSavingProj(true);
@@ -208,11 +207,10 @@ const TabInfos = () => {
     setSavingProj(false);
   };
 
-  // --- Handlers Sources
-  const openNewSrc = () => { setFormSrc({ nom: '', sigle: '', description: '', compteDebiter: '', couleur: '#1B6B2E' }); setEditSource(null); setShowSrcModal(true); };
+  const openNewSrc = () => { setFormSrc({ nom: '', sigle: '', couleur: '#1B6B2E' }); setEditSource(null); setShowSrcModal(true); };
   const openEditSrc = (source) => { setFormSrc(source); setEditSource(source); setShowSrcModal(true); };
   const handleSaveSrc = async () => {
-    if (!formSrc.nom || !formSrc.sigle) return notify('error', 'Champs requis', 'Le nom et le sigle sont obligatoires.');
+    if (!formSrc.nom || !formSrc.sigle) return notify('error', 'Champs requis', 'Le sigle et les détails sont obligatoires.');
     try {
       if (editSource) {
         await updateDoc(doc(db, 'sources', editSource.id), formSrc);
@@ -233,7 +231,6 @@ const TabInfos = () => {
     });
   };
 
-  // --- Handlers Exercices
   const handleSaveEx = async () => {
     if (!formEx.annee) return notify('error', 'Saisie', "L'année est requise.");
     try {
@@ -265,10 +262,10 @@ const TabInfos = () => {
 
   // --- Styles Communs de ce layout SaaS
   const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '12px 14px', boxSizing: 'border-box', width: '100%', border: `1px solid ${P.border}` };
-  const cardStyle = { background: P.card, borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.03)' };
+  const cardStyle = { background: P.card, borderRadius: 12, padding: 30, border: `1px solid ${P.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.03)' };
   
-  const SettingRow = ({ title, desc, children, isLast }) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, padding: '32px 0', borderBottom: isLast ? 'none' : `1px solid ${P.border}` }}>
+  const SettingRow = ({ title, desc, children }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, padding: '32px 0', borderBottom: `1px solid ${P.border}` }}>
       <div style={{ width: 300, flexShrink: 0 }}>
         <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.text }}>{title}</h3>
         <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{desc}</p>
@@ -285,44 +282,93 @@ const TabInfos = () => {
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         
+        {/* ================= IDENTITÉ DU PROJET ================= */}
         <SettingRow title="Identité du Projet" desc="Informations officielles qui s'afficheront sur les entêtes des bordereaux de transmission.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div><Label>Pays</Label><input value={formProj.pays || ''} onChange={e => setFormProj({...formProj, pays: e.target.value})} style={inputStyle} /></div>
-              <div><Label>Devise Nationale</Label><input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={inputStyle} /></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ width: '100%', maxWidth: 450 }}>
+              <Label>Nom complet du projet</Label>
+              <input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={inputStyle} placeholder="Ex: Projet d'Investissement..." />
             </div>
-            <div><Label>Ministère de tutelle</Label><input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={inputStyle} /></div>
-            <div><Label>Nom complet du projet</Label><input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={inputStyle} /></div>
-            <div><Label>Sigle officiel</Label><input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={inputStyle} /></div>
+            
+            <div style={{ width: '100%', maxWidth: 450 }}>
+              <Label>Ministère de tutelle</Label>
+              <input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={inputStyle} placeholder="Ex: Ministère de l'Économie..." />
+            </div>
+
+            <div style={{ width: '100%', maxWidth: 200 }}>
+              <Label>Sigle officiel</Label>
+              <input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={inputStyle} placeholder="Ex: PIF2" />
+            </div>
+
+            {/* Pays et Devise superposés avec la même largeur */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 300, marginTop: 10 }}>
+              <div>
+                <Label>Pays</Label>
+                <input value={formProj.pays || ''} onChange={e => setFormProj({...formProj, pays: e.target.value})} style={inputStyle} />
+              </div>
+              <div>
+                <Label>Devise Nationale</Label>
+                <input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={inputStyle} />
+              </div>
+            </div>
           </div>
         </SettingRow>
 
-        <SettingRow title="Signataire & Technique" desc="Configurez le signataire habilité, les préfixes d'imputation budgétaire et le nombre de tirages.">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div><Label>Nom / Prénom du Coordonnateur</Label><input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={inputStyle} /></div>
-              <div><Label>Titre (Affiché en bas de page)</Label><input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={inputStyle} /></div>
+        {/* ================= SIGNATAIRE & TECHNIQUE ================= */}
+        <SettingRow title="Signataire & Technique" desc="Configurez le signataire habilité, les préfixes d'imputation budgétaire et le nombre de tirages de vos bordereaux.">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+            
+            {/* Responsable - Largeur contrôlée */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <h4 style={{ margin: 0, fontSize: 13, color: P.text, fontWeight: 800 }}>RESPONSABLE DU PROJET</h4>
+              <div style={{ width: '100%', maxWidth: 350 }}>
+                <Label>Nom / Prénom du Coordonnateur</Label>
+                <input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: ABE-KOFFI Thérèse" />
+              </div>
+              <div style={{ width: '100%', maxWidth: 350 }}>
+                <Label>Titre (Affiché en bas de page)</Label>
+                <input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: LA COORDONNATRICE" />
+              </div>
             </div>
+
             <hr style={{ border: 'none', borderTop: `1px solid ${P.border}`, margin: 0 }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-              <div><Label>Préfixe Budgétaire</Label><input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 9004..." /></div>
-              <div><Label>Format de Ligne</Label>
+
+            {/* Technique - Grille de 2 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+              <div>
+                <Label>Préfixe Budgétaire</Label>
+                <input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 9004..." />
+              </div>
+              <div>
+                <Label>Format de Ligne</Label>
                 <select value={formProj.nbCaracteresLigne || 4} onChange={e => setFormProj({...formProj, nbCaracteresLigne: parseInt(e.target.value)})} style={inputStyle}>
                   <option value={4}>4 chiffres (ex: 3111)</option>
                   <option value={6}>6 chiffres (ex: 311100)</option>
                 </select>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div><Label>Exemplaires à imprimer (CF)</Label><input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={inputStyle} /></div>
-              <div><Label>Exemplaires à imprimer (AC)</Label><input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={inputStyle} /></div>
+
+            <hr style={{ border: 'none', borderTop: `1px solid ${P.border}`, margin: 0 }} />
+
+            {/* Tirages */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 20, maxWidth: 400 }}>
+              <div>
+                <Label>Tirages CF</Label>
+                <input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={inputStyle} />
+              </div>
+              <div>
+                <Label>Tirages AC</Label>
+                <input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={inputStyle} />
+              </div>
             </div>
+
           </div>
         </SettingRow>
 
+        {/* ================= SÉCURITÉ ADMINISTRATEUR ================= */}
         <SettingRow title="Sécurité Administrateur" desc="Définissez un mot de passe unique. Il sera exigé lors de la suppression d'OP, purges de base de données ou modifications critiques.">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ width: '100%', maxWidth: 350 }}>
               <Label>Mot de passe</Label>
               <div style={{ position: 'relative' }}>
                 <input type={showPassword ? 'text' : 'password'} value={formProj.adminPassword || ''} onChange={e => setFormProj({...formProj, adminPassword: e.target.value})} style={{ ...inputStyle, paddingRight: 40 }} />
@@ -331,22 +377,24 @@ const TabInfos = () => {
                 </button>
               </div>
             </div>
-            <div>
+            <div style={{ width: '100%', maxWidth: 350 }}>
               <Label>Confirmation</Label>
               <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} />
             </div>
+            {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 13, fontWeight: 700 }}>⚠️ Les mots de passe diffèrent</div>}
           </div>
-          {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 12, fontWeight: 700, marginTop: 10 }}>⚠️ Les mots de passe diffèrent</div>}
         </SettingRow>
 
-        {/* LIGNE DE SAUVEGARDE GLOBALE (PROJET) */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 20, paddingBottom: '30px', borderBottom: `1px solid ${P.border}` }}>
+        {/* ================= BOUTON SAUVEGARDE GÉNÉRAL (EN BAS À DROITE) ================= */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 20, padding: '24px 0', borderBottom: `1px solid ${P.border}` }}>
            {savedProj && <span style={{ color: P.greenDark, fontWeight: 700, fontSize: 14 }}>✓ Modifications enregistrées avec succès</span>}
-           <ActionBtn label={savingProj ? "Enregistrement..." : "Enregistrer toutes les modifications"} icon={I.check()} color={P.greenDark} onClick={handleSaveProjet} disabled={savingProj} />
+           <button onClick={handleSaveProjet} disabled={savingProj} style={{ padding: '12px 28px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 14, cursor: savingProj ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+             {savingProj ? "Enregistrement..." : "Enregistrer les modifications"}
+           </button>
         </div>
 
-
-        <SettingRow title="Sources de financement" desc="Gérez les différents comptes ou bailleurs qui financent le projet. Chaque source maintient son propre budget.">
+        {/* ================= SOURCES DE FINANCEMENT ================= */}
+        <SettingRow title="Sources de financement" desc="Gérez les différents bailleurs qui financent le projet. Le Compte à débiter a été retiré selon vos consignes, seul le Sigle et les Détails sont conservés.">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
              <ActionBtn label="Nouvelle source" icon={I.plus()} color={P.greenDark} onClick={openNewSrc} />
           </div>
@@ -355,15 +403,15 @@ const TabInfos = () => {
               <thead>
                 <tr>
                   <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Sigle</th>
-                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Compte à débiter</th>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Détails / Nom</th>
                   <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sources.map(s => (
                   <tr key={s.id} style={{ borderBottom: `1px solid ${P.border}` }}>
-                    <td style={{ padding: '16px', fontWeight: 700 }}><div style={{display:'flex', alignItems:'center', gap:10}}><div style={{width:12, height:12, borderRadius:'50%', background: s.couleur}}/>{s.sigle}</div></td>
-                    <td style={{ padding: '16px', color: P.textSec }}>{s.compteDebiter || '-'}</td>
+                    <td style={{ padding: '16px', fontWeight: 800 }}><div style={{display:'flex', alignItems:'center', gap:10}}><div style={{width:12, height:12, borderRadius:'50%', background: s.couleur}}/>{s.sigle}</div></td>
+                    <td style={{ padding: '16px', color: P.textSec }}>{s.nom}</td>
                     <td style={{ padding: '16px', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                       <button onClick={() => openEditSrc(s)} style={{ background: P.greenLight, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 8 }}>{I.edit(P.greenDark, 16)}</button>
                       <button onClick={() => handleDeleteSrc(s)} style={{ background: P.redLight, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 8 }}>{I.trash(P.red, 16)}</button>
@@ -375,7 +423,8 @@ const TabInfos = () => {
           )}
         </SettingRow>
 
-        <SettingRow title="Exercices budgétaires" desc="Un seul exercice peut être actif à la fois. Clôturez l'ancien pour passer au nouveau." isLast>
+        {/* ================= EXERCICES BUDGÉTAIRES ================= */}
+        <SettingRow title="Exercices budgétaires" desc="Un seul exercice peut être actif à la fois. L'activer clôturera automatiquement le précédent.">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
              <ActionBtn label="Nouvel exercice" icon={I.plus()} color={P.greenDark} onClick={() => { setFormEx({ annee: new Date().getFullYear() + 1, actif: false }); setShowExModal(true); }} />
           </div>
@@ -406,7 +455,7 @@ const TabInfos = () => {
 
       </div>
 
-      {/* ================= MODALES D'AJOUT (SOURCES ET EXERCICES) ================= */}
+      {/* ================= MODALES D'AJOUT ================= */}
       {showSrcModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 16, width: 450, boxShadow: '0 20px 60px rgba(0,0,0,.3)', overflow: 'hidden', animation: 'fadeIn 0.2s ease' }}>
@@ -415,15 +464,11 @@ const TabInfos = () => {
               <button onClick={() => setShowSrcModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding:0 }}>{I.close('#fff', 20)}</button>
             </div>
             <div style={{ padding: 24 }}>
-              <div style={{ marginBottom: 16 }}><Label>Nom complet *</Label><input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={inputStyle} /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                <div><Label>Sigle officiel *</Label><input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={inputStyle} /></div>
-                <div><Label>Compte à débiter (Texte Libre)</Label><input value={formSrc.compteDebiter} onChange={e => setFormSrc({...formSrc, compteDebiter: e.target.value})} style={inputStyle} placeholder="Ex: Trésor 000123" /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, marginBottom: 20, alignItems: 'end' }}>
+                <div><Label>Sigle de la source *</Label><input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={inputStyle} placeholder="Ex: IDA" /></div>
+                <div><Label>Couleur</Label><input type="color" value={formSrc.couleur} onChange={e => setFormSrc({...formSrc, couleur: e.target.value})} style={{ width: 44, height: 42, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }} /></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'end' }}>
-                 <div><Label>Description / Infos</Label><input value={formSrc.description || ''} onChange={e => setFormSrc({...formSrc, description: e.target.value})} style={inputStyle} placeholder="Facultatif..." /></div>
-                 <div><Label>Couleur</Label><input type="color" value={formSrc.couleur} onChange={e => setFormSrc({...formSrc, couleur: e.target.value})} style={{ width: 50, height: 42, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }} /></div>
-              </div>
+              <div><Label>Détails / Nom complet *</Label><input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={inputStyle} placeholder="Ex: Financement Banque Mondiale..." /></div>
             </div>
             <div style={{ padding: '16px 24px', background: '#FAFAF8', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => setShowSrcModal(false)} style={{ padding: '10px 20px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: P.textSec }}>Annuler</button>
@@ -461,7 +506,7 @@ const TabInfos = () => {
 
 
 // ============================================================
-// ONGLET MAINTENANCE (ADMIN ONLY) 
+// ONGLET MAINTENANCE (ADMIN ONLY)
 // ============================================================
 const TabMaintenance = () => {
   const { projet, sources, exercices, ops, bordereaux, beneficiaires, setOps, setBordereaux } = useAppContext();
@@ -498,7 +543,6 @@ const TabMaintenance = () => {
 
   const getBen = (op) => op?.beneficiaireNom || beneficiaires?.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
 
-  // 1. PURGE
   const handlePurge = () => {
     if (purgeScope === 'exercice' && !purgeExercice) return notify('error', 'Attention', 'Sélectionnez un exercice à purger.');
     if (purgeConfirm !== 'SUPPRIMER') return notify('error', 'Attention', 'Tapez exactement SUPPRIMER pour confirmer.');
@@ -541,7 +585,6 @@ const TabMaintenance = () => {
     });
   };
 
-  // 2. TÉLÉCHARGER CANEVAS IMPORT
   const handleDownloadCanevas = async () => {
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
@@ -681,7 +724,7 @@ const TabMaintenance = () => {
         <div style={{ animation: 'fadeIn 0.2s ease' }}>
           <div style={{ marginBottom: 24 }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.text, textTransform: 'uppercase' }}>Boîte à outils (Admin)</h2>
-            <p style={{ margin: '6px 0 0', fontSize: 14, color: P.red, fontWeight: 600 }}>Action irréversibles — Mot de passe administrateur requis.</p>
+            <p style={{ margin: '6px 0 0', fontSize: 14, color: P.red, fontWeight: 600 }}>Actions irréversibles — Mot de passe administrateur requis.</p>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {btnTool('purge', I.trash(P.red, 24), 'Purge des données', 'Supprimer massivement les OP et bordereaux.', P.red)}
