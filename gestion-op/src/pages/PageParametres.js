@@ -39,19 +39,12 @@ const I = {
 // ============================================================
 // COMPOSANTS COMMUNS & MODALES PERSONNALISÉES
 // ============================================================
-const SectionTitle = ({ title, action }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 8, borderBottom: `1px solid ${P.border}` }}>
-    <h3 style={{ fontSize: 13, fontWeight: 800, color: P.text, textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>{title}</h3>
-    {action}
-  </div>
-);
-
 const Label = ({ children }) => (
   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: P.textSec, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{children}</label>
 );
 
 const ActionBtn = ({ label, icon, color, onClick, disabled }) => (
-  <button onClick={onClick} disabled={disabled} style={{ padding: '8px 16px', background: color, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, opacity: disabled ? 0.5 : 1, transition: 'all .2s', boxShadow: `0 2px 6px ${color}44` }}>
+  <button onClick={onClick} disabled={disabled} style={{ padding: '10px 24px', background: color, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, opacity: disabled ? 0.5 : 1, transition: 'all .2s' }}>
     {icon}{label}
   </button>
 );
@@ -61,15 +54,15 @@ const Badge = React.memo(({ bg, color, children }) => (
 ));
 
 const Empty = React.memo(({ text }) => (
-  <div style={{ textAlign: 'center', padding: '16px 0', color: P.textMuted }}>
-    <p style={{ fontSize: 12, margin: 0, fontWeight: 600 }}>{text}</p>
+  <div style={{ textAlign: 'center', padding: '24px 0', color: P.textMuted }}>
+    <p style={{ fontSize: 13, margin: 0, fontWeight: 600 }}>{text}</p>
   </div>
 ));
 
 // Modale d'Alerte et de Confirmation ultra-propre (remplace window.confirm et window.prompt)
 const ModalAlert = ({ data, onClose }) => {
   const [val, setVal] = useState('');
-  useEffect(() => { setVal(''); }, [data]); // Réinitialise l'input à chaque nouvelle modale
+  useEffect(() => { setVal(''); }, [data]); 
 
   if (!data) return null;
 
@@ -89,12 +82,9 @@ const ModalAlert = ({ data, onClose }) => {
           <div style={{ marginBottom: 24, textAlign: 'left' }}>
             {data.inputLabel && <Label>{data.inputLabel}</Label>}
             <input 
-              type={data.showPwd ? "password" : "text"} 
-              autoFocus 
-              value={val} 
-              onChange={e => setVal(e.target.value)} 
+              type={data.showPwd ? "password" : "text"} autoFocus value={val} onChange={e => setVal(e.target.value)} 
               style={{ width: '100%', padding: '12px', borderRadius: 8, border: `2px solid ${P.border}`, boxSizing: 'border-box', fontSize: 14, outline: 'none' }} 
-              placeholder={data.showPwd ? "Saisissez le mot de passe administrateur" : "Saisissez ici..."} 
+              placeholder={data.showPwd ? "Mot de passe administrateur" : "Saisissez ici..."} 
             />
           </div>
         )}
@@ -108,12 +98,10 @@ const ModalAlert = ({ data, onClose }) => {
           <button 
             onClick={() => { 
               if (isConfirm && (data.showInput || data.showPwd) && !val) return; 
-              const confirmFn = data.onConfirm; 
-              const finalVal = val; 
-              onClose(); 
+              const confirmFn = data.onConfirm; const finalVal = val; onClose(); 
               if (isConfirm && confirmFn) setTimeout(() => confirmFn(finalVal), 150);
             }} 
-            style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', fontWeight: 700, boxShadow: `0 4px 12px ${color}44` }}
+            style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', fontWeight: 700 }}
           >
             {isConfirm ? 'Confirmer' : 'Compris'}
           </button>
@@ -139,13 +127,13 @@ const PageParametres = () => {
   if (isAdmin) tabs.push({ id: 'maintenance', label: 'Maintenance', icon: 'maintenance' });
 
   return (
-    <div style={{ width: '100%' }}> {/* CONTENEUR ÉLARGI AU MAXIMUM */}
+    <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: P.greenDark, margin: 0, letterSpacing: -0.5 }}>Paramètres Système</h1>
       </div>
       
       {/* Onglets */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: `2px solid ${P.border}`, paddingBottom: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 30, borderBottom: `2px solid ${P.border}`, paddingBottom: 12, flexWrap: 'wrap' }}>
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           return (
@@ -164,7 +152,6 @@ const PageParametres = () => {
         })}
       </div>
 
-      {/* Contenu des onglets */}
       {activeTab === 'infos' && <TabInfos />}
       {activeTab === 'maintenance' && isAdmin && <TabMaintenance />}
       {activeTab === 'utilisateurs' && isAdmin && <PageAdmin />}
@@ -173,17 +160,15 @@ const PageParametres = () => {
 };
 
 // ============================================================
-// ONGLET INFOS (GRILLE 3 COLONNES ÉQUILIBRÉES)
+// ONGLET INFOS (DESIGN STRIPE / VERCEL - HORIZONTAL)
 // ============================================================
 const TabInfos = () => {
   const { projet, setProjet, sources, setSources, exercices, setExercices, ops, budgets } = useAppContext();
   const [alertData, setAlertData] = useState(null);
   
-  // Helpers Modales
   const notify = (type, title, message) => setAlertData({ type, title, message });
   const ask = (title, message, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message, onConfirm, showPwd });
 
-  // -- State Projet
   const [formProj, setFormProj] = useState(projet || {
     pays: "République de Côte d'Ivoire", devise: "Union – Discipline – Travail", ministere: "", nomProjet: "",
     sigle: "", codeImputation: "", nbCaracteresLigne: 4, coordonnateur: "", titreCoordonnateur: "",
@@ -194,12 +179,10 @@ const TabInfos = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // -- State Sources
   const [showSrcModal, setShowSrcModal] = useState(false);
   const [editSource, setEditSource] = useState(null);
-  const [formSrc, setFormSrc] = useState({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#1B6B2E' });
+  const [formSrc, setFormSrc] = useState({ nom: '', sigle: '', description: '', compteDebiter: '', couleur: '#1B6B2E' });
 
-  // -- State Exercices
   const [showExModal, setShowExModal] = useState(false);
   const [formEx, setFormEx] = useState({ annee: new Date().getFullYear(), actif: true });
 
@@ -226,9 +209,8 @@ const TabInfos = () => {
   };
 
   // --- Handlers Sources
-  const openNewSrc = () => { setFormSrc({ nom: '', sigle: '', description: '', compteDebiter: 'BAILLEUR', couleur: '#1B6B2E' }); setEditSource(null); setShowSrcModal(true); };
+  const openNewSrc = () => { setFormSrc({ nom: '', sigle: '', description: '', compteDebiter: '', couleur: '#1B6B2E' }); setEditSource(null); setShowSrcModal(true); };
   const openEditSrc = (source) => { setFormSrc(source); setEditSource(source); setShowSrcModal(true); };
-  
   const handleSaveSrc = async () => {
     if (!formSrc.nom || !formSrc.sigle) return notify('error', 'Champs requis', 'Le nom et le sigle sont obligatoires.');
     try {
@@ -242,12 +224,9 @@ const TabInfos = () => {
       setShowSrcModal(false);
     } catch (error) { notify('error', 'Erreur', 'Impossible de sauvegarder la source.'); }
   };
-  
   const handleDeleteSrc = async (source) => {
     const isUsed = (ops && ops.some(o => o.sourceId === source.id)) || (budgets && budgets.some(b => b.sourceId === source.id));
-    if (isUsed) {
-      return notify('error', 'Sécurité activée', `Impossible de supprimer la source "${source.sigle}".\nDes données (OP ou Budgets) y sont rattachées.`);
-    }
+    if (isUsed) return notify('error', 'Sécurité activée', `Impossible de supprimer la source "${source.sigle}".\nDes données y sont rattachées.`);
     ask('Suppression Source', `Êtes-vous sûr de vouloir supprimer définitivement la source "${source.sigle}" ?`, async () => {
       try { await deleteDoc(doc(db, 'sources', source.id)); setSources(sources.filter(s => s.id !== source.id)); } 
       catch (error) { notify('error', 'Erreur', 'Impossible de supprimer la source.'); }
@@ -267,7 +246,6 @@ const TabInfos = () => {
       setShowExModal(false);
     } catch (error) { notify('error', 'Erreur', 'Impossible de sauvegarder l\'exercice.'); }
   };
-  
   const setActifEx = async (ex) => {
     ask('Changement d\'exercice', `Basculer l'application sur l'exercice budgétaire ${ex.annee} ?`, async () => {
       try {
@@ -276,160 +254,156 @@ const TabInfos = () => {
       } catch (error) { notify('error', 'Erreur', 'Impossible d\'activer l\'exercice.'); }
     });
   };
-
   const handleDeleteEx = async (ex) => {
     const isUsed = (ops && ops.some(o => o.exerciceId === ex.id)) || (budgets && budgets.some(b => b.exerciceId === ex.id));
-    if (isUsed) {
-      return notify('error', 'Sécurité activée', `Impossible de supprimer l'exercice ${ex.annee}.\nDes données (OP ou Budgets) y sont rattachées.`);
-    }
+    if (isUsed) return notify('error', 'Sécurité activée', `Impossible de supprimer l'exercice ${ex.annee}.\nDes données y sont rattachées.`);
     ask('Suppression Exercice', `Êtes-vous sûr de vouloir supprimer définitivement l'exercice ${ex.annee} ?`, async () => {
       try { await deleteDoc(doc(db, 'exercices', ex.id)); setExercices(exercices.filter(e => e.id !== ex.id)); } 
       catch (error) { notify('error', 'Erreur', 'Impossible de supprimer l\'exercice.'); }
     });
   };
 
-  const cardStyle = { background: P.card, borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.02)' };
-  const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '10px 14px', boxSizing: 'border-box', width: '100%', height: 42 };
-  const thStyle = { ...styles.th, fontSize: 11, color: P.textSec, textTransform: 'uppercase', padding: '10px 14px', background: '#FAFAF8' };
+  // --- Styles Communs de ce layout SaaS
+  const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '12px 14px', boxSizing: 'border-box', width: '100%', border: `1px solid ${P.border}` };
+  const cardStyle = { background: P.card, borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.03)' };
+  
+  const SettingRow = ({ title, desc, children, isLast }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, padding: '32px 0', borderBottom: isLast ? 'none' : `1px solid ${P.border}` }}>
+      <div style={{ width: 300, flexShrink: 0 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.text }}>{title}</h3>
+        <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{desc}</p>
+      </div>
+      <div style={{ flex: 1, minWidth: 320 }}>
+        <div style={cardStyle}>{children}</div>
+      </div>
+    </div>
+  );
 
   return (
     <div>
       <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
 
-      {/* GRILLE 3 COLONNES HOMOGÈNES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         
-        {/* ================= COLONNE 1 : IDENTITÉ & RESPONSABLE ================= */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={cardStyle}>
-            <SectionTitle title="Identité du Projet" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div><Label>Nom complet du projet</Label><input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={inputStyle} /></div>
-              <div><Label>Ministère de tutelle</Label><input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={inputStyle} /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div><Label>Sigle officiel</Label><input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={inputStyle} placeholder="Ex: PIF2" /></div>
-                <div><Label>Devise</Label><input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={inputStyle} /></div>
-              </div>
+        <SettingRow title="Identité du Projet" desc="Informations officielles qui s'afficheront sur les entêtes des bordereaux de transmission.">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div><Label>Pays</Label><input value={formProj.pays || ''} onChange={e => setFormProj({...formProj, pays: e.target.value})} style={inputStyle} /></div>
+              <div><Label>Devise Nationale</Label><input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={inputStyle} /></div>
             </div>
+            <div><Label>Ministère de tutelle</Label><input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={inputStyle} /></div>
+            <div><Label>Nom complet du projet</Label><input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={inputStyle} /></div>
+            <div><Label>Sigle officiel</Label><input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={inputStyle} /></div>
           </div>
+        </SettingRow>
 
-          <div style={cardStyle}>
-            <SectionTitle title="Signataire Principal" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div><Label>Nom / Prénom</Label><input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={inputStyle} placeholder="Nom du signataire" /></div>
-              <div><Label>Titre (Affiché sur Bordereaux)</Label><input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: LA COORDONNATRICE" /></div>
+        <SettingRow title="Signataire & Technique" desc="Configurez le signataire habilité, les préfixes d'imputation budgétaire et le nombre de tirages.">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div><Label>Nom / Prénom du Coordonnateur</Label><input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={inputStyle} /></div>
+              <div><Label>Titre (Affiché en bas de page)</Label><input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={inputStyle} /></div>
             </div>
-          </div>
-        </div>
-
-        {/* ================= COLONNE 2 : TECHNIQUE & SÉCURITÉ ================= */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div style={cardStyle}>
-            <SectionTitle title="Paramètres d'imputation" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div><Label>Préfixe Budgétaire Global</Label><input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 9004..." /></div>
-              <div><Label>Format Ligne Budgétaire</Label>
+            <hr style={{ border: 'none', borderTop: `1px solid ${P.border}`, margin: 0 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+              <div><Label>Préfixe Budgétaire</Label><input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 9004..." /></div>
+              <div><Label>Format de Ligne</Label>
                 <select value={formProj.nbCaracteresLigne || 4} onChange={e => setFormProj({...formProj, nbCaracteresLigne: parseInt(e.target.value)})} style={inputStyle}>
                   <option value={4}>4 chiffres (ex: 3111)</option>
                   <option value={6}>6 chiffres (ex: 311100)</option>
                 </select>
               </div>
             </div>
-          </div>
-
-          <div style={cardStyle}>
-            <SectionTitle title="Tirages (Bordereaux)" />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div><Label>Exemplaires CF</Label><input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={inputStyle} /></div>
-              <div><Label>Exemplaires AC</Label><input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={inputStyle} /></div>
+              <div><Label>Exemplaires à imprimer (CF)</Label><input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={inputStyle} /></div>
+              <div><Label>Exemplaires à imprimer (AC)</Label><input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={inputStyle} /></div>
             </div>
           </div>
+        </SettingRow>
 
-          <div style={{ ...cardStyle, background: P.goldLight, border: `1px solid ${P.goldBorder}` }}>
-            <SectionTitle title="Sécurité Administrateur" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>
-              <div>
-                <Label>Nouveau mot de passe admin</Label>
-                <div style={{ position: 'relative' }}>
-                  <input type={showPassword ? 'text' : 'password'} value={formProj.adminPassword || ''} onChange={e => setFormProj({...formProj, adminPassword: e.target.value})} style={{ ...inputStyle, paddingRight: 40 }} />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    {showPassword ? I.eyeOff(P.textSec, 18) : I.eye(P.textSec, 18)}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <Label>Confirmer le mot de passe</Label>
-                <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} />
+        <SettingRow title="Sécurité Administrateur" desc="Définissez un mot de passe unique. Il sera exigé lors de la suppression d'OP, purges de base de données ou modifications critiques.">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <Label>Mot de passe</Label>
+              <div style={{ position: 'relative' }}>
+                <input type={showPassword ? 'text' : 'password'} value={formProj.adminPassword || ''} onChange={e => setFormProj({...formProj, adminPassword: e.target.value})} style={{ ...inputStyle, paddingRight: 40 }} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  {showPassword ? I.eyeOff(P.textSec, 18) : I.eye(P.textSec, 18)}
+                </button>
               </div>
             </div>
-            <div style={{ minHeight: 18, marginTop: 4 }}>
-              {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 12, fontWeight: 700 }}>⚠️ Les mots de passe diffèrent</div>}
+            <div>
+              <Label>Confirmation</Label>
+              <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} />
             </div>
-            <div style={{ fontSize: 11, color: P.textSec, lineHeight: 1.4, marginTop: 8 }}>Requis pour : suppressions d'OP, purges, révisions budgétaires et modifications critiques.</div>
           </div>
+          {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 12, fontWeight: 700, marginTop: 10 }}>⚠️ Les mots de passe diffèrent</div>}
+        </SettingRow>
 
-          {/* BOUTON SAUVEGARDE GLOBALE ÉPURÉ */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, marginTop: 4 }}>
-             {savedProj && <span style={{ color: P.green, fontWeight: 800, fontSize: 14 }}>✓ Modifications enregistrées</span>}
-             <ActionBtn label={savingProj ? "Enregistrement..." : "Enregistrer"} icon={I.check()} color={P.greenDark} onClick={handleSaveProjet} disabled={savingProj} />
-          </div>
+        {/* LIGNE DE SAUVEGARDE GLOBALE (PROJET) */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 20, paddingBottom: '30px', borderBottom: `1px solid ${P.border}` }}>
+           {savedProj && <span style={{ color: P.greenDark, fontWeight: 700, fontSize: 14 }}>✓ Modifications enregistrées avec succès</span>}
+           <ActionBtn label={savingProj ? "Enregistrement..." : "Enregistrer toutes les modifications"} icon={I.check()} color={P.greenDark} onClick={handleSaveProjet} disabled={savingProj} />
         </div>
 
-        {/* ================= COLONNE 3 : BASES DE DONNÉES ================= */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          
-          <div style={cardStyle}>
-            <SectionTitle title="Sources de financement" action={<button onClick={openNewSrc} style={{ background: P.greenLight, color: P.greenDark, border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>{I.plus(P.greenDark, 14)} Ajouter</button>} />
-            {sources.length === 0 ? <Empty text="Aucune source configurée" /> : (
-              <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden', maxHeight: 300, overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                    <tr><th style={{...thStyle, textAlign:'left'}}>Sigle</th><th style={thStyle}>Compte</th><th style={{...thStyle, width: 60, textAlign:'right'}}>Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {sources.map(s => (
-                      <tr key={s.id} style={{ borderBottom: `1px solid ${P.border}` }}>
-                        <td style={{ padding: '10px 12px', fontWeight: 700 }}><div style={{display:'flex', alignItems:'center', gap:8}}><div style={{width:10, height:10, borderRadius:'50%', background: s.couleur}}/>{s.sigle}</div></td>
-                        <td style={{ padding: '10px 12px', textAlign:'center' }}><Badge bg={s.compteDebiter==='BAILLEUR'?P.greenLight:P.goldLight} color={s.compteDebiter==='BAILLEUR'?P.greenDark:P.gold}>{s.compteDebiter}</Badge></td>
-                        <td style={{ padding: '10px 12px', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button onClick={() => openEditSrc(s)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4 }}>{I.edit(P.textSec, 16)}</button>
-                          <button onClick={() => handleDeleteSrc(s)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4 }}>{I.trash(P.red, 16)}</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
 
-          <div style={cardStyle}>
-            <SectionTitle title="Exercices budgétaires" action={<button onClick={() => { setFormEx({ annee: new Date().getFullYear() + 1, actif: false }); setShowExModal(true); }} style={{ background: P.greenLight, color: P.greenDark, border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>{I.plus(P.greenDark, 14)} Ajouter</button>} />
-            {exercices.length === 0 ? <Empty text="Aucun exercice défini" /> : (
-              <div style={{ border: `1px solid ${P.border}`, borderRadius: 8, overflow: 'hidden', maxHeight: 300, overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                    <tr><th style={{...thStyle, textAlign:'left'}}>Année</th><th style={thStyle}>Statut</th><th style={{...thStyle, width: 80, textAlign:'right'}}>Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {exercices.map(ex => (
-                      <tr key={ex.id} style={{ borderBottom: `1px solid ${P.border}`, background: ex.actif ? P.greenLight : 'transparent' }}>
-                        <td style={{ padding: '10px 12px', fontWeight: 800, fontSize: 14, color: ex.actif ? P.greenDark : P.text }}>{ex.annee}</td>
-                        <td style={{ padding: '10px 12px', textAlign:'center' }}>{ex.actif ? <Badge bg={P.greenDark} color="#fff">Actif</Badge> : <span style={{color:P.textMuted, fontSize:11, fontWeight:600}}>Clôturé</span>}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                          {!ex.actif && <button onClick={() => setActifEx(ex)} style={{ background: '#fff', border: `1px solid ${P.border}`, padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 700, color: P.textSec }}>Activer</button>}
-                          {!ex.actif && <button onClick={() => handleDeleteEx(ex)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4 }}>{I.trash(P.red, 16)}</button>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        <SettingRow title="Sources de financement" desc="Gérez les différents comptes ou bailleurs qui financent le projet. Chaque source maintient son propre budget.">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+             <ActionBtn label="Nouvelle source" icon={I.plus()} color={P.greenDark} onClick={openNewSrc} />
           </div>
+          {sources.length === 0 ? <Empty text="Aucune source configurée" /> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Sigle</th>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Compte à débiter</th>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec, textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sources.map(s => (
+                  <tr key={s.id} style={{ borderBottom: `1px solid ${P.border}` }}>
+                    <td style={{ padding: '16px', fontWeight: 700 }}><div style={{display:'flex', alignItems:'center', gap:10}}><div style={{width:12, height:12, borderRadius:'50%', background: s.couleur}}/>{s.sigle}</div></td>
+                    <td style={{ padding: '16px', color: P.textSec }}>{s.compteDebiter || '-'}</td>
+                    <td style={{ padding: '16px', display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                      <button onClick={() => openEditSrc(s)} style={{ background: P.greenLight, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 8 }}>{I.edit(P.greenDark, 16)}</button>
+                      <button onClick={() => handleDeleteSrc(s)} style={{ background: P.redLight, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 8 }}>{I.trash(P.red, 16)}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </SettingRow>
 
-        </div>
+        <SettingRow title="Exercices budgétaires" desc="Un seul exercice peut être actif à la fois. Clôturez l'ancien pour passer au nouveau." isLast>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+             <ActionBtn label="Nouvel exercice" icon={I.plus()} color={P.greenDark} onClick={() => { setFormEx({ annee: new Date().getFullYear() + 1, actif: false }); setShowExModal(true); }} />
+          </div>
+          {exercices.length === 0 ? <Empty text="Aucun exercice défini" /> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Année</th>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Statut</th>
+                  <th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec, textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exercices.map(ex => (
+                  <tr key={ex.id} style={{ borderBottom: `1px solid ${P.border}`, background: ex.actif ? P.greenLight : 'transparent' }}>
+                    <td style={{ padding: '16px', fontWeight: 800, fontSize: 16, color: ex.actif ? P.greenDark : P.text }}>{ex.annee}</td>
+                    <td style={{ padding: '16px' }}>{ex.actif ? <Badge bg={P.greenDark} color="#fff">Actif en cours</Badge> : <span style={{color:P.textMuted, fontWeight:600}}>Clôturé</span>}</td>
+                    <td style={{ padding: '16px', textAlign: 'right', display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      {!ex.actif && <button onClick={() => setActifEx(ex)} style={{ background: '#fff', border: `1px solid ${P.border}`, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: P.textSec }}>Activer cet exercice</button>}
+                      {!ex.actif && <button onClick={() => handleDeleteEx(ex)} style={{ background: P.redLight, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 8 }}>{I.trash(P.red, 16)}</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </SettingRow>
+
       </div>
 
       {/* ================= MODALES D'AJOUT (SOURCES ET EXERCICES) ================= */}
@@ -443,17 +417,17 @@ const TabInfos = () => {
             <div style={{ padding: 24 }}>
               <div style={{ marginBottom: 16 }}><Label>Nom complet *</Label><input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={inputStyle} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                <div><Label>Sigle *</Label><input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={inputStyle} /></div>
-                <div><Label>Compte à débiter</Label><select value={formSrc.compteDebiter} onChange={e => setFormSrc({...formSrc, compteDebiter: e.target.value})} style={inputStyle}><option value="BAILLEUR">BAILLEUR</option><option value="TRESOR">TRÉSOR</option></select></div>
+                <div><Label>Sigle officiel *</Label><input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={inputStyle} /></div>
+                <div><Label>Compte à débiter (Texte Libre)</Label><input value={formSrc.compteDebiter} onChange={e => setFormSrc({...formSrc, compteDebiter: e.target.value})} style={inputStyle} placeholder="Ex: Trésor 000123" /></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'end' }}>
-                 <div><Label>Description</Label><input value={formSrc.description || ''} onChange={e => setFormSrc({...formSrc, description: e.target.value})} style={inputStyle} placeholder="Facultatif..." /></div>
-                 <div><Label>Couleur</Label><input type="color" value={formSrc.couleur} onChange={e => setFormSrc({...formSrc, couleur: e.target.value})} style={{ width: 44, height: 42, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }} /></div>
+                 <div><Label>Description / Infos</Label><input value={formSrc.description || ''} onChange={e => setFormSrc({...formSrc, description: e.target.value})} style={inputStyle} placeholder="Facultatif..." /></div>
+                 <div><Label>Couleur</Label><input type="color" value={formSrc.couleur} onChange={e => setFormSrc({...formSrc, couleur: e.target.value})} style={{ width: 50, height: 42, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }} /></div>
               </div>
             </div>
             <div style={{ padding: '16px 24px', background: '#FAFAF8', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
               <button onClick={() => setShowSrcModal(false)} style={{ padding: '10px 20px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: P.textSec }}>Annuler</button>
-              <ActionBtn label="Valider" icon={I.check()} color={P.greenDark} onClick={handleSaveSrc} />
+              <ActionBtn label="Valider la source" icon={I.check()} color={P.greenDark} onClick={handleSaveSrc} />
             </div>
           </div>
         </div>
@@ -467,7 +441,7 @@ const TabInfos = () => {
               <button onClick={() => setShowExModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding:0 }}>{I.close('#fff', 20)}</button>
             </div>
             <div style={{ padding: 24 }}>
-              <div style={{ marginBottom: 20 }}><Label>Année budgétaire</Label><input type="number" value={formEx.annee} onChange={e => setFormEx({...formEx, annee: parseInt(e.target.value)})} style={{...inputStyle, fontSize: 20, fontWeight: 800, textAlign:'center', height: 50}} /></div>
+              <div style={{ marginBottom: 20 }}><Label>Année budgétaire</Label><input type="number" value={formEx.annee} onChange={e => setFormEx({...formEx, annee: parseInt(e.target.value)})} style={{...inputStyle, fontSize: 24, fontWeight: 800, textAlign:'center', height: 60}} /></div>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent:'center', gap: 10, cursor: 'pointer', background: P.bg, padding: '14px', borderRadius: 10 }}>
                 <input type="checkbox" checked={formEx.actif} onChange={e => setFormEx({...formEx, actif: e.target.checked})} style={{ width: 16, height: 16 }} />
                 <span style={{ fontSize: 14, fontWeight: 700 }}>Définir comme actif</span>
@@ -475,7 +449,7 @@ const TabInfos = () => {
             </div>
             <div style={{ padding: '16px 24px', background: '#FAFAF8', borderTop: `1px solid ${P.border}`, display: 'flex', justifyContent: 'center', gap: 12 }}>
               <button onClick={() => setShowExModal(false)} style={{ padding: '10px 20px', borderRadius: 8, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: P.textSec }}>Annuler</button>
-              <ActionBtn label="Créer" icon={I.plus()} color={P.greenDark} onClick={handleSaveEx} />
+              <ActionBtn label="Créer l'exercice" icon={I.plus()} color={P.greenDark} onClick={handleSaveEx} />
             </div>
           </div>
         </div>
@@ -487,10 +461,10 @@ const TabInfos = () => {
 
 
 // ============================================================
-// ONGLET MAINTENANCE (ADMIN ONLY) - Totalement sécurisé avec modales propres
+// ONGLET MAINTENANCE (ADMIN ONLY) 
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux, beneficiaires } = useAppContext();
+  const { projet, sources, exercices, ops, bordereaux, beneficiaires, setOps, setBordereaux } = useAppContext();
   const [tool, setTool] = useState(null); 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -687,96 +661,96 @@ const TabMaintenance = () => {
 
   const btnTool = (id, iconSvg, label, desc, color) => (
     <div key={id} onClick={() => setTool(id)}
-      style={{ flex: 1, minWidth: 220, padding: 20, borderRadius: 12, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-      <div style={{ width: 44, height: 44, borderRadius: 10, background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconSvg}</div>
-      <div style={{ fontWeight: 800, fontSize: 15, color }}>{label}</div>
-      <div style={{ fontSize: 12, color: P.textSec, lineHeight: 1.4 }}>{desc}</div>
+      style={{ flex: 1, minWidth: 220, padding: 24, borderRadius: 12, border: `1px solid ${P.border}`, background: '#fff', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.03)' }}>
+      <div style={{ width: 48, height: 48, borderRadius: 12, background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconSvg}</div>
+      <div style={{ fontWeight: 800, fontSize: 16, color }}>{label}</div>
+      <div style={{ fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{desc}</div>
     </div>
   );
 
-  const cardStyle = { background: 'white', borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' };
-  const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '10px 14px' };
+  const cardStyle = { background: 'white', borderRadius: 12, padding: 30, border: `1px solid ${P.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.04)' };
+  const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 14, padding: '12px 16px' };
 
   return (
     <div>
       <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
       
-      {message && <div style={{ padding: 12, borderRadius: 8, marginBottom: 20, fontSize: 13, fontWeight: 700, background: message.type === 'success' ? P.greenLight : P.redLight, color: message.type === 'success' ? P.greenDark : P.red, textAlign:'center' }}>{message.text}</div>}
+      {message && <div style={{ padding: 16, borderRadius: 8, marginBottom: 24, fontSize: 14, fontWeight: 700, background: message.type === 'success' ? P.greenLight : P.redLight, color: message.type === 'success' ? P.greenDark : P.red, textAlign:'center' }}>{message.text}</div>}
 
       {tool === null ? (
         <div style={{ animation: 'fadeIn 0.2s ease' }}>
           <div style={{ marginBottom: 24 }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: P.text, textTransform: 'uppercase' }}>Boîte à outils (Admin)</h2>
-            <p style={{ margin: '6px 0 0', fontSize: 13, color: P.red, fontWeight: 600 }}>Action irréversibles — Mot de passe administrateur requis.</p>
+            <p style={{ margin: '6px 0 0', fontSize: 14, color: P.red, fontWeight: 600 }}>Action irréversibles — Mot de passe administrateur requis.</p>
           </div>
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            {btnTool('purge', I.trash(P.red, 22), 'Purge des données', 'Supprimer massivement les OP et bordereaux.', P.red)}
-            {btnTool('import', I.project('#3B6B8A', 22), 'Import Excel', 'Importer de nouveaux OP depuis un fichier.', '#3B6B8A')}
-            {btnTool('compteurs', I.calendar(P.gold, 22), 'Recalage compteurs', 'Corriger les numéros des bordereaux.', P.gold)}
-            {btnTool('doublons', I.source(P.gold, 22), 'Scanner Doublons', 'Trouver et renommer les OP en conflit.', P.gold)}
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            {btnTool('purge', I.trash(P.red, 24), 'Purge des données', 'Supprimer massivement les OP et bordereaux.', P.red)}
+            {btnTool('import', I.project('#3B6B8A', 24), 'Import Excel', 'Importer de nouveaux OP depuis un fichier.', '#3B6B8A')}
+            {btnTool('compteurs', I.calendar(P.gold, 24), 'Recalage compteurs', 'Corriger les numéros des bordereaux.', P.gold)}
+            {btnTool('doublons', I.source(P.gold, 24), 'Scanner Doublons', 'Trouver et renommer les OP en conflit.', P.gold)}
           </div>
         </div>
       ) : (
         <div style={{ animation: 'fadeIn 0.2s ease' }}>
-          <button onClick={() => setTool(null)} style={{ background: '#fff', border: `1px solid ${P.border}`, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 20, color: P.textSec, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-            {I.arrowLeft(P.textSec, 16)} Retour aux outils
+          <button onClick={() => setTool(null)} style={{ background: '#fff', border: `1px solid ${P.border}`, padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 24, color: P.textSec, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+            {I.arrowLeft(P.textSec, 18)} Retour aux outils
           </button>
 
           {/* === PURGE === */}
           {tool === 'purge' && (
             <div style={{...cardStyle, borderColor: P.red}}>
-              <h3 style={{ color: P.red, margin: '0 0 20px', fontSize: 18, fontWeight: 800 }}>Purge des données</h3>
-              <div style={{ display: 'flex', gap: 24, marginBottom: 20 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}><input type="radio" checked={purgeScope === 'exercice'} onChange={() => setPurgeScope('exercice')} /> Par exercice</label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}><input type="radio" checked={purgeScope === 'tout'} onChange={() => setPurgeScope('tout')} /><span style={{ color: P.red }}>Tout purger </span></label>
+              <h3 style={{ color: P.red, margin: '0 0 20px', fontSize: 20, fontWeight: 800 }}>Purge des données</h3>
+              <div style={{ display: 'flex', gap: 24, marginBottom: 24 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}><input type="radio" checked={purgeScope === 'exercice'} onChange={() => setPurgeScope('exercice')} /> Par exercice</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}><input type="radio" checked={purgeScope === 'tout'} onChange={() => setPurgeScope('tout')} /><span style={{ color: P.red }}>Tout purger </span></label>
               </div>
-              {purgeScope === 'exercice' && <select value={purgeExercice} onChange={e => setPurgeExercice(e.target.value)} style={{ ...inputStyle, width: 250, marginBottom: 0 }}><option value="">-- Exercice à détruire --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select>}
+              {purgeScope === 'exercice' && <select value={purgeExercice} onChange={e => setPurgeExercice(e.target.value)} style={{ ...inputStyle, width: 300, marginBottom: 0 }}><option value="">-- Exercice à détruire --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select>}
               
               <div style={{ marginTop: 24 }}>
                 <Label>Tapez SUPPRIMER pour déverrouiller l'action :</Label>
-                <input value={purgeConfirm} onChange={e => setPurgeConfirm(e.target.value)} style={{ ...inputStyle, width: 300, marginTop: 4, fontFamily: 'monospace', fontWeight: 800, fontSize: 15 }} />
+                <input value={purgeConfirm} onChange={e => setPurgeConfirm(e.target.value)} style={{ ...inputStyle, width: 300, marginTop: 4, fontFamily: 'monospace', fontWeight: 800, fontSize: 16 }} />
               </div>
               
-              {purgeScope === 'exercice' && purgeExercice && <div style={{ fontSize: 13, color: P.textSec, marginTop: 16, fontWeight: 600 }}>Impact : {ops.filter(o => o.exerciceId === purgeExercice).length} OP et {bordereaux.filter(b => b.exerciceId === purgeExercice).length} bordereaux seront détruits.</div>}
-              {purgeScope === 'tout' && <div style={{ fontSize: 13, color: P.red, fontWeight: 700, marginTop: 16 }}>⚠️ Impact : La totalité de la base de données sera détruite.</div>}
+              {purgeScope === 'exercice' && purgeExercice && <div style={{ fontSize: 14, color: P.textSec, marginTop: 16, fontWeight: 600 }}>Impact : {ops.filter(o => o.exerciceId === purgeExercice).length} OP et {bordereaux.filter(b => b.exerciceId === purgeExercice).length} bordereaux seront détruits.</div>}
+              {purgeScope === 'tout' && <div style={{ fontSize: 14, color: P.red, fontWeight: 700, marginTop: 16 }}>⚠️ Impact : La totalité de la base de données sera détruite.</div>}
               
-              <div style={{ marginTop: 24 }}><ActionBtn label={saving ? "Suppression..." : "Exécuter la purge"} icon={I.trash('#fff', 16)} color={P.red} onClick={handlePurge} disabled={saving || purgeConfirm !== 'SUPPRIMER'} /></div>
+              <div style={{ marginTop: 30 }}><ActionBtn label={saving ? "Suppression..." : "Exécuter la purge"} icon={I.trash('#fff', 18)} color={P.red} onClick={handlePurge} disabled={saving || purgeConfirm !== 'SUPPRIMER'} /></div>
             </div>
           )}
 
           {/* === IMPORT === */}
           {tool === 'import' && (
             <div style={{...cardStyle, borderColor: '#3B6B8A'}}>
-              <h3 style={{ color: '#3B6B8A', margin: '0 0 20px', fontSize: 18, fontWeight: 800 }}>Import OP depuis Excel</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                <div style={{ background: P.bg, padding: 20, borderRadius: 12 }}>
+              <h3 style={{ color: '#3B6B8A', margin: '0 0 24px', fontSize: 20, fontWeight: 800 }}>Import OP depuis Excel</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30 }}>
+                <div style={{ background: P.bg, padding: 24, borderRadius: 12 }}>
                   <Label>1. Télécharger le modèle (Canevas)</Label>
-                  <ActionBtn label="Télécharger le fichier" icon={I.download('#fff', 16)} color="#3B6B8A" onClick={handleDownloadCanevas} />
+                  <ActionBtn label="Télécharger le fichier" icon={I.download('#fff', 18)} color="#3B6B8A" onClick={handleDownloadCanevas} />
                 </div>
-                <div style={{ background: P.bg, padding: 20, borderRadius: 12 }}>
+                <div style={{ background: P.bg, padding: 24, borderRadius: 12 }}>
                   <Label>2. Importer les données remplies</Label>
                   <select value={importExercice} onChange={e => setImportExercice(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }}><option value="">-- Exercice de destination --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select>
-                  <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} style={{ fontSize: 13, width: '100%' }} />
+                  <input type="file" accept=".xlsx,.xls" onChange={handleFileUpload} style={{ fontSize: 14, width: '100%' }} />
                 </div>
               </div>
               {importPreview && (
-                <div style={{ marginTop: 24, background: P.greenLight, padding: 20, borderRadius: 12 }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: P.greenDark }}>Résumé : {importPreview.total} OP trouvés</p>
+                <div style={{ marginTop: 30, background: P.greenLight, padding: 20, borderRadius: 12 }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 800, color: P.greenDark }}>Résumé : {importPreview.total} OP trouvés</p>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>{importPreview.parSource.map((s, i) => <Badge key={i} bg="#fff" color={P.greenDark}>{s.sigle} : {s.count} OP</Badge>)}</div>
                 </div>
               )}
-              {importPreview && importExercice && <div style={{ marginTop: 24, textAlign: 'right' }}><ActionBtn label={saving ? "Importation..." : `Valider l'import (${importPreview.total} OP)`} icon={I.check('#fff', 16)} color="#3B6B8A" onClick={handleImport} disabled={saving} /></div>}
+              {importPreview && importExercice && <div style={{ marginTop: 30, textAlign: 'right' }}><ActionBtn label={saving ? "Importation..." : `Valider l'import (${importPreview.total} OP)`} icon={I.check('#fff', 18)} color="#3B6B8A" onClick={handleImport} disabled={saving} /></div>}
             </div>
           )}
 
           {/* === COMPTEURS === */}
           {tool === 'compteurs' && (
             <div style={{...cardStyle, borderColor: P.gold}}>
-              <h3 style={{ color: P.gold, margin: '0 0 16px', fontSize: 18, fontWeight: 800 }}>Recaler les compteurs</h3>
-              <p style={{ fontSize: 13, color: P.textSec, marginBottom: 24, lineHeight: 1.5 }}>Si les numéros de bordereaux se décalent (suite à des suppressions ou des bugs de réseau), cet outil scannera tout l'historique de l'exercice et remettra le compteur sur le plus grand numéro trouvé pour chaque source.</p>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
-                <div><Label>Sélectionner l'exercice</Label><select value={compteurExercice} onChange={e => setCompteurExercice(e.target.value)} style={{ ...inputStyle, width: 250 }}><option value="">-- Exercice --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select></div>
-                <ActionBtn label={saving ? "Recalage..." : "Lancer le recalage"} icon={I.check('#fff', 16)} color={P.gold} onClick={handleRecalerCompteurs} disabled={saving || !compteurExercice} />
+              <h3 style={{ color: P.gold, margin: '0 0 20px', fontSize: 20, fontWeight: 800 }}>Recaler les compteurs</h3>
+              <p style={{ fontSize: 14, color: P.textSec, marginBottom: 30, lineHeight: 1.5 }}>Si les numéros de bordereaux se décalent (suite à des suppressions ou des bugs de réseau), cet outil scannera tout l'historique de l'exercice et remettra le compteur sur le plus grand numéro trouvé pour chaque source.</p>
+              <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end' }}>
+                <div><Label>Sélectionner l'exercice</Label><select value={compteurExercice} onChange={e => setCompteurExercice(e.target.value)} style={{ ...inputStyle, width: 300 }}><option value="">-- Exercice --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select></div>
+                <ActionBtn label={saving ? "Recalage en cours..." : "Lancer le recalage"} icon={I.check('#fff', 18)} color={P.gold} onClick={handleRecalerCompteurs} disabled={saving || !compteurExercice} />
               </div>
             </div>
           )}
@@ -784,25 +758,25 @@ const TabMaintenance = () => {
           {/* === DOUBLONS === */}
           {tool === 'doublons' && (
             <div style={{...cardStyle, borderColor: P.gold}}>
-              <h3 style={{ color: P.gold, margin: '0 0 16px', fontSize: 18, fontWeight: 800 }}>Scanner les Doublons</h3>
-              <p style={{ fontSize: 13, color: P.textSec, marginBottom: 24, lineHeight: 1.5 }}>Cet outil trouve tous les Ordres de Paiement qui possèdent le même numéro dans un même exercice. Il vous permet de générer un nouveau numéro unique pour les copies détectées.</p>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', marginBottom: 24 }}>
-                <div><Label>Exercice à scanner</Label><select value={doublonExercice} onChange={e => setDoublonExercice(e.target.value)} style={{ ...inputStyle, width: 250 }}><option value="">-- Exercice --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select></div>
-                <ActionBtn label="Lancer le scan" icon={I.search('#fff', 16)} color={P.gold} onClick={handleDetecterDoublons} disabled={!doublonExercice} />
+              <h3 style={{ color: P.gold, margin: '0 0 20px', fontSize: 20, fontWeight: 800 }}>Scanner les Doublons</h3>
+              <p style={{ fontSize: 14, color: P.textSec, marginBottom: 30, lineHeight: 1.5 }}>Cet outil trouve tous les Ordres de Paiement qui possèdent le même numéro dans un même exercice. Il vous permet de générer un nouveau numéro unique pour les copies détectées.</p>
+              <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', marginBottom: 30 }}>
+                <div><Label>Exercice à scanner</Label><select value={doublonExercice} onChange={e => setDoublonExercice(e.target.value)} style={{ ...inputStyle, width: 300 }}><option value="">-- Exercice --</option>{exercices.map(e => <option key={e.id} value={e.id}>{e.annee}</option>)}</select></div>
+                <ActionBtn label="Lancer le scan" icon={I.search('#fff', 18)} color={P.gold} onClick={handleDetecterDoublons} disabled={!doublonExercice} />
               </div>
               
               {doublons !== null && (
-                doublons.length === 0 ? <div style={{ padding: 20, background: P.greenLight, color: P.greenDark, borderRadius: 10, fontWeight: 700, fontSize: 14, textAlign: 'center' }}>✓ Aucun numéro en doublon détecté pour cet exercice.</div> : (
+                doublons.length === 0 ? <div style={{ padding: 24, background: P.greenLight, color: P.greenDark, borderRadius: 12, fontWeight: 700, fontSize: 15, textAlign: 'center' }}>✓ Aucun numéro en doublon détecté pour cet exercice.</div> : (
                   <div>
-                    <div style={{ padding: '12px 16px', background: P.redLight, color: P.red, borderRadius: 10, fontWeight: 800, fontSize: 13, marginBottom: 16 }}>⚠️ {doublons.length} numéro(s) en conflit identifié(s)</div>
+                    <div style={{ padding: '16px 20px', background: P.redLight, color: P.red, borderRadius: 12, fontWeight: 800, fontSize: 14, marginBottom: 20 }}>⚠️ {doublons.length} numéro(s) en conflit identifié(s)</div>
                     {doublons.map((dup, i) => (
-                      <div key={i} style={{ padding: 20, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 12, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={i} style={{ padding: 24, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 16 }}>{dup.numero}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18 }}>{dup.numero}</span>
                             <Badge bg={P.goldLight} color={P.gold}>{dup.count} exemplaires</Badge>
                           </div>
-                          <div style={{ fontSize: 12, color: P.textSec, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div style={{ fontSize: 13, color: P.textSec, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {dup.ops.map((o, idx) => <span key={o.id}><strong>Copie {idx+1}:</strong> {o.type} ({formatMontant(o.montant)}F) - {getBen(o)}</span>)}
                           </div>
                         </div>
