@@ -343,11 +343,8 @@ const PageConsulterOp = () => {
 
   const statutInfo = selectedOp ? (statutConfig[selectedOp.statut] || { bg: P.bgApp, color: P.labelMuted, label: selectedOp.statut || '' }) : null;
 
-  // VERROU DE SÉCURITÉ ET DE CONTRÔLE INTERNE : 
-  // Bloqué dès que le CF a visé (il faut annuler le visa dans les bordereaux pour pouvoir modifier)
   const isLockedForEdit = selectedOp && ['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE'].includes(selectedOp.statut);
 
-  // === ACTIONS ===
   const handleModifier = async () => {
     if (isLockedForEdit) {
       showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
@@ -492,18 +489,16 @@ const PageConsulterOp = () => {
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
 
-    // =========================================================================
-    // MODIFICATION CI-DESSOUS : Suppression des border-right dans .header-logo et .header-center
-    // =========================================================================
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      '@page{size:A4;margin:10mm}@media print{.toolbar{display:none!important}body{background:#fff!important;padding:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important}}',
+      // MODIFICATION : margin: 5mm (au lieu de 10mm)
+      '@page{size:A4;margin:5mm}@media print{.toolbar{display:none!important}body{background:#fff!important;padding:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important}}',
       '*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Century Gothic","Trebuchet MS",sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}',
       '.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}',
       '.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}',
-      '.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:8mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}',
-      // LA MODIFICATION EST ICI : "border-right:1px solid #000" a été supprimé pour logo et center
+      // MODIFICATION : padding: 4mm (au lieu de 8mm)
+      '.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:4mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}',
       '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;}.header-logo img{max-height:75px;max-width:100%}',
       '.header-center{width:56%;padding:6px;text-align:center;}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
       '.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}',
@@ -726,9 +721,7 @@ const PageConsulterOp = () => {
                       <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.textBlack }}>{selectedOp.dateCreation || ''}</span>
                     </div>
 
-                    {/* ========================================================================= */}
-                    {/* MODIFICATION ICI : Ajout de l'information "Créé par" dans l'UI */}
-                    {/* ========================================================================= */}
+                    {/* CRÉÉ PAR */}
                     <div style={{ flex: '0 0 auto' }}>
                       <label style={labelStyle}>CRÉÉ PAR</label>
                       <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.textBlack, fontWeight: 600 }}>
