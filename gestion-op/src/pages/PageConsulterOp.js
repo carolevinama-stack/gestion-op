@@ -492,6 +492,9 @@ const PageConsulterOp = () => {
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
 
+    // =========================================================================
+    // MODIFICATION CI-DESSOUS : Suppression des border-right dans .header-logo et .header-center
+    // =========================================================================
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
@@ -500,8 +503,9 @@ const PageConsulterOp = () => {
       '.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}',
       '.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}',
       '.page-container{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:8mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}',
-      '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;border-right:1px solid #000}.header-logo img{max-height:75px;max-width:100%}',
-      '.header-center{width:56%;padding:6px;text-align:center;border-right:1px solid #000}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
+      // LA MODIFICATION EST ICI : "border-right:1px solid #000" a été supprimé pour logo et center
+      '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;}.header-logo img{max-height:75px;max-width:100%}',
+      '.header-center{width:56%;padding:6px;text-align:center;}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
       '.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}',
       '.op-title-section{text-align:center;padding:6px 10px;border-bottom:1px solid #000}.exercice-type-line{display:flex;justify-content:space-between;align-items:center}',
       '.exercice-type-line>div:first-child{width:25%;text-align:left;font-size:11px}.exercice-type-line>div:nth-child(2){width:50%;text-align:center}.exercice-type-line>div:last-child{width:25%;text-align:right}',
@@ -635,7 +639,7 @@ const PageConsulterOp = () => {
           <div style={{ maxWidth: 1020, margin: '0 auto', background: P.bgCard, borderRadius: 16, boxShadow: '0 2px 12px rgba(34,51,0,0.04)', border: '1px solid rgba(34,51,0,0.04)', borderTop: `3px solid ${accent}` }}>
             <div style={{ padding: '24px 28px 20px' }}>
 
-              {/* LIGNE 1 : RECHERCHE + N°OP + TYPE + DATE + (OP PROV) + STATUT */}
+              {/* LIGNE 1 : RECHERCHE + N°OP + TYPE + DATE + CRÉÉ PAR + STATUT */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
                 {/* Recherche */}
                 <div style={{ flex: '0 0 auto', position: 'relative' }} ref={dropdownRef}>
@@ -720,6 +724,16 @@ const PageConsulterOp = () => {
                     <div style={{ flex: '0 0 auto' }}>
                       <label style={labelStyle}>DATE</label>
                       <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.textBlack }}>{selectedOp.dateCreation || ''}</span>
+                    </div>
+
+                    {/* ========================================================================= */}
+                    {/* MODIFICATION ICI : Ajout de l'information "Créé par" dans l'UI */}
+                    {/* ========================================================================= */}
+                    <div style={{ flex: '0 0 auto' }}>
+                      <label style={labelStyle}>CRÉÉ PAR</label>
+                      <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontSize: 11, display: 'inline-block', whiteSpace: 'nowrap', color: P.textBlack, fontWeight: 600 }}>
+                        {selectedOp.creePar || 'Import Excel'}
+                      </span>
                     </div>
 
                     {/* OP PROVISOIRE inline */}
