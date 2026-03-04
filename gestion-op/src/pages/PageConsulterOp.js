@@ -504,7 +504,6 @@ const PageConsulterOp = () => {
       '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
-      /* Hauteur de sécurité (277mm) pour empêcher totalement une deuxième page */
       '.page-container { width: 200mm; height: 277mm; max-height: 277mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }',
       '.inner-frame { border: 2px solid #000; flex: 1; display: flex; flex-direction: column; }',
       
@@ -564,7 +563,7 @@ const PageConsulterOp = () => {
       
       /* Ajustement des Signatures et Acquit */
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      '.sig-box{width:33.33%; min-height:145px; display:flex; flex-direction:column; border-right:1px solid #000}', /* Réduit légèrement */
+      '.sig-box{width:33.33%; min-height:145px; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -575,7 +574,8 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      '.acquit-box{width:33.33%; min-height:105px; display:flex; flex-direction:column}', /* Réduit légèrement */
+      /* MODIFICATION ICI : Hauteur augmentée pour laisser respirer l'acquit (de 105px à 120px) */
+      '.acquit-box{width:33.33%; min-height:120px; display:flex; flex-direction:column}', 
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
