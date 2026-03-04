@@ -134,15 +134,6 @@ export default function PageRapport() {
     return r;
   }, [ops, filtreEx]);
 
-  // === FONCTION COMMUNE POUR VÉRIFIER LES RÉGULARISATIONS ===
-  const hasValidReg = useCallback((opProvId) => {
-    return ops.some(o => 
-      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
-      (o.opProvisoireId === opProvId || (o.opProvisoireIds || []).includes(opProvId)) &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-  }, [ops]);
-
   // === DONNÉES PAR ONGLET ===
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
 
@@ -159,15 +150,33 @@ export default function PageRapport() {
   const opsAAnnuler = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
     if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
-    return !hasValidReg(op.id);
-  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, hasValidReg, dateRef]);
+    
+    const hasAnnulation = ops.some(o => 
+      o.type === 'ANNULATION' && 
+      o.opProvisoireId === op.id &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+    return !hasAnnulation;
+  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
 
-  // CORRECTION: Règle stricte pour "À régulariser" -> Uniquement PAYE ou PAYE_PARTIEL
+  // ==========================================================
+  // LA RÈGLE STRICTE DES "À RÉGULARISER"
+  // Un OP Provisoire (Payé ou Payé partiel) disparaît 
+  // SEULEMENT si un OP DEFINITIF lui est rattaché.
+  // ==========================================================
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false;
-    return !hasValidReg(op.id);
-  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, hasValidReg, dateRef]);
+    if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false; 
+    
+    // On vérifie UNIQUEMENT la présence d'un OP DEFINITIF (on ne cherche pas les annulations)
+    const hasDefinitif = ops.some(o => 
+      o.type === 'DEFINITIF' && 
+      (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+    
+    return !hasDefinitif;
+  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, ops, dateRef]);
 
   const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
 
@@ -318,7 +327,7 @@ export default function PageRapport() {
     setImporting(false); e.target.value = '';
   };
 
-  // CORRECTION: Si Différé, afficher le motif automatiquement
+  // Affichage du motif en cas de différé
   const getDefaultObs = (op) => {
     if (op.observation) return op.observation;
     if (['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut) && op.observationDiffere) return `Motif différé : ${op.observationDiffere}`;
@@ -352,8 +361,9 @@ export default function PageRapport() {
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       
       const d5 = appendTotal(opsAReg.map(op => { 
-        const def = ops.find(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
-        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP régularisation': def?.numero || '', 'Observation': getDefaultObs(op) }; 
+        // VÉRIFICATION DANS L'EXPORT EXCEL AUSSI : Seul un DÉFINITIF clôture la régularisation
+        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
+        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': getDefaultObs(op) }; 
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
       
       const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
@@ -543,11 +553,11 @@ export default function PageRapport() {
         )}
         {activeTab === 'regulariser' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date Réf.</th><th style={th}>Délai</th><th style={th}>OP régularisation</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date Réf.</th><th style={th}>Délai</th><th style={th}>OP définitif</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
               {displayData.map(op => { 
-                const def = ops.find(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
+                const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
                 return (
                   <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent', cursor: 'pointer' }} onClick={(e) => { if(e.target.tagName !== 'INPUT') { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
                     <td style={td}><Chk id={op.id} /></td>
