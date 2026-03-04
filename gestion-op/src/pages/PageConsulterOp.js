@@ -533,8 +533,8 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      /* MODIF: Réduction du min-height pour libérer l'espace en bas pour les signatures (80mm) */
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 80mm;}', 
+      /* Hauteur minimale réduite à 95mm pour absorber l'augmentation du bas sans déborder */
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 95mm;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:8px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
@@ -562,9 +562,9 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
+      /* MODIF: Réduction de l'espace des signatures pour tenir sur une page (de 230px à 180px) */
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      /* MODIF: Forte augmentation de l'espace des signatures (de 165px à 230px) */
-      '.sig-box{width:33.33%; min-height:230px; display:flex; flex-direction:column; border-right:1px solid #000}', 
+      '.sig-box{width:33.33%; min-height:180px; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -575,7 +575,8 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      '.acquit-box{width:33.33%; min-height:120px; display:flex; flex-direction:column}', 
+      /* MODIFICATION ICI : Hauteur ajustée pour l'acquit (de 120px à 110px) */
+      '.acquit-box{width:33.33%; min-height:110px; display:flex; flex-direction:column}', 
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
@@ -594,7 +595,6 @@ const PageConsulterOp = () => {
       
       '<div class="field" style="margin-bottom: 4px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
-      /* MODIF: Marge fortement augmentée sous l'objet (40px) */
       '<div class="field-large" style="margin-bottom: 40px; margin-top: 4px;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       '<div class="field-large" style="margin-bottom: 10px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
