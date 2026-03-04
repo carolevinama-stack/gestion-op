@@ -513,7 +513,6 @@ const PageConsulterOp = () => {
       '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 277mm !important; max-height: 277mm !important; padding: 4mm !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: avoid !important;}',
       '}',
       
-      /* Ajustement du Header */
       '.header{display:flex; border-bottom:1px solid #000}',
       '.header-logo{width:22%; padding:8px; display:flex; align-items:center; justify-content:center}', 
       '.header-logo img{max-height:80px; max-width:100%}', 
@@ -533,12 +532,13 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; }', 
+      /* Ajustement minimal de la hauteur du corps pour être sûr de ne pas créer de 2e page */
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 100mm;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:10px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
       '.field-value{font-weight:bold; font-size:12px}',
-      '.field-large{margin:15px 0; line-height:1.5; word-wrap:break-word}', 
+      '.field-large{line-height:1.5; word-wrap:break-word}', 
       '.checkbox-line{display:flex; align-items:center; margin-bottom:12px; font-size:12px}', 
       '.checkbox-label{min-width:240px}',
       '.checkbox-options{display:flex; gap:40px}',
@@ -561,9 +561,9 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
-      /* Ajustement des Signatures et Acquit */
+      /* MODIFICATIONS ICI : Augmentation hauteur des signatures (145 -> 165) */
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      '.sig-box{width:33.33%; min-height:145px; display:flex; flex-direction:column; border-right:1px solid #000}', 
+      '.sig-box{width:33.33%; min-height:165px; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -574,8 +574,7 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      /* MODIFICATION ICI : Hauteur augmentée pour laisser respirer l'acquit (de 105px à 120px) */
-      '.acquit-box{width:33.33%; min-height:120px; display:flex; flex-direction:column}', 
+      '.acquit-box{width:33.33%; min-height:105px; display:flex; flex-direction:column}', 
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
@@ -591,9 +590,12 @@ const PageConsulterOp = () => {
       '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.ncc || '') + '</span></div>',
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
-      '<div class="field">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
-      '<div class="field-large">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
-      '<div class="field-large">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      
+      // MODIFICATIONS ICI : Gestion des marges entre Ref Bancaire, Objet et Pièces Justificatives
+      '<div class="field" style="margin-bottom: 4px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field-large" style="margin-top: 0; margin-bottom: 35px;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      '<div class="field-large" style="margin-top: 0; margin-bottom: 15px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
       
