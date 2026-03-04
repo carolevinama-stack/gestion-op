@@ -496,7 +496,7 @@ const PageConsulterOp = () => {
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      '@page { size: A4; margin: 5mm; }', // Marge matérielle imprimante pour assurer les bordures
+      '@page { size: A4; margin: 5mm; }', 
       '*{box-sizing:border-box; margin:0; padding:0}',
       'html, body { font-family:"Century Gothic","Trebuchet MS",sans-serif; font-size:11px; line-height:1.4; background:#e0e0e0; height: 100%; }',
       
@@ -504,25 +504,27 @@ const PageConsulterOp = () => {
       '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
-      '.page-container { width: 200mm; height: 285mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }',
+      /* Hauteur de sécurité (277mm) pour empêcher totalement une deuxième page */
+      '.page-container { width: 200mm; height: 277mm; max-height: 277mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }',
       '.inner-frame { border: 2px solid #000; flex: 1; display: flex; flex-direction: column; }',
       
       '@media print {',
       '  body { background: #fff !important; }',
       '  .toolbar { display: none !important; }',
-      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 286mm !important; padding: 4mm !important; box-sizing: border-box !important;}',
+      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 277mm !important; max-height: 277mm !important; padding: 4mm !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: avoid !important;}',
       '}',
       
+      /* Ajustement du Header */
       '.header{display:flex; border-bottom:1px solid #000}',
-      '.header-logo{width:22%; padding:10px; display:flex; align-items:center; justify-content:center}', 
-      '.header-logo img{max-height:90px; max-width:100%}', 
-      '.header-center{width:56%; padding:15px 6px; text-align:center; line-height:1.6}', 
+      '.header-logo{width:22%; padding:8px; display:flex; align-items:center; justify-content:center}', 
+      '.header-logo img{max-height:80px; max-width:100%}', 
+      '.header-center{width:56%; padding:10px 6px; text-align:center; line-height:1.5}', 
       '.header-center .republic{font-weight:bold; font-size:13px}',
-      '.header-center .sep{font-size:10px; letter-spacing:1px; color:#333; margin:4px 0}',
+      '.header-center .sep{font-size:10px; letter-spacing:1px; color:#333; margin:3px 0}',
       '.header-center .ministry{font-style:italic; font-size:12px}',
       '.header-center .project{font-weight:bold; font-size:12px}',
-      '.header-right{width:22%; padding:10px; font-size:11px; text-align:right}',
-      '.header-right img{max-height:80px; max-width:80px; margin-bottom:5px}',
+      '.header-right{width:22%; padding:8px; font-size:11px; text-align:right}',
+      '.header-right img{max-height:70px; max-width:80px; margin-bottom:5px}',
       
       '.op-title-section{text-align:center; padding:10px; border-bottom:1px solid #000}', 
       '.exercice-type-line{display:flex; justify-content:space-between; align-items:center}',
@@ -532,7 +534,7 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 110mm;}', 
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; }', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:10px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
@@ -560,8 +562,9 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
+      /* Ajustement des Signatures et Acquit */
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      '.sig-box{width:33.33%; min-height:200px; display:flex; flex-direction:column; border-right:1px solid #000}',
+      '.sig-box{width:33.33%; min-height:145px; display:flex; flex-direction:column; border-right:1px solid #000}', /* Réduit légèrement */
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -572,7 +575,7 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      '.acquit-box{width:33.33%; min-height:140px; display:flex; flex-direction:column}',
+      '.acquit-box{width:33.33%; min-height:105px; display:flex; flex-direction:column}', /* Réduit légèrement */
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
