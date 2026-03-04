@@ -486,10 +486,14 @@ const PageConsulterOp = () => {
     const isBailleur = src?.sigle?.includes('IDA') || src?.sigle?.includes('BAD') || src?.sigle?.includes('UE');
     const isTresor = src?.sigle?.includes('BN') || src?.sigle?.includes('TRESOR') || src?.sigle?.includes('ETAT');
     
-    // Ajout du préfixe budgétaire
-    const prefixeBudgetaire = projet?.prefixeBudgetaire || '';
+    // =========================================================================
+    // MODIFICATION CI-DESSOUS : Ajout du préfixe budgétaire
+    // =========================================================================
+    // On va chercher le préfixe dans l'objet projet. S'il n'existe pas on met du vide.
+    const prefixeBudgetaire = projet?.prefixeBudgetaire || projet?.prefixe || '';
     const srcCode = src?.codeImputation || '';
-    const codeImputationComplet = `${prefixeBudgetaire} ${srcCode} ${selectedOp.ligneBudgetaire || ''}`.replace(/\s+/g, ' ').trim();
+    // On rassemble les bouts et on nettoie les espaces en trop
+    const codeImputationComplet = [prefixeBudgetaire, srcCode, selectedOp.ligneBudgetaire].filter(Boolean).join(' ').trim();
     
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
@@ -497,11 +501,18 @@ const PageConsulterOp = () => {
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      '@page{size:A4;margin:5mm}@media print{.toolbar{display:none!important}html,body{height:100vh;overflow:hidden!important;background:#fff!important;padding:0!important;margin:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important;max-width:100%!important;min-height:auto!important;height:100vh!important;padding:2mm!important; box-sizing: border-box;}}',
+      // CSS POUR BLOQUER LA 2E PAGE ET REDUIRE LA HAUTEUR DES SIGNATURES
+      '@media print{',
+      '  .toolbar{display:none!important}',
+      '  html,body{background:#fff!important;padding:0!important;margin:0!important}',
+      '  .page-container{box-shadow:none!important;margin:0!important;width:100%!important;max-width:100%!important;padding:2mm!important}',
+      '}',
+      '@page{size:A4;margin:5mm}',
       '*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Century Gothic","Trebuchet MS",sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}',
       '.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}',
       '.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}',
-      '.page-container{width:100%;max-width:210mm;margin:20px auto;background:#fff;padding:4mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000;height:100%;display:flex;flex-direction:column}',
+      '.page-container{width:100%;max-width:210mm;margin:20px auto;background:#fff;padding:4mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}',
+      '.inner-frame{border:2px solid #000}',
       '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;}.header-logo img{max-height:75px;max-width:100%}',
       '.header-center{width:56%;padding:6px;text-align:center;}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
       '.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}',
@@ -515,10 +526,11 @@ const PageConsulterOp = () => {
       '.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}',
       '.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}',
       '.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}',
-      '.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}',
+      // Modification des min-height ci-dessous pour équilibrer le bas
+      '.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:90px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}',
       '.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}',
-      '.acquit-section{display:flex;flex:1}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:110px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}',
+      '.acquit-section{display:flex;}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:80px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}',
       '.acquit-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.acquit-date{font-size:9px;text-align:left}',
       '</style></head><body>',
       '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
