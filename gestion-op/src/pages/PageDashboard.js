@@ -1,546 +1,372 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
-import { doc, updateDoc, addDoc, collection, writeBatch } from 'firebase/firestore';
-import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 
 // ============================================================
-// PALETTE & ICÔNES
+// ICÔNES SVG
 // ============================================================
-const P = {
-  bg:'#F6F4F1', card:'#FFFFFF', green:'#2E9940', greenDark:'#1B6B2E', greenLight:'#E8F5E9',
-  olive:'#5D6A55', oliveDark:'#4A5A42', gold:'#C5961F', goldLight:'#FFF8E1', goldBorder:'#E8B931',
-  red:'#C43E3E', redLight:'#FFEBEE', orange:'#D4722A',
-  border:'#E2DFD8', text:'#3A3A3A', textSec:'#7A7A7A', textMuted:'#A0A0A0',
-};
-
 const I = {
-  download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  upload: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-  fileText: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-  save: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-  check: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
-  undo: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>,
-  building: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>,
+  wallet: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4H6a2 2 0 01-2-2V6z"/></svg>,
+  file: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  checkCircle: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  percent: (c, s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
+  arrowRight: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+  alert: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
   clock: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-  money: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>,
-  ban: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>,
-  clipboard: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>,
-  checkCircle: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
-  loader: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>,
-  close: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  search: (c='#999', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  xCircle: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  refresh: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>,
+  coins: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="7"/><line x1="8" y1="12" x2="8" y2="12"/><line x1="8" y1="4" x2="8" y2="4"/><line x1="4" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="12" y2="8"/><path d="M16 16v-4a4 4 0 00-4-4h-4"/></svg>,
 };
 
-const joursOuvres = (dateDebut, dateFin) => {
-  if (!dateDebut || !dateFin) return null;
-  const d1 = new Date(dateDebut), d2 = new Date(dateFin);
-  if (isNaN(d1) || isNaN(d2)) return null;
-  let count = 0; const cur = new Date(d1);
-  while (cur < d2) { cur.setDate(cur.getDate() + 1); const day = cur.getDay(); if (day !== 0 && day !== 6) count++; }
-  return count;
+// Calcul du nombre de jours entre une date et aujourd'hui
+const joursDepuis = (dateStr) => {
+  if (!dateStr) return 0;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now - d) / (1000 * 60 * 60 * 24));
 };
 
-const joursCalendaires = (dateDebut, dateFin) => {
-  if (!dateDebut || !dateFin) return null;
-  const d1 = new Date(dateDebut), d2 = new Date(dateFin);
-  if (isNaN(d1) || isNaN(d2)) return null;
-  return Math.floor((d2 - d1) / 86400000);
+const thStyle = { 
+  padding: '10px 16px', 
+  fontSize: 11, 
+  fontWeight: 700, 
+  color: '#999', 
+  letterSpacing: 0.5,
+  background: '#fafafa',
+  position: 'sticky',
+  top: 0,
+  zIndex: 10
 };
 
-const formatDate = (ds) => {
-  if (!ds) return '—';
-  if (ds.length >= 10) {
-    const [y, m, d] = ds.substring(0, 10).split('-');
-    if (y && m && d) return `${d}/${m}/${y}`;
-  }
-  return ds;
-};
+const PageDashboard = () => {
+  const { exerciceActif, budgets, ops, sources, beneficiaires, userProfile, setConsultOpData, setCurrentPage } = useAppContext();
+  const [activeAlert, setActiveAlert] = useState('transfert_cf');
 
-const DelaiBadge = ({ jours, seuilOrange, seuilRouge, unite = 'j ouvrés' }) => {
-  if (jours === null || jours === undefined) return <span style={{ color: P.textMuted, fontSize: 10 }}>—</span>;
-  let bg = P.greenLight, color = P.greenDark;
-  if (jours > seuilOrange) { bg = P.goldLight; color = P.goldBorder; }
-  if (jours > seuilRouge) { bg = P.redLight; color = P.red; }
-  return <span style={{ background: bg, color, padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{jours} {unite}</span>;
-};
+  const exerciceActifId = exerciceActif?.id;
 
-const StatutBadge = ({ statut }) => {
-  const m = {
-    EN_COURS: { bg: '#e3f2fd', c: '#1565c0', l: 'En cours' }, TRANSMIS_CF: { bg: P.goldLight, c: P.gold, l: 'Transmis CF' },
-    VISE_CF: { bg: P.greenLight, c: P.greenDark, l: 'Visé CF' }, REJETE_CF: { bg: P.redLight, c: P.red, l: 'Rejeté CF' },
-    DIFFERE_CF: { bg: '#f3e5f5', c: '#6a1b9a', l: 'Différé CF' },
-    TRANSMIS_AC: { bg: P.goldLight, c: P.gold, l: 'Transmis AC' }, REJETE_AC: { bg: P.redLight, c: P.red, l: 'Rejeté AC' },
-    DIFFERE_AC: { bg: '#f3e5f5', c: '#6a1b9a', l: 'Différé AC' },
-    PAYE: { bg: P.greenLight, c: P.greenDark, l: 'Payé' }, PAYE_PARTIEL: { bg: '#f1f8e9', c: '#33691e', l: 'Payé partiel' },
-    ARCHIVE: { bg: '#eceff1', c: '#546e6a', l: 'Archivé' }, ANNULE: { bg: P.redLight, c: P.red, l: 'Annulé' },
-    TRAITE: { bg: '#e0f2f1', c: '#00695c', l: 'Traité' },
+  // === DONNÉES DE BASE ===
+  const budgetsActifs = useMemo(() => budgets.filter(b => b.exerciceId === exerciceActifId), [budgets, exerciceActifId]);
+  
+  const allOpsExercice = useMemo(() => ops.filter(op => op.exerciceId === exerciceActifId), [ops, exerciceActifId]);
+  
+  const opsActifs = useMemo(() => allOpsExercice.filter(op => 
+    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(op.statut)
+  ), [allOpsExercice]);
+
+  const totalDotation = useMemo(() => budgetsActifs.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0), [budgetsActifs]);
+  const totalEngagement = useMemo(() => opsActifs.reduce((sum, op) => sum + (op.montant || 0), 0), [opsActifs]);
+  const totalDisponible = totalDotation - totalEngagement;
+  const tauxExec = totalDotation > 0 ? ((totalEngagement / totalDotation) * 100).toFixed(1) : '0.0';
+
+  // === HELPERS ===
+  const getBenefNom = (id) => beneficiaires.find(b => b.id === id)?.nom || 'Inconnu';
+  const getSourceSigle = (id) => sources.find(s => s.id === id)?.sigle || sources.find(s => s.id === id)?.nom || '—';
+  const getLigneBudgetaire = (op) => {
+    const budget = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
+    const ligne = budget?.lignes?.find(l => l.code === op.ligneBudgetaire || l.nom === op.ligneBudgetaire);
+    return ligne?.nom || op.ligneBudgetaire || '—';
   };
-  const s = m[statut] || { bg: '#eee', c: '#666', l: statut };
-  return <span style={{ background: s.bg, color: s.c, padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{s.l}</span>;
-};
 
-const TypeBadge = ({ type }) => {
-  const m = { PROVISOIRE: { bg: '#e3f2fd', c: '#1565c0' }, DEFINITIF: { bg: '#f3e5f5', c: '#6a1b9a' }, ANNULATION: { bg: P.goldLight, c: P.gold }, REJET: { bg: P.redLight, c: P.red } };
-  const s = m[type] || { bg: '#eee', c: '#666' };
-  return <span style={{ background: s.bg, color: s.c, padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>{type || '—'}</span>;
-};
+  // === STATS PAR SOURCE ===
+  const sourceStats = useMemo(() => sources.map(source => {
+    const sourceBudgets = budgetsActifs.filter(b => b.sourceId === source.id);
+    const sourceOps = opsActifs.filter(op => op.sourceId === source.id);
+    const dotation = sourceBudgets.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0);
+    const engagement = sourceOps.reduce((sum, op) => sum + (op.montant || 0), 0);
+    return { ...source, dotation, engagement, disponible: dotation - engagement, nbOps: sourceOps.length };
+  }), [sources, budgetsActifs, opsActifs]);
 
-const ExBadge = ({ exerciceId, exercices, exerciceActif }) => {
-  const ex = exercices.find(e => e.id === exerciceId);
-  if (!ex || (exerciceActif && ex.id === exerciceActif.id)) return null;
-  return <span style={{ background: P.redLight, color: P.red, padding: '1px 5px', borderRadius: 4, fontSize: 9, fontWeight: 700, marginLeft: 6 }}>{ex.annee}</span>;
-};
-
-const th = { padding: '12px 10px', fontSize: 11, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', textAlign: 'left', borderBottom: `1px solid ${P.border}`, background: '#FAFAF8', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1 };
-const td = { padding: '10px 10px', fontSize: 11, borderBottom: '1px solid #eee', color: P.text };
-const tdR = { ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 };
-const tdM = { ...td, fontWeight: 700, fontFamily: 'monospace', fontSize: 10 };
-const tdE = { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-
-export default function PageRapport() {
-  const { ops, beneficiaires, sources, exercices, exerciceActif, setConsultOpData, setCurrentPage } = useAppContext();
-  const [activeTab, setActiveTab] = useState('compta');
-  const [dateRef, setDateRef] = useState(new Date().toISOString().split('T')[0]);
-  const [filtreEx, setFiltreEx] = useState('tous');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sel, setSel] = useState([]);
-  const [obsText, setObsText] = useState('');
-  const [savingObs, setSavingObs] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [editText, setEditText] = useState('');
-  const [importing, setImporting] = useState(false);
-
-  const getBen = useCallback((op) => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || op.beneficiaireNom || '—', [beneficiaires]);
-  const getSrc = useCallback((op) => sources.find(s => s.id === op.sourceId)?.sigle || op.sourceSigle || '—', [sources]);
-
-  const mainOps = useMemo(() => {
-    let r = ops.filter(op => op.statut !== 'TRAITE' && op.statut !== 'SUPPRIME');
-    if (filtreEx !== 'tous') r = r.filter(op => op.exerciceId === filtreEx);
-    return r;
-  }, [ops, filtreEx]);
-
-  const opsExtraTraites = useMemo(() => {
-    let r = ops.filter(op => op.importAnterieur && op.statut === 'TRAITE');
-    if (filtreEx !== 'tous') r = r.filter(op => op.exerciceId === filtreEx);
-    return r;
-  }, [ops, filtreEx]);
-
-  const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
-
-  const opsNonVisesCF = useMemo(() => mainOps.filter(op => op.statut === 'TRANSMIS_CF').map(op => ({ ...op, delai: joursOuvres(op.dateTransmissionCF, dateRef) })), [mainOps, dateRef]);
-
-  const opsNonSoldes = useMemo(() => mainOps.filter(op => ['TRANSMIS_AC', 'PAYE_PARTIEL'].includes(op.statut)).map(op => {
-    const delai = joursOuvres(op.dateTransmissionAC, dateRef);
-    let provs = []; let ecart = null;
-    if (op.type === 'DEFINITIF' && op.opProvisoireId) { const p = ops.find(o => o.id === op.opProvisoireId); if (p) provs.push(p); }
-    if (op.type === 'DEFINITIF' && provs.length > 0) ecart = provs.reduce((s, p) => s + Number(p.montantPaye || p.montant || 0), 0) - Number(op.montant || 0);
-    return { ...op, delai, provs, ecart };
-  }), [mainOps, ops, dateRef]);
-
-  const opsAAnnuler = useMemo(() => mainOps.filter(op => {
-    if (op.type !== 'PROVISOIRE') return false;
-    if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
+  // === 7 CATÉGORIES D'ALERTES ===
+  const alertes = useMemo(() => {
     
-    const hasAnnulation = ops.some(o => 
-      o.type === 'ANNULATION' && 
-      o.opProvisoireId === op.id &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-    return !hasAnnulation;
-  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
+    // On exclut de base les OP supprimés de toutes les alertes
+    const opsForAlerts = allOpsExercice.filter(op => op.statut !== 'SUPPRIME');
 
-  // ==========================================
-  // LA REGLE STRICTE ICI (Idem Tableau de bord)
-  // ==========================================
-  const opsAReg = useMemo(() => mainOps.filter(op => {
-    if (op.type !== 'PROVISOIRE') return false;
-    if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false; // Strictement Payé
-    
-    // On vérifie UNIQUEMENT la présence d'un OP DEFINITIF
-    const hasDefinitif = ops.some(o => 
-      o.type === 'DEFINITIF' && 
-      (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-    return !hasDefinitif;
-  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, ops, dateRef]);
+    const transfert_cf = opsForAlerts
+      .filter(op => ['EN_COURS', 'CREE'].includes(op.statut))
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-  const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
+    const transfert_ac = opsForAlerts
+      .filter(op => op.statut === 'VISE_CF')
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateVisaCF || op.dateCreation) }));
 
-  const rawData = getData();
-  const displayData = useMemo(() => {
-    let data = rawData;
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      data = data.filter(op => {
-        const num = (op.numero || '').toLowerCase();
-        const ben = (getBen(op) || '').toLowerCase();
-        const obj = (op.objet || '').toLowerCase();
-        const mt = String(op.montant || '');
-        return num.includes(lowerSearch) || ben.includes(lowerSearch) || obj.includes(lowerSearch) || mt.includes(lowerSearch);
-      });
-    }
-    return data.sort((a, b) => (a.dateCreation || '').localeCompare(b.dateCreation || ''));
-  }, [rawData, searchTerm, getBen]);
+    const differe = opsForAlerts
+      .filter(op => ['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut))
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateDiffereCF || op.dateDiffereAC || op.dateCreation) }));
 
-  const tabs = [
-    { id: 'compta', label: 'En cours compta', icon: I.building, count: opsCompta.length, color: P.olive },
-    { id: 'nonvise', label: 'Non visés CF', icon: I.clock, count: opsNonVisesCF.length, color: P.gold },
-    { id: 'nonsolde', label: 'Non soldés', icon: I.money, count: opsNonSoldes.length, color: P.orange },
-    { id: 'annuler', label: 'À annuler', icon: I.ban, count: opsAAnnuler.length, color: P.red },
-    { id: 'regulariser', label: 'À régulariser', icon: I.clipboard, count: opsAReg.length, color: P.textSec },
-    { id: 'extratraite', label: 'Importés Traités', icon: I.checkCircle, count: opsExtraTraites.length, color: P.greenDark },
-  ];
+    const attente_cf = opsForAlerts
+      .filter(op => op.statut === 'TRANSMIS_CF')
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionCF || op.dateCreation) }));
 
-  const toggleSel = (id) => setSel(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const toggleAll = () => setSel(sel.length === displayData.length && displayData.length > 0 ? [] : displayData.map(o => o.id));
-  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); setSearchTerm(''); };
+    const annuler = opsForAlerts
+      .filter(op => {
+        if (op.type !== 'PROVISOIRE') return false;
+        if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
+        
+        // S'il a un OP Annulation rattaché, il disparait de la case "À annuler"
+        const hasAnnulation = allOpsExercice.some(o => 
+          o.type === 'ANNULATION' && 
+          o.opProvisoireId === op.id &&
+          !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+        );
+        return !hasAnnulation;
+      })
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-  const saveObs = async () => {
-    if (sel.length === 0) return;
-    setSavingObs(true);
-    try {
-      const v = obsText.trim() || null;
-      const batch = writeBatch(db);
-      for (const id of sel) {
-        batch.update(doc(db, 'ops', id), { observation: v, updatedAt: new Date().toISOString() });
-      }
-      await batch.commit();
-      setSel([]); setObsText('');
-      alert(`Observation enregistrée pour ${sel.length} OP.`);
-    } catch (e) { alert('Erreur : ' + e.message); }
-    setSavingObs(false);
-  };
+    // ==========================================
+    // 6. À régulariser : LA REGLE STRICTE ICI
+    // ==========================================
+    const regulariser = opsForAlerts
+      .filter(op => {
+        if (op.type !== 'PROVISOIRE') return false;
+        if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false; // Strictement Payé
+        
+        // VÉRIFICATION UNIQUE : Existe-t-il un OP DEFINITIF rattaché ?
+        const hasDefinitif = allOpsExercice.some(o => 
+          o.type === 'DEFINITIF' && 
+          (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
+          !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+        );
+        // S'il y a un OP Définitif, on le cache (false). Sinon, on le garde (true).
+        return !hasDefinitif;
+      })
+      .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
 
-  const editObs = async (id) => {
-    try {
-      const v = editText.trim() || null;
-      await updateDoc(doc(db, 'ops', id), { observation: v, updatedAt: new Date().toISOString() });
-      setEditId(null); setEditText('');
-    } catch (e) { alert('Erreur : ' + e.message); }
-  };
+    const solder = opsForAlerts
+      .filter(op => ['TRANSMIS_AC', 'PAYE_PARTIEL'].includes(op.statut))
+      .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionAC || op.dateCreation) }));
 
-  const handleTraite = async () => {
-    const extras = sel.filter(id => ops.find(o => o.id === id)?.importAnterieur);
-    if (extras.length === 0) { alert('Sélectionnez au moins un OP importé.'); return; }
-    if (!window.confirm(`Marquer ${extras.length} OP importés comme "Traité" ?\nIls seront déplacés dans l'onglet "Importés Traités".`)) return;
-    try {
-      const batch = writeBatch(db);
-      for (const id of extras) {
-        batch.update(doc(db, 'ops', id), { statut: 'TRAITE', updatedAt: new Date().toISOString() });
-      }
-      await batch.commit();
-      setSel([]); 
-      alert(`${extras.length} OP marqué(s) comme traité(s).`);
-    } catch (e) { alert('Erreur : ' + e.message); }
-  };
+    return {
+      transfert_cf: { label: "À transférer au CF", icon: I.arrowRight('#555'), color: "#555", ops: transfert_cf },
+      transfert_ac: { label: "À transférer à l'AC", icon: I.arrowRight('#2e7d32'), color: "#2e7d32", ops: transfert_ac },
+      differe: { label: "Différés", icon: I.alert('#C5961F'), color: "#C5961F", ops: differe },
+      attente_cf: { label: "Attente CF", icon: I.clock('#D4722A'), color: "#D4722A", ops: attente_cf },
+      annuler: { label: "À annuler", icon: I.xCircle('#C43E3E'), color: "#C43E3E", ops: annuler },
+      regulariser: { label: "À régulariser", icon: I.refresh('#C5961F'), color: "#C5961F", ops: regulariser },
+      solder: { label: "À solder", icon: I.coins('#555'), color: "#555", ops: solder },
+    };
+  }, [allOpsExercice]);
 
-  const handleUnTraite = async () => {
-    if (sel.length === 0) return;
-    if (!window.confirm(`Remettre ${sel.length} OP dans les rapports en cours ?`)) return;
-    try {
-      const batch = writeBatch(db);
-      for (const id of sel) {
-        const op = ops.find(o => o.id === id);
-        const prev = op?.datePaiement ? 'PAYE' : op?.dateTransmissionAC ? 'TRANSMIS_AC' : op?.dateVisaCF ? 'VISE_CF' : op?.dateTransmissionCF ? 'TRANSMIS_CF' : 'EN_COURS';
-        batch.update(doc(db, 'ops', id), { statut: prev, updatedAt: new Date().toISOString() });
-      }
-      await batch.commit();
-      setSel([]); 
-      alert(`OP remis dans les rapports.`);
-    } catch (e) { alert('Erreur : ' + e.message); }
-  };
+  const alertKeys = Object.keys(alertes);
+  const selectedAlert = alertes[activeAlert];
+  const selectedOps = selectedAlert?.ops || [];
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const XLSX = await import('xlsx');
-      const tpl = [{ 'N° OP': 'IDA-2023-0045', 'Type': 'PROVISOIRE', 'Bénéficiaire': 'SARL EXEMPLE', 'Objet': 'Fourniture matériel', 'Montant': 5000000, 'Montant payé': 5000000, 'Source': 'IDA', 'Exercice': 2023, 'Ligne budgétaire': '2.1.1', 'Date création': '2023-05-15', 'Date transmission CF': '2023-06-01', 'Date visa CF': '2023-06-05', 'Date transmission AC': '2023-06-10', 'Date paiement': '2023-07-01', 'Statut': 'PAYE', 'N° OP provisoire rattaché': '', 'Observation': '' }];
-      const ws = XLSX.utils.json_to_sheet(tpl);
-      ws['!cols'] = Object.keys(tpl[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Canevas');
-      XLSX.writeFile(wb, 'Canevas_Import_OP_Anterieurs.xlsx');
-    } catch (e) { alert('Erreur : ' + e.message); }
-  };
-
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setImporting(true);
-    try {
-      const XLSX = await import('xlsx');
-      const data = await file.arrayBuffer();
-      const wb = XLSX.read(data); const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws);
-      if (rows.length === 0) { alert('Fichier vide.'); setImporting(false); return; }
-      let imp = 0, skip = 0;
-      const fmtDate = (v) => { if (!v) return null; if (typeof v === 'number') { const d = new Date((v - 25569) * 86400000); return d.toISOString().split('T')[0]; } return String(v).trim(); };
-
-      for (const row of rows) {
-        const numero = String(row['N° OP'] || '').trim();
-        if (!numero || ops.find(op => op.numero === numero)) { skip++; continue; }
-        const benNom = String(row['Bénéficiaire'] || '').trim();
-        let benId = null;
-        if (benNom) {
-          const exist = beneficiaires.find(b => b.nom?.toLowerCase() === benNom.toLowerCase());
-          benId = exist ? exist.id : (await addDoc(collection(db, 'beneficiaires'), { nom: benNom, createdAt: new Date().toISOString() })).id;
-        }
-        const srcSigle = String(row['Source'] || '').trim();
-        const sourceId = sources.find(s => s.sigle?.toLowerCase() === srcSigle.toLowerCase())?.id || null;
-        const exerciceId = exercices.find(ex => ex.annee === parseInt(row['Exercice']))?.id || null;
-
-        await addDoc(collection(db, 'ops'), {
-          numero, type: String(row['Type'] || 'PROVISOIRE').trim().toUpperCase(),
-          sourceId, exerciceId, beneficiaireId: benId, beneficiaireNom: benNom, sourceSigle: srcSigle,
-          objet: String(row['Objet'] || '').trim(), montant: parseFloat(row['Montant']) || 0,
-          montantPaye: row['Montant payé'] !== undefined && row['Montant payé'] !== '' ? parseFloat(row['Montant payé']) : null,
-          ligneBudgetaire: String(row['Ligne budgétaire'] || '').trim(),
-          dateCreation: fmtDate(row['Date création']), dateTransmissionCF: fmtDate(row['Date transmission CF']),
-          dateVisaCF: fmtDate(row['Date visa CF']), dateTransmissionAC: fmtDate(row['Date transmission AC']),
-          datePaiement: fmtDate(row['Date paiement']),
-          statut: String(row['Statut'] || 'TRANSMIS_AC').trim().toUpperCase(),
-          opProvisoireNumero: String(row['N° OP provisoire rattaché'] || '').trim() || null,
-          opProvisoireId: ops.find(o => o.numero === String(row['N° OP provisoire rattaché'] || '').trim())?.id || null,
-          observation: String(row['Observation'] || '').trim() || null,
-          importAnterieur: true, modeReglement: 'VIREMENT',
-          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-        });
-        imp++;
-      }
-      alert(`Import terminé : ${imp} OP importé(s), ${skip} ignoré(s).`); 
-      window.location.reload();
-    } catch (err) { alert('Erreur : ' + err.message); }
-    setImporting(false); e.target.value = '';
-  };
-
-  const getDefaultObs = (op) => {
-    if (op.observation) return op.observation;
-    if (['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut) && op.observationDiffere) return `Motif différé : ${op.observationDiffere}`;
-    if (['EN_COURS', 'CREE'].includes(op.statut)) return 'À transférer au CF';
-    if (op.statut === 'VISE_CF') return "À transférer à l'AC";
-    return '';
-  };
-
-  const handleExport = async () => {
-    try {
-      const XLSX = await import('xlsx');
-      const dl = (j, s) => j === null ? '' : j > s ? 'DÉPASSÉ' : 'OK';
-      
-      const appendTotal = (dataArray, totalMt, totalPaye) => {
-        if (!dataArray.length) return dataArray;
-        const keys = Object.keys(dataArray[0]);
-        const totalRow = {};
-        keys.forEach(k => totalRow[k] = '');
-        totalRow[keys[0]] = 'TOTAL GENERAL';
-        if (keys.includes('Montant')) totalRow['Montant'] = totalMt;
-        if (keys.includes('Montant OP')) totalRow['Montant OP'] = totalMt;
-        if (keys.includes('Montant payé')) totalRow['Montant payé'] = totalPaye;
-        if (keys.includes('Mt payé')) totalRow['Mt payé'] = totalPaye;
-        dataArray.push(totalRow);
-        return dataArray;
-      };
-
-      const d1 = appendTotal(opsCompta.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Statut': op.statut, 'Observation': getDefaultObs(op) })), opsCompta.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': getDefaultObs(op) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d3 = appendTotal(opsNonSoldes.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant OP': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'N° Bordereau AC': op.bordereauAC || '', 'Date transmission AC': formatDate(op.dateTransmissionAC), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'OP prov. rattachés': op.provs?.map(p => p.numero).join(', ') || '', 'Écart': op.ecart ?? '', 'Observation': getDefaultObs(op) })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
-      const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      
-      const d5 = appendTotal(opsAReg.map(op => { 
-        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
-        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP régularisation': def?.numero || '', 'Observation': getDefaultObs(op) }; 
-      }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
-      
-      const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
-
-      const wb = XLSX.utils.book_new();
-      const fDate = dateRef.split('-').reverse().join('/'); 
-      
-      const addSheet = (data, sheetName, titleText) => {
-        const ws = XLSX.utils.json_to_sheet(data.length ? data : [{ 'Aucune donnée': '' }], { origin: "A3" });
-        XLSX.utils.sheet_add_aoa(ws, [[titleText]], { origin: "A1" });
-        if (data.length) ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length + 2, 15) }));
-        for (let cellRef in ws) {
-          if (cellRef[0] === '!') continue;
-          const cell = ws[cellRef];
-          if (cell.t === 'n') cell.z = '#,##0';
-        }
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      };
-
-      addSheet(d1, 'En cours compta', `OP a la comptabilité au ${fDate}`);
-      addSheet(d2, 'Non visés CF', `OP en attente au Controle Financier au ${fDate}`);
-      addSheet(d3, 'Non soldés', `OP en attente chez l'Agent comptable au ${fDate}`);
-      addSheet(d4, 'À annuler', `OP en attente a annuler au ${fDate}`);
-      addSheet(d5, 'À régulariser', `OP a regulariser au ${fDate}`);
-      addSheet(d6, 'Importés Traités', `OP importés et traités au ${fDate}`);
-
-      const fileNameDate = dateRef.split('-').reverse().join('-');
-      XLSX.writeFile(wb, `OP EN TRAITEMENT AU ${fileNameDate}.xlsx`);
-    } catch (err) { alert('Erreur : ' + err.message); }
-  };
-
-  const ObsCell = ({ op }) => {
-    const defaultObs = getDefaultObs(op);
-    const displayText = defaultObs || 'Ajouter observation...';
-
-    if (editId === op.id) return (
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <input value={editText} onChange={e => setEditText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') editObs(op.id); if (e.key === 'Escape') setEditId(null); }} style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '4px 8px', width: 160, borderRadius: 6, border: `1px solid ${P.greenDark}` }} autoFocus />
-        <button onClick={() => editObs(op.id)} style={{ border: 'none', background: P.greenDark, color: '#fff', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{I.check('#fff', 14)}</button>
-        <button onClick={() => setEditId(null)} style={{ border: 'none', background: P.textMuted, color: '#fff', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{I.close('#fff', 14)}</button>
-      </div>
-    );
-    return (
-      <span 
-        onClick={() => { setEditId(op.id); setEditText(op.observation || defaultObs || ''); }} 
-        style={{ cursor: 'pointer', color: op.observation ? P.text : (defaultObs && !op.observation ? P.orange : P.textMuted), fontSize: 11, fontStyle: op.observation || defaultObs ? 'normal' : 'italic', fontWeight: defaultObs && !op.observation ? 600 : 400 }} 
-        title="Cliquer pour modifier"
-      >
-        {displayText}
-      </span>
-    );
-  };
-
-  const Chk = ({ id }) => <input type="checkbox" checked={sel.includes(id)} onChange={() => toggleSel(id)} style={{ cursor: 'pointer', width: 14, height: 14, accentColor: P.greenDark }} />;
-  const ChkAll = ({ data }) => <input type="checkbox" checked={sel.length === data.length && data.length > 0} onChange={toggleAll} style={{ accentColor: P.greenDark }} />;
+  const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const prenom = userProfile?.nom?.split(' ')[0] || userProfile?.email?.split('@')[0] || '';
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: P.greenDark, margin: 0 }}>Rapport Comptable</h1>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: P.textSec }}>Exercice :</label>
-            <select value={filtreEx} onChange={e => setFiltreEx(e.target.value)} style={{ ...styles.input, width: 140, marginBottom: 0, fontSize: 12, borderRadius: 8, border: `1px solid ${P.border}` }}>
-              <option value="tous">Tous les exercices</option>
-              {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: P.textSec }}>Date de réf. :</label>
-            <input type="date" value={dateRef} onChange={e => setDateRef(e.target.value)} style={{ ...styles.input, width: 140, marginBottom: 0, fontSize: 12, borderRadius: 8, border: `1px solid ${P.border}` }} />
-          </div>
-        </div>
+      <style>{`
+        .op-list::-webkit-scrollbar { width: 6px; }
+        .op-list::-webkit-scrollbar-thumb { background: #bbb; border-radius: 10px; }
+        .op-list::-webkit-scrollbar-thumb:hover { background: #999; }
+        .op-list::-webkit-scrollbar-track { background: #f0f0f0; border-radius: 10px; }
+        .op-list { scrollbar-width: thin; scrollbar-color: #bbb #f0f0f0; }
+      `}</style>
+
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#1B6B2E' }}>Bonjour{prenom ? `, ${prenom}` : ''}</h1>
+        <p style={{ color: '#6c757d', fontSize: 13, margin: '6px 0 0', textTransform: 'capitalize' }}>
+          {today} — Exercice {exerciceActif?.annee || 'Non défini'}
+        </p>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {tabs.map(t => {
-            const isActive = activeTab === t.id;
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        {[
+          { icon: I.wallet('#2E9940'), label: 'Dotation totale', value: formatMontant(totalDotation), sub: `${sources.length} sources`, color: '#2E9940', accent: '#E8F5E9' },
+          { icon: I.file('#C5961F'), label: 'Engagements', value: formatMontant(totalEngagement), sub: `${opsActifs.length} OP validés`, color: '#C5961F', accent: '#fff3e0' },
+          { icon: I.checkCircle(totalDisponible >= 0 ? '#2e7d32' : '#C43E3E'), label: 'Disponible', value: formatMontant(totalDisponible), sub: `${(100 - parseFloat(tauxExec)).toFixed(1)}% restant`, color: totalDisponible >= 0 ? '#2e7d32' : '#C43E3E', accent: totalDisponible >= 0 ? '#e8f5e9' : '#ffebee' },
+          { icon: I.percent('#D4722A'), label: "Taux d'exécution", value: `${tauxExec}%`, sub: 'Engagements globaux', color: '#D4722A', accent: '#FFF3E8', isPercent: true },
+        ].map((card, i) => (
+          <div key={i} style={{ background: 'white', borderRadius: 14, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: card.color }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 13, color: '#6c757d', fontWeight: 600, marginBottom: 8 }}>{card.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: card.color, fontFamily: 'monospace', letterSpacing: -0.5 }}>{card.value}</div>
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{card.sub}</div>
+              </div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: card.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{card.icon}</div>
+            </div>
+            {card.isPercent && (
+              <div style={{ marginTop: 12, background: '#eee', borderRadius: 10, height: 6, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(tauxExec, 100)}%`, height: '100%', background: card.color, borderRadius: 10 }} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: 'white', borderRadius: 14, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          Exécution budgétaire par source
+        </h3>
+        {sourceStats.length === 0 ? (
+          <p style={{ color: '#6c757d', fontSize: 13 }}>Aucune source configurée</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${sourceStats.length}, 1fr)`, gap: 24 }}>
+            {sourceStats.map((src) => {
+              const pct = src.dotation > 0 ? ((src.engagement / src.dotation) * 100).toFixed(1) : '0.0';
+              return (
+                <div key={src.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: 4, background: src.couleur || '#1B6B2E' }} />
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>{src.sigle || src.nom}</span>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: src.couleur || '#1B6B2E' }}>{pct}%</span>
+                  </div>
+                  <div style={{ background: '#f0f0f0', borderRadius: 8, height: 12, overflow: 'hidden', marginBottom: 10 }}>
+                    <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: 8, background: `linear-gradient(90deg, ${src.couleur || '#1B6B2E'}99, ${src.couleur || '#1B6B2E'})` }} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 11, color: '#999' }}>Engagé</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: '#333' }}>{formatMontant(src.engagement)}</div>
+                    </div>
+                    <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 11, color: '#999' }}>Disponible</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: src.disponible >= 0 ? '#2e7d32' : '#C43E3E' }}>{formatMontant(src.disponible)}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#bbb', marginTop: 6, textAlign: 'center' }}>
+                    Dotation : {formatMontant(src.dotation)} • {src.nbOps} OP
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '2px solid #f0f0f0', overflowX: 'auto' }}>
+          {alertKeys.map((key) => {
+            const a = alertes[key];
+            const isActive = activeAlert === key;
             return (
-              <button key={t.id} onClick={() => changeTab(t.id)} style={{
-                padding: '10px 18px', borderRadius: 10,
-                border: isActive ? `2px solid ${t.color}` : '2px solid transparent',
-                background: isActive ? t.color : P.card,
-                color: isActive ? '#fff' : P.textSec,
-                fontWeight: 600, cursor: 'pointer', fontSize: 12,
-                display: 'flex', alignItems: 'center', gap: 6,
-                transition: 'all .2s',
-                boxShadow: isActive ? `0 4px 12px ${t.color}33` : '0 1px 3px rgba(0,0,0,.06)'
+              <div key={key} onClick={() => setActiveAlert(key)} style={{
+                padding: '13px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                color: isActive ? a.color : '#999',
+                borderBottom: isActive ? `2px solid ${a.color}` : '2px solid transparent',
+                marginBottom: -2, transition: 'all 0.2s',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
               }}>
-                {t.icon(isActive ? '#fff' : t.color, 16)} {t.label}
-                <span style={{ background: isActive ? 'rgba(255,255,255,.25)' : P.border, padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{t.count}</span>
-              </button>
+                {a.icon}
+                {a.label}
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+                  background: isActive ? a.color + '18' : '#f0f0f0',
+                  color: isActive ? a.color : '#999',
+                  minWidth: 18, textAlign: 'center'
+                }}>{a.ops.length}</span>
+              </div>
             );
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', left: 12, top: 10 }}>{I.search(P.textMuted, 14)}</div>
-            <input type="text" placeholder="N°, Objet, Montant..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ ...styles.input, marginBottom: 0, width: 220, fontSize: 12, borderRadius: 8, paddingLeft: 34, border: `1px solid ${P.border}` }} />
-          </div>
-          
-          <button onClick={handleDownloadTemplate} title="Télécharger le canevas d'importation Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: '#FAFAF8', color: P.textSec, border: `1px solid ${P.border}`, borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-            {I.download(P.textSec, 16)}
-          </button>
-          
-          <label title="Importer des OP antérieurs (Excel)" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.orange, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.orange}44`, opacity: importing ? 0.6 : 1 }}>
-            {importing ? I.loader('#fff', 16) : I.upload('#fff', 16)}
-            <input type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} disabled={importing} />
-          </label>
-
-          <button onClick={handleExport} title="Exporter le rapport actuel en Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.greenDark}44` }}>
-            {I.fileText('#fff', 16)}
-          </button>
+        <div className="op-list" style={{ maxHeight: 600, overflowY: 'auto', position: 'relative' }}>
+          {selectedOps.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#999', fontSize: 13 }}>
+              Aucun OP dans cette catégorie
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>N° OP</th>
+                  <th style={thStyle}>TYPE</th>
+                  <th style={thStyle}>BÉNÉFICIAIRE</th>
+                  <th style={thStyle}>OBJET</th>
+                  {activeAlert === 'solder' ? (
+                    <>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>MONTANT</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>PAYÉ</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>SOLDE</th>
+                    </>
+                  ) : (
+                    <>
+                      <th style={thStyle}>LIGNE</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>MONTANT</th>
+                    </>
+                  )}
+                  <th style={{ ...thStyle, textAlign: 'center' }}>INFO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedOps.map((op, i) => {
+                  const mtPaye = op.montantPaye || op.totalPaye || 0;
+                  return (
+                    <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3', cursor: 'pointer' }} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }}>
+                      <td style={{ padding: '12px 16px', borderBottom: '1px solid #f3f3f3' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
+                          {(op.numero || '').split('/')[0] || `N°${op.numero}`}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#bbb' }}>
+                          {getSourceSigle(op.sourceId)} • {op.dateCreation || ''}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px', borderBottom: '1px solid #f3f3f3' }}>
+                        <span style={{ 
+                          fontSize: 11, 
+                          fontWeight: 700, 
+                          color: op.type === 'DEFINITIF' ? '#1976d2' : op.type === 'ANNULATION' ? '#c62828' : '#666'
+                        }}>
+                          {op.type}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, borderBottom: '1px solid #f3f3f3' }}>
+                        {getBenefNom(op.beneficiaireId)}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 12, color: '#555', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px solid #f3f3f3' }}>
+                        {op.objet || '—'}
+                      </td>
+                      {activeAlert === 'solder' ? (
+                        <>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#333', borderBottom: '1px solid #f3f3f3' }}>
+                            {formatMontant(op.montant)}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, color: '#2e7d32', fontWeight: 600, borderBottom: '1px solid #f3f3f3' }}>
+                            {formatMontant(mtPaye)}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: '#C43E3E', borderBottom: '1px solid #f3f3f3' }}>
+                            {formatMontant((op.montant || 0) - mtPaye)}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '12px 16px', borderBottom: '1px solid #f3f3f3' }}>
+                            <span style={{ fontSize: 11, color: '#555' }}>
+                              {getLigneBudgetaire(op)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 13, borderBottom: '1px solid #f3f3f3' }}>
+                            {formatMontant(op.montant)}
+                          </td>
+                        </>
+                      )}
+                      <td style={{ padding: '12px 16px', textAlign: 'center', borderBottom: '1px solid #f3f3f3' }}>
+                        {op._jours > 0 ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700,
+                            color: op._jours > 15 ? '#C43E3E' : '#999'
+                          }}>
+                            {op._jours}j
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, color: '#ccc' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+    </div>
+  );
+};
 
-      {sel.length > 0 && (
-        <div style={{ background: `${activeTab === 'extratraite' ? P.greenLight : P.goldLight}`, borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', border: `1px solid ${activeTab === 'extratraite' ? P.green : P.goldBorder}` }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: activeTab === 'extratraite' ? P.greenDark : P.gold }}>{sel.length} OP sélectionné(s)</span>
-          <input value={obsText} onChange={e => setObsText(e.target.value)} placeholder="Saisir une observation pour la sélection..." style={{ ...styles.input, marginBottom: 0, flex: 1, minWidth: 250, fontSize: 12, borderRadius: 8 }} onKeyDown={e => { if (e.key === 'Enter') saveObs(); }} />
-          <button onClick={saveObs} disabled={savingObs} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: savingObs ? 0.6 : 1 }}>
-            {savingObs ? I.loader() : I.save()} Enregistrer l'observation
-          </button>
-          {activeTab !== 'extratraite' && sel.some(id => ops.find(o => o.id === id)?.importAnterieur) && (
-            <button onClick={handleTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.olive, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {I.checkCircle('#fff', 14)} Marquer comme Traité
-            </button>
-          )}
-          {activeTab === 'extratraite' && (
-            <button onClick={handleUnTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.orange, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {I.undo('#fff', 14)} Remettre dans le circuit
-            </button>
-          )}
-          <button onClick={() => { setSel([]); setObsText(''); }} style={{ padding: '8px 16px', background: 'transparent', color: P.textSec, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
-            Annuler la sélection
-          </button>
-        </div>
-      )}
-
-      <div style={{ padding: '0 8px', marginBottom: 16, fontSize: 13, display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-        {activeTab === 'compta' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.olive }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
-        {activeTab === 'nonvise' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.gold }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 5).length}</strong></span></>}
-        {activeTab === 'nonsolde' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.orange }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 5).length}</strong></span></>}
-        {activeTab === 'annuler' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.red }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}2j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 2).length}</strong></span></>}
-        {activeTab === 'regulariser' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.textSec }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}60j calendaires) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delaiJ > 60).length}</strong></span></>}
-        {activeTab === 'extratraite' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.greenDark }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
-      </div>
-
-      <div style={{ background: P.card, borderRadius: 12, overflow: 'auto', border: `1px solid ${P.border}`, height: 'calc(100vh - 210px)' }}>
-        {activeTab === 'compta' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date création</th><th style={th}>Statut</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
-            <tbody>
-              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
-            </tbody>
-          </table>
-        )}
-        {activeTab === 'nonvise' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
-            <tbody>
-              {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
-            </tbody>
-          </table>
-        )}
-        {activeTab === 'nonsolde' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov.</th><th style={{ ...th, textAlign: 'right' }}>Écart</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
-            <tbody>
-              {displayData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.provs?.length > 0 ? op.provs.map(p => p.numero).join(', ') : '—'}</td><td style={tdR}>{op.ecart !== null && op.ecart !== undefined ? <span style={{ color: op.ecart > 0 ? P.red : op.ecart < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.ecart > 0 ? '+' + formatMontant(op.ecart) : op.ecart < 0 ? formatMontant(op.ecart) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
-            </tbody>
-          </table>
-        )}
-        {activeTab === 'annuler' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date visa CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
-            <tbody>
-              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
-            </tbody>
-          </table>
-        )}
-        {activeTab === 'regulariser' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date Réf.</th><th style={th}>Délai</th><th style={th}>OP régularisation</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
-            <tbody>
-              {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => { 
-                const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
-                return (
-                  <tr key={op.id} style={{ background:
+export default PageDashboard;
