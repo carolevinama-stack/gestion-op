@@ -504,13 +504,14 @@ const PageConsulterOp = () => {
       '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
-      '.page-container { width: 210mm; height: 296mm; margin: 20px auto; background: #fff; padding: 6mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }',
+      // La page est ajustée à 287mm pour éviter que ça déborde et crée une page blanche
+      '.page-container { width: 200mm; height: 287mm; margin: 20px auto; background: #fff; padding: 0; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }',
       '.inner-frame { border: 2px solid #000; flex: 1; display: flex; flex-direction: column; }',
       
       '@media print {',
       '  body { background: #fff !important; }',
       '  .toolbar { display: none !important; }',
-      '  .page-container { margin: 0 !important; box-shadow: none !important; width: 100% !important; height: 100% !important; padding: 4mm !important; }',
+      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 287mm !important; padding: 0 !important; }',
       '}',
       
       '.header{display:flex; border-bottom:1px solid #000}',
@@ -532,7 +533,8 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; }', 
+      // Le bloc central s'étire mais a une hauteur minimale légèrement réduite
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 110mm;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:10px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
@@ -544,12 +546,16 @@ const PageConsulterOp = () => {
       '.check-item{display:flex; align-items:center; gap:6px}',
       '.box{width:16px; height:14px; border:1px solid #000; display:inline-flex; align-items:center; justify-content:center; font-size:10px}',
       
-      '.budget-section{margin-top:auto;}',
+      '.budget-section{margin-top:15px;}',
       '.budget-row{display:flex; align-items:center; margin-bottom:8px; font-size:12px}',
       '.budget-row .col-left{width:33.33%}',
       '.budget-row .col-center{width:33.33%}',
       '.budget-row .col-right{width:33.33%}',
       '.value-box{border:1px solid #000; padding:5px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
+      
+      // Ligne de séparation qui touche les bords (grâce aux marges négatives)
+      '.separator-line { border-top: 1px solid #000; margin: 15px -15px 10px -15px; }',
+      
       '.budget-table{width:100%; border-collapse:collapse; margin-top:10px}',
       '.budget-table td{border:1px solid #000; padding:5px 8px; font-size:11px}',
       '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold}',
@@ -557,8 +563,9 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
+      // Signatures ajustées pour donner plus de place au "Abidjan, le"
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      '.sig-box{width:33.33%; height:130px; display:flex; flex-direction:column; border-right:1px solid #000}',
+      '.sig-box{width:33.33%; min-height:170px; display:flex; flex-direction:column; border-right:1px solid #000}',
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -569,10 +576,9 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      '.acquit-box{width:33.33%; height:90px; display:flex; flex-direction:column}',
+      '.acquit-box{width:33.33%; min-height:120px; display:flex; flex-direction:column}',
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
-      /* MODIFICATION ICI : Ajout de la ligne en haut pour le Abidjan de l'acquit ! */
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
       '</style></head><body>',
       '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
@@ -580,7 +586,10 @@ const PageConsulterOp = () => {
       '<div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
       '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D\'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div>',
       '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" /><div>Union – Discipline – Travail</div></div></div></div>',
-      '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N°' + selectedOp.numero + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
+      
+      // Sécurité anti N° en double :
+      '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N° ' + (selectedOp.numero || '').replace(/^N°?\s*/i, '') + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
+      
       '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.ncc || '') + '</span></div>',
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
@@ -589,6 +598,10 @@ const PageConsulterOp = () => {
       '<div class="field-large">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
+      
+      // Ligne de séparation ajoutée
+      '<div class="separator-line"></div>',
+      
       '<table class="budget-table"><tr><td class="col-letter">A</td><td class="col-label">Dotation budgétaire</td><td class="col-amount">' + formatMontant(getDotation()) + '</td><td class="col-empty"></td></tr>',
       '<tr><td class="col-letter">B</td><td class="col-label">Engagements antérieurs</td><td class="col-amount">' + formatMontant(engAnterieurs) + '</td><td class="col-empty"></td></tr>',
       '<tr><td class="col-letter">C</td><td class="col-label">Engagement actuel</td><td class="col-amount">' + printEngActuel + '</td><td class="col-empty"></td></tr>',
@@ -597,7 +610,6 @@ const PageConsulterOp = () => {
       '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div>',
       '<div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA AGENT<br/>COMPTABLE</div><div class="sig-content"></div></div></div>',
       '<div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div>',
-      /* MODIFICATION ICI : Modification de la structure HTML pour la date d'acquit libératoire */
       '<div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"></div><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>'
     ];
     const printWindow = window.open('', '_blank', 'width=900,height=700');
