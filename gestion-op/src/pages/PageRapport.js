@@ -19,7 +19,7 @@ const I = {
   download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
   upload: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
   fileText: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-  save: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+  save: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
   check: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
   undo: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>,
   building: (c, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>,
@@ -106,7 +106,7 @@ const tdE = { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis'
 // COMPOSANT PRINCIPAL
 // ============================================================
 export default function PageRapport() {
-  const { ops, beneficiaires, sources, exercices, exerciceActif } = useAppContext();
+  const { ops, beneficiaires, sources, exercices, exerciceActif, setConsultOpData, setCurrentPage } = useAppContext();
   const [activeTab, setActiveTab] = useState('compta');
   const [dateRef, setDateRef] = useState(new Date().toISOString().split('T')[0]);
   const [filtreEx, setFiltreEx] = useState('tous');
@@ -123,7 +123,7 @@ export default function PageRapport() {
 
   // Filtrage principal
   const mainOps = useMemo(() => {
-    let r = ops.filter(op => op.statut !== 'TRAITE');
+    let r = ops.filter(op => op.statut !== 'TRAITE' && op.statut !== 'SUPPRIME');
     if (filtreEx !== 'tous') r = r.filter(op => op.exerciceId === filtreEx);
     return r;
   }, [ops, filtreEx]);
@@ -133,6 +133,15 @@ export default function PageRapport() {
     if (filtreEx !== 'tous') r = r.filter(op => op.exerciceId === filtreEx);
     return r;
   }, [ops, filtreEx]);
+
+  // === FONCTION COMMUNE POUR VÉRIFIER LES RÉGULARISATIONS ===
+  const hasValidReg = useCallback((opProvId) => {
+    return ops.some(o => 
+      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
+      (o.opProvisoireId === opProvId || (o.opProvisoireIds || []).includes(opProvId)) &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+  }, [ops]);
 
   // === DONNÉES PAR ONGLET ===
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
@@ -150,15 +159,16 @@ export default function PageRapport() {
   const opsAAnnuler = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
     if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
-    const hasValidReg = ops.some(o => 
-      (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
-      o.opProvisoireId === op.id &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-    return !hasValidReg;
-  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
+    return !hasValidReg(op.id);
+  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, hasValidReg, dateRef]);
 
-  const opsAReg = useMemo(() => mainOps.filter(op => op.type === 'PROVISOIRE' && ['PAYE', 'PAYE_PARTIEL'].includes(op.statut) && !ops.some(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id)).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement, dateRef) })), [mainOps, ops, dateRef]);
+  // LA CORRECTION EST ICI :
+  const opsAReg = useMemo(() => mainOps.filter(op => {
+    if (op.type !== 'PROVISOIRE') return false;
+    // On inclut tout ce qui a passé le CF (Visé, Transmis AC, Payé partiel, Payé)
+    if (!['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE'].includes(op.statut)) return false;
+    return !hasValidReg(op.id);
+  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateVisaCF || op.dateCreation, dateRef) })), [mainOps, hasValidReg, dateRef]);
 
   const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
 
@@ -339,7 +349,13 @@ export default function PageRapport() {
       const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': getDefaultObs(op) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       const d3 = appendTotal(opsNonSoldes.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant OP': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'N° Bordereau AC': op.bordereauAC || '', 'Date transmission AC': formatDate(op.dateTransmissionAC), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'OP prov. rattachés': op.provs?.map(p => p.numero).join(', ') || '', 'Écart': op.ecart ?? '', 'Observation': getDefaultObs(op) })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d5 = appendTotal(opsAReg.map(op => { const def = ops.find(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id); return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date paiement': formatDate(op.datePaiement), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': getDefaultObs(op) }; }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
+      
+      // MODIFICATION EXCEL : Mise à jour pour les régularisations multiples
+      const d5 = appendTotal(opsAReg.map(op => { 
+        const def = ops.find(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
+        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateVisaCF || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP régularisation': def?.numero || '', 'Observation': getDefaultObs(op) }; 
+      }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
+      
       const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
 
       const wb = XLSX.utils.book_new();
@@ -494,7 +510,7 @@ export default function PageRapport() {
             <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date création</th><th style={th}>Statut</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
@@ -503,7 +519,7 @@ export default function PageRapport() {
             <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
@@ -512,7 +528,7 @@ export default function PageRapport() {
             <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov.</th><th style={{ ...th, textAlign: 'right' }}>Écart</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.provs?.length > 0 ? op.provs.map(p => p.numero).join(', ') : '—'}</td><td style={tdR}>{op.ecart !== null && op.ecart !== undefined ? <span style={{ color: op.ecart > 0 ? P.red : op.ecart < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.ecart > 0 ? '+' + formatMontant(op.ecart) : op.ecart < 0 ? formatMontant(op.ecart) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.provs?.length > 0 ? op.provs.map(p => p.numero).join(', ') : '—'}</td><td style={tdR}>{op.ecart !== null && op.ecart !== undefined ? <span style={{ color: op.ecart > 0 ? P.red : op.ecart < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.ecart > 0 ? '+' + formatMontant(op.ecart) : op.ecart < 0 ? formatMontant(op.ecart) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
@@ -521,16 +537,33 @@ export default function PageRapport() {
             <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date visa CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'regulariser' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date paiement</th><th style={th}>Délai</th><th style={th}>OP définitif</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date Réf.</th><th style={th}>Délai</th><th style={th}>OP régularisation</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => { const def = ops.find(o => o.type === 'DEFINITIF' && o.opProvisoireId === op.id); return <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{formatDate(op.datePaiement)}</td><td style={td}><DelaiBadge jours={op.delaiJ} seuilOrange={45} seuilRouge={60} unite="jours" /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{def?.numero || '—'}</td><td style={td}><ObsCell op={op} /></td></tr>; })}
+              {displayData.map(op => { 
+                const def = ops.find(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
+                return (
+                  <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent', cursor: 'pointer' }} onClick={(e) => { if(e.target.tagName !== 'INPUT') { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
+                    <td style={td}><Chk id={op.id} /></td>
+                    <td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
+                    <td style={td}><TypeBadge type={op.type} /></td>
+                    <td style={td}>{getBen(op)}</td>
+                    <td style={tdE} title={op.objet}>{op.objet || '—'}</td>
+                    <td style={tdR}>{formatMontant(op.montant)}</td>
+                    <td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td>
+                    <td style={td}>{formatDate(op.datePaiement || op.dateVisaCF || op.dateCreation)}</td>
+                    <td style={td}><DelaiBadge jours={op.delaiJ} seuilOrange={45} seuilRouge={60} unite="jours" /></td>
+                    <td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{def?.numero || '—'}</td>
+                    <td style={td} onClick={e => e.stopPropagation()}><ObsCell op={op} /></td>
+                  </tr>
+                ); 
+              })}
             </tbody>
           </table>
         )}
@@ -539,7 +572,7 @@ export default function PageRapport() {
             <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Source</th><th style={th}>Date création</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
