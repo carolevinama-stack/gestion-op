@@ -272,7 +272,6 @@ const PageNouvelOp = () => {
         ...form, opProvisoireId: opId, opProvisoireNumero: op.numero, opProvisoireManuel: '',
         beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire,
         modeReglement: op.modeReglement || 'VIREMENT',
-        // CORRECTION ICI : On laisse le montant négatif s'afficher naturellement
         montant: String(-Math.abs(op.montant || 0)), 
         objet: `Annulation OP ${op.numero} - ${op.objet || ''}`,
         piecesJustificatives: `OP ${op.numero}`
@@ -439,7 +438,7 @@ const PageNouvelOp = () => {
             return (
               <div key={s.id} onClick={() => setActiveSource(s.id)}
                 style={{ flex: 1, padding: '16px 20px', borderRadius: 12, cursor: 'pointer', background: isActive ? s.couleur : 'white', border: isActive ? `2px solid ${s.couleur}` : '2px solid #e0e0e0', boxShadow: isActive ? `0 4px 16px ${s.couleur}33` : '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.25s' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justify-content: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: isActive ? 'white' : s.couleur }}>{s.sigle || s.nom}</div>
                     <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : '#999', marginTop: 2 }}>{s.nom}</div>
