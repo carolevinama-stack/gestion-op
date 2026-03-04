@@ -162,13 +162,12 @@ export default function PageRapport() {
     return !hasValidReg(op.id);
   }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, hasValidReg, dateRef]);
 
-  // LA CORRECTION EST ICI :
+  // CORRECTION: Règle stricte pour "À régulariser" -> Uniquement PAYE ou PAYE_PARTIEL
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    // On inclut tout ce qui a passé le CF (Visé, Transmis AC, Payé partiel, Payé)
-    if (!['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE'].includes(op.statut)) return false;
+    if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false;
     return !hasValidReg(op.id);
-  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateVisaCF || op.dateCreation, dateRef) })), [mainOps, hasValidReg, dateRef]);
+  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, hasValidReg, dateRef]);
 
   const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
 
@@ -319,8 +318,10 @@ export default function PageRapport() {
     setImporting(false); e.target.value = '';
   };
 
+  // CORRECTION: Si Différé, afficher le motif automatiquement
   const getDefaultObs = (op) => {
     if (op.observation) return op.observation;
+    if (['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut) && op.observationDiffere) return `Motif différé : ${op.observationDiffere}`;
     if (['EN_COURS', 'CREE'].includes(op.statut)) return 'À transférer au CF';
     if (op.statut === 'VISE_CF') return "À transférer à l'AC";
     return '';
@@ -350,10 +351,9 @@ export default function PageRapport() {
       const d3 = appendTotal(opsNonSoldes.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant OP': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'N° Bordereau AC': op.bordereauAC || '', 'Date transmission AC': formatDate(op.dateTransmissionAC), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'OP prov. rattachés': op.provs?.map(p => p.numero).join(', ') || '', 'Écart': op.ecart ?? '', 'Observation': getDefaultObs(op) })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       
-      // MODIFICATION EXCEL : Mise à jour pour les régularisations multiples
       const d5 = appendTotal(opsAReg.map(op => { 
         const def = ops.find(o => (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
-        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateVisaCF || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP régularisation': def?.numero || '', 'Observation': getDefaultObs(op) }; 
+        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP régularisation': def?.numero || '', 'Observation': getDefaultObs(op) }; 
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
       
       const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
@@ -399,7 +399,7 @@ export default function PageRapport() {
     return (
       <span 
         onClick={() => { setEditId(op.id); setEditText(op.observation || defaultObs || ''); }} 
-        style={{ cursor: 'pointer', color: op.observation ? P.text : (defaultObs ? P.orange : P.textMuted), fontSize: 11, fontStyle: op.observation || defaultObs ? 'normal' : 'italic', fontWeight: defaultObs && !op.observation ? 600 : 400 }} 
+        style={{ cursor: 'pointer', color: op.observation ? P.text : (defaultObs && !op.observation ? P.orange : P.textMuted), fontSize: 11, fontStyle: op.observation || defaultObs ? 'normal' : 'italic', fontWeight: defaultObs && !op.observation ? 600 : 400 }} 
         title="Cliquer pour modifier"
       >
         {displayText}
@@ -557,7 +557,7 @@ export default function PageRapport() {
                     <td style={tdE} title={op.objet}>{op.objet || '—'}</td>
                     <td style={tdR}>{formatMontant(op.montant)}</td>
                     <td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td>
-                    <td style={td}>{formatDate(op.datePaiement || op.dateVisaCF || op.dateCreation)}</td>
+                    <td style={td}>{formatDate(op.datePaiement || op.dateCreation)}</td>
                     <td style={td}><DelaiBadge jours={op.delaiJ} seuilOrange={45} seuilRouge={60} unite="jours" /></td>
                     <td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{def?.numero || '—'}</td>
                     <td style={td} onClick={e => e.stopPropagation()}><ObsCell op={op} /></td>
