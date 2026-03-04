@@ -486,12 +486,9 @@ const PageConsulterOp = () => {
     const isBailleur = src?.sigle?.includes('IDA') || src?.sigle?.includes('BAD') || src?.sigle?.includes('UE');
     const isTresor = src?.sigle?.includes('BN') || src?.sigle?.includes('TRESOR') || src?.sigle?.includes('ETAT');
     
-    // =========================================================================
-    // LA SOLUTION : Utilisation de `projet?.codeImputation` (au lieu de prefixeBudgetaire)
-    // =========================================================================
     const prefixeBudgetaire = projet?.codeImputation || '';
     const srcCode = src?.codeImputation || '';
-    const codeImputationComplet = `${prefixeBudgetaire} ${srcCode} ${selectedOp.ligneBudgetaire || ''}`.replace(/\s+/g, ' ').trim();
+    const codeImputationComplet = [prefixeBudgetaire, srcCode, selectedOp.ligneBudgetaire].filter(Boolean).join(' ').trim();
     
     const ribDisplay = selectedRib ? (typeof selectedRib === 'object' ? selectedRib.numero : selectedRib) : '';
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
@@ -499,44 +496,90 @@ const PageConsulterOp = () => {
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      '@page{size:A4;margin:5mm}',
-      '@media print{',
-      '  .toolbar{display:none!important}',
-      '  body{background:#fff!important;margin:0!important;padding:0!important}',
-      '  .page-container{box-shadow:none!important;margin:0 auto!important;width:100%!important;padding:4mm!important;min-height:0!important;}', // min-height: 0 pour empêcher la page 2
+      '@page { size: A4; margin: 0; }', 
+      '*{box-sizing:border-box; margin:0; padding:0}',
+      'html, body { font-family:"Century Gothic","Trebuchet MS",sans-serif; font-size:11px; line-height:1.4; background:#e0e0e0; height: 100%; }',
+      
+      '.toolbar { background:#3B6B8A; padding:12px 20px; display:flex; gap:12px; align-items:center; position:sticky; top:0; z-index:100 }',
+      '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
+      '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
+      
+      '.page-container { width: 210mm; height: 296mm; margin: 20px auto; background: #fff; padding: 6mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }',
+      '.inner-frame { border: 2px solid #000; flex: 1; display: flex; flex-direction: column; }',
+      
+      '@media print {',
+      '  body { background: #fff !important; }',
+      '  .toolbar { display: none !important; }',
+      '  .page-container { margin: 0 !important; box-shadow: none !important; width: 100% !important; height: 100% !important; padding: 4mm !important; }',
       '}',
-      '*{box-sizing:border-box;margin:0;padding:0}',
-      'body{font-family:"Century Gothic","Trebuchet MS",sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}',
-      '.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}',
-      '.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}',
-      // Élargissement du container sur écran et hauteur d'origine restaurée
-      '.page-container{width:200mm;min-height:285mm;margin:20px auto;background:#fff;padding:5mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}',
-      '.inner-frame{border:2px solid #000}',
-      // Les barres verticales (.header-logo et .header-center) sont toujours bien retirées
-      '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;}.header-logo img{max-height:75px;max-width:100%}',
-      '.header-center{width:56%;padding:6px;text-align:center;}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
-      '.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}',
-      '.op-title-section{text-align:center;padding:6px 10px;border-bottom:1px solid #000}.exercice-type-line{display:flex;justify-content:space-between;align-items:center}',
-      '.exercice-type-line>div:first-child{width:25%;text-align:left;font-size:11px}.exercice-type-line>div:nth-child(2){width:50%;text-align:center}.exercice-type-line>div:last-child{width:25%;text-align:right}',
-      '.op-title{font-weight:bold;text-decoration:underline;font-size:11px}.op-numero{font-size:10px;margin-top:2px}.body-content{padding:12px 15px;border-bottom:1px solid #000}',
-      '.type-red{color:#c00;font-weight:bold;font-style:italic}.field{margin-bottom:8px}.field-title{text-decoration:underline;font-size:10px;margin-bottom:6px}.field-value{font-weight:bold}',
-      '.field-large{margin:15px 0;min-height:45px;line-height:1.6;word-wrap:break-word}.checkbox-line{display:flex;align-items:center;margin-bottom:8px}.checkbox-label{min-width:230px}',
-      '.checkbox-options{display:flex;gap:50px}.check-item{display:flex;align-items:center;gap:6px}.box{width:18px;height:14px;border:1px solid #000;display:inline-flex;align-items:center;justify-content:center;font-size:10px}',
-      '.budget-section{margin-top:15px}.budget-row{display:flex;align-items:center;margin-bottom:8px}.budget-row .col-left{width:33.33%}.budget-row .col-center{width:33.33%}.budget-row .col-right{width:33.33%}',
-      '.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}',
-      '.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}',
-      '.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}',
-      // Restauration de tes dimensions originales pour les signatures ! (160px et 110px)
-      '.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}',
-      '.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}',
-      '.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}',
-      '.acquit-section{display:flex}.acquit-empty{width:66.66%;border-right:1px solid #000}.acquit-box{width:33.33%;min-height:110px;display:flex;flex-direction:column}.acquit-header{text-align:center;font-size:9px;padding:6px;border-bottom:1px solid #000}',
-      '.acquit-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}.acquit-date{font-size:9px;text-align:left}',
+      
+      '.header{display:flex; border-bottom:1px solid #000}',
+      '.header-logo{width:22%; padding:10px; display:flex; align-items:center; justify-content:center}', 
+      '.header-logo img{max-height:90px; max-width:100%}', 
+      '.header-center{width:56%; padding:15px 6px; text-align:center; line-height:1.6}', 
+      '.header-center .republic{font-weight:bold; font-size:13px}',
+      '.header-center .sep{font-size:10px; letter-spacing:1px; color:#333; margin:4px 0}',
+      '.header-center .ministry{font-style:italic; font-size:12px}',
+      '.header-center .project{font-weight:bold; font-size:12px}',
+      '.header-right{width:22%; padding:10px; font-size:11px; text-align:right}',
+      '.header-right img{max-height:80px; max-width:80px; margin-bottom:5px}',
+      
+      '.op-title-section{text-align:center; padding:10px; border-bottom:1px solid #000}', 
+      '.exercice-type-line{display:flex; justify-content:space-between; align-items:center}',
+      '.exercice-type-line>div:first-child{width:25%; text-align:left; font-size:12px}',
+      '.exercice-type-line>div:nth-child(2){width:50%; text-align:center}',
+      '.exercice-type-line>div:last-child{width:25%; text-align:right}',
+      '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
+      '.op-numero{font-size:11px; margin-top:4px}',
+      
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; }', 
+      '.type-red{color:#c00; font-weight:bold; font-style:italic}',
+      '.field{margin-bottom:10px}', 
+      '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
+      '.field-value{font-weight:bold; font-size:12px}',
+      '.field-large{margin:15px 0; line-height:1.5; word-wrap:break-word}', 
+      '.checkbox-line{display:flex; align-items:center; margin-bottom:12px; font-size:12px}', 
+      '.checkbox-label{min-width:240px}',
+      '.checkbox-options{display:flex; gap:40px}',
+      '.check-item{display:flex; align-items:center; gap:6px}',
+      '.box{width:16px; height:14px; border:1px solid #000; display:inline-flex; align-items:center; justify-content:center; font-size:10px}',
+      
+      '.budget-section{margin-top:auto;}',
+      '.budget-row{display:flex; align-items:center; margin-bottom:8px; font-size:12px}',
+      '.budget-row .col-left{width:33.33%}',
+      '.budget-row .col-center{width:33.33%}',
+      '.budget-row .col-right{width:33.33%}',
+      '.value-box{border:1px solid #000; padding:5px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
+      '.budget-table{width:100%; border-collapse:collapse; margin-top:10px}',
+      '.budget-table td{border:1px solid #000; padding:5px 8px; font-size:11px}',
+      '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold}',
+      '.budget-table .col-label{width:29.33%}',
+      '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
+      '.budget-table .col-empty{width:33.33%; border:none}',
+      
+      '.signatures-section{display:flex; border-bottom:1px solid #000}',
+      '.sig-box{width:33.33%; height:130px; display:flex; flex-direction:column; border-right:1px solid #000}',
+      '.sig-box:last-child{border-right:none}',
+      '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
+      '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
+      '.sig-name{text-align:right; font-weight:bold; text-decoration:underline; font-size:10px}',
+      '.abidjan-row{display:flex; border-bottom:1px solid #000}',
+      '.abidjan-cell{width:33.33%; padding:4px 10px; font-size:10px; border-right:1px solid #000}',
+      '.abidjan-cell:last-child{border-right:none}',
+      
+      '.acquit-section{display:flex}',
+      '.acquit-empty{width:66.66%; border-right:1px solid #000}',
+      '.acquit-box{width:33.33%; height:90px; display:flex; flex-direction:column}',
+      '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
+      '.acquit-content{flex:1}',
+      /* MODIFICATION ICI : Ajout de la ligne en haut pour le Abidjan de l'acquit ! */
+      '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
       '</style></head><body>',
       '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
-      '<div class="page-container"><div class="inner-frame"><div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
+      '<div class="page-container"><div class="inner-frame">',
+      '<div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
       '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D\'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div>',
-      '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" style="max-height:50px;max-width:60px;margin-bottom:3px;" /><div>Union – Discipline – Travail</div></div></div></div>',
+      '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" /><div>Union – Discipline – Travail</div></div></div></div>',
       '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N°' + selectedOp.numero + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
       '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.ncc || '') + '</span></div>',
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
@@ -554,7 +597,8 @@ const PageConsulterOp = () => {
       '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div>',
       '<div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA AGENT<br/>COMPTABLE</div><div class="sig-content"></div></div></div>',
       '<div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div>',
-      '<div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>'
+      /* MODIFICATION ICI : Modification de la structure HTML pour la date d'acquit libératoire */
+      '<div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"></div><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>'
     ];
     const printWindow = window.open('', '_blank', 'width=900,height=700');
     printWindow.document.write(htmlParts.join(''));
