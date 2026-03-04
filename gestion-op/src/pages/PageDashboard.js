@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 
 // ============================================================
@@ -83,10 +82,11 @@ const PageDashboard = () => {
   const alertes = useMemo(() => {
     
     // Fonction helper pour savoir si un OP a une régularisation (Définitif ou Annulation) active
+    // MODIFIÉE pour prendre en compte les tableaux "opProvisoireIds"
     const hasValidRegularisation = (opProvId) => {
       return allOpsExercice.some(o => 
         (o.type === 'DEFINITIF' || o.type === 'ANNULATION') && 
-        o.opProvisoireId === opProvId &&
+        (o.opProvisoireId === opProvId || (o.opProvisoireIds || []).includes(opProvId)) &&
         !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
       );
     };
@@ -123,14 +123,16 @@ const PageDashboard = () => {
       })
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-    // 6. À régulariser : PROVISOIRE + PAYÉ + pas de DEFINITIF/ANNULATION lié
+    // 6. À régulariser : PROVISOIRE + visé/payé + pas de DEFINITIF/ANNULATION lié
     const regulariser = opsForAlerts
       .filter(op => {
         if (op.type !== 'PROVISOIRE') return false;
-        if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false;
+        // MODIFICATION ICI : On englobe tout OP qui a passé le visa CF
+        if (!['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE'].includes(op.statut)) return false;
+        // Et on vérifie qu'il n'est pas encore régularisé
         return !hasValidRegularisation(op.id);
       })
-      .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
+      .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateVisaCF || op.dateCreation) }));
 
     // 7. À solder : RÈGLE (OP en paiement chez AC non soldé)
     const solder = opsForAlerts
@@ -146,7 +148,7 @@ const PageDashboard = () => {
       regulariser: { label: "À régulariser", icon: I.refresh('#C5961F'), color: "#C5961F", ops: regulariser },
       solder: { label: "À solder", icon: I.coins('#555'), color: "#555", ops: solder },
     };
-  }, [allOpsExercice, allOpsExercice]);
+  }, [allOpsExercice]);
 
   const alertKeys = Object.keys(alertes);
   const selectedAlert = alertes[activeAlert];
