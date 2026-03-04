@@ -496,7 +496,7 @@ const PageConsulterOp = () => {
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      '@page { size: A4; margin: 0; }', 
+      '@page { size: A4; margin: 5mm; }', // Marge matérielle imprimante pour assurer les bordures
       '*{box-sizing:border-box; margin:0; padding:0}',
       'html, body { font-family:"Century Gothic","Trebuchet MS",sans-serif; font-size:11px; line-height:1.4; background:#e0e0e0; height: 100%; }',
       
@@ -504,14 +504,13 @@ const PageConsulterOp = () => {
       '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
-      // La page est ajustée à 287mm pour éviter que ça déborde et crée une page blanche
-      '.page-container { width: 200mm; height: 287mm; margin: 20px auto; background: #fff; padding: 0; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }',
+      '.page-container { width: 200mm; height: 285mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }',
       '.inner-frame { border: 2px solid #000; flex: 1; display: flex; flex-direction: column; }',
       
       '@media print {',
       '  body { background: #fff !important; }',
       '  .toolbar { display: none !important; }',
-      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 287mm !important; padding: 0 !important; }',
+      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 286mm !important; padding: 4mm !important; box-sizing: border-box !important;}',
       '}',
       
       '.header{display:flex; border-bottom:1px solid #000}',
@@ -533,7 +532,6 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      // Le bloc central s'étire mais a une hauteur minimale légèrement réduite
       '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 110mm;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:10px}', 
@@ -553,7 +551,6 @@ const PageConsulterOp = () => {
       '.budget-row .col-right{width:33.33%}',
       '.value-box{border:1px solid #000; padding:5px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
       
-      // Ligne de séparation qui touche les bords (grâce aux marges négatives)
       '.separator-line { border-top: 1px solid #000; margin: 15px -15px 10px -15px; }',
       
       '.budget-table{width:100%; border-collapse:collapse; margin-top:10px}',
@@ -563,9 +560,8 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
-      // Signatures ajustées pour donner plus de place au "Abidjan, le"
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      '.sig-box{width:33.33%; min-height:170px; display:flex; flex-direction:column; border-right:1px solid #000}',
+      '.sig-box{width:33.33%; min-height:200px; display:flex; flex-direction:column; border-right:1px solid #000}',
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -576,7 +572,7 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      '.acquit-box{width:33.33%; min-height:120px; display:flex; flex-direction:column}',
+      '.acquit-box{width:33.33%; min-height:140px; display:flex; flex-direction:column}',
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
@@ -587,7 +583,6 @@ const PageConsulterOp = () => {
       '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D\'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div>',
       '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" /><div>Union – Discipline – Travail</div></div></div></div>',
       
-      // Sécurité anti N° en double :
       '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N° ' + (selectedOp.numero || '').replace(/^N°?\s*/i, '') + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
       
       '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.ncc || '') + '</span></div>',
@@ -599,7 +594,6 @@ const PageConsulterOp = () => {
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
       
-      // Ligne de séparation ajoutée
       '<div class="separator-line"></div>',
       
       '<table class="budget-table"><tr><td class="col-letter">A</td><td class="col-label">Dotation budgétaire</td><td class="col-amount">' + formatMontant(getDotation()) + '</td><td class="col-empty"></td></tr>',
