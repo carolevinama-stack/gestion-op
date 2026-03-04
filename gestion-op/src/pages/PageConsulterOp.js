@@ -20,7 +20,7 @@ const P = {
   orange: '#E8B931',
   labelMuted: '#888',
   inputBg: '#FFFFFF',
-  textBlack: '#000000' // Noir pur appliqué
+  textBlack: '#000000'
 };
 
 // ===================== ICÔNES SVG =====================
@@ -487,9 +487,9 @@ const PageConsulterOp = () => {
     const isTresor = src?.sigle?.includes('BN') || src?.sigle?.includes('TRESOR') || src?.sigle?.includes('ETAT');
     
     // =========================================================================
-    // MODIFICATION CI-DESSOUS : Ajout du préfixe budgétaire
+    // LA SOLUTION : Utilisation de `projet?.codeImputation` (au lieu de prefixeBudgetaire)
     // =========================================================================
-    const prefixeBudgetaire = projet?.prefixeBudgetaire || '';
+    const prefixeBudgetaire = projet?.codeImputation || '';
     const srcCode = src?.codeImputation || '';
     const codeImputationComplet = `${prefixeBudgetaire} ${srcCode} ${selectedOp.ligneBudgetaire || ''}`.replace(/\s+/g, ' ').trim();
     
@@ -499,12 +499,20 @@ const PageConsulterOp = () => {
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      // MODIFICATION CSS : Plus de gestion propre de la page pour éviter le doublement
-      '@page{size:A4;margin:5mm}@media print{.toolbar{display:none!important}html,body{height:100%;background:#fff!important;padding:0!important;margin:0!important}.page-container{box-shadow:none!important;margin:0!important;width:100%!important;max-width:100%!important;min-height:auto!important;padding:2mm!important}}',
-      '*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Century Gothic","Trebuchet MS",sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}',
+      '@page{size:A4;margin:5mm}',
+      '@media print{',
+      '  .toolbar{display:none!important}',
+      '  body{background:#fff!important;margin:0!important;padding:0!important}',
+      '  .page-container{box-shadow:none!important;margin:0 auto!important;width:100%!important;padding:4mm!important;min-height:0!important;}', // min-height: 0 pour empêcher la page 2
+      '}',
+      '*{box-sizing:border-box;margin:0;padding:0}',
+      'body{font-family:"Century Gothic","Trebuchet MS",sans-serif;font-size:11px;line-height:1.4;background:#e0e0e0}',
       '.toolbar{background:#3B6B8A;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}',
       '.toolbar button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}.btn-print{background:#D4722A;color:#fff}.btn-pdf{background:#D4722A;color:#fff}.toolbar-title{color:#fff;font-size:14px;margin-left:auto}',
-      '.page-container{width:100%;max-width:210mm;margin:20px auto;background:#fff;padding:4mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}.inner-frame{border:2px solid #000}',
+      // Élargissement du container sur écran et hauteur d'origine restaurée
+      '.page-container{width:200mm;min-height:285mm;margin:20px auto;background:#fff;padding:5mm;box-shadow:0 2px 10px rgba(0,0,0,0.3)}',
+      '.inner-frame{border:2px solid #000}',
+      // Les barres verticales (.header-logo et .header-center) sont toujours bien retirées
       '.header{display:flex;border-bottom:1px solid #000}.header-logo{width:22%;padding:8px;display:flex;align-items:center;justify-content:center;}.header-logo img{max-height:75px;max-width:100%}',
       '.header-center{width:56%;padding:6px;text-align:center;}.header-center .republic{font-weight:bold;font-size:11px}.header-center .sep{font-size:8px;letter-spacing:0.5px;color:#333}',
       '.header-center .ministry{font-style:italic;font-size:10px}.header-center .project{font-weight:bold;font-size:10px}.header-right{width:22%;padding:8px;font-size:10px;text-align:right}',
@@ -518,6 +526,7 @@ const PageConsulterOp = () => {
       '.value-box{border:1px solid #000;padding:4px 10px;text-align:right;font-weight:bold;white-space:nowrap;font-size:10px}',
       '.budget-table{width:100%;border-collapse:collapse}.budget-table td{border:1px solid #000;padding:4px 8px;font-size:10px}',
       '.budget-table .col-letter{width:4%;text-align:center;font-weight:bold}.budget-table .col-label{width:29.33%}.budget-table .col-amount{width:33.33%;text-align:right;padding-right:10px}.budget-table .col-empty{width:33.33%;border:none}',
+      // Restauration de tes dimensions originales pour les signatures ! (160px et 110px)
       '.signatures-section{display:flex;border-bottom:1px solid #000}.sig-box{width:33.33%;min-height:160px;display:flex;flex-direction:column;border-right:1px solid #000}.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center;font-weight:bold;font-size:9px;padding:6px;border-bottom:1px solid #000;line-height:1.3}.sig-content{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:8px}',
       '.sig-name{text-align:right;font-weight:bold;text-decoration:underline;font-size:9px}.abidjan-row{display:flex;border-bottom:1px solid #000}.abidjan-cell{width:33.33%;padding:4px 10px;font-size:9px;border-right:1px solid #000}.abidjan-cell:last-child{border-right:none}',
