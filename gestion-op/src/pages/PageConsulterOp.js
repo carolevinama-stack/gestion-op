@@ -505,7 +505,9 @@ const PageConsulterOp = () => {
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
       '.page-container { width: 200mm; height: 277mm; max-height: 277mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }',
-      '.inner-frame { border: 2px solid #000; flex: 1; display: flex; flex-direction: column; }',
+      
+      /* MODIF 1 : Cadre moins foncé (1px solid #555) */
+      '.inner-frame { border: 1.5px solid #555; flex: 1; display: flex; flex-direction: column; }',
       
       '@media print {',
       '  body { background: #fff !important; }',
@@ -532,10 +534,10 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      /* Ajustement minimal de la hauteur du corps pour être sûr de ne pas créer de 2e page */
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 100mm;}', 
+      /* Hauteur minimale réduite à 105mm pour absorber l'augmentation du bas */
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 105mm;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
-      '.field{margin-bottom:10px}', 
+      '.field{margin-bottom:8px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
       '.field-value{font-weight:bold; font-size:12px}',
       '.field-large{line-height:1.5; word-wrap:break-word}', 
@@ -561,7 +563,7 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
-      /* MODIFICATIONS ICI : Augmentation hauteur des signatures (145 -> 165) */
+      /* MODIF 4 : Hauteur augmentée pour les Visas (165px) */
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
       '.sig-box{width:33.33%; min-height:165px; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
@@ -574,7 +576,7 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      '.acquit-box{width:33.33%; min-height:105px; display:flex; flex-direction:column}', 
+      '.acquit-box{width:33.33%; min-height:120px; display:flex; flex-direction:column}', 
       '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
@@ -591,10 +593,12 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      // MODIFICATIONS ICI : Gestion des marges entre Ref Bancaire, Objet et Pièces Justificatives
+      /* MODIF 2 : Références bancaires plus proche de l'objet de la dépense (margin-bottom: 4px) */
       '<div class="field" style="margin-bottom: 4px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
-      '<div class="field-large" style="margin-top: 0; margin-bottom: 35px;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
-      '<div class="field-large" style="margin-top: 0; margin-bottom: 15px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      
+      /* MODIF 3 : Objet de la dépense avec un saut de ligne en dessous (margin-bottom: 25px) */
+      '<div class="field-large" style="margin-bottom: 25px; margin-top: 4px;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      '<div class="field-large" style="margin-bottom: 10px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
