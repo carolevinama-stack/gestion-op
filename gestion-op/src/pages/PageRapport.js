@@ -134,6 +134,15 @@ export default function PageRapport() {
     return r;
   }, [ops, filtreEx]);
 
+  // === FONCTION COMMUNE POUR VÉRIFIER LES RÉGULARISATIONS ===
+  const hasValidReg = useCallback((opProvId) => {
+    return ops.some(o => 
+      o.type === 'DEFINITIF' && 
+      (o.opProvisoireId === opProvId || (o.opProvisoireIds || []).includes(opProvId)) &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+  }, [ops]);
+
   // === DONNÉES PAR ONGLET ===
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
 
@@ -159,24 +168,11 @@ export default function PageRapport() {
     return !hasAnnulation;
   }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
 
-  // ==========================================================
-  // LA RÈGLE STRICTE DES "À RÉGULARISER"
-  // Un OP Provisoire (Payé ou Payé partiel) disparaît 
-  // SEULEMENT si un OP DEFINITIF lui est rattaché.
-  // ==========================================================
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
     if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false; 
-    
-    // On vérifie UNIQUEMENT la présence d'un OP DEFINITIF (on ne cherche pas les annulations)
-    const hasDefinitif = ops.some(o => 
-      o.type === 'DEFINITIF' && 
-      (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-    
-    return !hasDefinitif;
-  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, ops, dateRef]);
+    return !hasValidReg(op.id);
+  }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, hasValidReg, dateRef]);
 
   const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
 
@@ -327,12 +323,24 @@ export default function PageRapport() {
     setImporting(false); e.target.value = '';
   };
 
-  // Affichage du motif en cas de différé
+  // ==========================================================
+  // FONCTION DE RÉCUPÉRATION DU MOTIF (CORRECTION BÉTON)
+  // ==========================================================
   const getDefaultObs = (op) => {
-    if (op.observation) return op.observation;
-    if (['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut) && op.observationDiffere) return `Motif différé : ${op.observationDiffere}`;
+    // 1. Si on a saisi une observation manuelle, c'est elle qui prime
+    if (op.observation && op.observation.trim() !== '') return op.observation;
+    
+    // 2. Si c'est un OP Différé, on cherche le motif, peu importe le nom de la variable dans la BD
+    if (['DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)) {
+      const motif = op.motifDiffere || op.observationDiffere || op.motifRejet || op.motif || op.commentaire || op.observationRejet;
+      if (motif) return `Motif différé : ${motif}`;
+      return 'Motif différé (en attente)';
+    }
+
+    // 3. Cas standards
     if (['EN_COURS', 'CREE'].includes(op.statut)) return 'À transférer au CF';
     if (op.statut === 'VISE_CF') return "À transférer à l'AC";
+    
     return '';
   };
 
@@ -361,7 +369,6 @@ export default function PageRapport() {
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       
       const d5 = appendTotal(opsAReg.map(op => { 
-        // VÉRIFICATION DANS L'EXPORT EXCEL AUSSI : Seul un DÉFINITIF clôture la régularisation
         const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
         return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': getDefaultObs(op) }; 
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
@@ -406,10 +413,24 @@ export default function PageRapport() {
         <button onClick={() => setEditId(null)} style={{ border: 'none', background: P.textMuted, color: '#fff', borderRadius: 6, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{I.close('#fff', 14)}</button>
       </div>
     );
+    
+    // Détermination de la couleur d'affichage du texte (Rouge si c'est un différé automatique !)
+    let textColor = P.textMuted;
+    if (op.observation) textColor = P.text;
+    else if (defaultObs && !defaultObs.includes('Ajouter')) {
+      textColor = defaultObs.includes('Motif différé') ? P.red : P.orange;
+    }
+
     return (
       <span 
-        onClick={() => { setEditId(op.id); setEditText(op.observation || defaultObs || ''); }} 
-        style={{ cursor: 'pointer', color: op.observation ? P.text : (defaultObs && !op.observation ? P.orange : P.textMuted), fontSize: 11, fontStyle: op.observation || defaultObs ? 'normal' : 'italic', fontWeight: defaultObs && !op.observation ? 600 : 400 }} 
+        onClick={() => { setEditId(op.id); setEditText(op.observation || (defaultObs.startsWith('Motif') ? '' : defaultObs) || ''); }} 
+        style={{ 
+          cursor: 'pointer', 
+          color: textColor, 
+          fontSize: 11, 
+          fontStyle: op.observation || defaultObs ? 'normal' : 'italic', 
+          fontWeight: defaultObs && !op.observation ? 600 : 400 
+        }} 
         title="Cliquer pour modifier"
       >
         {displayText}
