@@ -506,7 +506,6 @@ const PageConsulterOp = () => {
       
       '.page-container { width: 200mm; height: 277mm; max-height: 277mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; }',
       
-      /* MODIF 1 : Cadre moins foncé (1px solid #555) */
       '.inner-frame { border: 1.5px solid #555; flex: 1; display: flex; flex-direction: column; }',
       
       '@media print {',
@@ -534,8 +533,8 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:4px}',
       
-      /* Hauteur minimale réduite à 105mm pour absorber l'augmentation du bas */
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 105mm;}', 
+      /* MODIF: Réduction du min-height pour libérer l'espace en bas pour les signatures (80mm) */
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 80mm;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:8px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
@@ -563,9 +562,9 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
-      /* MODIF 4 : Hauteur augmentée pour les Visas (165px) */
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      '.sig-box{width:33.33%; min-height:165px; display:flex; flex-direction:column; border-right:1px solid #000}', 
+      /* MODIF: Forte augmentation de l'espace des signatures (de 165px à 230px) */
+      '.sig-box{width:33.33%; min-height:230px; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
@@ -593,11 +592,10 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      /* MODIF 2 : Références bancaires plus proche de l'objet de la dépense (margin-bottom: 4px) */
       '<div class="field" style="margin-bottom: 4px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
-      /* MODIF 3 : Objet de la dépense avec un saut de ligne en dessous (margin-bottom: 25px) */
-      '<div class="field-large" style="margin-bottom: 25px; margin-top: 4px;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      /* MODIF: Marge fortement augmentée sous l'objet (40px) */
+      '<div class="field-large" style="margin-bottom: 40px; margin-top: 4px;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       '<div class="field-large" style="margin-bottom: 10px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
