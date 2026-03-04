@@ -162,11 +162,9 @@ const PageNouvelOp = () => {
 
   const getDotation = () => selectedLigne?.dotation || 0;
   
-  // CORRECTION AUDIT : Calcul exact du budget (avec annulation des provisoires lors d'un définitif)
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire) return 0;
     
-    // On prend tous les OP de la ligne qui ne sont pas rejetés ou supprimés
     const opsAnterieurs = ops.filter(op => 
       op.sourceId === activeSource && 
       op.exerciceId === exerciceActif?.id &&
@@ -190,7 +188,6 @@ const PageNouvelOp = () => {
 
   const getEngagementActuel = () => {
     let montant = parseFloat(form.montant) || 0;
-    // Pour l'affichage en direct, si c'est une annulation non liée, on affiche juste la soustraction
     if (form.type === 'ANNULATION') return -Math.abs(montant);
     return montant;
   };
@@ -275,7 +272,8 @@ const PageNouvelOp = () => {
         ...form, opProvisoireId: opId, opProvisoireNumero: op.numero, opProvisoireManuel: '',
         beneficiaireId: op.beneficiaireId, ligneBudgetaire: op.ligneBudgetaire,
         modeReglement: op.modeReglement || 'VIREMENT',
-        montant: String(Math.abs(op.montant || 0)), // On le met en positif dans l'input, il sera forcé en négatif au Save
+        // CORRECTION ICI : On laisse le montant négatif s'afficher naturellement
+        montant: String(-Math.abs(op.montant || 0)), 
         objet: `Annulation OP ${op.numero} - ${op.objet || ''}`,
         piecesJustificatives: `OP ${op.numero}`
       });
@@ -307,7 +305,6 @@ const PageNouvelOp = () => {
   };
 
   const handleSave = async () => {
-    // === VALIDATION SÉCURISÉE ===
     if (!form.type) { setModal({ type: 'error', title: 'Type manquant', message: 'Veuillez sélectionner un type d\'OP' }); return; }
     if (!activeSource) { setModal({ type: 'error', title: 'Source manquante', message: 'Veuillez sélectionner une source de financement' }); return; }
     if (!exerciceActif) { setModal({ type: 'error', title: 'Exercice manquant', message: 'Aucun exercice actif' }); return; }
@@ -321,12 +318,11 @@ const PageNouvelOp = () => {
       setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; 
     }
 
-    // CORRECTION AUDIT : Verrouillage des signes selon le type
     if (form.type !== 'ANNULATION' && finalMontant < 0) {
       setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Direct, Provisoire ou Définitif doit être positif.' }); return; 
     }
     if (form.type === 'ANNULATION') {
-      finalMontant = -Math.abs(finalMontant); // On force le négatif pour les annulations
+      finalMontant = -Math.abs(finalMontant); // Sécurité côté base de données
     }
 
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
@@ -347,7 +343,6 @@ const PageNouvelOp = () => {
 
     setSaving(true);
     try {
-      // 1. Vérification ultime du budget avec la nouvelle formule
       if (form.type !== 'ANNULATION') {
         const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
         const engagementsReels = opsSnap.docs
@@ -376,10 +371,8 @@ const PageNouvelOp = () => {
         }
       }
 
-      // 2. Génération ATOMIQUE du numéro (Bloque les doublons concurrents)
       const numero = await genererNumeroTransaction();
       
-      // Préparation données
       let opProvFields = {};
       if (form.type === 'ANNULATION') {
         opProvFields.opProvisoireId = form.opProvisoireId || null;
@@ -405,7 +398,6 @@ const PageNouvelOp = () => {
         creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
       };
 
-      // 3. Sauvegarde de l'OP
       const docRef = await addDoc(collection(db, 'ops'), opData);
       
       setOps([...ops, { id: docRef.id, ...opData }]);
@@ -418,7 +410,6 @@ const PageNouvelOp = () => {
     setSaving(false);
   };
 
-  // === STYLES ===
   const accent = currentSourceObj?.couleur || '#2E9940';
   const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 8, color: '#6c757d', letterSpacing: 0.3 };
   const fieldStyle = { padding: '12px 14px', background: '#f8f9fa', borderRadius: 8, fontSize: 14, border: '1.5px solid #e0e0e0', width: '100%', boxSizing: 'border-box', height: 44, color: '#000000' };
@@ -438,10 +429,8 @@ const PageNouvelOp = () => {
         .nouvelop-form input, .nouvelop-form select, .nouvelop-form textarea { box-sizing: border-box; color: #000000; }
       `}</style>
       
-      {/* MODALE CENTRÉE */}
       <ModalMessage data={modal} onClose={() => setModal(null)} />
 
-      {/* Sources */}
       <div style={{ maxWidth: 1020, margin: '0 auto', marginBottom: 4 }}>
         <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10 }}>SOURCE DE FINANCEMENT</label>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -450,7 +439,7 @@ const PageNouvelOp = () => {
             return (
               <div key={s.id} onClick={() => setActiveSource(s.id)}
                 style={{ flex: 1, padding: '16px 20px', borderRadius: 12, cursor: 'pointer', background: isActive ? s.couleur : 'white', border: isActive ? `2px solid ${s.couleur}` : '2px solid #e0e0e0', boxShadow: isActive ? `0 4px 16px ${s.couleur}33` : '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.25s' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justify-content: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: isActive ? 'white' : s.couleur }}>{s.sigle || s.nom}</div>
                     <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : '#999', marginTop: 2 }}>{s.nom}</div>
@@ -473,7 +462,6 @@ const PageNouvelOp = () => {
         <div style={{ maxWidth: 1020, margin: '0 auto', background: 'white', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${accent}` }}>
           <div style={{ padding: '24px 28px 20px' }}>
 
-            {/* ===== LIGNE 1 : N°OP + TYPE + DATE + (OP PROV) + EFFACER ===== */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: '0 1 auto' }}>
                 <label style={labelStyle}>N° OP (auto)</label>
@@ -496,7 +484,6 @@ const PageNouvelOp = () => {
                 <span style={{ padding: '10px 12px', background: '#f8f9fa', border: '1.5px solid #e0e0e0', borderRadius: 8, fontFamily: 'monospace', fontSize: 13, display: 'inline-flex', alignItems: 'center', height: 44, color: '#000000' }}>{new Date().toISOString().split('T')[0]}</span>
               </div>
 
-              {/* OP Provisoire (ANNULATION = single select, DEFINITIF = checkboxes multi) */}
               {form.type === 'ANNULATION' && (
                 <div style={{ flex: '1 1 auto', minWidth: 280 }}>
                   <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#C43E3E' }}>OP PROV. À ANNULER *</label>
@@ -558,7 +545,6 @@ const PageNouvelOp = () => {
                 </div>
               )}
 
-              {/* EFFACER — toujours en dernier */}
               <div style={{ marginLeft: 'auto' }}>
                 <button onClick={handleClear} style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: '#C43E3E', fontSize: 12, fontWeight: 600, color: 'white', cursor: 'pointer', whiteSpace: 'nowrap' }}>EFFACER</button>
               </div>
@@ -566,11 +552,9 @@ const PageNouvelOp = () => {
 
             <div style={{ height: 1, background: '#f0f0f0', marginBottom: 20 }} />
 
-            {/* ===== BÉNÉFICIAIRE + NCC + RÈGLEMENT — grille 2fr|1.5fr|3fr ===== */}
             <div style={{ marginBottom: 24 }}>
               {sectionTitle('', 'Bénéficiaire & Règlement')}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, alignItems: 'end' }}>
-                {/* NOM — col 1+2 = même largeur que OBJET */}
                 <div style={{ gridColumn: '1 / 3' }}>
                   <label style={labelStyle}>NOM / RAISON SOCIALE *</label>
                   <Autocomplete
@@ -583,7 +567,6 @@ const PageNouvelOp = () => {
                     accentColor={accent}
                   />
                 </div>
-                {/* NCC + Règlement — col 3 */}
                 <div style={{ display: 'flex', gap: 10, alignItems: 'end' }}>
                   <div>
                     <label style={labelStyle}>N°CC</label>
@@ -607,7 +590,6 @@ const PageNouvelOp = () => {
                   </div>
                 </div>
               </div>
-              {/* RIB en dessous si VIREMENT — même largeur que OBJET */}
               {form.modeReglement === 'VIREMENT' && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>RIB</label>
@@ -633,7 +615,6 @@ const PageNouvelOp = () => {
               )}
             </div>
 
-            {/* Détails */}
             <div style={{ marginBottom: 24 }}>
               {sectionTitle('', 'Détails de la dépense')}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
@@ -650,10 +631,8 @@ const PageNouvelOp = () => {
               </div>
             </div>
 
-            {/* Montant et budget */}
             <div style={{ marginBottom: 24 }}>
               {sectionTitle('', 'Montant et budget')}
-              {/* Ligne 1 : Montant + Ligne budg + Libellé */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, marginBottom: 16 }}>
                 <div>
                   <label style={labelStyle}>MONTANT (FCFA) *</label>
@@ -678,7 +657,6 @@ const PageNouvelOp = () => {
                   <div style={{ padding: '12px 14px', background: '#E8F5E9', borderRadius: 8, fontSize: 14, color: '#000000', height: 44, display: 'flex', alignItems: 'center', border: '1.5px solid #c8e6c9' }}>{selectedLigne?.libelle || ''}</div>
                 </div>
               </div>
-              {/* Ligne 2 : Budget sous col 1+2, TVA sous col 3 */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16 }}>
                 <div style={{ gridColumn: '1 / 3', background: '#f8faf9', padding: 18, borderRadius: 10, border: '1px solid #e8ece9' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '6px 16px' }}>
@@ -725,7 +703,6 @@ const PageNouvelOp = () => {
               </div>
             </div>
 
-            {/* Récap paiement DEFINITIF — compact */}
             {form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0 && (() => {
               const selectedProvs = (form.opProvisoireIds || []).map(id => ops.find(o => o.id === id)).filter(Boolean);
               if (selectedProvs.length === 0) return null;
@@ -762,7 +739,6 @@ const PageNouvelOp = () => {
               );
             })()}
 
-            {/* ENREGISTRER */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
               <button onClick={handleSave} disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
                 style={{
