@@ -260,11 +260,7 @@ const TabInfos = () => {
     });
   };
 
-  // --- Styles Communs
-  // inputStyle : on met width: 100% car c'est la grille qui va contraindre la largeur de chaque champ.
   const inputStyle = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '10px 14px', boxSizing: 'border-box', border: `1px solid ${P.border}`, width: '100%', background: '#FAFAF8' };
-  
-  // cardStyle : largeur maximale du bloc droit définie ici (800px) pour éviter l'étirement infini
   const cardStyle = { background: P.card, borderRadius: 12, padding: 24, border: `1px solid ${P.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.03)', maxWidth: 800 };
   
   const SettingRow = ({ title, desc, children }) => (
@@ -287,23 +283,15 @@ const TabInfos = () => {
         
         {/* ================= IDENTITÉ DU PROJET ================= */}
         <SettingRow title="Identité du Projet" desc="Informations officielles qui s'afficheront sur les entêtes des bordereaux de transmission.">
-          
-          {/* Grille stricte à 12 colonnes. C'est elle qui définit la largeur des champs */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
-            
-            {/* Ligne 1 : Nom Complet prend 12/12 */}
             <div style={{ gridColumn: 'span 12' }}>
               <Label>Nom complet du projet</Label>
               <input value={formProj.nomProjet || ''} onChange={e => setFormProj({...formProj, nomProjet: e.target.value})} style={inputStyle} />
             </div>
-
-            {/* Ligne 2 : Ministère prend 12/12 */}
             <div style={{ gridColumn: 'span 12' }}>
               <Label>Ministère de tutelle</Label>
               <input value={formProj.ministere || ''} onChange={e => setFormProj({...formProj, ministere: e.target.value})} style={inputStyle} />
             </div>
-
-            {/* Ligne 3 : Sigle, Pays et Devise parfaitement divisés en 3 (4 + 4 + 4 = 12) */}
             <div style={{ gridColumn: 'span 4' }}>
               <Label>Sigle officiel</Label>
               <input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={inputStyle} placeholder="Ex: PIF2" />
@@ -316,15 +304,12 @@ const TabInfos = () => {
               <Label>Devise Nationale</Label>
               <input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={inputStyle} />
             </div>
-
           </div>
         </SettingRow>
 
         {/* ================= SIGNATAIRE & TECHNIQUE ================= */}
         <SettingRow title="Signataire & Technique" desc="Configurez le signataire habilité, les préfixes d'imputation budgétaire et le nombre de tirages de vos bordereaux.">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
-            
-            {/* Ligne 1 : Signataire, 50% chacun (6 + 6) */}
             <div style={{ gridColumn: 'span 6' }}>
               <Label>Nom du Signataire</Label>
               <input value={formProj.coordonnateur || ''} onChange={e => setFormProj({...formProj, coordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: ABE-KOFFI Thérèse" />
@@ -333,11 +318,7 @@ const TabInfos = () => {
               <Label>Titre (Affiché en bas de page)</Label>
               <input value={formProj.titreCoordonnateur || ''} onChange={e => setFormProj({...formProj, titreCoordonnateur: e.target.value})} style={inputStyle} placeholder="Ex: LA COORDONNATRICE" />
             </div>
-
-            {/* Séparateur */}
             <div style={{ gridColumn: 'span 12', height: 1, background: P.border, margin: '8px 0' }} />
-
-            {/* Ligne 2 : Technique, 50% chacun (6 + 6) */}
             <div style={{ gridColumn: 'span 6' }}>
               <Label>Préfixe Budgétaire</Label>
               <input value={formProj.codeImputation || ''} onChange={e => setFormProj({...formProj, codeImputation: e.target.value})} style={inputStyle} placeholder="Ex: 345 9004..." />
@@ -349,8 +330,6 @@ const TabInfos = () => {
                 <option value={6}>6 chiffres (ex: 311100)</option>
               </select>
             </div>
-
-            {/* Ligne 3 : Tirages, petites colonnes (3 + 3) on laisse le reste vide (6) */}
             <div style={{ gridColumn: 'span 3' }}>
               <Label>Tirages CF</Label>
               <input type="number" min="1" value={formProj.nbExemplairesCF ?? 4} onChange={e => setFormProj({...formProj, nbExemplairesCF: parseInt(e.target.value) || 4})} style={{...inputStyle, textAlign: 'center'}} />
@@ -359,15 +338,12 @@ const TabInfos = () => {
               <Label>Tirages AC</Label>
               <input type="number" min="1" value={formProj.nbExemplairesAC ?? 2} onChange={e => setFormProj({...formProj, nbExemplairesAC: parseInt(e.target.value) || 2})} style={{...inputStyle, textAlign: 'center'}} />
             </div>
-
           </div>
         </SettingRow>
 
         {/* ================= SÉCURITÉ ADMINISTRATEUR ================= */}
         <SettingRow title="Sécurité Administrateur" desc="Définissez un mot de passe unique. Il sera exigé lors de la suppression d'OP, purges de base de données ou modifications critiques.">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
-            
-            {/* Ligne 1 : Mots de passe, 50% chacun (6 + 6) */}
             <div style={{ gridColumn: 'span 6' }}>
               <Label>Mot de passe</Label>
               <div style={{ position: 'relative' }}>
@@ -381,23 +357,19 @@ const TabInfos = () => {
               <Label>Confirmation</Label>
               <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={inputStyle} />
             </div>
-
-            {/* Ligne 2 : Message d'erreur (Span 12) */}
             <div style={{ gridColumn: 'span 12', minHeight: 16 }}>
               {formProj.adminPassword && confirmPassword && formProj.adminPassword !== confirmPassword && <div style={{ color: P.red, fontSize: 12, fontWeight: 700 }}>⚠️ Les mots de passe diffèrent</div>}
             </div>
-
           </div>
         </SettingRow>
 
-        {/* ================= BOUTON SAUVEGARDE GÉNÉRAL (EN BAS À DROITE) ================= */}
+        {/* ================= BOUTON SAUVEGARDE GÉNÉRAL ================= */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 20, padding: '24px 0', borderBottom: `1px solid ${P.border}` }}>
            {savedProj && <span style={{ color: P.greenDark, fontWeight: 700, fontSize: 14 }}>✓ Modifications enregistrées avec succès</span>}
            <button onClick={handleSaveProjet} disabled={savingProj} style={{ padding: '12px 28px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 14, cursor: savingProj ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
              {savingProj ? "Enregistrement..." : "Enregistrer les modifications"}
            </button>
         </div>
-
 
         {/* ================= SOURCES DE FINANCEMENT ================= */}
         <SettingRow title="Sources de financement" desc="Gérez les différents bailleurs qui financent le projet. Le Compte à débiter a été retiré, seul le Sigle et les Détails sont conservés.">
@@ -641,6 +613,11 @@ const TabMaintenance = () => {
       ask('Confirmation Import', `Voulez-vous vraiment importer ${importPreview.total} OP dans l'exercice ${exercice?.annee} ?\n\n(Les OP existants ne seront pas écrasés)`, async () => {
         setSaving(true);
         let imported = 0, errors = [];
+        
+        // On copie localement les bénéficiaires pour pouvoir y ajouter les nouveaux à la volée 
+        // et ne pas recréer le même bénéficiaire 10 fois pendant la boucle.
+        let localBeneficiaires = [...beneficiaires]; 
+
         try {
           for (const [sourceId, { rows, sigle }] of Object.entries(importData)) {
             for (const row of rows) {
@@ -648,17 +625,40 @@ const TabMaintenance = () => {
                 const numero = String(row['N° OP'] || '').trim();
                 const benNom = String(row['Bénéficiaire'] || '').trim();
                 const montant = parseFloat(String(row['Montant'] || '0').replace(/\s/g, '').replace(/,/g, '.')) || 0;
+                
                 if (!numero || !benNom || !montant) continue;
-                const ben = beneficiaires.find(b => (b.nom || '').toLowerCase().trim() === benNom.toLowerCase());
-                if (!ben) { errors.push(`Bénéficiaire introuvable : "${benNom}"`); continue; }
 
+                // ==========================================
+                // RECHERCHE OU CRÉATION AUTO DU BÉNÉFICIAIRE
+                // ==========================================
+                let benId = null;
+                const benExist = localBeneficiaires.find(b => (b.nom || '').toLowerCase().trim() === benNom.toLowerCase());
+                
+                if (benExist) {
+                  benId = benExist.id; // Le bénéficiaire existe déjà, on prend son ID
+                } else {
+                  // Le bénéficiaire n'existe pas, on le CREE sur-le-champ dans Firebase
+                  const newBenRef = await addDoc(collection(db, 'beneficiaires'), { 
+                    nom: benNom, 
+                    createdAt: new Date().toISOString() 
+                  });
+                  benId = newBenRef.id;
+                  // On l'ajoute à notre liste locale pour que si le prochain OP de l'Excel a 
+                  // le même bénéficiaire, on le trouve (et on ne le crée pas en double)
+                  localBeneficiaires.push({ id: benId, nom: benNom }); 
+                }
+
+                // ==========================================
+                // ENREGISTREMENT DE L'OP AVEC LE BON BEN_ID
+                // ==========================================
                 await addDoc(collection(db, 'ops'), {
                   numero, 
                   type: String(row['Type'] || 'PROVISOIRE').trim().toUpperCase(),
                   sourceId, 
-                  sourceSigle: sigle, // <--- AJOUT ICI : On sauvegarde aussi le Sigle
+                  sourceSigle: sigle, 
                   exerciceId: importExercice, 
-                  beneficiaireId: ben.id, 
+                  beneficiaireId: benId, // L'ID sûr à 100% (existant ou tout neuf)
+                  beneficiaireNom: benNom, // Pratique pour certains affichages de secours
                   objet: String(row['Objet'] || '').trim(),
                   montant, 
                   ligneBudgetaire: String(row['Ligne budgétaire'] || '').trim(),
