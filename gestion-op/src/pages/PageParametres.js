@@ -160,7 +160,7 @@ const PageParametres = () => {
 };
 
 // ============================================================
-// ONGLET INFOS (DESIGN APPLE + GRILLE STRICTE)
+// ONGLET INFOS
 // ============================================================
 const TabInfos = () => {
   const { projet, setProjet, sources, setSources, exercices, setExercices, ops, budgets } = useAppContext();
@@ -579,14 +579,13 @@ const TabMaintenance = () => {
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
     
-    // CORRECTION : Ajout des colonnes manquantes ("Pièces justificatives") 
-    // et nom exact pour la recherche de rattachement
+    // CORRECTION : Ajout explicite des Pièces Justificatives et TVA dans le canevas
     const colonnes = [
       'N° OP', 'Type', 'Bénéficiaire', 'Objet', 'Pièces justificatives', 
-      'Montant', 'Ligne budgétaire', 'Mode règlement', 'Date création', 'Statut', 
-      'Date transmission CF', 'N° Bordereau CF', 'Date visa CF', 'Date transmission AC', 
-      'N° Bordereau AC', 'Date paiement', 'Montant payé', 'Référence paiement', 
-      'N° OP provisoire rattaché', 'Observation'
+      'Montant', 'TVA récupérable', 'Montant TVA', 'Ligne budgétaire', 'Mode règlement', 
+      'Date création', 'Statut', 'Date transmission CF', 'N° Bordereau CF', 
+      'Date visa CF', 'Date transmission AC', 'N° Bordereau AC', 'Date paiement', 
+      'Montant payé', 'Référence paiement', 'N° OP provisoire rattaché', 'Observation'
     ];
 
     sources.forEach(src => {
@@ -623,14 +622,10 @@ const TabMaintenance = () => {
         setSaving(true);
         let imported = 0, errors = [];
         
-        // Copie locale des bénéficiaires pour les créations "à la volée"
         let localBeneficiaires = [...beneficiaires]; 
-        
-        // Stockage temporaire des N° OP importés pour faire les liaisons Provisoire -> Définitif dans le même fichier
-        let importedOpsMap = {}; 
+        let importedOpsMap = {}; // Clé: Numéro OP, Valeur: ID Firebase
 
         try {
-          // Utilitaire pour lire les dates Excel
           const fmtDate = (v) => { if (!v) return null; if (typeof v === 'number') { const d = new Date((v - 25569) * 86400000); return d.toISOString().split('T')[0]; } return String(v).trim(); };
 
           for (const [sourceId, { rows, sigle }] of Object.entries(importData)) {
@@ -638,83 +633,91 @@ const TabMaintenance = () => {
               try {
                 const numero = String(row['N° OP'] || '').trim();
                 const benNom = String(row['Bénéficiaire'] || '').trim();
+                const montant = parseFloat(String(row['Montant'] || '0').replace(/\s/g, '').replace(/,/g, '.')) || 0;
                 
-                // Nettoyage des montants
-                const montantStr = String(row['Montant'] || '0').replace(/\s/g, '').replace(/,/g, '.');
-                const montant = parseFloat(montantStr) || 0;
-                
-                const mtPayeStr = String(row['Montant payé'] || '').replace(/\s/g, '').replace(/,/g, '.');
-                const montantPaye = mtPayeStr ? parseFloat(mtPayeStr) : null;
-
                 if (!numero || !benNom || !montant) continue;
 
-                // ==========================================
-                // GESTION DU BÉNÉFICIAIRE (CRÉATION AUTO)
-                // ==========================================
+                // 1. GESTION DU BÉNÉFICIAIRE
                 let benId = null;
                 const benExist = localBeneficiaires.find(b => (b.nom || '').toLowerCase().trim() === benNom.toLowerCase());
                 
                 if (benExist) {
                   benId = benExist.id;
                 } else {
-                  // Le bénéficiaire n'existe pas : on le crée !
                   const newBenRef = await addDoc(collection(db, 'beneficiaires'), { 
                     nom: benNom, 
                     createdAt: new Date().toISOString() 
                   });
                   benId = newBenRef.id;
-                  // On l'ajoute à la liste locale pour ne pas le recréer à la ligne suivante
                   localBeneficiaires.push({ id: benId, nom: benNom }); 
                 }
 
-                // ==========================================
-                // GESTION DU N° OP PROVISOIRE RATTACHÉ
-                // ==========================================
-                const opProvNum = String(row['N° OP provisoire rattaché'] || '').trim();
-                let opProvId = null;
-                if (opProvNum) {
-                  // On cherche d'abord dans les OP qu'on vient d'importer (même fichier), 
-                  // sinon on cherche dans la base de données existante.
-                  opProvId = importedOpsMap[opProvNum] || ops.find(o => o.numero === opProvNum)?.id || null;
+                // 2. LECTURE DES CHAMPS SUPPLÉMENTAIRES (TVA, Pièces jointes)
+                const mtPayeStr = String(row['Montant payé'] || '').replace(/\s/g, '').replace(/,/g, '.');
+                const montantPaye = mtPayeStr ? parseFloat(mtPayeStr) : null;
+                const piecesJ = String(row['Pièces justificatives'] || row['Pieces justificatives'] || row['Pièces jointes'] || '').trim();
+                
+                const tvaStr = String(row['TVA récupérable'] || '').trim().toUpperCase();
+                const tvaRecuperable = tvaStr === 'OUI' ? true : tvaStr === 'NON' ? false : null;
+                const montantTVA = parseFloat(String(row['Montant TVA'] || '0').replace(/\s/g, '').replace(/,/g, '.')) || null;
+
+                // 3. RECHERCHE DE L'OP PROVISOIRE À RATTACHER
+                const typeOp = String(row['Type'] || 'PROVISOIRE').trim().toUpperCase();
+                const opProvNumRaw = String(row['N° OP provisoire rattaché'] || row['N° OP Provisoire'] || '').trim();
+                let opProvNumeros = opProvNumRaw ? opProvNumRaw.split(',').map(s => s.trim()) : [];
+                let opProvIds = [];
+                
+                // On cherche d'abord dans l'import en cours, sinon dans la DB existante
+                opProvNumeros.forEach(num => {
+                  const foundId = importedOpsMap[num] || ops.find(o => o.numero === num)?.id || null;
+                  if (foundId) opProvIds.push(foundId);
+                });
+
+                // Structuration de la donnée selon le type (Annulation ou Définitif)
+                let opProvFields = {};
+                if (typeOp === 'ANNULATION') {
+                  opProvFields.opProvisoireId = opProvIds[0] || null;
+                  opProvFields.opProvisoireNumero = opProvNumeros[0] || null;
+                  opProvFields.opProvisoireManuel = opProvIds[0] ? '' : (opProvNumeros[0] || '');
+                } else if (typeOp === 'DEFINITIF') {
+                  opProvFields.opProvisoireId = opProvIds[0] || null;
+                  opProvFields.opProvisoireIds = opProvIds.length > 0 ? opProvIds : null;
+                  opProvFields.opProvisoireNumero = opProvNumeros.join(', ') || null;
+                  opProvFields.opProvisoireNumeros = opProvNumeros.length > 0 ? opProvNumeros : null;
+                  opProvFields.opProvisoireManuel = opProvIds.length === 0 ? opProvNumRaw : '';
                 }
 
-                // ==========================================
-                // SAUVEGARDE INTÉGRALE DE L'OP
-                // ==========================================
+                // 4. SAUVEGARDE EN BASE
                 const opData = {
                   numero, 
-                  type: String(row['Type'] || 'PROVISOIRE').trim().toUpperCase(),
+                  type: typeOp,
                   sourceId, 
                   sourceSigle: sigle, 
                   exerciceId: importExercice, 
                   beneficiaireId: benId, 
                   beneficiaireNom: benNom, 
                   objet: String(row['Objet'] || '').trim(),
-                  piecesJustificatives: String(row['Pièces justificatives'] || '').trim(), // Ajout!
+                  piecesJustificatives: piecesJ,
                   montant, 
-                  montantPaye, // Ajout!
+                  montantPaye,
+                  tvaRecuperable,
+                  montantTVA,
                   ligneBudgetaire: String(row['Ligne budgétaire'] || '').trim(),
                   modeReglement: String(row['Mode règlement'] || 'VIREMENT').trim().toUpperCase(),
                   statut: String(row['Statut'] || 'CREE').trim().toUpperCase(),
                   
-                  // Toutes les dates (Ajout!)
                   dateCreation: fmtDate(row['Date création']) || new Date().toISOString().split('T')[0],
                   dateTransmissionCF: fmtDate(row['Date transmission CF']),
                   dateVisaCF: fmtDate(row['Date visa CF']),
                   dateTransmissionAC: fmtDate(row['Date transmission AC']),
                   datePaiement: fmtDate(row['Date paiement']),
                   
-                  // Références et bordereaux (Ajout!)
                   bordereauCF: String(row['N° Bordereau CF'] || '').trim(),
                   bordereauAC: String(row['N° Bordereau AC'] || '').trim(),
                   referencePaiement: String(row['Référence paiement'] || '').trim(),
+                  observation: String(row['Observation'] || '').trim(),
                   
-                  // Les liens vers l'OP Provisoire (Ajout!)
-                  opProvisoireId: opProvId,
-                  opProvisoireNumero: opProvNum,
-                  opProvisoireManuel: opProvId ? '' : opProvNum, // Si on a pas l'ID, on garde la trace manuelle
-                  
-                  observation: String(row['Observation'] || '').trim(), // Ajout!
+                  ...opProvFields, // Champs d'annulation et de régularisation
 
                   importAnterieur: true,
                   createdAt: new Date().toISOString(), 
@@ -723,9 +726,7 @@ const TabMaintenance = () => {
 
                 const docRef = await addDoc(collection(db, 'ops'), opData);
                 
-                // Mémorisation de l'ID généré pour les prochains rattachements
                 importedOpsMap[numero] = docRef.id;
-
                 imported++;
               } catch (rowErr) { errors.push(`Erreur ligne : ${rowErr.message}`); }
             }
