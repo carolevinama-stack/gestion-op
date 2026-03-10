@@ -50,11 +50,17 @@ const PageDashboard = () => {
   const allOpsExercice = useMemo(() => ops.filter(op => op.exerciceId === exerciceActifId), [ops, exerciceActifId]);
   
   const opsActifs = useMemo(() => allOpsExercice.filter(op => 
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'SUPPRIME'].includes(op.statut)
+    !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
   ), [allOpsExercice]);
 
+  // ==========================================================
+  // SOMME GLOBALE SANS CRITÈRE DE TYPE (SOMME BÊTE ET MÉCHANTE)
+  // Les annulations étant en négatif dans la BD, l'addition les soustrait.
+  // ==========================================================
   const totalDotation = useMemo(() => budgetsActifs.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0), [budgetsActifs]);
-  const totalEngagement = useMemo(() => opsActifs.reduce((sum, op) => sum + (op.montant || 0), 0), [opsActifs]);
+  
+  const totalEngagement = useMemo(() => opsActifs.reduce((sum, op) => sum + (Number(op.montant) || 0), 0), [opsActifs]);
+  
   const totalDisponible = totalDotation - totalEngagement;
   const tauxExec = totalDotation > 0 ? ((totalEngagement / totalDotation) * 100).toFixed(1) : '0.0';
 
@@ -72,7 +78,10 @@ const PageDashboard = () => {
     const sourceBudgets = budgetsActifs.filter(b => b.sourceId === source.id);
     const sourceOps = opsActifs.filter(op => op.sourceId === source.id);
     const dotation = sourceBudgets.reduce((sum, b) => sum + (b.lignes?.reduce((s, l) => s + (l.dotation || 0), 0) || 0), 0);
-    const engagement = sourceOps.reduce((sum, op) => sum + (op.montant || 0), 0);
+    
+    // Somme simple par source
+    const engagement = sourceOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
+    
     return { ...source, dotation, engagement, disponible: dotation - engagement, nbOps: sourceOps.length };
   }), [sources, budgetsActifs, opsActifs]);
 
@@ -113,9 +122,6 @@ const PageDashboard = () => {
       })
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
-    // ==========================================
-    // 6. À régulariser : LA REGLE STRICTE ICI
-    // ==========================================
     const regulariser = opsForAlerts
       .filter(op => {
         if (op.type !== 'PROVISOIRE') return false;
