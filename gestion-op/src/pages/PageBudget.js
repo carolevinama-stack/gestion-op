@@ -60,6 +60,22 @@ const ToastNotif = ({ toast, onDone }) => {
   );
 };
 
+// ==================== CONFIRM MODAL ====================
+const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, onCancel, icon }) => (
+  <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
+    <div style={{ background: 'white', borderRadius: 16, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+      <div style={{ padding: '20px 28px', background: confirmColor || P.red, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
+        {icon}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>{title}</span>
+      </div>
+      <div style={{ padding: '24px 28px' }}><p style={{ margin: 0, fontSize: 14, color: P.text, lineHeight: 1.6 }}>{message}</p></div>
+      <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
+        <button className="lb-btn" onClick={onCancel} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
+        <button className="lb-btn" onClick={onConfirm} style={{ background: confirmColor || P.red, color: 'white', padding: '10px 20px' }}>{confirmLabel}</button>
+      </div>
+    </div>
+  </div>
+);
+
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
   const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
@@ -108,16 +124,20 @@ const PageBudget = () => {
   const latestVersion = allBudgetsForSourceExercice[0];
   const isLatestVersion = !selectedVersion || selectedVersion === latestVersion?.id;
 
+  // ==========================================================
+  // SOMME GLOBALE SANS CRITÈRE DE TYPE (SOMME BÊTE ET MÉCHANTE)
+  // Les annulations étant en négatif dans la BD, l'addition les soustrait.
+  // ==========================================================
   const getEngagementLigne = (ligneCode) => {
     return ops
       .filter(op =>
         op.sourceId === activeSource &&
         op.exerciceId === currentExerciceId &&
         op.ligneBudgetaire === ligneCode &&
-        ['DIRECT', 'DEFINITIF', 'PROVISOIRE'].includes(op.type) &&
-        !['REJETE', 'REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE'].includes(op.statut)
+        // On exclut juste les brouillons rejetés ou supprimés
+        !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
       )
-      .reduce((sum, op) => sum + (op.montant || 0), 0);
+      .reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   };
 
   const openCreateModal = () => { setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
@@ -465,10 +485,10 @@ const PageBudget = () => {
                   </tbody>
                   <tfoot>
                     <tr style={{ background: '#FAFAF8' }}>
-                      <td colSpan={2} style={{ ...tdStyle, fontWeight: 800, fontSize: 13 }}>TOTAL</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800 }}>{formatMontant(totaux.dotation)}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', color: P.gold, fontWeight: 800 }}>{formatMontant(totaux.engagement)}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: totaux.disponible >= 0 ? P.green : P.red }}>{formatMontant(totaux.disponible)}</td>
+                      <td colSpan={2} style={{ ...tdStyle, fontWeight: 800, fontSize: 12 }}>TOTAL</td>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 800, textAlign: 'right', paddingRight: 16 }}>{formatMontant(budgetLignes.reduce((s, l) => s + (l.dotation || 0), 0))}</td>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', color: P.gold, textAlign: 'right', fontWeight: 700 }}>{formatMontant(budgetLignes.reduce((s, l) => s + getEngagementLigne(l.code), 0))}</td>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', color: totaux.disponible >= 0 ? P.green : P.red, textAlign: 'right', fontWeight: 800 }}>{formatMontant(totaux.disponible)}</td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ background: P.blueLight, color: P.blue, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : 0}%</span></td>
                     </tr>
                   </tfoot>
@@ -626,29 +646,6 @@ const PageBudget = () => {
           </div>
         </div>
       )}
-
-      {/* ==================== MODAL RÉVISION ==================== */}
-      {showRevisionModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
-          <div style={{ background: 'white', borderRadius: 16, width: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 28px', background: accent, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>{Icon.filePlus('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Nouvelle révision budgétaire</span></div>
-            <div style={{ padding: '24px 28px' }}>
-              <div style={{ background: P.orangeLight, padding: 16, borderRadius: 10, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                {Icon.alert(P.orange)}
-                <div><strong style={{ color: P.orange, fontSize: 13 }}>Information importante</strong><p style={{ margin: '6px 0 0', fontSize: 12, color: P.textSec, lineHeight: 1.5 }}>Une v{(latestVersion?.version || 1) + 1} sera créée. La version actuelle ({getVersionLabel(latestVersion)}) sera archivée.</p></div>
-              </div>
-              <div style={{ marginBottom: 16 }}><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>NOM DE LA RÉVISION *</label><input type="text" value={nomRevision} onChange={(e) => setNomRevision(e.target.value)} placeholder="Ex: Budget Révisé 1..." style={{ ...inputStyle, background: P.goldLight }} autoFocus /></div>
-              <div style={{ marginBottom: 16 }}><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>DATE DE VALIDATION *</label><input type="date" value={dateNotification} onChange={(e) => setDateNotification(e.target.value)} style={{ ...inputStyle, background: P.goldLight }} /></div>
-              <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOTIF <span style={{ fontWeight: 400, color: P.textMuted }}>(optionnel)</span></label><textarea value={motifRevision} onChange={(e) => setMotifRevision(e.target.value)} placeholder="Ex: Augmentation suite avenant..." style={{ ...inputStyle, minHeight: 60, resize: 'vertical', background: P.goldLight }} /></div>
-            </div>
-            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
-              <button className="bud-btn" onClick={() => setShowRevisionModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={createRevision} disabled={saving || !nomRevision.trim() || !dateNotification} style={{ background: accent, color: 'white', padding: '10px 20px', opacity: saving || !nomRevision.trim() || !dateNotification ? 0.5 : 1 }}>{Icon.check('white', 14)} {saving ? 'Création...' : 'Créer la révision'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
