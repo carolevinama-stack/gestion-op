@@ -315,10 +315,10 @@ const PageDashboard = () => {
                           {op.type}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, borderBottom: '1px solid #f3f3f3' }}>
+                      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, borderBottom: '1px solid #f3f3f3', maxWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={getBenefNom(op.beneficiaireId)}>
                         {getBenefNom(op.beneficiaireId)}
                       </td>
-                      <td style={{ padding: '12px 16px', fontSize: 12, color: '#555', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px solid #f3f3f3' }}>
+                      <td style={{ padding: '12px 16px', fontSize: 12, color: '#555', maxWidth: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '1px solid #f3f3f3' }} title={op.objet || ''}>
                         {op.objet || '—'}
                       </td>
                       {activeAlert === 'solder' ? (
