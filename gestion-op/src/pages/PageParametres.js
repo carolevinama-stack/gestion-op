@@ -578,7 +578,16 @@ const TabMaintenance = () => {
   const handleDownloadCanevas = async () => {
     const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
-    const colonnes = ['N° OP', 'Type', 'Bénéficiaire', 'Objet', 'Montant', 'Ligne budgétaire', 'Mode règlement', 'Date création', 'Statut', 'Date transmission CF', 'N° Bordereau CF', 'Date visa CF', 'Date transmission AC', 'N° Bordereau AC', 'Date paiement', 'Montant payé', 'Référence paiement', 'N° OP Provisoire', 'Observation'];
+    
+    // CORRECTION : Ajout des colonnes manquantes ("Pièces justificatives") 
+    // et nom exact pour la recherche de rattachement
+    const colonnes = [
+      'N° OP', 'Type', 'Bénéficiaire', 'Objet', 'Pièces justificatives', 
+      'Montant', 'Ligne budgétaire', 'Mode règlement', 'Date création', 'Statut', 
+      'Date transmission CF', 'N° Bordereau CF', 'Date visa CF', 'Date transmission AC', 
+      'N° Bordereau AC', 'Date paiement', 'Montant payé', 'Référence paiement', 
+      'N° OP provisoire rattaché', 'Observation'
+    ];
 
     sources.forEach(src => {
       const ws = XLSX.utils.aoa_to_sheet([[...colonnes]]);
@@ -614,60 +623,109 @@ const TabMaintenance = () => {
         setSaving(true);
         let imported = 0, errors = [];
         
-        // On copie localement les bénéficiaires pour pouvoir y ajouter les nouveaux à la volée 
-        // et ne pas recréer le même bénéficiaire 10 fois pendant la boucle.
+        // Copie locale des bénéficiaires pour les créations "à la volée"
         let localBeneficiaires = [...beneficiaires]; 
+        
+        // Stockage temporaire des N° OP importés pour faire les liaisons Provisoire -> Définitif dans le même fichier
+        let importedOpsMap = {}; 
 
         try {
+          // Utilitaire pour lire les dates Excel
+          const fmtDate = (v) => { if (!v) return null; if (typeof v === 'number') { const d = new Date((v - 25569) * 86400000); return d.toISOString().split('T')[0]; } return String(v).trim(); };
+
           for (const [sourceId, { rows, sigle }] of Object.entries(importData)) {
             for (const row of rows) {
               try {
                 const numero = String(row['N° OP'] || '').trim();
                 const benNom = String(row['Bénéficiaire'] || '').trim();
-                const montant = parseFloat(String(row['Montant'] || '0').replace(/\s/g, '').replace(/,/g, '.')) || 0;
                 
+                // Nettoyage des montants
+                const montantStr = String(row['Montant'] || '0').replace(/\s/g, '').replace(/,/g, '.');
+                const montant = parseFloat(montantStr) || 0;
+                
+                const mtPayeStr = String(row['Montant payé'] || '').replace(/\s/g, '').replace(/,/g, '.');
+                const montantPaye = mtPayeStr ? parseFloat(mtPayeStr) : null;
+
                 if (!numero || !benNom || !montant) continue;
 
                 // ==========================================
-                // RECHERCHE OU CRÉATION AUTO DU BÉNÉFICIAIRE
+                // GESTION DU BÉNÉFICIAIRE (CRÉATION AUTO)
                 // ==========================================
                 let benId = null;
                 const benExist = localBeneficiaires.find(b => (b.nom || '').toLowerCase().trim() === benNom.toLowerCase());
                 
                 if (benExist) {
-                  benId = benExist.id; // Le bénéficiaire existe déjà, on prend son ID
+                  benId = benExist.id;
                 } else {
-                  // Le bénéficiaire n'existe pas, on le CREE sur-le-champ dans Firebase
+                  // Le bénéficiaire n'existe pas : on le crée !
                   const newBenRef = await addDoc(collection(db, 'beneficiaires'), { 
                     nom: benNom, 
                     createdAt: new Date().toISOString() 
                   });
                   benId = newBenRef.id;
-                  // On l'ajoute à notre liste locale pour que si le prochain OP de l'Excel a 
-                  // le même bénéficiaire, on le trouve (et on ne le crée pas en double)
+                  // On l'ajoute à la liste locale pour ne pas le recréer à la ligne suivante
                   localBeneficiaires.push({ id: benId, nom: benNom }); 
                 }
 
                 // ==========================================
-                // ENREGISTREMENT DE L'OP AVEC LE BON BEN_ID
+                // GESTION DU N° OP PROVISOIRE RATTACHÉ
                 // ==========================================
-                await addDoc(collection(db, 'ops'), {
+                const opProvNum = String(row['N° OP provisoire rattaché'] || '').trim();
+                let opProvId = null;
+                if (opProvNum) {
+                  // On cherche d'abord dans les OP qu'on vient d'importer (même fichier), 
+                  // sinon on cherche dans la base de données existante.
+                  opProvId = importedOpsMap[opProvNum] || ops.find(o => o.numero === opProvNum)?.id || null;
+                }
+
+                // ==========================================
+                // SAUVEGARDE INTÉGRALE DE L'OP
+                // ==========================================
+                const opData = {
                   numero, 
                   type: String(row['Type'] || 'PROVISOIRE').trim().toUpperCase(),
                   sourceId, 
                   sourceSigle: sigle, 
                   exerciceId: importExercice, 
-                  beneficiaireId: benId, // L'ID sûr à 100% (existant ou tout neuf)
-                  beneficiaireNom: benNom, // Pratique pour certains affichages de secours
+                  beneficiaireId: benId, 
+                  beneficiaireNom: benNom, 
                   objet: String(row['Objet'] || '').trim(),
+                  piecesJustificatives: String(row['Pièces justificatives'] || '').trim(), // Ajout!
                   montant, 
+                  montantPaye, // Ajout!
                   ligneBudgetaire: String(row['Ligne budgétaire'] || '').trim(),
-                  modeReglement: 'VIREMENT', 
+                  modeReglement: String(row['Mode règlement'] || 'VIREMENT').trim().toUpperCase(),
                   statut: String(row['Statut'] || 'CREE').trim().toUpperCase(),
-                  dateCreation: String(row['Date création'] || '').trim() || new Date().toISOString().split('T')[0],
+                  
+                  // Toutes les dates (Ajout!)
+                  dateCreation: fmtDate(row['Date création']) || new Date().toISOString().split('T')[0],
+                  dateTransmissionCF: fmtDate(row['Date transmission CF']),
+                  dateVisaCF: fmtDate(row['Date visa CF']),
+                  dateTransmissionAC: fmtDate(row['Date transmission AC']),
+                  datePaiement: fmtDate(row['Date paiement']),
+                  
+                  // Références et bordereaux (Ajout!)
+                  bordereauCF: String(row['N° Bordereau CF'] || '').trim(),
+                  bordereauAC: String(row['N° Bordereau AC'] || '').trim(),
+                  referencePaiement: String(row['Référence paiement'] || '').trim(),
+                  
+                  // Les liens vers l'OP Provisoire (Ajout!)
+                  opProvisoireId: opProvId,
+                  opProvisoireNumero: opProvNum,
+                  opProvisoireManuel: opProvId ? '' : opProvNum, // Si on a pas l'ID, on garde la trace manuelle
+                  
+                  observation: String(row['Observation'] || '').trim(), // Ajout!
+
+                  importAnterieur: true,
                   createdAt: new Date().toISOString(), 
                   updatedAt: new Date().toISOString()
-                });
+                };
+
+                const docRef = await addDoc(collection(db, 'ops'), opData);
+                
+                // Mémorisation de l'ID généré pour les prochains rattachements
+                importedOpsMap[numero] = docRef.id;
+
                 imported++;
               } catch (rowErr) { errors.push(`Erreur ligne : ${rowErr.message}`); }
             }
