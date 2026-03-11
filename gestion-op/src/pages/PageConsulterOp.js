@@ -536,7 +536,7 @@ const PageConsulterOp = () => {
       '.op-numero{font-size:11px; margin-top:4px}',
       
       // ✅ CORRECTION 3 : overflow: hidden ajouté sur body-content
-      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 95mm; overflow: hidden;}', 
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 95mm; max-height: 120mm; overflow: hidden;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:8px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
