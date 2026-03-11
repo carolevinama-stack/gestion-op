@@ -470,7 +470,7 @@ const PageConsulterOp = () => {
     } catch (e) { showToast('error', 'Erreur', e.message); }
   };
 
-  // ===================== IMPRESSION CORRIGÉE ET FIGÉE =====================
+  // ===================== IMPRESSION CORRIGÉE =====================
   const handlePrint = () => {
     if (!selectedOp) return;
     const ben = selectedBeneficiaire;
@@ -534,7 +534,7 @@ const PageConsulterOp = () => {
       '.exercice-type-line>div:last-child{width:25%; text-align:right}',
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       /* NUMÉRO EN GRAS ET AGRANDI */
-      '.op-numero{font-size:13px; margin-top:2px; font-weight:bold;}',
+      '.op-numero{font-size:14px; margin-top:2px; font-weight:bold;}',
       
       /* BODY FIGÉ : display flex column pour répartir les marges automatiquement */
       '.body-content{padding:10px 12px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column;}', 
@@ -552,25 +552,25 @@ const PageConsulterOp = () => {
       
       /* Blocs fixés (Espace réduit entre Pièces et Montant) */
       '.block-objet { margin-top: 6px; margin-bottom: 8px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
-      '.block-pieces { height: 16mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
+      '.block-pieces { height: 16mm; overflow: hidden; line-height: 1.4; text-align: justify; margin-bottom: 4px; }',
 
       /* Le budget centré verticalement par margin: auto 0 */
-      '.budget-section{ display: flex; flex-direction: column; flex: 1; margin-top: 2px; }',
+      '.budget-section{ display: flex; flex-direction: column; flex: 1; margin: auto 0; justify-content: center; }',
       '.budget-row{display:flex; align-items:center; margin-bottom:4px; font-size:12px}',
       '.budget-row .col-left{width:33.33%}',
       '.budget-row .col-center{width:33.33%}',
       '.budget-row .col-right{width:33.33%}',
       '.value-box{border:1px solid #000; padding:3px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
       
-      '.separator-line { border-top: 1px solid #000; margin: 6px -12px; }',
+      '.separator-line { border-top: 1px solid #000; margin: 8px -12px 8px -12px; }',
       
-      /* Tableau budget avec bordures retirées autour des libellés et margin: auto 0 pour le centrage vertical */
-      '.budget-table{width:100%; border-collapse:collapse; margin-top: auto; margin-bottom: auto;}',
+      /* Tableau budget avec bordures retirées autour des libellés et alignement strict au-dessus de la ligne centre */
+      '.budget-table{width:100%; border-collapse:collapse; margin-top:2px;}',
       '.budget-table td{padding:4px 8px; font-size:11px; border:none;}',
-      '.budget-table .col-letter{width:5%; text-align:center; font-weight:bold;}',
-      '.budget-table .col-label{width:35%;}',
-      '.budget-table .col-amount{width:30%; text-align:right; padding-right:10px; font-weight:bold; border:1px solid #000;}',
-      '.budget-table .col-empty{width:30%; border:none;}',
+      '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold;}',
+      '.budget-table .col-label{width:29.33%;}',
+      '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold; border:1px solid #000;}',
+      '.budget-table .col-empty{width:33.34%; border:none;}',
       
       '.signatures-section{display:flex; border-bottom:1px solid #000; height: 50mm;}',
       '.sig-box{width:33.33%; height: 100%; display:flex; flex-direction:column; border-right:1px solid #000}', 
@@ -610,7 +610,9 @@ const PageConsulterOp = () => {
       /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
       '<div class="block-pieces">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
-      '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
+      /* Section budget centrée verticalement grâce au margin: auto 0 */
+      '<div class="budget-section">',
+      '<div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
       
       '<div class="separator-line"></div>',
@@ -619,7 +621,9 @@ const PageConsulterOp = () => {
       '<tr><td class="col-letter">B</td><td class="col-label">Engagements antérieurs</td><td class="col-amount">' + formatMontant(engAnterieurs) + '</td><td class="col-empty"></td></tr>',
       '<tr><td class="col-letter">C</td><td class="col-label">Engagement actuel</td><td class="col-amount">' + printEngActuel + '</td><td class="col-empty"></td></tr>',
       '<tr><td class="col-letter">D</td><td class="col-label">Engagements cumulés (B + C)</td><td class="col-amount">' + printEngCumules + '</td><td class="col-empty"></td></tr>',
-      '<tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">' + printDisponible + '</td><td class="col-empty"></td></tr></table></div></div>',
+      '<tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">' + printDisponible + '</td><td class="col-empty"></td></tr></table>',
+      '</div></div>', // Fin budget-section et body-content
+
       '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div>',
       '<div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA<br/>AGENT COMPTABLE</div><div class="sig-content"></div></div></div>',
       '<div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div>',
@@ -695,7 +699,7 @@ const PageConsulterOp = () => {
         </div>
       )}
 
-      {/* Sources fixées */}
+      {/* Sources fixées : largeur passée de 1020 à 1060 */}
       <div style={{ flexShrink: 0, marginBottom: 4 }}>
         <div style={{ maxWidth: 1060, margin: '0 auto' }}>
           <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>{Icons.wallet(P.labelMuted)} SOURCE DE FINANCEMENT</label>
@@ -813,9 +817,9 @@ const PageConsulterOp = () => {
                       </span>
                     </div>
 
-                    {/* OP PROVISOIRE inline */}
+                    {/* OP PROVISOIRE inline (modifié pour ne pas wrapper en mode lecture) */}
                     {['ANNULATION', 'DEFINITIF'].includes(isEditMode ? form.type : selectedOp.type) && (
-                      <div style={{ flex: '1 1 auto', minWidth: 220 }}>
+                      <div style={{ flex: isEditMode ? '1 1 auto' : '0 1 auto', minWidth: isEditMode ? 220 : 'auto' }}>
                         <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: (isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#C43E3E' : '#2e7d32' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{Icons.refresh((isEditMode ? form.type : selectedOp.type) === 'ANNULATION' ? '#C43E3E' : '#2e7d32')} OP PROV. {(isEditMode ? form.type : selectedOp.type) === 'DEFINITIF' ? 'À RÉGULARISER' : 'À ANNULER'}</span>
                         </label>
@@ -867,7 +871,7 @@ const PageConsulterOp = () => {
                             </div>
                           </div>
                         ) : (
-                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}`, color: P.textBlack }}>
+                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}`, color: P.textBlack, whiteSpace: 'nowrap' }}>
                             {selectedOp.opProvisoireNumero || '—'}
                           </span>
                         )}
