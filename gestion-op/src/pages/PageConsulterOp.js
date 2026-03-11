@@ -596,7 +596,7 @@ const PageConsulterOp = () => {
       '<div class="field" style="margin-bottom: 4px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
       // ✅ CORRECTION 4 : max-height + overflow:hidden sur le champ OBJET DE LA DEPENSE
-      '<div class="field-large" style="margin-bottom: 40px; margin-top: 4px">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      '<div class="field-large" style="margin-bottom: 30px; margin-top: 4px">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       
       '<div class="field-large" style="margin-bottom: 10px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
