@@ -470,7 +470,7 @@ const PageConsulterOp = () => {
     } catch (e) { showToast('error', 'Erreur', e.message); }
   };
 
-  // ===================== IMPRESSION CORRIGÉE =====================
+  // ===================== IMPRESSION CORRIGÉE ET FIGÉE =====================
   const handlePrint = () => {
     if (!selectedOp) return;
     const ben = selectedBeneficiaire;
@@ -573,7 +573,7 @@ const PageConsulterOp = () => {
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
       '.sig-name{text-align:right; font-weight:bold; text-decoration:underline; font-size:10px}',
       '.abidjan-row{display:flex; border-bottom:1px solid #000}',
-      '.abidjan-cell{width:33.33%; padding:4px 10px; font-size:10px; border-right:1px solid #000}',
+      '.abidjan-cell{width:33.33%; padding:3px 10px; font-size:10px; border-right:1px solid #000}',
       '.abidjan-cell:last-child{border-right:none}',
       
       '.acquit-section{display:flex}',
@@ -596,13 +596,13 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      '<div class="field" style="margin-bottom: 8px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field" style="margin-bottom: 6px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
-      /* OBJET avec une hauteur limite fixe, puis <br/><br/> pour les 2 lignes d'espace */
-      '<div style="margin-top: 8px; height: 35mm; overflow: hidden; line-height: 1.4; text-align: justify;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
-      '<br/><br/>',
-      /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
-      '<div style="height: 25mm; overflow: hidden; line-height: 1.4; text-align: justify;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      /* OBJET: max ~5 lignes (22mm), collé sans marge excessive */
+      '<div style="margin-top: 4px; margin-bottom: 4px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      
+      /* PIECES JUSTIFICATIVES: collé juste en dessous */
+      '<div style="height: 20mm; overflow: hidden; line-height: 1.4; text-align: justify;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
