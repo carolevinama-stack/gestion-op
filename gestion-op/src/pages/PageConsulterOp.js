@@ -508,7 +508,7 @@ const PageConsulterOp = () => {
       '.page-container { width: 200mm; height: 277mm; max-height: 277mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; overflow: hidden; }',
       
       // ✅ CORRECTION 2 : overflow: hidden ajouté sur inner-frame
-      '.inner-frame { border: 1.5px solid #555; flex: 1; display: flex; flex-direction: column; overflow: hidden; }',
+      '.inner-frame { border: 1.5px solid #555; flex: 1; display: flex; flex-direction: column}',
       
       '@media print {',
       '  body { background: #fff !important; }',
