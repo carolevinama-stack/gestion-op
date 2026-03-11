@@ -477,7 +477,7 @@ const PageCircuitCF = () => {
         <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
       </div>
       {filterBordereaux(btList).length===0?<Empty text="Aucun bordereau"/>:
-      <div style={{maxHeight:'60vh',overflowY:'auto'}}>
+      <div style={{maxHeight:'65vh',overflowY:'auto'}}>
         {filterBordereaux(btList).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(bt=>{
           const isExp = expandedBT === bt.id; const isPrep = bt.statut === 'EN_COURS'; const locked = isBordereauLocked(bt);
           const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
@@ -523,7 +523,7 @@ const PageCircuitCF = () => {
     <div style={{marginBottom:12}}><input type="text" placeholder="Rechercher..." value={searchSuivi} onChange={e=>setSearchSuivi(e.target.value)} style={{...styles.input,maxWidth:400,marginBottom:0,borderRadius:10,border:`1px solid ${P.border}`}}/></div>
     {subTab==='DIFFERES' && <div style={crd}>
       {filterOps(differes,searchSuivi).length===0?<Empty text="Aucun différé"/>:<>
-      <div style={{maxHeight:350,overflowY:'auto'}}><table style={styles.table}><thead><tr>
+      <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead><tr>
         <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(differes,searchSuivi).length&&selectedOps.length>0} onChange={()=>toggleAll(filterOps(differes,searchSuivi))}/></th>
         <th style={{...thS,width:110}}>N° OP</th>
         <th style={{...thS,width:70}}>TYPE</th>
@@ -556,7 +556,7 @@ const PageCircuitCF = () => {
     </div>}
     {subTab==='REJETES' && <div style={crd}>
       {filterOps(rejetes,searchSuivi).length===0?<Empty text="Aucun rejeté"/>:
-      <div style={{maxHeight:350,overflowY:'auto'}}><table style={styles.table}><thead><tr>
+      <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead><tr>
         <th style={{...thS,width:110}}>N° OP</th>
         <th style={{...thS,width:70}}>TYPE</th>
         <th style={thS}>BÉNÉFICIAIRE</th>
@@ -611,12 +611,12 @@ const PageCircuitCF = () => {
         <h3 style={{margin:'0 0 16px',color:P.greenDark,fontSize:15}}>Sélectionner les OP pour un bordereau au CF</h3>
         <input type="text" placeholder="Rechercher OP..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsEligiblesCF,searchBT).length===0?<Empty text="Aucun OP éligible"/>:
-        <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
+        <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesCF,searchBT).length&&filterOps(opsEligiblesCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesCF,searchBT))}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
-          <th style={thS}>BÉNÉFICIAIRE</th>
-          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
+          <th style={{...thS,width:250}}>OBJET</th>
           <th style={{...thS,width:70}}>LIGNE</th>
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
           <th style={{...thS,width:80}}>STATUT</th>
@@ -626,8 +626,8 @@ const PageCircuitCF = () => {
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
-              <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
-              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:11}}>{op.ligneBudgetaire||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={styles.td}><Badge bg={op.statut==='DIFFERE_CF'?P.goldLight:P.greenLight} color={op.statut==='DIFFERE_CF'?P.gold:P.greenDark}>{op.statut==='DIFFERE_CF'?'Différé':'En cours'}</Badge></td>
@@ -647,12 +647,12 @@ const PageCircuitCF = () => {
         <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Sélectionnez puis cliquez Retour CF.</p>
         <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsTransmisCF,searchBT).length===0?<Empty text="Aucun OP"/>:
-        <div style={{maxHeight:400,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
+        <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsTransmisCF,searchBT).length&&filterOps(opsTransmisCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsTransmisCF,searchBT))}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
-          <th style={thS}>BÉNÉFICIAIRE</th>
-          <th style={thS}>OBJET</th>
+          <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
+          <th style={{...thS,width:250}}>OBJET</th>
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
           <th style={{...thS,width:100}}>N° BT</th>
           <th style={{...thS,width:90}}>TRANSMIS</th>
@@ -662,8 +662,8 @@ const PageCircuitCF = () => {
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
-              <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
-              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:9}}>{op.bordereauCF||'-'}</td>
               <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateTransmissionCF)}</td>
@@ -737,6 +737,7 @@ const PageCircuitCF = () => {
       )}
       {!isBordereauLocked(modalEditBT) && (
         <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:20}}>
+          {/* BOUTON SUPPRIMER/ANNULER BORDEREAU CORRIGÉ */}
           <button onClick={()=>handleAnnulerBordereau(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.red}33`,borderRadius:10,background:P.redLight,color:P.red,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.trash(P.red,15)} Annuler le bordereau</button>
         </div>
       )}
