@@ -223,6 +223,32 @@ const PageCircuitAC = () => {
     });
   };
 
+  const handleRenvoiCFMulti = async () => {
+    if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
+    checkPwd(() => {
+      ask("Renvoyer au CF", `Annuler le visa CF et renvoyer ${selectedOps.length} OP au Contrôleur Financier ?`, async () => {
+        setSaving(true);
+        try {
+          const batch = writeBatch(db);
+          selectedOps.forEach(opId => {
+            batch.update(doc(db, 'ops', opId), {
+              statut: 'TRANSMIS_CF',
+              dateVisaCF: null,
+              bordereauAC: null,
+              updatedAt: new Date().toISOString()
+            });
+          });
+          await batch.commit();
+          notify("success", "Annulé", "Les OP ont été renvoyés au CF.");
+          setSelectedOps([]);
+        } catch(e) {
+          notify("error", "Erreur", e.message);
+        }
+        setSaving(false);
+      });
+    });
+  };
+
   const handleTransmettre = async (bt) => {
     const d = readDate('trans_' + bt.id);
     if(!d){notify("error","Erreur","Saisissez une date."); return;}
@@ -332,7 +358,6 @@ const PageCircuitAC = () => {
           const batch = writeBatch(db);
           batch.update(doc(db, 'bordereaux', bt.id), { statut: 'SUPPRIME', motifSuppression: motif, deletedAt: new Date().toISOString() });
           
-          // CORRECTION: On nettoie bien tous les OP du bordereau pour les renvoyer au statut précédent
           bt.opsIds.forEach(opId => {
             batch.update(doc(db, 'ops', opId), {
               bordereauAC: null, 
@@ -441,7 +466,6 @@ const PageCircuitAC = () => {
     if(resultatAC === 'REJETE') checkPwd(exec); else exec();
   };
 
-  // CORRECTION: Rétropédalage propre vers TRANSMIS_AC
   const handleAnnulerRetour = async (opId, statut) => {
     checkPwd(() => {
       ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
@@ -695,6 +719,7 @@ const PageCircuitAC = () => {
         
         {selectedOps.length > 0 && <div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16}}>
           <div style={{fontWeight:700,fontSize:14,color:P.text}}>{selectedOps.length} OP sélectionnés — <span style={{fontSize: 16, color: P.orange}}>{formatMontant(totalSelected)} F</span></div>
+          <ActionBtn label="Renvoyer au CF" icon={I.undo('#fff',14)} color={P.gold} onClick={handleRenvoiCFMulti} disabled={saving}/>
           <ActionBtn label="Générer Bordereau" icon={I.plus('#fff',14)} color={P.orange} onClick={handleCreateBordereauMulti} disabled={saving}/>
         </div>}
       </div>}
