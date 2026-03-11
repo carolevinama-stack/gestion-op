@@ -32,7 +32,6 @@ const I={
   fileText:(c=P.textMuted,s=40)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   plusCircle:(c=P.green,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
-  history:(c=P.textSec,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>,
 };
 
 // ============================================================
@@ -122,7 +121,6 @@ const PageCircuitAC = () => {
   const [modalEditBT, setModalEditBT] = useState(null);
   const [editBtNumero, setEditBtNumero] = useState('');
   const [editBtDate, setEditBtDate] = useState('');
-  const [modalSuppressionHist, setModalSuppressionHist] = useState(false);
   const [expandedBT, setExpandedBT] = useState(null);
 
   const dateRefs = useRef({});
@@ -146,7 +144,6 @@ const PageCircuitAC = () => {
   const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC' && op.type !== 'REJET'), [opsForSource]);
   
   const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, exerciceActif]);
-  const bordereauxSupprimes = useMemo(() => bordereaux.filter(bt => bt.statut === 'SUPPRIME' && bt.type === 'AC' && bt.exerciceId === exerciceActif?.id), [bordereaux, exerciceActif]);
 
   // === HELPERS ===
   const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
@@ -170,7 +167,7 @@ const PageCircuitAC = () => {
   const toggleOp = (opId) => setSelectedOps(p => p.includes(opId) ? p.filter(id => id !== opId) : [...p, opId]);
   const toggleAll = (list) => { if(selectedOps.length === list.length && list.length > 0) setSelectedOps([]); else setSelectedOps(list.map(o => o.id)); };
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
-  const closeAllModals = () => { setModalPaiement(null); setModalEditBT(null); setModalSuppressionHist(false); };
+  const closeAllModals = () => { setModalPaiement(null); setModalEditBT(null); };
 
   const genNumeroBT = async (specificSourceId) => {
     const pf = 'BT-AC';
@@ -239,6 +236,9 @@ const PageCircuitAC = () => {
             });
           });
           await batch.commit();
+          
+          setOps(p => p.map(o => selectedOps.includes(o.id) ? { ...o, statut: 'TRANSMIS_CF', dateVisaCF: null, bordereauAC: null } : o));
+          
           notify("success", "Annulé", "Les OP ont été renvoyés au CF.");
           setSelectedOps([]);
         } catch(e) {
@@ -349,14 +349,15 @@ const PageCircuitAC = () => {
     });
   };
 
-  const handleDeleteBordereau = async (bt) => {
-    if(isBordereauLocked(bt)){notify("error", "Bloqué", "Des OP sont verrouillés."); return;}
+  // CORRECTION : Annulation simple et propre du bordereau
+  const handleAnnulerBordereau = async (bt) => {
+    if(isBordereauLocked(bt)){notify("error", "Bloqué", "Des OP de ce bordereau sont verrouillés."); return;}
     checkPwd(() => {
-      ask("Suppression Logique", `Motif de la suppression pour le bordereau ${bt.numero} ?\nLes OP seront libérés.`, async (motif) => {
-        if(!motif) return;
-        try{
+      ask("Annuler le bordereau", `Voulez-vous vraiment annuler le bordereau ${bt.numero} ?\nLes OP retourneront dans la file d'attente (Nouveau BT).`, async () => {
+        setSaving(true);
+        try {
           const batch = writeBatch(db);
-          batch.update(doc(db, 'bordereaux', bt.id), { statut: 'SUPPRIME', motifSuppression: motif, deletedAt: new Date().toISOString() });
+          batch.delete(doc(db, 'bordereaux', bt.id));
           
           bt.opsIds.forEach(opId => {
             batch.update(doc(db, 'ops', opId), {
@@ -368,10 +369,18 @@ const PageCircuitAC = () => {
           });
           
           await batch.commit();
-          notify("success", "Supprimé", "Bordereau archivé dans l'historique.");
-          if(expandedBT === bt.id) setExpandedBT(null); setModalEditBT(null);
-        }catch(e){notify("error", "Erreur", e.message);}
-      }, false, true, "Motif obligatoire");
+          
+          setBordereaux(p => p.filter(b => b.id !== bt.id));
+          setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? { ...o, bordereauAC: null, statut: 'VISE_CF', dateTransmissionAC: null } : o));
+          
+          notify("success", "Annulé", "Le bordereau a été supprimé et les OP libérés.");
+          if(expandedBT === bt.id) setExpandedBT(null); 
+          setModalEditBT(null);
+        } catch(e) {
+          notify("error", "Erreur", e.message);
+        }
+        setSaving(false);
+      });
     });
   };
 
@@ -661,9 +670,6 @@ const PageCircuitAC = () => {
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
       <h1 style={{fontSize:22,fontWeight:700,color:P.orange,margin:0}}>Agent Comptable (AC)</h1>
-      <button onClick={() => setModalSuppressionHist(true)} style={{padding:'8px 16px',background:P.card,border:`1px solid ${P.border}`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:12,fontWeight:600,color:P.textSec,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}>
-        {I.history(P.textSec,14)} Historique Suppressions AC
-      </button>
     </div>
     
     <div style={{display:'flex',gap:8,padding:'16px 0',flexWrap:'wrap'}}>
@@ -774,7 +780,7 @@ const PageCircuitAC = () => {
             <div style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:P.orange}}>{op.numero}</div>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:2}}>
                <div style={{fontSize:15,fontWeight:600}}>{getBen(op)}</div>
-               {/* BOUTON DE RETROPEDALAGE AC -> CF */}
+               {/* BOUTON DE RETROPEDALAGE AC -> CF DANS LE MODAL DE PAIEMENT */}
                {op.statut === 'TRANSMIS_AC' && paiem.length === 0 && (
                   <IBtn icon={I.undo(P.gold,16)} title="Annuler la transmission AC" bg={`${P.gold}15`} disabled={saving} onClick={() => {
                     checkPwd(async () => {
@@ -880,7 +886,8 @@ const PageCircuitAC = () => {
       )}
       {!isBordereauLocked(modalEditBT) && (
         <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:20}}>
-          <button onClick={()=>handleDeleteBordereau(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.red}33`,borderRadius:10,background:P.redLight,color:P.red,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.trash(P.red,15)} Supprimer logiquement (Historique)</button>
+          {/* BOUTON SUPPRIMER/ANNULER BORDEREAU CORRIGÉ */}
+          <button onClick={()=>handleAnnulerBordereau(modalEditBT)} style={{width:'100%',padding:12,border:`1px solid ${P.red}33`,borderRadius:10,background:P.redLight,color:P.red,fontWeight:700,fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>{I.trash(P.red,15)} Annuler le bordereau</button>
         </div>
       )}
       {isBordereauLocked(modalEditBT) && (
@@ -893,33 +900,6 @@ const PageCircuitAC = () => {
         </div>
       )}
     </Modal>}
-
-    {modalSuppressionHist && (
-      <Modal title="Historique des Suppressions AC" titleColor={P.textSec} onClose={()=>setModalSuppressionHist(false)} width={600}>
-         {bordereauxSupprimes.length === 0 ? <Empty text="Aucun bordereau AC supprimé" /> : (
-            <table style={{...styles.table, fontSize: 11}}>
-               <thead>
-                  <tr>
-                     <th style={thS}>Numéro</th>
-                     <th style={thS}>Source</th>
-                     <th style={thS}>Date Suppr.</th>
-                     <th style={thS}>Motif Audit</th>
-                  </tr>
-               </thead>
-               <tbody>
-                  {bordereauxSupprimes.sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||'')).map(b => (
-                     <tr key={b.id} style={{background: P.bg}}>
-                        <td style={{...styles.td, fontFamily: 'monospace', fontWeight: 700}}>{b.numero}</td>
-                        <td style={styles.td}>{getSigleSrc(b.sourceId)}</td>
-                        <td style={styles.td}>{formatDate(b.deletedAt)}</td>
-                        <td style={{...styles.td, color: P.red, fontWeight: 600}}>{b.motifSuppression || 'Non renseigné'}</td>
-                     </tr>
-                  ))}
-               </tbody>
-            </table>
-         )}
-      </Modal>
-    )}
   </div>;
 };
 
