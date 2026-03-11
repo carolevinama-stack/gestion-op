@@ -234,7 +234,7 @@ const PageConsulterOp = () => {
     setShowDropdown(false);
     if (op.sourceId) setActiveSource(op.sourceId);
     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-    const ribs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+    const ribs = ben?.ribs || (ben?.rib ? [{ banque: '', numero: ben.rib }] : []);
     const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
     setForm({
       type: op.type || 'PROVISOIRE', beneficiaireId: op.beneficiaireId || '',
@@ -363,7 +363,7 @@ const PageConsulterOp = () => {
     try {
       if (!selectedOp?.id) return;
       const ben = beneficiaires.find(b => b.id === form.beneficiaireId);
-      const benRibs = ben?.ribs || (ben?.rib ? [{ numero: ben.rib, banque: '' }] : []);
+      const benRibs = ben?.ribs || (ben?.rib ? [{ banque: '', numero: ben.rib }] : []);
       const ribSel = benRibs[form.ribIndex || 0];
       const newMontant = parseFloat(form.montant) || selectedOp.montant;
       if (newMontant !== selectedOp.montant) {
@@ -518,14 +518,14 @@ const PageConsulterOp = () => {
       
       '.header{display:flex; border-bottom:1px solid #000; padding: 5px 0;}',
       '.header-logo{width:22%; padding:4px; display:flex; align-items:center; justify-content:center}', 
-      '.header-logo img{max-height:65px; max-width:100%}', 
+      '.header-logo img{max-height:85px; max-width:100%}', 
       '.header-center{width:56%; padding:4px; text-align:center; line-height:1.4}', 
       '.header-center .republic{font-weight:bold; font-size:13px}',
       '.header-center .sep{font-size:10px; letter-spacing:1px; color:#333; margin:2px 0}',
       '.header-center .ministry{font-style:italic; font-size:12px}',
       '.header-center .project{font-weight:bold; font-size:12px}',
       '.header-right{width:22%; padding:4px; font-size:11px; text-align:right}',
-      '.header-right img{max-height:60px; max-width:80px; margin-bottom:5px}',
+      '.header-right img{max-height:75px; max-width:90px; margin-bottom:5px}',
       
       '.op-title-section{text-align:center; padding:6px 10px; border-bottom:1px solid #000}', 
       '.exercice-type-line{display:flex; justify-content:space-between; align-items:center}',
@@ -533,13 +533,15 @@ const PageConsulterOp = () => {
       '.exercice-type-line>div:nth-child(2){width:50%; text-align:center}',
       '.exercice-type-line>div:last-child{width:25%; text-align:right}',
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
-      '.op-numero{font-size:12px; margin-top:2px; font-weight:bold;}',
+      /* NUMÉRO EN GRAS ET AGRANDI */
+      '.op-numero{font-size:13px; margin-top:2px; font-weight:bold;}',
       
       /* BODY FIGÉ : display flex column pour répartir les marges automatiquement */
       '.body-content{padding:10px 12px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
+      /* ESPACEMENTS AUGMENTÉS */
       '.field{margin-bottom:8px}', 
-      '.field-title{text-decoration:underline; font-size:11px; margin-bottom:4px}',
+      '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
       '.field-value{font-weight:bold; font-size:12px}',
       
       '.checkbox-line{display:flex; align-items:center; margin-bottom:12px; font-size:12px}', 
@@ -548,27 +550,27 @@ const PageConsulterOp = () => {
       '.check-item{display:flex; align-items:center; gap:6px}',
       '.box{width:16px; height:14px; border:1px solid #000; display:inline-flex; align-items:center; justify-content:center; font-size:10px}',
       
-      /* Blocs fixés */
+      /* Blocs fixés (Espace réduit entre Pièces et Montant) */
       '.block-objet { margin-top: 6px; margin-bottom: 8px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
-      '.block-pieces { height: 18mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
+      '.block-pieces { height: 16mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
 
       /* Le budget centré verticalement par margin: auto 0 */
-      '.budget-section{margin: auto 0;}',
+      '.budget-section{ display: flex; flex-direction: column; flex: 1; margin-top: 2px; }',
       '.budget-row{display:flex; align-items:center; margin-bottom:4px; font-size:12px}',
       '.budget-row .col-left{width:33.33%}',
       '.budget-row .col-center{width:33.33%}',
       '.budget-row .col-right{width:33.33%}',
       '.value-box{border:1px solid #000; padding:3px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
       
-      '.separator-line { border-top: 1px solid #000; margin: 8px -12px 6px -12px; }',
+      '.separator-line { border-top: 1px solid #000; margin: 6px -12px; }',
       
-      /* Tableau budget avec bordures retirées autour des libellés */
-      '.budget-table{width:100%; border-collapse:collapse; margin-top:4px}',
-      '.budget-table td{padding:3px 8px; font-size:11px; border:none;}',
-      '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold;}',
-      '.budget-table .col-label{width:29.33%;}',
-      '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold; border:1px solid #000;}',
-      '.budget-table .col-empty{width:33.33%; border:none;}',
+      /* Tableau budget avec bordures retirées autour des libellés et margin: auto 0 pour le centrage vertical */
+      '.budget-table{width:100%; border-collapse:collapse; margin-top: auto; margin-bottom: auto;}',
+      '.budget-table td{padding:4px 8px; font-size:11px; border:none;}',
+      '.budget-table .col-letter{width:5%; text-align:center; font-weight:bold;}',
+      '.budget-table .col-label{width:35%;}',
+      '.budget-table .col-amount{width:30%; text-align:right; padding-right:10px; font-weight:bold; border:1px solid #000;}',
+      '.budget-table .col-empty{width:30%; border:none;}',
       
       '.signatures-section{display:flex; border-bottom:1px solid #000; height: 50mm;}',
       '.sig-box{width:33.33%; height: 100%; display:flex; flex-direction:column; border-right:1px solid #000}', 
@@ -600,10 +602,12 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      '<div class="field" style="margin-bottom: 12px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field" style="margin-bottom: 16px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
+      /* OBJET avec une hauteur limite fixe, et un espace naturel */
       '<div class="block-objet">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       
+      /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
       '<div class="block-pieces">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
@@ -693,7 +697,7 @@ const PageConsulterOp = () => {
 
       {/* Sources fixées */}
       <div style={{ flexShrink: 0, marginBottom: 4 }}>
-        <div style={{ maxWidth: 1020, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1060, margin: '0 auto' }}>
           <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>{Icons.wallet(P.labelMuted)} SOURCE DE FINANCEMENT</label>
           <div style={{ display: 'flex', gap: 12 }}>
             {sources.map(s => (
@@ -706,12 +710,12 @@ const PageConsulterOp = () => {
       {/* Zone scrollable */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {!exerciceActif ? (
-          <div style={{ maxWidth: 1020, margin: '0 auto', background: P.bgCard, borderRadius: 16, textAlign: 'center', padding: 40 }}>
+          <div style={{ maxWidth: 1060, margin: '0 auto', background: P.bgCard, borderRadius: 16, textAlign: 'center', padding: 40 }}>
             <div style={{ marginBottom: 16 }}>{Icons.warning(P.orange)}</div>
             <p style={{ color: P.orange, fontWeight: 600 }}>Aucun exercice actif</p>
           </div>
         ) : (
-          <div style={{ maxWidth: 1020, margin: '0 auto', background: P.bgCard, borderRadius: 16, boxShadow: '0 2px 12px rgba(34,51,0,0.04)', border: '1px solid rgba(34,51,0,0.04)', borderTop: `3px solid ${accent}` }}>
+          <div style={{ maxWidth: 1060, margin: '0 auto', background: P.bgCard, borderRadius: 16, boxShadow: '0 2px 12px rgba(34,51,0,0.04)', border: '1px solid rgba(34,51,0,0.04)', borderTop: `3px solid ${accent}` }}>
             <div style={{ padding: '24px 28px 20px' }}>
 
               {/* LIGNE 1 : RECHERCHE + N°OP + TYPE + DATE + CRÉÉ PAR + STATUT */}
@@ -921,15 +925,19 @@ const PageConsulterOp = () => {
                           </div>
                         </div>
                       </div>
-                      {/* RIB */}
+                      {/* RIB CORRIGÉ */}
                       {form.modeReglement === 'VIREMENT' && (
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, marginTop: 10 }}>
                           <div style={{ gridColumn: '1 / 3' }}>
                             <label style={labelStyle}>RIB</label>
-                            {isEditMode && beneficiaireRibs.length > 0 ? (
-                              <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: 'auto' }}>
-                                {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
-                              </select>
+                            {isEditMode ? (
+                              beneficiaireRibs.length > 0 ? (
+                                <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...editFieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: '100%' }}>
+                                  {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
+                                </select>
+                              ) : (
+                                <div style={{ ...fieldStyle, background: P.bgSection, color: P.labelMuted, fontSize: 12 }}>Aucun RIB associé au bénéficiaire</div>
+                              )
                             ) : (
                               <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
                                 {selectedRib ? (
