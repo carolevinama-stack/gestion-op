@@ -505,7 +505,7 @@ const PageConsulterOp = () => {
       '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
-      /* GABARIT FIXE (aucun flex dynamique qui pousse le contenu vers le bas) */
+      /* GABARIT FIXE */
       '.page-container { width: 200mm; height: 287mm; margin: 20px auto; background: #fff; padding: 2mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; overflow: hidden; }',
       
       '.inner-frame { border: 1.5px solid #000; flex: 1; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }',
@@ -535,8 +535,8 @@ const PageConsulterOp = () => {
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
       '.op-numero{font-size:11px; margin-top:2px}',
       
-      /* BODY FIGÉ : position relative pour y accrocher le budget, height fixée */
-      '.body-content{padding:10px 12px; border-bottom:1px solid #000; flex: 1; display: block; position: relative; overflow: hidden;}', 
+      /* BODY FIGÉ : display flex column pour que les éléments se suivent naturellement */
+      '.body-content{padding:10px 12px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
       '.field{margin-bottom:4px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:4px}',
@@ -548,8 +548,12 @@ const PageConsulterOp = () => {
       '.check-item{display:flex; align-items:center; gap:6px}',
       '.box{width:16px; height:14px; border:1px solid #000; display:inline-flex; align-items:center; justify-content:center; font-size:10px}',
       
-      /* LE BUDGET EST ANCRÉ AU FOND. Il ne bougera JAMAIS. */
-      '.budget-section{position: absolute; bottom: 10px; left: 12px; right: 12px;}',
+      /* Blocs fixés sans pousser le budget */
+      '.block-objet { margin-top: 8px; margin-bottom: 12px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
+      '.block-pieces { height: 20mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
+
+      /* Le budget vient juste en dessous avec 15px de marge */
+      '.budget-section{margin-top: 15px;}',
       '.budget-row{display:flex; align-items:center; margin-bottom:4px; font-size:12px}',
       '.budget-row .col-left{width:33.33%}',
       '.budget-row .col-center{width:33.33%}',
@@ -565,21 +569,20 @@ const PageConsulterOp = () => {
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
-      '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      /* Restauré à 180px comme à l'origine */
-      '.sig-box{width:33.33%; min-height:180px; display:flex; flex-direction:column; border-right:1px solid #000}', 
+      '.signatures-section{display:flex; border-bottom:1px solid #000; height: 50mm;}',
+      '.sig-box{width:33.33%; height: 100%; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
       '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:4px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
       '.sig-name{text-align:right; font-weight:bold; text-decoration:underline; font-size:10px}',
-      '.abidjan-row{display:flex; border-bottom:1px solid #000}',
-      '.abidjan-cell{width:33.33%; padding:3px 10px; font-size:10px; border-right:1px solid #000}',
+      
+      '.abidjan-row{display:flex; border-bottom:1px solid #000; height: 7mm;}',
+      '.abidjan-cell{width:33.33%; padding:2px 10px; font-size:10px; border-right:1px solid #000}',
       '.abidjan-cell:last-child{border-right:none}',
       
-      '.acquit-section{display:flex}',
+      '.acquit-section{display:flex; height: 30mm;}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      /* Restauré à 110px comme à l'origine */
-      '.acquit-box{width:33.33%; min-height:110px; display:flex; flex-direction:column}', 
+      '.acquit-box{width:33.33%; height: 100%; display:flex; flex-direction:column}', 
       '.acquit-header{text-align:center; font-size:10px; padding:4px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:4px 10px}',
@@ -596,13 +599,13 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      '<div class="field" style="margin-bottom: 6px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field" style="margin-bottom: 8px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
-      /* OBJET: max ~5 lignes (22mm), collé sans marge excessive */
-      '<div style="margin-top: 4px; margin-bottom: 4px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      /* OBJET avec une hauteur limite fixe, et un margin-bottom qui simule les 2 lignes d'espace (12px) */
+      '<div class="block-objet">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       
-      /* PIECES JUSTIFICATIVES: collé juste en dessous */
-      '<div style="height: 20mm; overflow: hidden; line-height: 1.4; text-align: justify;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
+      '<div class="block-pieces">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
