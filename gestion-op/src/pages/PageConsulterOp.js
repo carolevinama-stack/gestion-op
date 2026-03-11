@@ -533,27 +533,27 @@ const PageConsulterOp = () => {
       '.exercice-type-line>div:nth-child(2){width:50%; text-align:center}',
       '.exercice-type-line>div:last-child{width:25%; text-align:right}',
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
-      '.op-numero{font-size:11px; margin-top:2px}',
+      '.op-numero{font-size:12px; margin-top:2px; font-weight:bold;}',
       
-      /* BODY FIGÉ : display flex column pour que les éléments se suivent naturellement */
+      /* BODY FIGÉ : display flex column pour répartir les marges automatiquement */
       '.body-content{padding:10px 12px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
-      '.field{margin-bottom:4px}', 
+      '.field{margin-bottom:8px}', 
       '.field-title{text-decoration:underline; font-size:11px; margin-bottom:4px}',
       '.field-value{font-weight:bold; font-size:12px}',
       
-      '.checkbox-line{display:flex; align-items:center; margin-bottom:8px; font-size:12px}', 
+      '.checkbox-line{display:flex; align-items:center; margin-bottom:12px; font-size:12px}', 
       '.checkbox-label{min-width:240px}',
       '.checkbox-options{display:flex; gap:40px}',
       '.check-item{display:flex; align-items:center; gap:6px}',
       '.box{width:16px; height:14px; border:1px solid #000; display:inline-flex; align-items:center; justify-content:center; font-size:10px}',
       
-      /* Blocs fixés sans pousser le budget */
-      '.block-objet { margin-top: 8px; margin-bottom: 12px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
-      '.block-pieces { height: 20mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
+      /* Blocs fixés */
+      '.block-objet { margin-top: 6px; margin-bottom: 8px; height: 22mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
+      '.block-pieces { height: 18mm; overflow: hidden; line-height: 1.4; text-align: justify; }',
 
-      /* Le budget vient juste en dessous avec 15px de marge */
-      '.budget-section{margin-top: 15px;}',
+      /* Le budget centré verticalement par margin: auto 0 */
+      '.budget-section{margin: auto 0;}',
       '.budget-row{display:flex; align-items:center; margin-bottom:4px; font-size:12px}',
       '.budget-row .col-left{width:33.33%}',
       '.budget-row .col-center{width:33.33%}',
@@ -562,12 +562,13 @@ const PageConsulterOp = () => {
       
       '.separator-line { border-top: 1px solid #000; margin: 8px -12px 6px -12px; }',
       
+      /* Tableau budget avec bordures retirées autour des libellés */
       '.budget-table{width:100%; border-collapse:collapse; margin-top:4px}',
-      '.budget-table td{border:1px solid #000; padding:3px 8px; font-size:11px}',
-      '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold}',
-      '.budget-table .col-label{width:29.33%}',
-      '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
-      '.budget-table .col-empty{width:33.33%; border:none}',
+      '.budget-table td{padding:3px 8px; font-size:11px; border:none;}',
+      '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold;}',
+      '.budget-table .col-label{width:29.33%;}',
+      '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold; border:1px solid #000;}',
+      '.budget-table .col-empty{width:33.33%; border:none;}',
       
       '.signatures-section{display:flex; border-bottom:1px solid #000; height: 50mm;}',
       '.sig-box{width:33.33%; height: 100%; display:flex; flex-direction:column; border-right:1px solid #000}', 
@@ -599,12 +600,10 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      '<div class="field" style="margin-bottom: 8px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field" style="margin-bottom: 12px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
-      /* OBJET avec une hauteur limite fixe, et un margin-bottom qui simule les 2 lignes d'espace (12px) */
       '<div class="block-objet">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       
-      /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
       '<div class="block-pieces">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
@@ -923,18 +922,24 @@ const PageConsulterOp = () => {
                         </div>
                       </div>
                       {/* RIB */}
-                      {form.modeReglement === 'VIREMENT' && selectedRib && (
+                      {form.modeReglement === 'VIREMENT' && (
                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 3fr', gap: 16, marginTop: 10 }}>
                           <div style={{ gridColumn: '1 / 3' }}>
                             <label style={labelStyle}>RIB</label>
-                            {isEditMode && beneficiaireRibs.length > 1 ? (
+                            {isEditMode && beneficiaireRibs.length > 0 ? (
                               <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: 'auto' }}>
                                 {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
                               </select>
                             ) : (
                               <div style={{ ...fieldStyle, display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'monospace' }}>
-                                {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
-                                <span style={{ fontSize: 12 }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                {selectedRib ? (
+                                  <>
+                                    {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
+                                    <span style={{ fontSize: 12 }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                  </>
+                                ) : (
+                                  <span style={{ fontSize: 12, color: P.labelMuted }}>Aucun RIB disponible</span>
+                                )}
                               </div>
                             )}
                           </div>
