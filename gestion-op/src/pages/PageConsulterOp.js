@@ -597,7 +597,7 @@ const PageConsulterOp = () => {
       
       // ✅ CORRECTION 4 : max-height + overflow:hidden sur le champ OBJET DE LA DEPENSE
            
-       '<div class="field-large" style="margin-bottom: 10px; margin-top: 4px; max-height: 35mm; overflow: hidden;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+       '<div class="field-large" style="margin-bottom: 10px; margin-top: 4px; max-height: 25mm; overflow: hidden;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
       
       '<div class="field-large" style="margin-bottom: 10px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
