@@ -33,6 +33,7 @@ const I={
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   plusCircle:(c=P.green,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   history:(c=P.textSec,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>,
+  refresh:(c=P.textSec,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
 };
 
 // ============================================================
@@ -188,6 +189,34 @@ const PageCircuitAC = () => {
   // ================================================================
   // ACTIONS
   // ================================================================
+
+  // SCRIPT DE RÉPARATION DES OP ORPHELINS (Adapté pour AC)
+  const handleFixOrphanOps = async () => {
+    ask("Réparation", "Actualiser la file d'attente et libérer les OP bloqués ?", async () => {
+      setSaving(true);
+      try {
+        const batch = writeBatch(db);
+        let fixedCount = 0;
+        // On cherche les OP qui ont un bordereauAC renseigné mais qui n'apparaissent pas dans les bordereaux actifs
+        ops.forEach(op => {
+          if (op.bordereauAC && !bordereaux.find(b => b.numero === op.bordereauAC && b.statut !== 'SUPPRIME')) {
+            batch.update(doc(db, 'ops', op.id), { bordereauAC: null, updatedAt: new Date().toISOString() });
+            fixedCount++;
+          }
+        });
+        if (fixedCount > 0) {
+          await batch.commit();
+          notify("success", "Actualisé", `${fixedCount} OP ont été synchronisés.`);
+        } else {
+          notify("success", "Infos", "La file d'attente est déjà à jour.");
+        }
+      } catch(e) {
+        notify("error", "Erreur", e.message);
+      }
+      setSaving(false);
+    });
+  };
+
   const handleCreateBordereauMulti = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
     
@@ -550,10 +579,10 @@ const PageCircuitAC = () => {
   const handlePrintBordereau = (bt) => {
     const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
     const nbEx = projet?.nbExemplairesAC || 2;
-    // MODIF IMPRESSION: Réduction de Bénéficiaires à 110px pour agrandir Objet
-    const rows = btOps.map((op,i) => `<tr><td style="text-align:center">${i+1}</td><td style="width:110px">${getBen(op)}</td><td>${op.objet||'-'}</td><td style="text-align:center;font-family:monospace;font-size:9px;font-weight:bold">${op.numero}</td><td style="text-align:center">${nbEx}</td><td style="text-align:right;font-family:monospace;font-weight:bold">${Number(op.montant||0).toLocaleString('fr-FR')}</td></tr>`).join('');
+    // MODIF: Rétablissement strict de la colonne Bénéficiaire à 150px
+    const rows = btOps.map((op,i) => `<tr><td style="text-align:center">${i+1}</td><td style="width:150px">${getBen(op)}</td><td>${op.objet||'-'}</td><td style="text-align:center;font-family:monospace;font-size:9px;font-weight:bold">${op.numero}</td><td style="text-align:center">${nbEx}</td><td style="text-align:right;font-family:monospace;font-weight:bold">${Number(op.montant||0).toLocaleString('fr-FR')}</td></tr>`).join('');
     const destM = "Monsieur l'Agent Comptable";
-    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${bt.numero}</title><style>@page{size:A4 landscape;margin:10mm}@media print{.tb{display:none!important}body{background:#fff!important}.pg{box-shadow:none!important;margin:0!important}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Century Gothic','Trebuchet MS',sans-serif;font-size:11px;background:#e0e0e0}.tb{background:#1B6B2E;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}.tb button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#D4722A;color:white}.tb span{color:rgba(255,255,255,.7);margin-left:auto;font-size:12px}.pg{width:297mm;min-height:210mm;margin:20px auto;background:white;padding:12mm 15mm;box-shadow:0 2px 10px rgba(0,0,0,.3)}.hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}.hd-left{width:15%}.hd-left img{max-width:100px}.hd-center{width:55%;text-align:center;font-size:10px;line-height:1.5}.hd-center .sep{width:180px;border:none;border-top:1px solid #333;margin:3px auto}.hd-right{width:15%;text-align:center}.hd-right img{max-width:75px;margin:0 auto;display:block}.hd-right .dev{font-size:9px;font-style:italic;margin-top:2px}.fin{text-align:center;font-style:italic;font-size:10px;color:#1B6B2E;margin:8px 0 15px}.dw{display:flex;justify-content:flex-end;margin-bottom:20px}.db{text-align:left;font-size:11px;line-height:1.8}.bt-title{text-align:center;font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th{border:1px solid #000;padding:8px 6px;font-size:10px;font-weight:bold;text-align:center;background:#f5f5f5}td{border:1px solid #000;padding:8px 6px;font-size:10px}.tot td{font-weight:bold;font-size:11px}.arr{font-size:11px;margin:15px 0}.sw{display:flex;justify-content:flex-end;margin-top:20px;margin-right:40px}.sb{text-align:center;width:250px}.sb .tit{font-weight:bold;font-size:11px}.sb .nom{font-weight:bold;font-size:11px;text-decoration:underline;margin-top:70px}</style></head><body><div class="tb"><button onclick="window.print()">Imprimer</button><span>Aperçu – ${bt.numero}</span></div><div class="pg"><div class="hd"><div class="hd-left"><img src="${LOGO_PIF2}" alt="PIF2"/></div><div class="hd-center"><div style="font-weight:bold;font-size:11px;text-transform:uppercase">REPUBLIQUE DE CÔTE D'IVOIRE</div><hr class="sep"/><div style="font-weight:bold;font-style:italic">${projet?.ministere||''}</div><hr class="sep"/><div style="font-weight:bold;font-size:11px">${projet?.nomProjet||''}</div><hr class="sep"/></div><div class="hd-right"><img src="${ARMOIRIE}" alt="Armoirie"/><div class="dev">Union – Discipline – Travail</div></div></div><div class="fin">Financement Groupe Banque Mondiale : Projet N° TF088829-CI, Crédit IDA N° 7187-CI</div><div class="dw"><div class="db">Abidjan le,<br/>A ${destM}<br/>auprès du ${projet?.sigle||'PIF 2'}<br/><strong>ABIDJAN</strong></div></div><div class="bt-title">BORDEREAU DE TRANSMISSION D'ORDRE DE PAIEMENT DIRECT N° ${bt.numero}</div><table><thead><tr><th style="width:70px">N° D'ORDRE</th><th style="width:110px">BENEFICIAIRES</th><th>OBJET</th><th style="width:160px">N°DE L'OP</th><th style="width:120px">NOMBRE<br/>D'EXEMPLAIRES DE<br/>L'OP</th><th style="width:120px">MONTANT NET<br/>F CFA</th></tr></thead><tbody>${rows}<tr class="tot"><td colspan="5" style="text-align:center;font-weight:bold">MONTANT TOTAL</td><td style="text-align:right;font-family:monospace;font-weight:bold">${Number(bt.totalMontant||0).toLocaleString('fr-FR')}</td></tr></tbody></table><div class="arr">Arrêté le présent bordereau à la somme de: <strong><em>${montantEnLettres(Number(bt.totalMontant||0))} Francs CFA</em></strong></div>${bt.observations?'<div style="font-size:11px;margin-bottom:20px"><strong style="text-decoration:underline">OBSERVATIONS</strong>: '+bt.observations+'</div>':''}<div class="sw"><div class="sb"><div class="tit">${projet?.titreCoordonnateur||'LA COORDONNATRICE DU PIF 2'}</div><div class="nom">${projet?.coordonnateur||''}</div></div></div></div></body></html>`;
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${bt.numero}</title><style>@page{size:A4 landscape;margin:10mm}@media print{.tb{display:none!important}body{background:#fff!important}.pg{box-shadow:none!important;margin:0!important}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Century Gothic','Trebuchet MS',sans-serif;font-size:11px;background:#e0e0e0}.tb{background:#1B6B2E;padding:12px 20px;display:flex;gap:12px;align-items:center;position:sticky;top:0;z-index:100}.tb button{padding:8px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:#D4722A;color:white}.tb span{color:rgba(255,255,255,.7);margin-left:auto;font-size:12px}.pg{width:297mm;min-height:210mm;margin:20px auto;background:white;padding:12mm 15mm;box-shadow:0 2px 10px rgba(0,0,0,.3)}.hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}.hd-left{width:15%}.hd-left img{max-width:100px}.hd-center{width:55%;text-align:center;font-size:10px;line-height:1.5}.hd-center .sep{width:180px;border:none;border-top:1px solid #333;margin:3px auto}.hd-right{width:15%;text-align:center}.hd-right img{max-width:75px;margin:0 auto;display:block}.hd-right .dev{font-size:9px;font-style:italic;margin-top:2px}.fin{text-align:center;font-style:italic;font-size:10px;color:#1B6B2E;margin:8px 0 15px}.dw{display:flex;justify-content:flex-end;margin-bottom:20px}.db{text-align:left;font-size:11px;line-height:1.8}.bt-title{text-align:center;font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th{border:1px solid #000;padding:8px 6px;font-size:10px;font-weight:bold;text-align:center;background:#f5f5f5}td{border:1px solid #000;padding:8px 6px;font-size:10px}.tot td{font-weight:bold;font-size:11px}.arr{font-size:11px;margin:15px 0}.sw{display:flex;justify-content:flex-end;margin-top:20px;margin-right:40px}.sb{text-align:center;width:250px}.sb .tit{font-weight:bold;font-size:11px}.sb .nom{font-weight:bold;font-size:11px;text-decoration:underline;margin-top:70px}</style></head><body><div class="tb"><button onclick="window.print()">Imprimer</button><span>Aperçu – ${bt.numero}</span></div><div class="pg"><div class="hd"><div class="hd-left"><img src="${LOGO_PIF2}" alt="PIF2"/></div><div class="hd-center"><div style="font-weight:bold;font-size:11px;text-transform:uppercase">REPUBLIQUE DE CÔTE D'IVOIRE</div><hr class="sep"/><div style="font-weight:bold;font-style:italic">${projet?.ministere||''}</div><hr class="sep"/><div style="font-weight:bold;font-size:11px">${projet?.nomProjet||''}</div><hr class="sep"/></div><div class="hd-right"><img src="${ARMOIRIE}" alt="Armoirie"/><div class="dev">Union – Discipline – Travail</div></div></div><div class="fin">Financement Groupe Banque Mondiale : Projet N° TF088829-CI, Crédit IDA N° 7187-CI</div><div class="dw"><div class="db">Abidjan le,<br/>A ${destM}<br/>auprès du ${projet?.sigle||'PIF 2'}<br/><strong>ABIDJAN</strong></div></div><div class="bt-title">BORDEREAU DE TRANSMISSION D'ORDRE DE PAIEMENT DIRECT N° ${bt.numero}</div><table><thead><tr><th style="width:70px">N° D'ORDRE</th><th style="width:150px">BENEFICIAIRES</th><th>OBJET</th><th style="width:160px">N°DE L'OP</th><th style="width:120px">NOMBRE<br/>D'EXEMPLAIRES DE<br/>L'OP</th><th style="width:120px">MONTANT NET<br/>F CFA</th></tr></thead><tbody>${rows}<tr class="tot"><td colspan="5" style="text-align:center;font-weight:bold">MONTANT TOTAL</td><td style="text-align:right;font-family:monospace;font-weight:bold">${Number(bt.totalMontant||0).toLocaleString('fr-FR')}</td></tr></tbody></table><div class="arr">Arrêté le présent bordereau à la somme de: <strong><em>${montantEnLettres(Number(bt.totalMontant||0))} Francs CFA</em></strong></div>${bt.observations?'<div style="font-size:11px;margin-bottom:20px"><strong style="text-decoration:underline">OBSERVATIONS</strong>: '+bt.observations+'</div>':''}<div class="sw"><div class="sb"><div class="tit">${projet?.titreCoordonnateur||'LA COORDONNATRICE DU PIF 2'}</div><div class="nom">${projet?.coordonnateur||''}</div></div></div></div></body></html>`;
     const w = window.open('','_blank','width=1100,height=700'); w.document.write(html); w.document.close();
   };
 
@@ -595,7 +624,6 @@ const PageCircuitAC = () => {
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
                 <ActionBtn label="Transmettre" icon={I.check('#fff',14)} color={P.greenDark} onClick={()=>handleTransmettre(bt)} disabled={saving}/>
               </div>}
-              {/* MODIF LARGUEUR: Bénéficiaire à 130px, Objet plus grand avec infobulles */}
               <table style={{...styles.table,fontSize:11}}><thead><tr><th style={{...thS,width:30}}>N°</th><th style={{...thS,width:120}}>N° OP</th><th style={{...thS,width:130}}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th></tr></thead><tbody>
                 {btOps.map((op,i)=><tr key={op.id}><td style={styles.td}>{i+1}</td><td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td><td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td><td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td><td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td></tr>)}
               </tbody></table>
@@ -611,14 +639,13 @@ const PageCircuitAC = () => {
       <STab active={subTab==='DIFFERES'} label="Différés" count={differes.length} color={P.gold} onClick={()=>{setSubTab('DIFFERES');setSelectedOps([]);}}/>
       <STab active={subTab==='REJETES'} label="Rejetés" count={rejetes.length} color={P.red} onClick={()=>{setSubTab('REJETES');setSelectedOps([]);}}/>
     </div>
-    <div style={{marginBottom:12}}><input type="text" placeholder="Rechercher..." value={searchSuivi} onChange={e=>setSubTabSuiviAC(e.target.value)} style={{...styles.input,maxWidth:400,marginBottom:0,borderRadius:10,border:`1px solid ${P.border}`}}/></div>
+    <div style={{marginBottom:12}}><input type="text" placeholder="Rechercher..." value={searchSuivi} onChange={e=>setSearchSuivi(e.target.value)} style={{...styles.input,maxWidth:400,marginBottom:0,borderRadius:10,border:`1px solid ${P.border}`}}/></div>
     {subTab==='DIFFERES' && <div style={crd}>
       {filterOps(differes,searchSuivi).length===0?<Empty text="Aucun différé"/>:<>
       <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead><tr>
         <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(differes,searchSuivi).length&&selectedOps.length>0} onChange={()=>toggleAll(filterOps(differes,searchSuivi))}/></th>
         <th style={{...thS,width:110}}>N° OP</th>
         <th style={{...thS,width:70}}>TYPE</th>
-        {/* MODIF LARGUEUR: Bénéficiaire à 130px */}
         <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
         <th style={thS}>OBJET</th>
         <th style={{...thS,width:90,textAlign:'right'}}>MONTANT</th>
@@ -651,7 +678,6 @@ const PageCircuitAC = () => {
       <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead><tr>
         <th style={{...thS,width:110}}>N° OP</th>
         <th style={{...thS,width:70}}>TYPE</th>
-        {/* MODIF LARGUEUR: Bénéficiaire à 130px */}
         <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
         <th style={thS}>OBJET</th>
         <th style={{...thS,width:90,textAlign:'right'}}>MONTANT</th>
@@ -674,6 +700,10 @@ const PageCircuitAC = () => {
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
       <h1 style={{fontSize:22,fontWeight:700,color:P.orange,margin:0}}>Agent Comptable (AC)</h1>
+      {/* BOUTON ACTUALISER (Avec fonction de réparation AC) */}
+      <button onClick={handleFixOrphanOps} style={{padding:'8px 12px',background:P.goldLight,border:`1px solid ${P.goldBorder}`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:11,fontWeight:700,color:P.gold,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}>
+        {I.refresh(P.gold,14)} Actualiser
+      </button>
     </div>
     
     <div style={{display:'flex',gap:8,padding:'16px 0',flexWrap:'wrap'}}>
@@ -708,7 +738,6 @@ const PageCircuitAC = () => {
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesAC,searchBT).length&&filterOps(opsEligiblesAC,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesAC,searchBT))}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
-          {/* MODIF LARGUEUR: Bénéficiaire à 130px */}
           <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
           <th style={thS}>OBJET</th>
           <th style={{...thS,width:70}}>LIGNE</th>
@@ -745,7 +774,6 @@ const PageCircuitAC = () => {
         <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
-          {/* MODIF LARGUEUR: Bénéficiaire à 130px */}
           <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
           <th style={thS}>OBJET</th>
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
@@ -762,7 +790,6 @@ const PageCircuitAC = () => {
             return <tr key={op.id} onClick={()=>{setModalPaiement(op);setPaiementMontant('');setPaiementReference('');setMotifRetourAC('');setBoiteModalPaiement('');setResultatAC('DIFFERE');}} style={{cursor:'pointer',background:modalPaiement?.id===op.id?P.goldLight:'transparent', transition:'all .15s'}}>
               <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{op.numero}</td>
               <td style={{...styles.td, fontSize:10, fontWeight:600}}>{op.type}</td>
-              <td style={{...styles.td, fontSize:12, fontWeight:600}}>{getBen(op)}</td>
               <td style={{...styles.td, fontSize:11, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
               <td style={{...styles.td, fontSize:11, maxWidth:250, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
               <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:700, color:P.greenDark}}>{formatMontant(op.montant)}</td>
