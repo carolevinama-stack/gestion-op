@@ -470,7 +470,6 @@ const PageConsulterOp = () => {
     } catch (e) { showToast('error', 'Erreur', e.message); }
   };
 
-  // ===================== IMPRESSION CORRIGÉE =====================
   const handlePrint = () => {
     if (!selectedOp) return;
     const ben = selectedBeneficiaire;
@@ -497,79 +496,78 @@ const PageConsulterOp = () => {
     const htmlParts = [
       '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
       '<style>',
-      '@page { size: A4 portrait; margin: 5mm; }', 
+      '@page { size: A4; margin: 5mm; }', 
       '*{box-sizing:border-box; margin:0; padding:0}',
-      'html, body { font-family:"Century Gothic","Trebuchet MS",sans-serif; font-size:11px; line-height:1.3; background:#e0e0e0; height: 100%; }',
+      'html, body { font-family:"Century Gothic","Trebuchet MS",sans-serif; font-size:11px; line-height:1.4; background:#e0e0e0; height: 100%; }',
       
       '.toolbar { background:#3B6B8A; padding:12px 20px; display:flex; gap:12px; align-items:center; position:sticky; top:0; z-index:100 }',
       '.toolbar button { padding:8px 20px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer }',
       '.btn-print { background:#D4722A; color:#fff } .btn-pdf { background:#D4722A; color:#fff } .toolbar-title { color:#fff; font-size:14px; margin-left:auto }',
       
-      /* GABARIT FIXE (aucun flex dynamique qui pousse le contenu vers le bas) */
-      '.page-container { width: 200mm; height: 287mm; margin: 20px auto; background: #fff; padding: 2mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; overflow: hidden; }',
+      // ✅ CORRECTION 1 : overflow: hidden ajouté sur page-container
+      '.page-container { width: 200mm; height: 277mm; max-height: 277mm; margin: 20px auto; background: #fff; padding: 4mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; overflow: hidden; }',
       
-      '.inner-frame { border: 1.5px solid #000; flex: 1; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }',
+      // ✅ CORRECTION 2 : overflow: hidden ajouté sur inner-frame
+      '.inner-frame { border: 1.5px solid #555; flex: 1; display: flex; flex-direction: column; overflow: hidden; }',
       
       '@media print {',
       '  body { background: #fff !important; }',
       '  .toolbar { display: none !important; }',
-      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 287mm !important; padding: 2mm !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: avoid !important;}',
+      '  .page-container { margin: 0 auto !important; box-shadow: none !important; width: 100% !important; height: 277mm !important; max-height: 277mm !important; padding: 4mm !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: avoid !important;}',
       '}',
       
-      '.header{display:flex; border-bottom:1px solid #000; padding: 5px 0;}',
-      '.header-logo{width:22%; padding:4px; display:flex; align-items:center; justify-content:center}', 
-      '.header-logo img{max-height:65px; max-width:100%}', 
-      '.header-center{width:56%; padding:4px; text-align:center; line-height:1.4}', 
+      '.header{display:flex; border-bottom:1px solid #000}',
+      '.header-logo{width:22%; padding:8px; display:flex; align-items:center; justify-content:center}', 
+      '.header-logo img{max-height:80px; max-width:100%}', 
+      '.header-center{width:56%; padding:10px 6px; text-align:center; line-height:1.5}', 
       '.header-center .republic{font-weight:bold; font-size:13px}',
-      '.header-center .sep{font-size:10px; letter-spacing:1px; color:#333; margin:2px 0}',
+      '.header-center .sep{font-size:10px; letter-spacing:1px; color:#333; margin:3px 0}',
       '.header-center .ministry{font-style:italic; font-size:12px}',
       '.header-center .project{font-weight:bold; font-size:12px}',
-      '.header-right{width:22%; padding:4px; font-size:11px; text-align:right}',
-      '.header-right img{max-height:60px; max-width:80px; margin-bottom:5px}',
+      '.header-right{width:22%; padding:8px; font-size:11px; text-align:right}',
+      '.header-right img{max-height:70px; max-width:80px; margin-bottom:5px}',
       
-      '.op-title-section{text-align:center; padding:6px 10px; border-bottom:1px solid #000}', 
+      '.op-title-section{text-align:center; padding:10px; border-bottom:1px solid #000}', 
       '.exercice-type-line{display:flex; justify-content:space-between; align-items:center}',
       '.exercice-type-line>div:first-child{width:25%; text-align:left; font-size:12px}',
       '.exercice-type-line>div:nth-child(2){width:50%; text-align:center}',
       '.exercice-type-line>div:last-child{width:25%; text-align:right}',
       '.op-title{font-weight:bold; text-decoration:underline; font-size:13px}',
-      '.op-numero{font-size:11px; margin-top:2px}',
+      '.op-numero{font-size:11px; margin-top:4px}',
       
-      /* BODY FIGÉ : position relative pour y accrocher le budget, height fixée */
-      '.body-content{padding:10px 12px; border-bottom:1px solid #000; flex: 1; display: block; position: relative; overflow: hidden;}', 
+      // ✅ CORRECTION 3 : overflow: hidden ajouté sur body-content
+      '.body-content{padding:15px; border-bottom:1px solid #000; flex: 1; display: flex; flex-direction: column; min-height: 95mm; overflow: hidden;}', 
       '.type-red{color:#c00; font-weight:bold; font-style:italic}',
-      '.field{margin-bottom:4px}', 
-      '.field-title{text-decoration:underline; font-size:11px; margin-bottom:4px}',
+      '.field{margin-bottom:8px}', 
+      '.field-title{text-decoration:underline; font-size:11px; margin-bottom:6px}',
       '.field-value{font-weight:bold; font-size:12px}',
-      
-      '.checkbox-line{display:flex; align-items:center; margin-bottom:8px; font-size:12px}', 
+      '.field-large{line-height:1.5; word-wrap:break-word}', 
+      '.checkbox-line{display:flex; align-items:center; margin-bottom:12px; font-size:12px}', 
       '.checkbox-label{min-width:240px}',
       '.checkbox-options{display:flex; gap:40px}',
       '.check-item{display:flex; align-items:center; gap:6px}',
       '.box{width:16px; height:14px; border:1px solid #000; display:inline-flex; align-items:center; justify-content:center; font-size:10px}',
       
-      /* LE BUDGET EST ANCRÉ AU FOND. Il ne bougera JAMAIS. */
-      '.budget-section{position: absolute; bottom: 10px; left: 12px; right: 12px;}',
-      '.budget-row{display:flex; align-items:center; margin-bottom:4px; font-size:12px}',
+      '.budget-section{margin-top:15px;}',
+      '.budget-row{display:flex; align-items:center; margin-bottom:8px; font-size:12px}',
       '.budget-row .col-left{width:33.33%}',
       '.budget-row .col-center{width:33.33%}',
       '.budget-row .col-right{width:33.33%}',
-      '.value-box{border:1px solid #000; padding:3px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
+      '.value-box{border:1px solid #000; padding:5px 10px; text-align:right; font-weight:bold; white-space:nowrap; font-size:12px}',
       
-      '.separator-line { border-top: 1px solid #000; margin: 8px -12px 6px -12px; }',
+      '.separator-line { border-top: 1px solid #000; margin: 15px -15px 10px -15px; }',
       
-      '.budget-table{width:100%; border-collapse:collapse; margin-top:4px}',
-      '.budget-table td{border:1px solid #000; padding:3px 8px; font-size:11px}',
+      '.budget-table{width:100%; border-collapse:collapse; margin-top:10px}',
+      '.budget-table td{border:1px solid #000; padding:5px 8px; font-size:11px}',
       '.budget-table .col-letter{width:4%; text-align:center; font-weight:bold}',
       '.budget-table .col-label{width:29.33%}',
       '.budget-table .col-amount{width:33.33%; text-align:right; padding-right:10px; font-weight:bold}',
       '.budget-table .col-empty{width:33.33%; border:none}',
       
       '.signatures-section{display:flex; border-bottom:1px solid #000}',
-      /* Restauré à 180px comme à l'origine */
       '.sig-box{width:33.33%; min-height:180px; display:flex; flex-direction:column; border-right:1px solid #000}', 
       '.sig-box:last-child{border-right:none}',
-      '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:4px; border-bottom:1px solid #000; line-height:1.2}',
+      '.sig-header{text-align:center; font-weight:bold; font-size:10px; padding:6px; border-bottom:1px solid #000; line-height:1.2}',
       '.sig-content{flex:1; display:flex; flex-direction:column; justify-content:flex-end; padding:8px}',
       '.sig-name{text-align:right; font-weight:bold; text-decoration:underline; font-size:10px}',
       '.abidjan-row{display:flex; border-bottom:1px solid #000}',
@@ -578,11 +576,10 @@ const PageConsulterOp = () => {
       
       '.acquit-section{display:flex}',
       '.acquit-empty{width:66.66%; border-right:1px solid #000}',
-      /* Restauré à 110px comme à l'origine */
       '.acquit-box{width:33.33%; min-height:110px; display:flex; flex-direction:column}', 
-      '.acquit-header{text-align:center; font-size:10px; padding:4px; border-bottom:1px solid #000}',
+      '.acquit-header{text-align:center; font-size:10px; padding:6px; border-bottom:1px solid #000}',
       '.acquit-content{flex:1}',
-      '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:4px 10px}',
+      '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:6px 10px}',
       '</style></head><body>',
       '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
       '<div class="page-container"><div class="inner-frame">',
@@ -596,13 +593,12 @@ const PageConsulterOp = () => {
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      '<div class="field" style="margin-bottom: 8px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
+      '<div class="field" style="margin-bottom: 4px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
       
-      /* OBJET avec une hauteur limite fixe, puis <br/><br/> pour les 2 lignes d'espace */
-      '<div style="margin-top: 8px; height: 35mm; overflow: hidden; line-height: 1.4; text-align: justify;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
-      '<br/><br/>',
-      /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
-      '<div style="height: 25mm; overflow: hidden; line-height: 1.4; text-align: justify;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      // ✅ CORRECTION 4 : max-height + overflow:hidden sur le champ OBJET DE LA DEPENSE
+      '<div class="field-large" style="margin-bottom: 40px; margin-top: 4px; max-height: 28mm; overflow: hidden;">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
+      
+      '<div class="field-large" style="margin-bottom: 10px;">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
       
       '<div class="budget-section"><div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
       '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
@@ -1059,7 +1055,6 @@ const PageConsulterOp = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: `1px solid ${P.bgApp}` }}>
                       <span style={{ padding: '8px 14px', background: accent + '10', color: accent, borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.eyeSearch(accent)} {selectedOp.numero}</span>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {/* Bouton Modifier : Grisé si OP verrouillé (Visé CF, Payé, transmis AC, archivé) */}
                         <button 
                           title={isLockedForEdit ? "Verrouillé : OP déjà visé par le CF" : "Modifier"} 
                           onClick={() => {
