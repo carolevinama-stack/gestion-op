@@ -31,7 +31,7 @@ const Badge = React.memo(({bg, color, children}) => <span style={{background:bg,
 const Empty = React.memo(({text}) => <div style={{textAlign:'center', padding:40, color:P.textMuted}}><div style={{marginBottom:12, opacity:.5}}>{I.fileText(P.textMuted,40)}</div><p style={{fontSize:14, margin:0}}>{text}</p></div>);
 const STab = React.memo(({active, label, count, color, onClick}) => <button onClick={onClick} style={{padding:'10px 18px', borderRadius:10, border:active?`2px solid ${color}`:'2px solid transparent', background:active?color:P.card, color:active?'#fff':P.textSec, fontWeight:600, cursor:'pointer', fontSize:12, display:'flex', alignItems:'center', gap:6, transition:'all .2s', boxShadow:active?`0 4px 12px ${color}33`:'0 1px 3px rgba(0,0,0,.06)'}}>{label}{count!==undefined && <span style={{background:active?'rgba(255,255,255,.25)':P.border, padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700}}>{count}</span>}</button>);
 const IBtn = React.memo(({icon, title, bg, onClick, disabled, size=30}) => <button onClick={onClick} disabled={disabled} title={title} style={{width:size, height:size, borderRadius:8, border:'none', background:bg||P.greenLight, display:'flex', alignItems:'center', justifyContent:'center', cursor:disabled?'not-allowed':'pointer', opacity:disabled?0.4:1, transition:'all .15s', padding:0}}>{icon}</button>);
-const ActionBtn = React.memo(({label, icon, color, onClick, disabled, count}) => <button onClick={onClick} disabled={disabled} style={{padding:'10px 20px', background:color, color:'#fff', border:'none', borderRadius:10, fontWeight:700, fontSize:13, cursor:disabled?'not-allowed':'pointer', display:'inline-flex', alignItems:'center', gap:8, opacity:disabled?0.5:1, boxShadow:`0 4px 12px ${color}33`, transition:'all .2s', minHeight:40}}>{icon}{label}{count!==undefined && <span style={{background:'rgba(255,255,255,.25)', padding:'2px 8px', borderRadius:6, fontSize:11}}>{count}</span>}</button>);
+const ActionBtn = React.memo(({label, icon, color, onClick, disabled, count}) => <button onClick={onClick} disabled={disabled} style={{padding:'10px 20px', background:color, color:'#fff', border:'none', borderRadius:10, fontWeight:700, fontSize:13, cursor:disabled?'not-allowed':'pointer', display:'inline-flex', alignItems:'center', gap:8, opacity:disabled?0.5:1, boxShadow:`0 4px 12px ${color}33`, transition:'all .2s', minHeight:40}}>{icon}{label}{count !== undefined && <span style={{background:'rgba(255,255,255,.25)', padding:'2px 8px', borderRadius:6, fontSize:11}}>{count}</span>}</button>);
 
 const ModalAlert = ({ data, onClose }) => {
   const [val, setVal] = useState('');
@@ -195,11 +195,11 @@ const PageArchives = () => {
         <p style={{fontSize:12,color:P.textMuted,marginBottom:12}}>Les OP soldés et les annulations validées s'affichent ici.</p>
         <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsAArchiver,searchArch).length===0?<Empty text="Aucun OP en attente de classement"/>:
-        <div style={{maxHeight:450,overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
+        <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsAArchiver,searchArch).length&&filterOps(opsAArchiver,searchArch).length>0} onChange={()=>toggleAll(filterOps(opsAArchiver,searchArch))}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
-          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
           <th style={thS}>OBJET</th>
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
           <th style={{...thS,width:80}}>STATUT</th>
@@ -210,8 +210,8 @@ const PageArchives = () => {
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
-              <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
-              <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
+              <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={styles.td}>{op.statut==='ANNULE'?<Badge bg={P.redLight} color={P.red}>Annulé</Badge>:<Badge bg={P.greenLight} color={P.greenDark}>Payé</Badge>}</td>
               <td style={{...styles.td,fontSize:11}}>{formatDate(op.datePaiement)||formatDate(op.dateVisaCF)}</td>
@@ -224,10 +224,10 @@ const PageArchives = () => {
         <h3 style={{margin:'0 0 16px',color:P.oliveDark,fontSize:15}}>Consultation des Archives ({opsArchives.length})</h3>
         <input type="text" placeholder="Rechercher par N° de boîte, OP, Bénéficiaire..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:450,borderRadius:10,border:`1px solid ${P.border}`}}/>
         {filterOps(opsArchives,searchArch).length===0?<Empty text="Aucun dossier trouvé dans les archives"/>:
-        <div style={{maxHeight:550,overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
+        <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
-          <th style={thS}>BÉNÉFICIAIRE</th>
+          <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
           <th style={thS}>OBJET</th>
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
           <th style={{...thS,width:120}}>RÉF. BOÎTE</th>
@@ -237,8 +237,8 @@ const PageArchives = () => {
           {filterOps(opsArchives,searchArch).map(op=><tr key={op.id}>
             <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
             <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
-            <td style={{...styles.td,fontSize:12}}>{getBen(op)}</td>
-            <td style={{...styles.td,fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{op.objet||'-'}</td>
+            <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
+            <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
             <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
             <td style={{...styles.td,fontWeight:800,color:P.oliveDark}}>{op.boiteArchivage||'-'}</td>
             <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateArchivage)}</td>
