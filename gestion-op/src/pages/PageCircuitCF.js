@@ -327,9 +327,17 @@ const PageCircuitCF = () => {
         try{
           const batch = writeBatch(db);
           batch.update(doc(db, 'bordereaux', bt.id), { statut: 'SUPPRIME', motifSuppression: motif, deletedAt: new Date().toISOString() });
+          
+          // CORRECTION: On nettoie bien tous les OP du bordereau
           bt.opsIds.forEach(opId => {
-            batch.update(doc(db, 'ops', opId), {bordereauCF: null, statut: 'EN_COURS', dateTransmissionCF: null, updatedAt: new Date().toISOString()});
+            batch.update(doc(db, 'ops', opId), {
+              bordereauCF: null, 
+              statut: 'EN_COURS', 
+              dateTransmissionCF: null, 
+              updatedAt: new Date().toISOString()
+            });
           });
+          
           await batch.commit();
           notify("success", "Supprimé", "Bordereau archivé dans l'historique.");
           if(expandedBT === bt.id) setExpandedBT(null); setModalEditBT(null);
@@ -383,11 +391,25 @@ const PageCircuitCF = () => {
     if(resultatCF === 'REJETE') checkPwd(exec); else exec();
   };
 
+  // CORRECTION: Rétropédalage propre vers TRANSMIS_CF
   const handleAnnulerRetour = async (opId, statut) => {
     checkPwd(() => {
       ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
         setSaving(true);
-        try{await updateDoc(doc(db,'ops',opId),{statut: 'TRANSMIS_CF', dateVisaCF: null, dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString()}); notify("success", "Annulé", "Retour arrière effectué.");}catch(e){notify("error", "Erreur", e.message);}
+        try{
+          await updateDoc(doc(db,'ops',opId),{
+            statut: 'TRANSMIS_CF', 
+            dateVisaCF: null, 
+            dateDiffere: null, 
+            motifDiffere: null, 
+            dateRejet: null, 
+            motifRejet: null, 
+            updatedAt: new Date().toISOString()
+          }); 
+          notify("success", "Annulé", "Retour arrière effectué.");
+        }catch(e){
+          notify("error", "Erreur", e.message);
+        }
         setSaving(false);
       });
     });
