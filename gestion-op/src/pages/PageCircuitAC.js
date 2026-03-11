@@ -331,9 +331,17 @@ const PageCircuitAC = () => {
         try{
           const batch = writeBatch(db);
           batch.update(doc(db, 'bordereaux', bt.id), { statut: 'SUPPRIME', motifSuppression: motif, deletedAt: new Date().toISOString() });
+          
+          // CORRECTION: On nettoie bien tous les OP du bordereau pour les renvoyer au statut précédent
           bt.opsIds.forEach(opId => {
-            batch.update(doc(db, 'ops', opId), {bordereauAC: null, statut: 'VISE_CF', dateTransmissionAC: null, updatedAt: new Date().toISOString()});
+            batch.update(doc(db, 'ops', opId), {
+              bordereauAC: null, 
+              statut: 'VISE_CF', 
+              dateTransmissionAC: null, 
+              updatedAt: new Date().toISOString()
+            });
           });
+          
           await batch.commit();
           notify("success", "Supprimé", "Bordereau archivé dans l'historique.");
           if(expandedBT === bt.id) setExpandedBT(null); setModalEditBT(null);
@@ -433,11 +441,24 @@ const PageCircuitAC = () => {
     if(resultatAC === 'REJETE') checkPwd(exec); else exec();
   };
 
+  // CORRECTION: Rétropédalage propre vers TRANSMIS_AC
   const handleAnnulerRetour = async (opId, statut) => {
     checkPwd(() => {
       ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
         setSaving(true);
-        try{await updateDoc(doc(db,'ops',opId),{statut: 'TRANSMIS_AC', dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString()}); notify("success", "Annulé", "Retour arrière effectué.");}catch(e){notify("error", "Erreur", e.message);}
+        try{
+          await updateDoc(doc(db,'ops',opId),{
+            statut: 'TRANSMIS_AC', 
+            dateDiffere: null, 
+            motifDiffere: null, 
+            dateRejet: null, 
+            motifRejet: null, 
+            updatedAt: new Date().toISOString()
+          }); 
+          notify("success", "Annulé", "Retour arrière effectué.");
+        }catch(e){
+          notify("error", "Erreur", e.message);
+        }
         setSaving(false);
       });
     });
@@ -530,9 +551,11 @@ const PageCircuitAC = () => {
               </div>
             </div>
             {isExp && <div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
+              
               {locked && <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,color:P.gold,fontSize:13,fontWeight:600}}>
                  {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
               </div>}
+
               {isPrep && <div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
                 <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
                 <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
@@ -726,6 +749,7 @@ const PageCircuitAC = () => {
             <div style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:P.orange}}>{op.numero}</div>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:2}}>
                <div style={{fontSize:15,fontWeight:600}}>{getBen(op)}</div>
+               {/* BOUTON DE RETROPEDALAGE AC -> CF */}
                {op.statut === 'TRANSMIS_AC' && paiem.length === 0 && (
                   <IBtn icon={I.undo(P.gold,16)} title="Annuler la transmission AC" bg={`${P.gold}15`} disabled={saving} onClick={() => {
                     checkPwd(async () => {
