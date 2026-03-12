@@ -165,25 +165,15 @@ const PageNouvelOp = () => {
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire) return 0;
     
-    const opsAnterieurs = ops.filter(op => 
-      op.sourceId === activeSource && 
-      op.exerciceId === exerciceActif?.id &&
-      op.ligneBudgetaire === form.ligneBudgetaire &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
-    );
-
-    return opsAnterieurs.reduce((sum, o) => {
-      if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') return sum + (o.montant || 0);
-      if (o.type === 'DEFINITIF') {
-        const prov = ops.find(p => p.id === o.opProvisoireId);
-        return sum - (prov?.montant || 0) + (o.montant || 0);
-      }
-      if (o.type === 'ANNULATION') {
-        const prov = ops.find(p => p.id === o.opProvisoireId);
-        return sum - (prov?.montant || 0);
-      }
-      return sum;
-    }, 0);
+    // CORRECTION : Somme brute de tous les montants déjà en base pour cette ligne
+    return ops
+      .filter(op => 
+        op.sourceId === activeSource && 
+        op.exerciceId === exerciceActif?.id &&
+        op.ligneBudgetaire === form.ligneBudgetaire &&
+        !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
+      )
+      .reduce((sum, o) => sum + (parseFloat(o.montant) || 0), 0);
   };
 
   const getEngagementActuel = () => {
@@ -321,7 +311,7 @@ const PageNouvelOp = () => {
       setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Direct, Provisoire ou Définitif doit être positif.' }); return; 
     }
     if (form.type === 'ANNULATION') {
-      finalMontant = -Math.abs(finalMontant); // Sécurité côté base de données
+      finalMontant = -Math.abs(finalMontant); 
     }
 
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
@@ -347,18 +337,7 @@ const PageNouvelOp = () => {
         const engagementsReels = opsSnap.docs
           .map(d => d.data())
           .filter(op => op.ligneBudgetaire === form.ligneBudgetaire && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut))
-          .reduce((sum, o) => {
-            if (o.type === 'PROVISOIRE' || o.type === 'DIRECT') return sum + (o.montant || 0);
-            if (o.type === 'DEFINITIF') {
-              const prov = ops.find(p => p.id === o.opProvisoireId);
-              return sum - (prov?.montant || 0) + (o.montant || 0);
-            }
-            if (o.type === 'ANNULATION') {
-              const prov = ops.find(p => p.id === o.opProvisoireId);
-              return sum - (prov?.montant || 0);
-            }
-            return sum;
-          }, 0);
+          .reduce((sum, o) => sum + (parseFloat(o.montant) || 0), 0);
 
         const dotation = getDotation();
         const disponibleReel = dotation - engagementsReels - finalMontant;
@@ -701,42 +680,6 @@ const PageNouvelOp = () => {
                 </div>
               </div>
             </div>
-
-            {form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0 && (() => {
-              const selectedProvs = (form.opProvisoireIds || []).map(id => ops.find(o => o.id === id)).filter(Boolean);
-              if (selectedProvs.length === 0) return null;
-              const totalPaye = selectedProvs.reduce((sum, op) => sum + Number(op.totalPaye || op.montant || 0), 0);
-              const mtDef = parseFloat(form.montant) || 0;
-              const ecart = totalPaye - mtDef;
-              return (
-                <div style={{ marginBottom: 24, padding: 12, background: '#e8f5e9', borderRadius: 8, border: '1px solid #c8e6c9' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 10, color: '#2e7d32' }}>
-                    Récapitulatif — {selectedProvs.length} OP provisoire{selectedProvs.length > 1 ? 's' : ''}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Total payé (provisoire{selectedProvs.length > 1 ? 's' : ''})</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#D4722A' }}>{formatMontant(totalPaye)} F</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Montant définitif</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: '#000000' }}>{mtDef > 0 ? formatMontant(mtDef) + ' F' : '—'}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 9, color: '#6c757d', marginBottom: 4 }}>Écart</div>
-                      {mtDef > 0 ? (
-                        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace', color: ecart > 0 ? '#C43E3E' : ecart < 0 ? '#C5961F' : '#2e7d32' }}>
-                          {ecart > 0 ? '+' + formatMontant(ecart) + ' F' : ecart < 0 ? formatMontant(ecart) + ' F' : '0 F'}
-                          <div style={{ fontSize: 9, fontWeight: 400, marginTop: 2 }}>
-                            {ecart > 0 ? 'Trop perçu → reversement' : ecart < 0 ? 'Complément à payer' : 'Aucun écart'}
-                          </div>
-                        </div>
-                      ) : <div style={{ fontSize: 12, color: '#999' }}>Saisir le montant définitif</div>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
               <button onClick={handleSave} disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
