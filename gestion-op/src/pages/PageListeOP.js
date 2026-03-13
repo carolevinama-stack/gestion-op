@@ -20,22 +20,7 @@ const I = {
 const PageListeOP = () => {
   const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
-  // MODIF : statut devient statuts (avec un s) et est initialisé comme un tableau vide []
-  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
-  const [showStatutFilter, setShowStatutFilter] = useState(false); // Pour ouvrir/fermer le menu Excel
-  const filterRef = useRef(null); // Pour fermer le menu si on clique ailleurs
-
-  // Liste des choix pour le filtre multi-sélection
-  const allStatuts = [
-    { id: 'EN_COURS', label: 'En cours' }, { id: 'TRANSMIS_CF', label: 'Transmis CF' },
-    { id: 'VISE_CF', label: 'Visé CF' }, { id: 'DIFFERE_CF', label: 'Différé CF' },
-    { id: 'REJETE_CF', label: 'Rejeté CF' }, { id: 'TRANSMIS_AC', label: 'Transmis AC' },
-    { id: 'DIFFERE_AC', label: 'Différé AC' }, { id: 'REJETE_AC', label: 'Rejeté AC' },
-    { id: 'PAYE_PARTIEL', label: 'Payé Partiel' }, { id: 'PAYE', label: 'Payé (Soldé)' },
-    { id: 'ARCHIVE', label: 'Archivé' }, { id: 'ANNULE', label: 'Annulé' }
-  ];
-
-  const [previewOpId, setPreviewOpId] = useState(null);
+  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statut: '' });
   
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false); // Gestion de la corbeille
@@ -86,8 +71,7 @@ const PageListeOP = () => {
         const searchString = `${op.numero} ${getBenNom(op)} ${op.objet || ''} ${op.montant} ${formatMontant(op.montant)}`.toLowerCase();
         if (!searchString.includes(searchLower)) return false;
       }
-      // MODIF : On regarde si le statut de l'OP est présent dans notre liste de cases cochées
-      if (filters.statuts.length > 0 && !filters.statuts.includes(op.statut)) return false;
+      if (filters.type && op.type !== filters.type) return false;
       if (filters.statut && op.statut !== filters.statut) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
       if (filters.dateDebut && (op.dateCreation || '') < filters.dateDebut) return false;
@@ -212,38 +196,23 @@ const PageListeOP = () => {
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Au</label>
             <input type="date" style={{...styles.input, marginBottom: 0}} value={filters.dateFin} onChange={e => setFilters({...filters, dateFin: e.target.value})} />
           </div>
-       <div style={{ width: '180px', position: 'relative' }}>
-            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Statut (Multi-sélection)</label>
-            <button 
-              type="button"
-              onClick={() => setShowStatutFilter(!showStatutFilter)}
-              style={{...styles.input, marginBottom: 0, textAlign: 'left', background: '#fff', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '38px'}}
-            >
-              <span style={{fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                {filters.statuts.length === 0 ? 'Tous les statuts' : `${filters.statuts.length} sélectionnés`}
-              </span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            
-            {showStatutFilter && (
-              <div style={{position: 'absolute', top: '105%', left: 0, width: '220px', background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, padding: 10, maxHeight: '300px', overflowY: 'auto'}}>
-                {allStatuts.map(s => (
-                  <label key={s.id} style={{display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f9f9f9'}}>
-                    <input 
-                      type="checkbox" 
-                      checked={filters.statuts.includes(s.id)}
-                      onChange={() => {
-                        const newStatuts = filters.statuts.includes(s.id) 
-                          ? filters.statuts.filter(item => item !== s.id) 
-                          : [...filters.statuts, s.id];
-                        setFilters({...filters, statuts: newStatuts});
-                      }}
-                    />
-                    {s.label}
-                  </label>
-                ))}
-              </div>
-            )}
+          <div style={{ width: '150px' }}>
+            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Statut</label>
+            <select style={{...styles.select, marginBottom: 0}} value={filters.statut} onChange={e => setFilters({...filters, statut: e.target.value})}>
+              <option value="">Tous les statuts</option>
+              <option value="EN_COURS">En cours (Brouillon)</option>
+              <option value="TRANSMIS_CF">Transmis CF</option>
+              <option value="VISE_CF">Visé CF</option>
+              <option value="DIFFERE_CF">Différé CF</option>
+              <option value="REJETE_CF">Rejeté CF</option>
+              <option value="TRANSMIS_AC">Transmis AC</option>
+              <option value="DIFFERE_AC">Différé AC</option>
+              <option value="REJETE_AC">Rejeté AC</option>
+              <option value="PAYE_PARTIEL">Payé Partiel</option>
+              <option value="PAYE">Payé (Soldé)</option>
+              <option value="ARCHIVE">Archivé</option>
+              <option value="ANNULE">Annulé</option>
+            </select>
           </div>
           <div>
             <button style={{...styles.buttonIcon, background: '#f5f5f5', border: '1px solid #ddd', height: '38px', padding: '0 12px'}} onClick={() => setFilters({search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:'', statut:''})} title="Effacer les filtres">
