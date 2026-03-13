@@ -21,14 +21,9 @@ const I = {
 const PageListeOP = () => {
   const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
-  const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' ou 'PAYES'
-  
-  // FILTRES MULTI-SELECT
-  const [filters, setFilters] = useState({ types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
+  const [filters, setFilters] = useState({ type: '', search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
   const [showStatutFilter, setShowStatutFilter] = useState(false);
-  const [showTypeFilter, setShowTypeFilter] = useState(false);
   const filterRef = useRef(null);
-  const typeRef = useRef(null);
 
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false);
@@ -48,7 +43,6 @@ const PageListeOP = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (filterRef.current && !filterRef.current.contains(event.target)) setShowStatutFilter(false);
-      if (typeRef.current && !typeRef.current.contains(event.target)) setShowTypeFilter(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -65,23 +59,11 @@ const PageListeOP = () => {
     { id: 'ARCHIVE', label: 'Archivé' }, { id: 'ANNULE', label: 'Annulé' }
   ];
 
-  const allTypes = [
-    { id: 'DIRECT', label: 'Direct' }, { id: 'PROVISOIRE', label: 'Provisoire' },
-    { id: 'DEFINITIF', label: 'Définitif' }, { id: 'ANNULATION', label: 'Annulation' },
-    { id: 'REJET', label: 'Rejet' }
-  ];
-
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
       if (op.exerciceId !== exerciceActif?.id) return false;
       if (op.statut === 'SUPPRIME') return false;
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
-      
-      // LOGIQUE ONGLETS
-      if (activeTab === 'PAYES') {
-          const tPaye = (op.paiements || []).reduce((s, p) => s + (p.montant || 0), 0);
-          if (tPaye <= 0) return false;
-      }
       return true;
     });
 
@@ -94,12 +76,7 @@ const PageListeOP = () => {
       const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
       const engagementAnterieur = cumulParLigne[lb] || 0;
       cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (op.montant || 0);
-      
-      // Calcul Paiements pour onglet Payé
-      const tPaye = (op.paiements || []).reduce((s, p) => s + (p.montant || 0), 0);
-      const refs = (op.paiements || []).map(p => p.reference).filter(Boolean).join(', ');
-
-      return { ...op, dotationLigne: dotation, engagementAnterieur, disponible: dotation - cumulParLigne[lb], totalPaye: tPaye, solde: (op.montant || 0) - tPaye, refsPaiement: refs };
+      return { ...op, dotationLigne: dotation, engagementAnterieur, disponible: dotation - cumulParLigne[lb] };
     });
 
     return withCalculations.filter(op => {
@@ -107,33 +84,35 @@ const PageListeOP = () => {
         const s = filters.search.toLowerCase();
         if (!`${op.numero} ${getBenNom(op)} ${op.objet || ''}`.toLowerCase().includes(s)) return false;
       }
-      if (filters.types.length > 0 && !filters.types.includes(op.type)) return false;
+      if (filters.type && op.type !== filters.type) return false;
       if (filters.statuts.length > 0 && !filters.statuts.includes(op.statut)) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
       if (filters.dateDebut && (op.dateCreation || '') < filters.dateDebut) return false;
       if (filters.dateFin && (op.dateCreation || '') > filters.dateFin) return false;
       return true;
     }).reverse();
-  }, [ops, activeSource, activeTab, filters, exerciceActif, budgets, beneficiaires]);
+  }, [ops, activeSource, filters, exerciceActif, budgets, beneficiaires]);
 
   const totalMontantAffichage = useMemo(() => {
-      return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
+    return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   }, [displayOps]);
-
-  const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
 
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
       const exportData = displayOps.map(op => ({
-          'N° OP': op.numero, 'Type': op.type, 'Source': getSrcSigle(op.sourceId), 'Bénéficiaire': getBenNom(op),
-          'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Statut': op.statut
+        'N° OP': op.numero, 'Type': op.type, 'Bénéficiaire': getBenNom(op), 'Montant': Number(op.montant || 0)
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Liste");
-      XLSX.writeFile(wb, `Export_OP.xlsx`);
+      XLSX.writeFile(wb, `Liste_OP.xlsx`);
     } catch (err) { alert(err.message); }
+  };
+
+  const thStyle = {
+    ...styles.th, fontSize: 12, color: P.textSec, textTransform: 'uppercase', 
+    padding: '12px 10px', background: '#FAFAF8', position: 'sticky', top: 0, zIndex: 10
   };
 
   return (
@@ -144,12 +123,6 @@ const PageListeOP = () => {
           <button onClick={() => setModalSuppression(true)} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
-      </div>
-
-      {/* ONGLETS */}
-      <div style={{display:'flex', gap:20, borderBottom:`1px solid ${P.border}`, marginBottom:20}}>
-          <button onClick={() => setActiveTab('ALL')} style={{padding:'10px 20px', background:'none', border:'none', borderBottom:activeTab==='ALL'?`3px solid ${P.green}`:'none', cursor:'pointer', fontWeight:700, color:activeTab==='ALL'?P.green:P.textSec}}>TOUS LES OP</button>
-          <button onClick={() => setActiveTab('PAYES')} style={{padding:'10px 20px', background:'none', border:'none', borderBottom:activeTab==='PAYES'?`3px solid ${P.green}`:'none', cursor:'pointer', fontWeight:700, color:activeTab==='PAYES'?P.green:P.textSec}}>OP PAYÉS</button>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -168,45 +141,29 @@ const PageListeOP = () => {
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Recherche globale</label>
             <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="N°, bénéficiaire..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
           </div>
-
-          {/* FILTRE TYPE EXCEL */}
-          <div style={{ width: '140px', position: 'relative' }} ref={typeRef}>
-            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Type (Multi)</label>
-            <button type="button" onClick={() => setShowTypeFilter(!showTypeFilter)} style={{...styles.input, marginBottom: 0, textAlign: 'left', background: '#fff', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '38px'}}>
-              <span style={{fontSize: 10, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{filters.types.length === 0 ? 'Tous' : `${filters.types.length} sél.`}</span>
-              {I.filter()}
-            </button>
-            {showTypeFilter && (
-              <div style={{position: 'absolute', top: '105%', left: 0, width: '180px', background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, padding: 10}}>
-                {allTypes.map(t => (
-                  <label key={t.id} style={{display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer', fontSize: 12}}>
-                    <input type="checkbox" checked={filters.types.includes(t.id)} onChange={() => {
-                        const newTypes = filters.types.includes(t.id) ? filters.types.filter(i => i !== t.id) : [...filters.types, t.id];
-                        setFilters({...filters, types: newTypes});
-                    }} /> {t.label}
-                  </label>
-                ))}
-              </div>
-            )}
+          <div style={{ width: '120px' }}>
+            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Type</label>
+            <select style={{...styles.select, marginBottom: 0}} value={filters.type} onChange={e => setFilters({...filters, type: e.target.value})}>
+              <option value="">Tous les types</option><option value="DIRECT">Direct</option><option value="PROVISOIRE">Provisoire</option><option value="DEFINITIF">Définitif</option><option value="ANNULATION">Annulation</option>
+            </select>
           </div>
-
-          <div style={{ width: '80px' }}>
+          <div style={{ width: '90px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Ligne</label>
             <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Code" value={filters.ligneBudgetaire} onChange={e => setFilters({...filters, ligneBudgetaire: e.target.value})} />
           </div>
-          <div style={{ width: '115px' }}>
+          <div style={{ width: '125px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Du</label>
             <input type="date" style={{...styles.input, marginBottom: 0}} value={filters.dateDebut} onChange={e => setFilters({...filters, dateDebut: e.target.value})} />
           </div>
-          <div style={{ width: '115px' }}>
+          <div style={{ width: '125px' }}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Au</label>
             <input type="date" style={{...styles.input, marginBottom: 0}} value={filters.dateFin} onChange={e => setFilters({...filters, dateFin: e.target.value})} />
           </div>
 
-          <div style={{ width: '150px', position: 'relative' }} ref={filterRef}>
+          <div style={{ width: '160px', position: 'relative' }} ref={filterRef}>
             <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Statut (Multi)</label>
             <button type="button" onClick={() => setShowStatutFilter(!showStatutFilter)} style={{...styles.input, marginBottom: 0, textAlign: 'left', background: '#fff', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '38px'}}>
-              <span style={{fontSize: 10, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{filters.statuts.length === 0 ? 'Tous' : `${filters.statuts.length} sél.`}</span>
+              <span style={{fontSize: 10}}>{filters.statuts.length === 0 ? 'Tous' : `${filters.statuts.length} sél.`}</span>
               {I.filter()}
             </button>
             {showStatutFilter && (
@@ -222,33 +179,31 @@ const PageListeOP = () => {
               </div>
             )}
           </div>
-          <button style={{height:38, padding:'0 12px', background:'#f5f5f5', border:'1px solid #ddd', borderRadius:8}} onClick={() => setFilters({search:'', types:[], ligneBudgetaire:'', dateDebut:'', dateFin:'', statuts:[]})}>RAZ</button>
+          <button style={{height:38, padding:'0 12px', background:'#f5f5f5', border:'1px solid #ddd', borderRadius:8}} onClick={() => setFilters({search:'', type:'', ligneBudgetaire:'', dateDebut:'', dateFin:'', statuts:[]})}>Effacer</button>
         </div>
       </div>
 
-      <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '60vh' }}>
+      <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, overflow: 'auto', maxHeight: '65vh' }}>
         <table style={{...styles.table, borderCollapse:'separate', borderSpacing:0}}>
+          <colgroup>
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '6%' : '7%' }} />  
+            <col style={{ width: activeSource !== 'ALL' ? '13%' : '18%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '16%' : '28%' }} />
+            <col style={{ width: activeSource !== 'ALL' ? '4%' : '5%' }} />  
+            {activeSource !== 'ALL' && <col style={{ width: '10%' }} />}     
+            <col style={{ width: activeSource !== 'ALL' ? '10%' : '12%' }} />
+            {activeSource !== 'ALL' && <><col style={{ width: '10%' }} /><col style={{ width: '10%' }} /></>}
+            <col style={{ width: activeSource !== 'ALL' ? '8%' : '12%' }} /> 
+            <col style={{ width: activeSource !== 'ALL' ? '3%' : '6%' }} />  
+          </colgroup>
           <thead>
             <tr>
-              <th style={styles.th}>N° OP</th>
-              <th style={styles.th}>Type</th>
-              <th style={styles.th}>Bénéficiaire</th>
-              <th style={styles.th}>Objet</th>
-              <th style={styles.th}>Ligne</th>
-              <th style={{...styles.th, textAlign: 'right'}}>Montant</th>
-              {activeTab === 'PAYES' ? (
-                  <>
-                    <th style={{...styles.th, textAlign: 'right'}}>Mtt Payé</th>
-                    <th style={{...styles.th, textAlign: 'right'}}>Solde</th>
-                    <th style={styles.th}>Réf/Paiements</th>
-                  </>
-              ) : (
-                  <>
-                    {activeSource !== 'ALL' && <th style={{...styles.th, textAlign: 'right'}}>Disponible</th>}
-                    <th style={{...styles.th, textAlign: 'center'}}>Statut</th>
-                  </>
-              )}
-              <th style={styles.th}></th>
+              <th style={thStyle}>N° OP</th><th style={thStyle}>Type</th><th style={thStyle}>Bénéficiaire</th><th style={thStyle}>Objet</th><th style={thStyle}>Ligne</th>
+              {activeSource !== 'ALL' && <th style={{...thStyle, textAlign: 'right'}}>Dotation</th>}
+              <th style={{...thStyle, textAlign: 'right'}}>Montant</th>
+              {activeSource !== 'ALL' && <><th style={{...thStyle, textAlign: 'right'}}>Engag. Ant.</th><th style={{...thStyle, textAlign: 'right'}}>Disponible</th></>}
+              <th style={{...thStyle, textAlign: 'center'}}>Statut</th><th style={thStyle}></th>
             </tr>
           </thead>
           <tbody>
@@ -259,63 +214,23 @@ const PageListeOP = () => {
                 <td style={{ ...styles.td, fontWeight: 600, fontSize: 12 }}>{getBenNom(op)}</td>
                 <td style={{ ...styles.td, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet}</td>
                 <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
+                {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.dotationLigne)}</td>}
                 <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800 }}>{formatMontant(op.montant)}</td>
-                {activeTab === 'PAYES' ? (
-                    <>
-                        <td style={{ ...styles.td, textAlign: 'right', color: P.greenDark, fontWeight: 700 }}>{formatMontant(op.totalPaye)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', color: op.solde > 0 ? P.red : P.text, fontWeight: 700 }}>{formatMontant(op.solde)}</td>
-                        <td style={{ ...styles.td, fontSize: 10, maxWidth: 150, overflow:'hidden', textOverflow:'ellipsis' }} title={op.refsPaiement}>{op.refsPaiement || '-'}</td>
-                    </>
-                ) : (
-                    <>
-                        {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700 }}>{formatMontant(op.disponible)}</td>}
-                        <td style={{ ...styles.td, textAlign: 'center', fontSize: '10px' }}>{op.statut.replace('_', ' ')}</td>
-                    </>
-                )}
+                {activeSource !== 'ALL' && <><td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.engagementAnterieur)}</td><td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontSize: 12 }}>{formatMontant(op.disponible)}</td></>}
+                <td style={{ ...styles.td, textAlign: 'center', fontSize: '10px', fontWeight: 700 }}>{op.statut.replace('_', ' ')}</td>
                 <td style={styles.td}><button onClick={(e) => { e.stopPropagation(); setPreviewOpId(op.id); }} style={{ border: 'none', background: 'none' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={P.orange} strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button></td>
               </tr>
             ))}
           </tbody>
           <tfoot style={{position:'sticky', bottom:0, background:'#eee', fontWeight:800}}>
               <tr>
-                  <td colSpan={5} style={{padding:12, textAlign:'right'}}>TOTAL DES MONTANTS AFFICHÉS :</td>
+                  <td colSpan={activeSource !== 'ALL' ? 6 : 5} style={{padding:12, textAlign:'right'}}>TOTAL DES MONTANTS AFFICHÉS :</td>
                   <td style={{padding:12, textAlign:'right', fontSize:14}}>{formatMontant(totalMontantAffichage)} F</td>
-                  <td colSpan={activeTab === 'PAYES' ? 4 : 3}></td>
+                  <td colSpan={activeSource !== 'ALL' ? 4 : 2}></td>
               </tr>
           </tfoot>
         </table>
       </div>
-
-      {livePreviewOp && (
-        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:'#fff',borderRadius:16,width:400,padding:24}}>
-            <button onClick={() => setPreviewOpId(null)} style={{float:'right', border:'none', background:'none'}}>{I.close(P.textMuted)}</button>
-            <h3 style={{marginBottom:20}}>{livePreviewOp.numero}</h3>
-            <p style={{fontSize: 14}}>Bénéficiaire : <b>{getBenNom(livePreviewOp)}</b></p>
-            <p style={{fontSize: 14}}>Montant : <b>{formatMontant(livePreviewOp.montant)} F</b></p>
-            <button onClick={() => { setConsultOpData(livePreviewOp); setCurrentPage('consulterOp'); setPreviewOpId(null); }} style={{width:'100%',padding:12,background:P.orange,color:'#fff',borderRadius:10,marginTop:20, border:'none', cursor:'pointer', fontWeight:700}}>Dossier Complet</button>
-          </div>
-        </div>
-      )}
-
-      {modalSuppression && (
-        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:P.card, borderRadius:16, width:800, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
-            <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <h3 style={{color:'#fff', margin:0}}>Corbeille</h3>
-              <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none'}}>{I.close('#fff')}</button>
-            </div>
-            <div style={{padding:20, overflowY:'auto'}}>
-              {opsSupprimes.length === 0 ? <p>Vide</p> : (
-                <table style={{width:'100%', borderCollapse:'collapse'}}>
-                  <thead><tr><th style={styles.th}>N° OP</th><th style={styles.th}>Montant</th><th style={styles.th}>Motif</th></tr></thead>
-                  <tbody>{opsSupprimes.map(op => (<tr key={op.id} style={{borderBottom:'1px solid #eee'}}><td style={styles.td}>{op.numero}</td><td style={styles.td}>{formatMontant(op.montant)}</td><td style={styles.td}>{op.motifSuppression}</td></tr>))}</tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
