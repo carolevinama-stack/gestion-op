@@ -2,9 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
-// STABILISATION : Imports nécessaires pour Firebase
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 
 // Palette de couleurs
 const P = {
@@ -18,7 +15,8 @@ const I = {
   download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
   trash: (c=P.red, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   close: (c='#fff', s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" x1="6" x2="18" y2="18"></line></svg>,
-  filter: (c='#666', s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+  filter: (c='#666', s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>,
+  info: (c=P.orange, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
 };
 
 const PageListeOP = () => {
@@ -34,34 +32,6 @@ const PageListeOP = () => {
 
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false);
-
-  // FONCTION DE STABILISATION COMPLÈTE (HISTORIQUE)
-  const stabiliserToutHistorique = async () => {
-    // On cherche les dossiers où le nom du bénéficiaire n'est pas encore "gravé"
-    const aTraiter = ops.filter(op => op.exerciceId === exerciceActif?.id && !op.beneficiaireNom);
-    
-    if (aTraiter.length === 0) return alert("Tout l'historique est déjà stabilisé (Noms et Montants).");
-    if (!window.confirm(`Stabilisation de ${aTraiter.length} dossiers : les noms des bénéficiaires et les budgets seront figés. Continuer ?`)) return;
-
-    try {
-      for (const op of aTraiter) {
-        // 1. Trouver le nom actuel du bénéficiaire
-        const ben = beneficiaires?.find(b => b.id === op.beneficiaireId);
-        const nomAFiger = ben?.nom || 'N/A';
-
-        // 2. Trouver la dotation actuelle
-        const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
-        const dotationAFiger = budgetSource?.lignes?.find(l => l.code === op.ligneBudgetaire)?.dotation || 0;
-
-        // 3. Mise à jour Firebase
-        await updateDoc(doc(db, 'ops', op.id), { 
-          beneficiaireNom: nomAFiger,
-          dotationFigee: dotationAFiger
-        });
-      }
-      alert("HISTORIQUE SÉCURISÉ : Noms et Budgets sont maintenant figés !");
-    } catch (err) { alert("Erreur : " + err.message); }
-  };
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires?.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
   const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
@@ -132,11 +102,13 @@ const PageListeOP = () => {
     return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   }, [displayOps]);
 
+  const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
+
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
       const exportData = displayOps.map(op => ({
-        'N° OP': op.numero, 'Type': op.type, 'Bénéficiaire': getBenNom(op), 'Montant': Number(op.montant || 0)
+        'N° OP': op.numero, 'Type': op.type, 'Bénéficiaire': getBenNom(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Statut': op.statut
       }));
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
@@ -155,15 +127,11 @@ const PageListeOP = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
-          {/* BOUTON DE STABILISATION FINALE */}
-          <button onClick={stabiliserToutHistorique} style={{padding:'8px 12px', background:P.orange, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Figer Noms & Budgets</button>
-          
           <button onClick={() => setModalSuppression(true)} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
       </div>
-      {/* ... reste du code identique ... */}
-      
+
       <div style={{ display: 'flex', borderBottom: `1px solid ${P.border}`, marginBottom: 20 }}>
         <button onClick={() => setActiveTab('TOUS')} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'TOUS' ? `3px solid ${P.green}` : 'none', cursor: 'pointer', fontWeight: 700, color: activeTab === 'TOUS' ? P.green : P.textSec }}>TOUS LES OP</button>
         <button onClick={() => setActiveTab('PAYES')} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'PAYES' ? `3px solid ${P.green}` : 'none', cursor: 'pointer', fontWeight: 700, color: activeTab === 'PAYES' ? P.green : P.textSec }}>OP PAYÉS</button>
@@ -194,16 +162,14 @@ const PageListeOP = () => {
             </button>
             {showTypeFilter && (
               <div style={{position: 'absolute', top: '105%', left: 0, width: '180px', background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, padding: 10}}>
-                <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                  {['DIRECT', 'PROVISOIRE', 'DEFINITIF', 'ANNULATION', 'REJET'].map(t => (
-                    <label key={t} style={{display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 12}}>
-                      <input type="checkbox" checked={filters.types.includes(t)} onChange={() => {
-                          const next = filters.types.includes(t) ? filters.types.filter(i => i !== t) : [...filters.types, t];
-                          setFilters({...filters, types: next});
-                      }} /> {t}
-                    </label>
-                  ))}
-                </div>
+                {['DIRECT', 'PROVISOIRE', 'DEFINITIF', 'ANNULATION', 'REJET'].map(t => (
+                  <label key={t} style={{display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer', fontSize: 12}}>
+                    <input type="checkbox" checked={filters.types.includes(t)} onChange={() => {
+                        const next = filters.types.includes(t) ? filters.types.filter(i => i !== t) : [...filters.types, t];
+                        setFilters({...filters, types: next});
+                    }} /> {t}
+                  </label>
+                ))}
               </div>
             )}
           </div>
@@ -229,16 +195,14 @@ const PageListeOP = () => {
             </button>
             {showStatutFilter && (
               <div style={{position: 'absolute', top: '105%', left: 0, width: '200px', background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, padding: 10, maxHeight: '250px', overflowY: 'auto'}}>
-                <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                  {['EN_COURS', 'TRANSMIS_CF', 'VISE_CF', 'DIFFERE_CF', 'REJETE_CF', 'TRANSMIS_AC', 'DIFFERE_AC', 'REJETE_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE', 'ANNULE'].map(s => (
-                    <label key={s} style={{display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 12}}>
-                      <input type="checkbox" checked={filters.statuts.includes(s)} onChange={() => {
-                          const next = filters.statuts.includes(s) ? filters.statuts.filter(i => i !== s) : [...filters.statuts, s];
-                          setFilters({...filters, statuts: next});
-                      }} /> {s.replace('_', ' ')}
-                    </label>
-                  ))}
-                </div>
+                {['EN_COURS', 'TRANSMIS_CF', 'VISE_CF', 'DIFFERE_CF', 'REJETE_CF', 'TRANSMIS_AC', 'DIFFERE_AC', 'REJETE_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE', 'ANNULE'].map(s => (
+                  <label key={s} style={{display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer', fontSize: 12}}>
+                    <input type="checkbox" checked={filters.statuts.includes(s)} onChange={() => {
+                        const next = filters.statuts.includes(s) ? filters.statuts.filter(i => i !== s) : [...filters.statuts, s];
+                        setFilters({...filters, statuts: next});
+                    }} /> {s.replace('_', ' ')}
+                  </label>
+                ))}
               </div>
             )}
           </div>
@@ -297,7 +261,11 @@ const PageListeOP = () => {
                     <td style={{ ...styles.td, textAlign: 'center', fontSize: '10px', fontWeight: 700 }}>{op.statut.replace('_', ' ')}</td>
                   </>
                 )}
-                <td style={styles.td}><button onClick={(e) => { e.stopPropagation(); setPreviewOpId(op.id); }} style={{ border: 'none', background: 'none' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={P.orange} strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button></td>
+                <td style={styles.td}>
+                  <button onClick={(e) => { e.stopPropagation(); setPreviewOpId(op.id); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+                    {I.info()}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -310,6 +278,54 @@ const PageListeOP = () => {
           </tfoot>
         </table>
       </div>
+
+      {/* FENÊTRE FLOTTANTE D'APERÇU */}
+      {livePreviewOp && (
+        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:'#fff', borderRadius:16, width:400, boxShadow:'0 20px 60px rgba(0,0,0,.3)', overflow:'hidden'}}>
+            <div style={{padding:'16px 20px', borderBottom:'1px solid #eee', background:'#FAFAF8', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <span style={{fontWeight:800, fontSize:13, color:P.oliveDark, letterSpacing:1}}>APERÇU DIRECT</span>
+              <button onClick={() => setPreviewOpId(null)} style={{border:'none', background:'none', cursor:'pointer'}}>{I.close(P.textMuted, 20)}</button>
+            </div>
+            <div style={{padding:'24px'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
+                 <div>
+                    <div style={{fontSize:11, color:P.textMuted, fontWeight:700, marginBottom:4}}>RÉFÉRENCE</div>
+                    <div style={{fontFamily:'monospace', fontWeight:800, fontSize:16, color:P.text}}>{livePreviewOp.numero}</div>
+                 </div>
+                 <div style={{background:P.greenLight, padding:'6px 12px', borderRadius:8, color:P.greenDark, fontSize:11, fontWeight:700}}>
+                    {livePreviewOp.statut.replace('_', ' ')}
+                 </div>
+              </div>
+              <p style={{fontSize: 14, margin: '5px 0'}}>Bénéficiaire : <b>{getBenNom(livePreviewOp)}</b></p>
+              <p style={{fontSize: 14, margin: '5px 0'}}>Montant : <b>{formatMontant(livePreviewOp.montant)} F</b></p>
+              <button onClick={() => { setConsultOpData(livePreviewOp); setCurrentPage('consulterOp'); setPreviewOpId(null); }} style={{width:'100%', padding:'12px', background:P.orange, color:'#fff', border:'none', borderRadius:10, fontWeight:700, cursor:'pointer', marginTop: 15}}>
+                 Ouvrir le dossier complet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE CORBEILLE */}
+      {modalSuppression && (
+        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:P.card, borderRadius:16, width:800, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+            <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <h3 style={{color:'#fff', margin:0}}>Corbeille (OP Supprimés)</h3>
+              <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>{I.close('#fff', 22)}</button>
+            </div>
+            <div style={{padding:20, overflowY:'auto'}}>
+              {opsSupprimes.length === 0 ? <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p> : (
+                <table style={{width:'100%', borderCollapse:'collapse'}}>
+                  <thead><tr><th style={thStyle}>N° OP</th><th style={thStyle}>Montant</th><th style={thStyle}>Motif</th></tr></thead>
+                  <tbody>{opsSupprimes.map(op => (<tr key={op.id} style={{borderBottom:'1px solid #eee'}}><td style={styles.td}>{op.numero}</td><td style={styles.td}>{formatMontant(op.montant)}</td><td style={styles.td}>{op.motifSuppression}</td></tr>))}</tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
