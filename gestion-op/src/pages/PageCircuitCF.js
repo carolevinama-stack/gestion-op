@@ -514,10 +514,10 @@ const PageCircuitCF = () => {
               </tbody></table>
             </div>}
           </div>
-        )
+        );
       })}
       </div>}
-    </div>;
+    </div>
   };
 
   const renderSuivi = (differes, rejetes, subTab, setSubTab) => <div>
