@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, increment } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
@@ -235,6 +235,9 @@ const PageCircuitCF = () => {
         selectedOps.forEach(opId => {
           batch.update(doc(db, 'ops', opId), { bordereauCF: num, updatedAt: new Date().toISOString() });
         });
+        
+        // On ne met PAS à jour le compteur global de l'exercice pour permettre la réutilisation si supprimé
+        
         await batch.commit();
         notify("success", "Succès", "Le bordereau a été généré.");
         setSelectedOps([]);
@@ -296,8 +299,6 @@ const PageCircuitCF = () => {
       try{
         await updateDoc(doc(db,'bordereaux',bt.id),{numero: nn, updatedAt: new Date().toISOString()});
         for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{bordereauCF: nn, updatedAt: new Date().toISOString()});
-        setBordereaux(p => p.map(b => b.id === bt.id ? {...b, numero: nn} : b));
-        setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? {...o, bordereauCF: nn} : o));
         setModalEditBT(p => p ? {...p, numero: nn} : null);
         notify("success", "Modifié", "Numéro mis à jour.");
       }catch(e){notify("error", "Erreur", e.message);}
@@ -350,13 +351,17 @@ const PageCircuitCF = () => {
         setSaving(true);
         try {
           const batch = writeBatch(db);
+          // On marque comme SUPPRIME au lieu de supprimer physiquement pour garder trace (optionnel)
+          // Mais ici la demande suggère une suppression pour réutiliser le numéro
           batch.delete(doc(db, 'bordereaux', bt.id));
+          
           bt.opsIds.forEach(opId => {
             batch.update(doc(db, 'ops', opId), { bordereauCF: null, statut: 'EN_COURS', dateTransmissionCF: null, updatedAt: new Date().toISOString() });
           });
+          
           await batch.commit();
-          setBordereaux(p => p.filter(b => b.id !== bt.id));
-          setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? { ...o, bordereauCF: null, statut: 'EN_COURS', dateTransmissionCF: null } : o));
+          // Pas besoin de décrémenter le compteur de l'exercice car on scanne les numéros existants maintenant
+          
           notify("success", "Annulé", "Le bordereau a été supprimé et les OP libérés.");
           if(expandedBT === bt.id) setExpandedBT(null); 
           setModalEditBT(null);
@@ -478,46 +483,50 @@ const PageCircuitCF = () => {
   const crd = {...styles.card, background: P.card, borderRadius: 14, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)'};
 
   const renderBordereaux = (btList) => {
-    return <div style={crd}>
-      <div style={{position:'relative',maxWidth:400,marginBottom:16}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
-        <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
-      </div>
-      {filterBordereaux(btList).length===0?<Empty text="Aucun bordereau"/>:
-      <div style={{maxHeight:'65vh',overflowY:'auto'}}>
-        {filterBordereaux(btList).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(bt=>{
-          const isExp = expandedBT === bt.id; const isPrep = bt.statut === 'EN_COURS'; const locked = isBordereauLocked(bt);
-          const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
-          return <div key={bt.id} style={{marginBottom:4}}>
-            <div onClick={()=>setExpandedBT(isExp?null:bt.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:isExp?P.greenLight:isPrep?'#fffde7':P.card,borderRadius:isExp?'12px 12px 0 0':12,border:isExp?`2px solid ${P.green}`:isPrep?`1px dashed ${P.goldBorder}`:`1px solid ${P.border}`,borderBottom:isExp?'none':undefined,cursor:'pointer',transition:'all .15s'}}>
-              <span style={{display:'inline-flex',transform:isExp?'rotate(90deg)':'none',transition:'transform .2s'}}>{I.chevron(P.green,14)}</span>
-              <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,minWidth:200}}>{bt.numero}</span>
-              <span style={{fontSize:12,color:P.textSec}}>{formatDate(bt.dateTransmission)||formatDate(bt.dateCreation)}</span>
-              <Badge bg={isPrep?P.goldLight:P.greenLight} color={isPrep?P.gold:P.greenDark}>{isPrep?'En cours':'Transmis'}</Badge>
-              <span style={{fontSize:12,color:P.textSec}}>{bt.nbOps} OP</span>
-              <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,marginLeft:'auto',color:P.greenDark}}>{formatMontant(bt.totalMontant)} F</span>
-              <div style={{display:'flex',gap:8,marginLeft:16}} onClick={e=>e.stopPropagation()}>
-                <IBtn icon={I.print(P.greenDark,16)} title="Imprimer" bg={`${P.greenDark}15`} onClick={()=>handlePrintBordereau(bt)}/>
-                <IBtn icon={locked ? I.lock(P.red, 16) : I.edit(P.greenDark, 16)} title={locked ? "Verrouillé" : "Modifier"} bg={locked ? P.redLight : `${P.greenDark}15`} onClick={()=>handleOpenEditBT(bt)} />
+    const sortedBts = filterBordereaux(btList).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+    return (
+      <div style={crd}>
+        <div style={{position:'relative',maxWidth:400,marginBottom:16}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
+          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
+        </div>
+        {sortedBts.length===0?<Empty text="Aucun bordereau"/>:
+        <div style={{maxHeight:'65vh',overflowY:'auto'}}>
+          {sortedBts.map(bt=>{
+            const isExp = expandedBT === bt.id; const isPrep = bt.statut === 'EN_COURS'; const locked = isBordereauLocked(bt);
+            const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+            return (
+              <div key={bt.id} style={{marginBottom:4}}>
+                <div onClick={()=>setExpandedBT(isExp?null:bt.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:isExp?P.greenLight:isPrep?'#fffde7':P.card,borderRadius:isExp?'12px 12px 0 0':12,border:isExp?`2px solid ${P.green}`:isPrep?`1px dashed ${P.goldBorder}`:`1px solid ${P.border}`,borderBottom:isExp?'none':undefined,cursor:'pointer',transition:'all .15s'}}>
+                  <span style={{display:'inline-flex',transform:isExp?'rotate(90deg)':'none',transition:'transform .2s'}}>{I.chevron(P.green,14)}</span>
+                  <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,minWidth:200}}>{bt.numero}</span>
+                  <span style={{fontSize:12,color:P.textSec}}>{formatDate(bt.dateTransmission)||formatDate(bt.dateCreation)}</span>
+                  <Badge bg={isPrep?P.goldLight:P.greenLight} color={isPrep?P.gold:P.greenDark}>{isPrep?'En cours':'Transmis'}</Badge>
+                  <span style={{fontSize:12,color:P.textSec}}>{bt.nbOps} OP</span>
+                  <span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,marginLeft:'auto',color:P.greenDark}}>{formatMontant(bt.totalMontant)} F</span>
+                  <div style={{display:'flex',gap:8,marginLeft:16}} onClick={e=>e.stopPropagation()}>
+                    <IBtn icon={I.print(P.greenDark,16)} title="Imprimer" bg={`${P.greenDark}15`} onClick={()=>handlePrintBordereau(bt)}/>
+                    <IBtn icon={locked ? I.lock(P.red, 16) : I.edit(P.greenDark, 16)} title={locked ? "Verrouillé" : "Modifier"} bg={locked ? P.redLight : `${P.greenDark}15`} onClick={()=>handleOpenEditBT(bt)} />
+                  </div>
+                </div>
+                {isExp && <div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
+                  {locked && <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,color:P.gold,fontSize:13,fontWeight:600}}>
+                      {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
+                  </div>}
+                  {isPrep && <div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+                    <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
+                    <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
+                    <ActionBtn label="Transmettre" icon={I.check('#fff',14)} color={P.greenDark} onClick={()=>handleTransmettre(bt)} disabled={saving}/>
+                  </div>}
+                  <table style={{...styles.table,fontSize:11}}><thead><tr><th style={{...thS,width:30}}>N°</th><th style={{...thS,width:120}}>N° OP</th><th style={{...thS,width:130}}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th></tr></thead><tbody>
+                    {btOps.map((op,i)=><tr key={op.id}><td style={styles.td}>{i+1}</td><td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td><td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td><td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td><td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td></tr>)}
+                  </tbody></table>
+                </div>}
               </div>
-            </div>
-            {isExp && <div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
-              {locked && <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,color:P.gold,fontSize:13,fontWeight:600}}>
-                 {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
-              </div>}
-              {isPrep && <div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
-                <span style={{fontSize:13,fontWeight:600,color:P.gold}}>Date :</span>
-                <input type="date" defaultValue={bt.dateTransmission||''} ref={el=>setDateRef('trans_'+bt.id,el)} style={{...styles.input,marginBottom:0,width:170,borderRadius:8,border:`1px solid ${P.border}`}}/>
-                <ActionBtn label="Transmettre" icon={I.check('#fff',14)} color={P.greenDark} onClick={()=>handleTransmettre(bt)} disabled={saving}/>
-              </div>}
-              <table style={{...styles.table,fontSize:11}}><thead><tr><th style={{...thS,width:30}}>N°</th><th style={{...thS,width:120}}>N° OP</th><th style={{...thS,width:130}}>BÉNÉFICIAIRE</th><th style={thS}>OBJET</th><th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th></tr></thead><tbody>
-                {btOps.map((op,i)=><tr key={op.id}><td style={styles.td}>{i+1}</td><td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td><td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td><td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td><td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td></tr>)}
-              </tbody></table>
-            </div>}
-          </div>
-        );
-      })}
-      </div>};
-     </div>
+            );
+          })}
+        </div>}
+      </div>
+    );
   };
 
   const renderSuivi = (differes, rejetes, subTab, setSubTab) => <div>
