@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
-// AJOUT STRICT : Imports pour la stabilisation
+// STABILISATION : Imports nécessaires pour Firebase
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -24,7 +24,7 @@ const I = {
 const PageListeOP = () => {
   const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
-  const [activeTab, setActiveTab] = useState('TOUS'); // 'TOUS' ou 'PAYES'
+  const [activeTab, setActiveTab] = useState('TOUS');
   
   const [filters, setFilters] = useState({ types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
   const [showStatutFilter, setShowStatutFilter] = useState(false);
@@ -35,19 +35,31 @@ const PageListeOP = () => {
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false);
 
-  // AJOUT STRICT : Fonction de stabilisation (Migration)
-  const stabiliserDonnees = async () => {
-    const aTraiter = ops.filter(op => op.exerciceId === exerciceActif?.id && op.dotationFigee === undefined);
-    if (aTraiter.length === 0) return alert("Toutes vos données sont déjà stables.");
-    if (!window.confirm(`Voulez-vous stabiliser ${aTraiter.length} dossiers ?`)) return;
+  // FONCTION DE STABILISATION COMPLÈTE (HISTORIQUE)
+  const stabiliserToutHistorique = async () => {
+    // On cherche les dossiers où le nom du bénéficiaire n'est pas encore "gravé"
+    const aTraiter = ops.filter(op => op.exerciceId === exerciceActif?.id && !op.beneficiaireNom);
+    
+    if (aTraiter.length === 0) return alert("Tout l'historique est déjà stabilisé (Noms et Montants).");
+    if (!window.confirm(`Stabilisation de ${aTraiter.length} dossiers : les noms des bénéficiaires et les budgets seront figés. Continuer ?`)) return;
 
     try {
       for (const op of aTraiter) {
+        // 1. Trouver le nom actuel du bénéficiaire
+        const ben = beneficiaires?.find(b => b.id === op.beneficiaireId);
+        const nomAFiger = ben?.nom || 'N/A';
+
+        // 2. Trouver la dotation actuelle
         const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
-        const dotationActuelle = budgetSource?.lignes?.find(l => l.code === op.ligneBudgetaire)?.dotation || 0;
-        await updateDoc(doc(db, 'ops', op.id), { dotationFigee: dotationActuelle });
+        const dotationAFiger = budgetSource?.lignes?.find(l => l.code === op.ligneBudgetaire)?.dotation || 0;
+
+        // 3. Mise à jour Firebase
+        await updateDoc(doc(db, 'ops', op.id), { 
+          beneficiaireNom: nomAFiger,
+          dotationFigee: dotationAFiger
+        });
       }
-      alert("Historique stabilisé avec succès !");
+      alert("HISTORIQUE SÉCURISÉ : Noms et Budgets sont maintenant figés !");
     } catch (err) { alert("Erreur : " + err.message); }
   };
 
@@ -74,21 +86,6 @@ const PageListeOP = () => {
 
   const opsSupprimes = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.statut === 'SUPPRIME'), [ops, exerciceActif]);
 
-  const allStatuts = [
-    { id: 'EN_COURS', label: 'En cours' }, { id: 'TRANSMIS_CF', label: 'Transmis CF' },
-    { id: 'VISE_CF', label: 'Visé CF' }, { id: 'DIFFERE_CF', label: 'Différé CF' },
-    { id: 'REJETE_CF', label: 'Rejeté CF' }, { id: 'TRANSMIS_AC', label: 'Transmis AC' },
-    { id: 'DIFFERE_AC', label: 'Différé AC' }, { id: 'REJETE_AC', label: 'Rejeté AC' },
-    { id: 'PAYE_PARTIEL', label: 'Payé Partiel' }, { id: 'PAYE', label: 'Payé (Soldé)' },
-    { id: 'ARCHIVE', label: 'Archivé' }, { id: 'ANNULE', label: 'Annulé' }
-  ];
-
-  const allTypes = [
-    { id: 'DIRECT', label: 'Direct' }, { id: 'PROVISOIRE', label: 'Provisoire' },
-    { id: 'DEFINITIF', label: 'Définitif' }, { id: 'ANNULATION', label: 'Annulation' },
-    { id: 'REJET', label: 'Rejet' }
-  ];
-
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
       if (op.exerciceId !== exerciceActif?.id) return false;
@@ -107,13 +104,9 @@ const PageListeOP = () => {
     const withCalculations = sorted.map(op => {
       const lb = op.ligneBudgetaire;
       const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
-      
-      // AJUSTEMENT : Priorité à la dotation figée (Historique stable)
       const dotation = op.dotationFigee ?? budgetSource?.lignes?.find(l => l.code === lb)?.dotation ?? 0;
-      
       const engagementAnterieur = cumulParLigne[lb] || 0;
       cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (op.montant || 0);
-
       const totalPaye = (op.paiements || []).reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
       const solde = (Number(op.montant) || 0) - totalPaye;
       const refs = (op.paiements || []).map(p => p.reference).filter(Boolean).join(', ');
@@ -139,8 +132,6 @@ const PageListeOP = () => {
     return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   }, [displayOps]);
 
-  const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
-
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
@@ -164,15 +155,15 @@ const PageListeOP = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
-          {/* BOUTON STABILISATION */}
-          <button onClick={stabiliserDonnees} style={{padding:'8px 12px', background:P.gold, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700, fontSize:12}}>Stabiliser l'historique</button>
+          {/* BOUTON DE STABILISATION FINALE */}
+          <button onClick={stabiliserToutHistorique} style={{padding:'8px 12px', background:P.orange, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Figer Noms & Budgets</button>
           
           <button onClick={() => setModalSuppression(true)} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
       </div>
-
-      {/* ONGLET DE NAVIGATION */}
+      {/* ... reste du code identique ... */}
+      
       <div style={{ display: 'flex', borderBottom: `1px solid ${P.border}`, marginBottom: 20 }}>
         <button onClick={() => setActiveTab('TOUS')} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'TOUS' ? `3px solid ${P.green}` : 'none', cursor: 'pointer', fontWeight: 700, color: activeTab === 'TOUS' ? P.green : P.textSec }}>TOUS LES OP</button>
         <button onClick={() => setActiveTab('PAYES')} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'PAYES' ? `3px solid ${P.green}` : 'none', cursor: 'pointer', fontWeight: 700, color: activeTab === 'PAYES' ? P.green : P.textSec }}>OP PAYÉS</button>
@@ -203,14 +194,16 @@ const PageListeOP = () => {
             </button>
             {showTypeFilter && (
               <div style={{position: 'absolute', top: '105%', left: 0, width: '180px', background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, padding: 10}}>
-                {allTypes.map(t => (
-                  <label key={t.id} style={{display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer', fontSize: 12}}>
-                    <input type="checkbox" checked={filters.types.includes(t.id)} onChange={() => {
-                        const newTypes = filters.types.includes(t.id) ? filters.types.filter(i => i !== t.id) : [...filters.types, t.id];
-                        setFilters({...filters, types: newTypes});
-                    }} /> {t.label}
-                  </label>
-                ))}
+                <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                  {['DIRECT', 'PROVISOIRE', 'DEFINITIF', 'ANNULATION', 'REJET'].map(t => (
+                    <label key={t} style={{display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 12}}>
+                      <input type="checkbox" checked={filters.types.includes(t)} onChange={() => {
+                          const next = filters.types.includes(t) ? filters.types.filter(i => i !== t) : [...filters.types, t];
+                          setFilters({...filters, types: next});
+                      }} /> {t}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -236,14 +229,16 @@ const PageListeOP = () => {
             </button>
             {showStatutFilter && (
               <div style={{position: 'absolute', top: '105%', left: 0, width: '200px', background: '#fff', border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, padding: 10, maxHeight: '250px', overflowY: 'auto'}}>
-                {allStatuts.map(s => (
-                  <label key={s.id} style={{display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer', fontSize: 12}}>
-                    <input type="checkbox" checked={filters.statuts.includes(s.id)} onChange={() => {
-                        const newStatuts = filters.statuts.includes(s.id) ? filters.statuts.filter(i => i !== s.id) : [...filters.statuts, s.id];
-                        setFilters({...filters, statuts: newStatuts});
-                    }} /> {s.label}
-                  </label>
-                ))}
+                <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                  {['EN_COURS', 'TRANSMIS_CF', 'VISE_CF', 'DIFFERE_CF', 'REJETE_CF', 'TRANSMIS_AC', 'DIFFERE_AC', 'REJETE_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE', 'ANNULE'].map(s => (
+                    <label key={s} style={{display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 12}}>
+                      <input type="checkbox" checked={filters.statuts.includes(s)} onChange={() => {
+                          const next = filters.statuts.includes(s) ? filters.statuts.filter(i => i !== s) : [...filters.statuts, s];
+                          setFilters({...filters, statuts: next});
+                      }} /> {s.replace('_', ' ')}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -284,7 +279,7 @@ const PageListeOP = () => {
                 <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero}</td>
                 <td style={{ ...styles.td, fontSize: '10px' }}>{op.type}</td>
                 <td style={{ ...styles.td, fontWeight: 600, fontSize: 12 }}>{getBenNom(op)}</td>
-                <td style={{ ...styles.td, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.objet}</td>
+                <td style={{ ...styles.td, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet || '-'}</td>
                 <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 11 }}>{op.ligneBudgetaire}</td>
                 
                 {activeTab === 'PAYES' ? (
@@ -308,7 +303,7 @@ const PageListeOP = () => {
           </tbody>
           <tfoot style={{position:'sticky', bottom:0, background:'#eee', fontWeight:800}}>
               <tr>
-                  <td colSpan={activeTab === 'PAYES' ? 5 : (activeSource !== 'ALL' ? 6 : 5)} style={{padding:12, textAlign:'right'}}>TOTAL DES MONTANTS AFFICHÉS :</td>
+                  <td colSpan={activeTab === 'PAYES' ? 5 : (activeSource !== 'ALL' ? 6 : 5)} style={{padding:12, textAlign:'right'}}>TOTAL :</td>
                   <td style={{padding:12, textAlign:'right', fontSize:14}}>{formatMontant(totalMontantAffichage)} F</td>
                   <td colSpan={activeTab === 'PAYES' ? 4 : (activeSource !== 'ALL' ? 4 : 2)}></td>
               </tr>
