@@ -514,7 +514,7 @@ const PageCircuitCF = () => {
               </tbody></table>
             </div>}
           </div>
-        );
+        )
       })}
       </div>}
     </div>;
