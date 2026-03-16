@@ -166,19 +166,30 @@ const PageCircuitCF = () => {
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
   const closeAllModals = () => { setModalRetourCF(false); setModalEditBT(null); };
 
-  const genNumeroBT = async (specificSourceId) => {
-    const pf = 'BT-CF';
-    const sp = projet?.sigle || 'PROJET'; const ss = getSigleSrc(specificSourceId);
-    const a = exerciceActif?.annee || new Date().getFullYear();
-    const cId = `CF_${specificSourceId}_${exerciceActif?.id}`;
-    const cRef = doc(db, 'compteurs', cId);
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(cRef); const next = (snap.exists() ? (snap.data().count || 0) : 0) + 1;
-      tx.set(cRef, {count: next, type: 'CF', sourceId: specificSourceId, exerciceId: exerciceActif?.id});
-      return `${pf}-${String(next).padStart(4, '0')}/${sp}-${ss}/${a}`;
+  const handleFixOrphanOps = async () => {
+    ask("Réparation", "Actualiser la file d'attente et synchroniser les numéros de bordereaux ?", async () => {
+      setSaving(true);
+      try {
+        const batch = writeBatch(db);
+        let fixedCount = 0;
+        
+        // 1. Libération des OP orphelins
+        ops.forEach(op => {
+          if (op.bordereauCF && !bordereaux.find(b => b.numero === op.bordereauCF && b.statut !== 'SUPPRIME')) {
+            batch.update(doc(db, 'ops', op.id), { bordereauCF: null, updatedAt: new Date().toISOString() });
+            fixedCount++;
+          }
+        });
+
+        // 2. Recalage automatique du compteur (sera effectif au prochain genNumeroBT)
+        await batch.commit();
+        notify("success", "Actualisé", `File d'attente synchronisée et numérotation prête.`);
+      } catch(e) {
+        notify("error", "Erreur", e.message);
+      }
+      setSaving(false);
     });
   };
-
   const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); };
 
   // ================================================================
