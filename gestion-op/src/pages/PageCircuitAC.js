@@ -191,7 +191,6 @@ const PageCircuitAC = () => {
   // ================================================================
 
   // SCRIPT DE RÉPARATION DES OP ORPHELINS (Adapté pour AC)
-  // MODIFICATION : J'AI BIEN VÉRIFIÉ QU'IL N'EST DÉCLARÉ QU'UNE SEULE FOIS DANS CE CODE
   const handleFixOrphanOps = async () => {
     ask("Réparation", "Actualiser la file d'attente et synchroniser les numéros de bordereaux ?", async () => {
       setSaving(true);
@@ -216,7 +215,6 @@ const PageCircuitAC = () => {
       setSaving(false);
     });
   };
-
   const handleCreateBordereauMulti = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
     
