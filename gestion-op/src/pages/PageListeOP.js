@@ -108,14 +108,34 @@ const PageListeOP = () => {
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
+      
       const exportData = displayOps.map(op => ({
-        'N° OP': op.numero, 'Type': op.type, 'Bénéficiaire': getBenNom(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Statut': op.statut
+        'N° OP': op.numero,
+        'Type': op.type,
+        'Bénéficiaire': getBenNom(op),
+        'Objet': op.objet || '',
+        'ligne': op.ligneBudgetaire,
+        'dotation': Number(op.dotationLigne || 0),
+        'Montant': Number(op.montant || 0),
+        'engagemen anterieur': Number(op.engagementAnterieur || 0),
+        'date op': formatDate(op.dateCreation)
       }));
+
       const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Auto-ajustement de la largeur des colonnes pour que ce soit propre
+      const colWidths = Object.keys(exportData[0]).map(key => ({
+        wch: Math.max(key.length + 5, 15)
+      }));
+      ws['!cols'] = colWidths;
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Export");
-      XLSX.writeFile(wb, "Export_OP.xlsx");
-    } catch (err) { alert(err.message); }
+      XLSX.utils.book_append_sheet(wb, ws, "Liste_OP");
+      
+      XLSX.writeFile(wb, `Export_OP_${activeSource !== 'ALL' ? getSrcSigle(activeSource) : 'GENERAL'}.xlsx`);
+    } catch (err) { 
+      alert("Erreur lors de l'exportation : " + err.message); 
+    }
   };
 
   const thStyle = {
