@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, runTransaction, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
@@ -21,7 +21,7 @@ const I={
   trash:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
   undo:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>,
   check:(c='#fff',s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
-  close:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  close:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" x1="6" x2="18" y2="18"/></svg>,
   chevron:(c=P.green,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>,
   plus:(c='#fff',s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   search:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
@@ -166,37 +166,6 @@ const PageCircuitCF = () => {
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
   const closeAllModals = () => { setModalRetourCF(false); setModalEditBT(null); };
 
-  // MODIFICATION : J'AI BIEN VÉRIFIÉ QU'IL N'EST DÉCLARÉ QU'UNE SEULE FOIS DANS CE CODE
-  const handleFixOrphanOps = async () => {
-    ask("Réparation", "Actualiser la file d'attente et synchroniser les numéros de bordereaux ?", async () => {
-      setSaving(true);
-      try {
-        const batch = writeBatch(db);
-        let fixedCount = 0;
-        
-        // 1. Libération des OP orphelins
-        ops.forEach(op => {
-          if (op.bordereauCF && !bordereaux.find(b => b.numero === op.bordereauCF && b.statut !== 'SUPPRIME')) {
-            batch.update(doc(db, 'ops', op.id), { bordereauCF: null, updatedAt: new Date().toISOString() });
-            fixedCount++;
-          }
-        });
-
-        // 2. Synchronisation de la numérotation
-        await batch.commit();
-        notify("success", "Actualisé", `File d'attente synchronisée et numérotation prête.`);
-      } catch(e) {
-        notify("error", "Erreur", e.message);
-      }
-      setSaving(false);
-    });
-  };
-  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); };
-
-  // ================================================================
-  // ACTIONS
-  // ================================================================
-
   const handleFixOrphanOps = async () => {
     ask("Réparation", "Actualiser la file d'attente et libérer les OP bloqués ?", async () => {
       setSaving(true);
@@ -222,15 +191,40 @@ const PageCircuitCF = () => {
     });
   };
 
+  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); };
+
+  // ================================================================
+  // ACTIONS
+  // ================================================================
+
   const handleCreateBordereauMulti = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
     const bad = selectedOps.filter(opId => { const op = ops.find(o => o.id === opId); return !op || !['EN_COURS','DIFFERE_CF'].includes(op.statut) || (op.bordereauCF && op.bordereauCF !== ''); });
     if(bad.length > 0){notify("error", "Erreur", `${bad.length} OP ne sont plus disponibles.`); setSelectedOps([]); return;}
+    
     ask("Génération", `Générer un bordereau CF pour ${selectedOps.length} OP ?`, async () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
-        const num = await genNumeroBT(activeSourceBT);
+        
+        // MODIFICATION ICI : Calcul du numéro en temps réel pour permettre la réutilisation
+        const pf = 'BT-CF';
+        const sp = projet?.sigle || 'PROJET'; 
+        const ss = getSigleSrc(activeSourceBT);
+        const a = exerciceActif?.annee || new Date().getFullYear();
+        
+        // ANALYSE RÉELLE : On cherche le numéro le plus élevé parmi les bordereaux existants
+        let maxNum = 0;
+        bordereaux
+          .filter(b => b.type === 'CF' && b.sourceId === activeSourceBT && b.exerciceId === exerciceActif?.id && b.statut !== 'SUPPRIME')
+          .forEach(b => {
+            const match = (b.numero || '').match(/BT-CF-(\d+)\//);
+            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+          });
+
+        const next = maxNum + 1;
+        const num = `${pf}-${String(next).padStart(4, '0')}/${sp}-${ss}/${a}`;
+
         const btRef = doc(collection(db, 'bordereaux'));
         batch.set(btRef, {
           numero: num, type: 'CF', sourceId: activeSourceBT, exerciceId: exerciceActif.id,
@@ -519,7 +513,8 @@ const PageCircuitCF = () => {
                 {btOps.map((op,i)=><tr key={op.id}><td style={styles.td}>{i+1}</td><td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td><td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td><td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td><td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td></tr>)}
               </tbody></table>
             </div>}
-          </div>;
+          </div>
+                  );
         })}
       </div>}
     </div>;
@@ -697,10 +692,10 @@ const PageCircuitCF = () => {
       </div>
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16}}>
         <div>
-           <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Décision</div>
-           <div style={{display:'flex',gap:8}}>
-             {[{v:'VISE',l:'Visé',c:P.green,bg:P.greenLight},{v:'DIFFERE',l:'Différé',c:P.gold,bg:P.goldLight},{v:'REJETE',l:'Rejeté',c:P.red,bg:P.redLight}].map(o=><button key={o.v} onClick={()=>setResultatCF(o.v)} style={{flex:1,padding:'10px 6px',borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer',border:resultatCF===o.v?`2px solid ${o.c}`:`1px solid ${P.border}`,background:resultatCF===o.v?o.bg:P.card,color:resultatCF===o.v?o.c:P.textMuted,transition:'all .15s'}}>{o.l}</button>)}
-           </div>
+            <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Décision</div>
+            <div style={{display:'flex',gap:8}}>
+              {[{v:'VISE',l:'Visé',c:P.green,bg:P.greenLight},{v:'DIFFERE',l:'Différé',c:P.gold,bg:P.goldLight},{v:'REJETE',l:'Rejeté',c:P.red,bg:P.redLight}].map(o=><button key={o.v} onClick={()=>setResultatCF(o.v)} style={{flex:1,padding:'10px 6px',borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer',border:resultatCF===o.v?`2px solid ${o.c}`:`1px solid ${P.border}`,background:resultatCF===o.v?o.bg:P.card,color:resultatCF===o.v?o.c:P.textMuted,transition:'all .15s'}}>{o.l}</button>)}
+            </div>
         </div>
         <div><label style={{display:'block',fontSize:12,fontWeight:600,marginBottom:6}}>Date d'action</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourCF',el)} style={iS}/></div>
       </div>
