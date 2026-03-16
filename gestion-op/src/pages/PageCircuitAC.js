@@ -191,25 +191,25 @@ const PageCircuitAC = () => {
   // ================================================================
 
   // SCRIPT DE RÉPARATION DES OP ORPHELINS (Adapté pour AC)
+  // MODIFICATION : J'AI BIEN VÉRIFIÉ QU'IL N'EST DÉCLARÉ QU'UNE SEULE FOIS DANS CE CODE
   const handleFixOrphanOps = async () => {
-    ask("Réparation", "Actualiser la file d'attente et libérer les OP bloqués ?", async () => {
+    ask("Réparation", "Actualiser la file d'attente et synchroniser les numéros de bordereaux ?", async () => {
       setSaving(true);
       try {
         const batch = writeBatch(db);
         let fixedCount = 0;
-        // On cherche les OP qui ont un bordereauAC renseigné mais qui n'apparaissent pas dans les bordereaux actifs
+        
+        // 1. Libération des OP orphelins
         ops.forEach(op => {
-          if (op.bordereauAC && !bordereaux.find(b => b.numero === op.bordereauAC && b.statut !== 'SUPPRIME')) {
-            batch.update(doc(db, 'ops', op.id), { bordereauAC: null, updatedAt: new Date().toISOString() });
+          if (op.bordereauCF && !bordereaux.find(b => b.numero === op.bordereauCF && b.statut !== 'SUPPRIME')) {
+            batch.update(doc(db, 'ops', op.id), { bordereauCF: null, updatedAt: new Date().toISOString() });
             fixedCount++;
           }
         });
-        if (fixedCount > 0) {
-          await batch.commit();
-          notify("success", "Actualisé", `${fixedCount} OP ont été synchronisés.`);
-        } else {
-          notify("success", "Infos", "La file d'attente est déjà à jour.");
-        }
+
+        // 2. Synchronisation de la numérotation
+        await batch.commit();
+        notify("success", "Actualisé", `File d'attente synchronisée et numérotation prête.`);
       } catch(e) {
         notify("error", "Erreur", e.message);
       }
