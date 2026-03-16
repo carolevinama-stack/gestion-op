@@ -164,8 +164,6 @@ const PageNouvelOp = () => {
   
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire) return 0;
-    
-    // CORRECTION : Somme brute de tous les montants déjà en base pour cette ligne
     return ops
       .filter(op => 
         op.sourceId === activeSource && 
@@ -364,15 +362,29 @@ const PageNouvelOp = () => {
         opProvFields.opProvisoireNumeros = numeros.length > 0 ? numeros : null;
       }
 
+      // MODIFICATION : Capturer les données "Figées" (Nom, Libellé, Dotation)
       const opData = {
-        numero, type: form.type, sourceId: activeSource, exerciceId: exerciceActif.id,
-        beneficiaireId: form.beneficiaireId, modeReglement: form.modeReglement,
-        rib: selectedRib || null, ligneBudgetaire: form.ligneBudgetaire,
-        objet: form.objet.trim(), piecesJustificatives: form.piecesJustificatives.trim(),
-        montant: finalMontant, montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
-        tvaRecuperable: form.tvaRecuperable === true, statut: 'EN_COURS',
+        numero, 
+        type: form.type, 
+        sourceId: activeSource, 
+        exerciceId: exerciceActif.id,
+        beneficiaireId: form.beneficiaireId, 
+        beneficiaireNom: selectedBeneficiaire?.nom || 'N/A', // FIGÉ
+        modeReglement: form.modeReglement,
+        rib: selectedRib || null, 
+        ligneBudgetaire: form.ligneBudgetaire,
+        libelleLigne: selectedLigne?.libelle || '', // FIGÉ
+        dotationFigee: getDotation(), // FIGÉ
+        objet: form.objet.trim(), 
+        piecesJustificatives: form.piecesJustificatives.trim(),
+        montant: finalMontant, 
+        montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
+        tvaRecuperable: form.tvaRecuperable === true, 
+        statut: 'EN_COURS',
         ...opProvFields,
-        dateCreation: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        dateCreation: new Date().toISOString().split('T')[0], 
+        createdAt: new Date().toISOString(), 
+        updatedAt: new Date().toISOString(),
         creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
       };
 
