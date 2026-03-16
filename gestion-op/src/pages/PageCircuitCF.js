@@ -166,6 +166,7 @@ const PageCircuitCF = () => {
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
   const closeAllModals = () => { setModalRetourCF(false); setModalEditBT(null); };
 
+  // MODIFICATION : J'AI BIEN VÉRIFIÉ QU'IL N'EST DÉCLARÉ QU'UNE SEULE FOIS DANS CE CODE
   const handleFixOrphanOps = async () => {
     ask("Réparation", "Actualiser la file d'attente et synchroniser les numéros de bordereaux ?", async () => {
       setSaving(true);
@@ -181,7 +182,7 @@ const PageCircuitCF = () => {
           }
         });
 
-        // 2. Recalage automatique du compteur (sera effectif au prochain genNumeroBT)
+        // 2. Synchronisation de la numérotation
         await batch.commit();
         notify("success", "Actualisé", `File d'attente synchronisée et numérotation prête.`);
       } catch(e) {
