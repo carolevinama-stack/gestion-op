@@ -2,6 +2,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
+// AJOUT STRICT : Imports pour la stabilisation
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Palette de couleurs
 const P = {
@@ -31,6 +34,22 @@ const PageListeOP = () => {
 
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false);
+
+  // AJOUT STRICT : Fonction de stabilisation (Migration)
+  const stabiliserDonnees = async () => {
+    const aTraiter = ops.filter(op => op.exerciceId === exerciceActif?.id && op.dotationFigee === undefined);
+    if (aTraiter.length === 0) return alert("Toutes vos données sont déjà stables.");
+    if (!window.confirm(`Voulez-vous stabiliser ${aTraiter.length} dossiers ?`)) return;
+
+    try {
+      for (const op of aTraiter) {
+        const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
+        const dotationActuelle = budgetSource?.lignes?.find(l => l.code === op.ligneBudgetaire)?.dotation || 0;
+        await updateDoc(doc(db, 'ops', op.id), { dotationFigee: dotationActuelle });
+      }
+      alert("Historique stabilisé avec succès !");
+    } catch (err) { alert("Erreur : " + err.message); }
+  };
 
   const getBenNom = (op) => op.beneficiaireNom || beneficiaires?.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
   const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
@@ -75,8 +94,6 @@ const PageListeOP = () => {
       if (op.exerciceId !== exerciceActif?.id) return false;
       if (op.statut === 'SUPPRIME') return false;
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
-      
-      // LOGIQUE ONGLETS
       if (activeTab === 'PAYES') {
           const hasPaiement = (op.paiements || []).length > 0;
           if (!hasPaiement) return false;
@@ -90,11 +107,13 @@ const PageListeOP = () => {
     const withCalculations = sorted.map(op => {
       const lb = op.ligneBudgetaire;
       const budgetSource = budgets.find(b => b.sourceId === op.sourceId && b.exerciceId === op.exerciceId);
-      const dotation = budgetSource?.lignes?.find(l => l.code === lb)?.dotation || 0;
+      
+      // AJUSTEMENT : Priorité à la dotation figée (Historique stable)
+      const dotation = op.dotationFigee ?? budgetSource?.lignes?.find(l => l.code === lb)?.dotation ?? 0;
+      
       const engagementAnterieur = cumulParLigne[lb] || 0;
       cumulParLigne[lb] = (cumulParLigne[lb] || 0) + (op.montant || 0);
 
-      // Calcul des montants payés pour l'onglet dédié
       const totalPaye = (op.paiements || []).reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
       const solde = (Number(op.montant) || 0) - totalPaye;
       const refs = (op.paiements || []).map(p => p.reference).filter(Boolean).join(', ');
@@ -145,6 +164,9 @@ const PageListeOP = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
+          {/* BOUTON STABILISATION */}
+          <button onClick={stabiliserDonnees} style={{padding:'8px 12px', background:P.gold, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700, fontSize:12}}>Stabiliser l'historique</button>
+          
           <button onClick={() => setModalSuppression(true)} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
