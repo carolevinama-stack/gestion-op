@@ -192,29 +192,30 @@ const PageCircuitAC = () => {
 
   // SCRIPT DE RÉPARATION DES OP ORPHELINS (Adapté pour AC)
   const handleFixOrphanOps = async () => {
-    ask("Réparation", "Actualiser la file d'attente et synchroniser les numéros de bordereaux ?", async () => {
+    ask("Réparation", "Actualiser la file d'attente et libérer les OP bloqués ?", async () => {
       setSaving(true);
       try {
         const batch = writeBatch(db);
         let fixedCount = 0;
-        
-        // 1. Libération des OP orphelins
         ops.forEach(op => {
           if (op.bordereauCF && !bordereaux.find(b => b.numero === op.bordereauCF && b.statut !== 'SUPPRIME')) {
             batch.update(doc(db, 'ops', op.id), { bordereauCF: null, updatedAt: new Date().toISOString() });
             fixedCount++;
           }
         });
-
-        // 2. Synchronisation de la numérotation
-        await batch.commit();
-        notify("success", "Actualisé", `File d'attente synchronisée et numérotation prête.`);
+        if (fixedCount > 0) {
+          await batch.commit();
+          notify("success", "Actualisé", `${fixedCount} OP ont été synchronisés.`);
+        } else {
+          notify("success", "Infos", "La file d'attente est déjà à jour.");
+        }
       } catch(e) {
         notify("error", "Erreur", e.message);
       }
       setSaving(false);
     });
   };
+// ===================================================
   const handleCreateBordereauMulti = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
     
