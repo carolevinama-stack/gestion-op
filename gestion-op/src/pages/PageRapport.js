@@ -85,7 +85,7 @@ const StatutBadge = ({ statut }) => {
 };
 
 const TypeBadge = ({ type }) => {
-  const m = { PROVISOIRE: { bg: '#e3f2fd', c: '#1565c0' }, DEFINITIF: { bg: '#f3e5f5', c: '#6a1b9a' }, ANNULATION: { bg: P.goldLight, c: P.gold }, REJET: { bg: P.redLight, c: P.red } };
+  const m = { PROVISOIRE: { bg: '#e3f2fd', c: '#1565c0' }, DEFINITIF: { bg: '#f3e5f5', c: '#6a1b9a' }, ANNULATION: { bg: P.goldLight, c: P.gold }, REJET: { bg: P.redLight, c: P.red }, DIRECT: {bg: P.olive + '22', c: P.oliveDark} };
   const s = m[type] || { bg: '#eee', c: '#666' };
   return <span style={{ background: s.bg, color: s.c, padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700 }}>{type || '—'}</span>;
 };
@@ -143,30 +143,58 @@ export default function PageRapport() {
     );
   }, [ops]);
 
+  // === FONCTION COMMUNE POUR VÉRIFIER LES ANNULATIONS ===
+  const hasValidCancellation = useCallback((opProvId) => {
+    return ops.some(o => 
+      o.type === 'ANNULATION' && 
+      o.opProvisoireId === opProvId &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME', 'DIFFERE_CF', 'DIFFERE_AC'].includes(o.statut)
+    );
+  }, [ops]);
+
   // === DONNÉES PAR ONGLET ===
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
 
   const opsNonVisesCF = useMemo(() => mainOps.filter(op => op.statut === 'TRANSMIS_CF').map(op => ({ ...op, delai: joursOuvres(op.dateTransmissionCF, dateRef) })), [mainOps, dateRef]);
 
-  const opsNonSoldes = useMemo(() => mainOps.filter(op => ['TRANSMIS_AC', 'PAYE_PARTIEL'].includes(op.statut)).map(op => {
+  // MODIFICATION ICI : Filtre pour "Non soldés" incluant DIRECT
+  const opsNonSoldes = useMemo(() => mainOps.filter(op => {
+    // 1. Exclure formellement Annulations et Rejets
+    if (['ANNULATION', 'REJET'].includes(op.type)) return false;
+    // 2. Accepter PROVISOIRE, DEFINITIF, DIRECT (implicit par élimination ci-dessus)
+    // 3. Uniquement les statuts en attente de solde complet
+    return ['TRANSMIS_AC', 'PAYE_PARTIEL'].includes(op.statut);
+  }).map(op => {
     const delai = joursOuvres(op.dateTransmissionAC, dateRef);
-    let provs = []; let ecart = null;
-    if (op.type === 'DEFINITIF' && op.opProvisoireId) { const p = ops.find(o => o.id === op.opProvisoireId); if (p) provs.push(p); }
-    if (op.type === 'DEFINITIF' && provs.length > 0) ecart = provs.reduce((s, p) => s + Number(p.montantPaye || p.montant || 0), 0) - Number(op.montant || 0);
-    return { ...op, delai, provs, ecart };
+    let prov = null; 
+    let solde = null;
+    
+    // Cas Spécifique 1 : DEFINITIF rattaché à un PROVISOIRE payé
+    if (op.type === 'DEFINITIF' && op.opProvisoireId) { 
+      prov = ops.find(o => o.id === op.opProvisoireId); 
+      if (prov) {
+        // Solde = (Mt payé sur le Provisoire) - (Mt du Definitif actuel)
+        const montantPayeProvisoire = Number(prov.montantPaye || prov.totalPaye || 0);
+        const montantDefinitif = Number(op.montant || 0);
+        solde = montantPayeProvisoire - montantDefinitif;
+      }
+    } 
+    // Cas Spécifique 2 : DIRECT ou DEFINITIF sans prov ou PROVISOIRE (reste à payer classique)
+    else {
+      const montant = Number(op.montant || 0);
+      const montantPaye = Number(op.montantPaye || op.totalPaye || 0);
+      solde = montant - montantPaye;
+    }
+    
+    return { ...op, delai, prov, solde }; 
   }), [mainOps, ops, dateRef]);
 
+  // MODIFICATION ICI : Filtre pour "À annuler"
   const opsAAnnuler = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
-    
-    const hasAnnulation = ops.some(o => 
-      o.type === 'ANNULATION' && 
-      o.opProvisoireId === op.id &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-    return !hasAnnulation;
-  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
+    if (op.statut !== 'VISE_CF') return false; 
+    return !hasValidCancellation(op.id);
+  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, hasValidCancellation, dateRef]);
 
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
@@ -323,9 +351,7 @@ export default function PageRapport() {
     setImporting(false); e.target.value = '';
   };
 
-  // ==========================================================
-  // FONCTION DE RÉCUPÉRATION DU MOTIF (CORRECTION BÉTON)
-  // ==========================================================
+  // === FONCTION DE RÉCUPÉRATION DU MOTIF (CORRECTION BÉTON)
   const getDefaultObs = (op) => {
     // 1. Si on a saisi une observation manuelle, c'est elle qui prime
     if (op.observation && op.observation.trim() !== '') return op.observation;
@@ -365,15 +391,31 @@ export default function PageRapport() {
 
       const d1 = appendTotal(opsCompta.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Statut': op.statut, 'Observation': getDefaultObs(op) })), opsCompta.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': getDefaultObs(op) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d3 = appendTotal(opsNonSoldes.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant OP': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'N° Bordereau AC': op.bordereauAC || '', 'Date transmission AC': formatDate(op.dateTransmissionAC), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'OP prov. rattachés': op.provs?.map(p => p.numero).join(', ') || '', 'Écart': op.ecart ?? '', 'Observation': getDefaultObs(op) })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
+      
+      // MODIFICATION ICI : Excel Export pour "Non soldés" incluant DIRECT
+      const d3 = appendTotal(opsNonSoldes.map(op => ({ 
+        'N° OP': op.numero, 
+        'Type': op.type || '', 
+        'Bénéficiaire': getBen(op), 
+        'Objet': op.objet || '', 
+        'Montant OP': Number(op.montant || 0), 
+        'Montant payé': Number(op.montantPaye || op.totalPaye || 0), 
+        'N° Bordereau AC': op.bordereauAC || '', 
+        'Date transmission AC': formatDate(op.dateTransmissionAC), 
+        'Délai (j ouvrés)': op.delai ?? '', 
+        'Statut délai': dl(op.delai, 5), 
+        'OP prov. rattaché': op.prov ? op.prov.numero : '', 
+        'Solde': op.solde ?? '', 
+        'Observation': getDefaultObs(op) 
+      })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || op.totalPaye || 0), 0));
+      
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      
       const d5 = appendTotal(opsAReg.map(op => { 
-        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id))); 
+        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
         return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': getDefaultObs(op) }; 
-      }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
+      }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || op.montant || 0), 0));
       
-      const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
+      const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || op.montant || 0), 0));
 
       const wb = XLSX.utils.book_new();
       const fDate = dateRef.split('-').reverse().join('/'); 
@@ -556,10 +598,11 @@ export default function PageRapport() {
         )}
         {activeTab === 'nonsolde' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov.</th><th style={{ ...th, textAlign: 'right' }}>Écart</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov. rattaché</th><th style={{ ...th, textAlign: 'right' }}>Solde</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {displayData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.provs?.length > 0 ? op.provs.map(p => p.numero).join(', ') : '—'}</td><td style={tdR}>{op.ecart !== null && op.ecart !== undefined ? <span style={{ color: op.ecart > 0 ? P.red : op.ecart < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.ecart > 0 ? '+' + formatMontant(op.ecart) : op.ecart < 0 ? formatMontant(op.ecart) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {/* MODIFICATION ICI : Rendu du tableau incluant DIRECT */}
+              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{op.numero}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || 0)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.prov ? op.prov.numero : '—'}</td><td style={tdR}>{op.solde !== null && op.solde !== undefined ? <span style={{ color: op.solde > 0 ? P.red : op.solde < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.solde > 0 ? '+' + formatMontant(op.solde) : op.solde < 0 ? formatMontant(op.solde) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
