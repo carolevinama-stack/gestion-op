@@ -400,13 +400,13 @@ export default function PageRapport() {
         'Bénéficiaire': getBen(o), 
         'Objet': o.objet || '', 
         'Montant OP': Number(o.montant || 0), 
-        'Montant payé': Number(o.montantPaye || o.totalPaye || 0), // CORRIGÉ : op -> o
+        'Montant payé': Number(o.montantPaye || o.totalPaye || 0), 
         'N° Bordereau AC': o.bordereauAC || '', 
         'Date transmission AC': formatDate(o.dateTransmissionAC), 
         'Délai (j ouvrés)': o.delai ?? '', 
         'Statut délai': dl(o.delai, 5), 
         'OP prov. rattaché': o.prov ? o.prov.numero : '', 
-        'Solde': o.solde ?? '', // CORRIGÉ : op -> o
+        'Solde': o.solde ?? '', 
         'Observation': getDefaultObs(o) 
       })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.totalPaye || 0), 0));
       
@@ -554,7 +554,7 @@ export default function PageRapport() {
             {savingObs ? I.loader() : I.save()} Enregistrer l'observation
           </button>
           {activeTab !== 'extratraite' && sel.some(id => ops.find(o => o.id === id)?.importAnterieur) && (
-            <button onClick={handleTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.olive, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={handleTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 166', background: P.olive, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               {I.checkCircle('#fff', 14)} Marquer comme Traité
             </button>
           )}
