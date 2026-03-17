@@ -165,7 +165,7 @@ export function AppProvider({ user, children }) {
         console.log("AppContext: Accrochage des écouteurs temps réel");
 
         // Écouteur OPs
-        const opsQuery = query(collection(db, 'ops'), orderBy('numero', 'desc'));
+        const opsQuery = query(collection(db, 'ops'));
         unsubOps = onSnapshot(opsQuery, (snapshot) => {
           console.log(`AppContext: Mise à jour reçue pour OPs (${snapshot.size})`);
           setOps(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
