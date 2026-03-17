@@ -390,7 +390,12 @@ const PageNouvelOp = () => {
 
       const docRef = await addDoc(collection(db, 'ops'), opData);
       
-      setOps([...ops, { id: docRef.id, ...opData }]);
+      // *** CORRECTION ICI (DIAGNOSTIC) ***
+      // J'ai commenté la ligne ci-dessous. C'était elle qui posait problème.
+      // En la désactivant, on laisse AppContext.js faire la mise à jour tout seul, sans conflit.
+      
+      // setOps([...ops, { id: docRef.id, ...opData }]);
+      
       setModal({ type: 'success', title: 'OP créé avec succès', message: `L'ordre de paiement N° ${opData.numero} a été enregistré.` });
       handleClear();
     } catch (error) {
