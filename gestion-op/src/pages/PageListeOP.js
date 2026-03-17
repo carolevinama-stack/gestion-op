@@ -33,7 +33,7 @@ const PageListeOP = () => {
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false);
 
-  const getBenNom = (op) => op.beneficiaireNom || beneficiaires?.find(b => b.id === op.beneficiaireId)?.nom || 'N/A';
+const getBenNom = (op) => op.beneficiaireNom || 'N/A';
   const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
 
   const formatDate = (dateString) => {
