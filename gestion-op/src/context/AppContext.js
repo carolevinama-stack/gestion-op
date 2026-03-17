@@ -166,10 +166,22 @@ export function AppProvider({ user, children }) {
 
         // Écouteur OPs
         const opsQuery = query(collection(db, 'ops'));
-        unsubOps = onSnapshot(opsQuery, (snapshot) => {
-          console.log(`AppContext: Mise à jour reçue pour OPs (${snapshot.size})`);
-          setOps(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        });
+        // C'est le nouveau code à mettre à la place
+unsubOps = onSnapshot(opsQuery, (snapshot) => {
+  // Functional update : On garantit à React qu'on crée un NOUVEL objet tableau
+  // React NE PEUT PAS ignorer cette mise à jour.
+  setOps((_prevOps) => {
+    // DIAGNOSTIC : On vérifie exactement ce qui vient d'arriver
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "modified") {
+        console.log("AppContext: J'ai BIEN REÇU une modification pour l'OP ID :", change.doc.id);
+      }
+    });
+
+    // On retourne le nouveau tableau d'OPs
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  });
+});
 
         // Écouteur Bordereaux
         const btQuery = query(collection(db, 'bordereaux'), orderBy('createdAt', 'desc'));
