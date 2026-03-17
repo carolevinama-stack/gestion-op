@@ -362,8 +362,11 @@ const PageConsulterOp = () => {
   const handleEnregistrerModif = async () => {
     try {
       if (!selectedOp?.id) return;
-      const ben = beneficiaires.find(b => b.id === form.beneficiaireId);
-      const benRibs = ben?.ribs || (ben?.rib ? [{ banque: '', numero: ben.rib }] : []);
+      
+      const newBen = beneficiaires.find(b => b.id === form.beneficiaireId);
+      const newBudgetLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
+      
+      const benRibs = newBen?.ribs || (newBen?.rib ? [{ banque: '', numero: newBen.rib }] : []);
       const ribSel = benRibs[form.ribIndex || 0];
       const newMontant = parseFloat(form.montant) || selectedOp.montant;
       if (newMontant !== selectedOp.montant) {
@@ -388,11 +391,16 @@ const PageConsulterOp = () => {
       }
 
       const updates = {
-        type: form.type, beneficiaireId: form.beneficiaireId, modeReglement: form.modeReglement,
+        type: form.type, 
+        beneficiaireId: form.beneficiaireId,
+        beneficiaireNom: newBen?.nom || selectedOp.beneficiaireNom || 'N/A',
+        modeReglement: form.modeReglement,
         rib: form.modeReglement === 'VIREMENT' ? (ribSel?.numero || '') : '',
         banque: form.modeReglement === 'VIREMENT' ? (ribSel?.banque || '') : '',
         objet: form.objet, piecesJustificatives: form.piecesJustificatives,
         montant: newMontant, ligneBudgetaire: form.ligneBudgetaire,
+        libelleLigne: newBudgetLigne?.libelle || selectedOp.libelleLigne || '',
+        dotationFigee: newBudgetLigne?.dotation ?? selectedOp.dotationFigee ?? 0,
         tvaRecuperable: form.tvaRecuperable || false,
         montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
         ...opProvFields,
@@ -400,7 +408,7 @@ const PageConsulterOp = () => {
       };
       await updateDoc(doc(db, 'ops', selectedOp.id), updates);
       const updatedOp = { ...selectedOp, ...updates };
-      setOps(ops.map(o => o.id === selectedOp.id ? updatedOp : o));
+      
       setSelectedOp(updatedOp);
       setIsEditMode(false);
       showToast('success', 'OP modifié avec succès', selectedOp.numero);
@@ -871,7 +879,7 @@ const PageConsulterOp = () => {
                             </div>
                           </div>
                         ) : (
-                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}`, color: P.textBlack, whiteSpace: 'nowrap' }}>
+                          <span style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: 'monospace', display: 'inline-block', background: selectedOp.type === 'ANNULATION' ? '#C43E3E10' : P.olivePale, border: `1.5px solid ${selectedOp.type === 'ANNULATION' ? '#C43E3E25' : P.olive + '20'}`, color: P.textBlack, whiteSpace: 'nowrap' }}>
                             {selectedOp.opProvisoireNumero || '—'}
                           </span>
                         )}
@@ -948,7 +956,7 @@ const PageConsulterOp = () => {
                                   <>
                                     {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
                                     <span style={{ fontSize: 12 }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
-                                  </>
+                                  </    >
                                 ) : (
                                   <span style={{ fontSize: 12, color: P.labelMuted }}>Aucun RIB disponible</span>
                                 )}
