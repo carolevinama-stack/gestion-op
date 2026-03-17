@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, runTransaction, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
@@ -21,7 +21,7 @@ const I={
   trash:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
   undo:(c=P.gold,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>,
   check:(c='#fff',s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
-  close:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  close:(c=P.textMuted,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" x1="6" x2="18" y2="18"/></svg>,
   chevron:(c=P.green,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>,
   plus:(c='#fff',s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   archive:(c=P.olive,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
@@ -171,26 +171,6 @@ const PageCircuitAC = () => {
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
   const closeAllModals = () => { setModalPaiement(null); setModalEditBT(null); };
 
-  const genNumeroBT = async (specificSourceId) => {
-    const pf = 'BT-AC';
-    const sp = projet?.sigle || 'PROJET'; const ss = getSigleSrc(specificSourceId);
-    const a = exerciceActif?.annee || new Date().getFullYear();
-    const cId = `AC_${specificSourceId}_${exerciceActif?.id}`;
-    const cRef = doc(db, 'compteurs', cId);
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(cRef); const next = (snap.exists() ? (snap.data().count || 0) : 0) + 1;
-      tx.set(cRef, {count: next, type: 'AC', sourceId: specificSourceId, exerciceId: exerciceActif?.id});
-      return `${pf}-${String(next).padStart(4, '0')}/${sp}-${ss}/${a}`;
-    });
-  };
-
-  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); };
-
-  // ================================================================
-  // ACTIONS
-  // ================================================================
-
-  // SCRIPT DE RÉPARATION DES OP ORPHELINS (Adapté pour AC)
   const handleFixOrphanOps = async () => {
     ask("Réparation", "Actualiser la file d'attente et libérer les OP bloqués ?", async () => {
       setSaving(true);
@@ -198,8 +178,8 @@ const PageCircuitAC = () => {
         const batch = writeBatch(db);
         let fixedCount = 0;
         ops.forEach(op => {
-          if (op.bordereauCF && !bordereaux.find(b => b.numero === op.bordereauCF && b.statut !== 'SUPPRIME')) {
-            batch.update(doc(db, 'ops', op.id), { bordereauCF: null, updatedAt: new Date().toISOString() });
+          if (op.bordereauAC && !bordereaux.find(b => b.numero === op.bordereauAC && b.statut !== 'SUPPRIME')) {
+            batch.update(doc(db, 'ops', op.id), { bordereauAC: null, updatedAt: new Date().toISOString() });
             fixedCount++;
           }
         });
@@ -215,7 +195,13 @@ const PageCircuitAC = () => {
       setSaving(false);
     });
   };
-// ===================================================
+
+  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); };
+
+  // ================================================================
+  // ACTIONS
+  // ================================================================
+
   const handleCreateBordereauMulti = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
     
@@ -226,20 +212,35 @@ const PageCircuitAC = () => {
       setSaving(true);
       try{
         const batch = writeBatch(db);
-        const num = await genNumeroBT(activeSourceBT);
-        const btRef = doc(collection(db, 'bordereaux'));
         
+        // MODIFICATION ICI : Calcul du numéro en temps réel pour permettre la réutilisation
+        const pf = 'BT-AC';
+        const sp = projet?.sigle || 'PROJET'; 
+        const ss = getSigleSrc(activeSourceBT);
+        const a = exerciceActif?.annee || new Date().getFullYear();
+        
+        // ANALYSE RÉELLE : On cherche le numéro le plus élevé parmi les bordereaux existants
+        let maxNum = 0;
+        bordereaux
+          .filter(b => b.type === 'AC' && b.sourceId === activeSourceBT && b.exerciceId === exerciceActif?.id && b.statut !== 'SUPPRIME')
+          .forEach(b => {
+            const match = (b.numero || '').match(/BT-AC-(\d+)\//);
+            if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+          });
+
+        const next = maxNum + 1;
+        const num = `${pf}-${String(next).padStart(4, '0')}/${sp}-${ss}/${a}`;
+
+        const btRef = doc(collection(db, 'bordereaux'));
         batch.set(btRef, {
           numero: num, type: 'AC', sourceId: activeSourceBT, exerciceId: exerciceActif.id,
           dateCreation: new Date().toISOString().split('T')[0], dateTransmission: null,
           opsIds: selectedOps, nbOps: selectedOps.length, totalMontant: totalSelected,
           statut: 'EN_COURS', createdAt: new Date().toISOString()
         });
-
         selectedOps.forEach(opId => {
           batch.update(doc(db, 'ops', opId), { bordereauAC: num, updatedAt: new Date().toISOString() });
         });
-
         await batch.commit();
         notify("success", "Succès", "Le bordereau a été généré.");
         setSelectedOps([]);
@@ -527,12 +528,10 @@ const PageCircuitAC = () => {
 
   const handleArchiverDirect = async (opId, boite) => {
     if(!boite || !boite.trim()){notify("error", "Erreur", "Renseignez la boîte."); return;}
-    checkPwd(() => {
-      ask("Archivage", `Archiver dans "${boite}" ?`, async () => {
-        setSaving(true);
-        try{await updateDoc(doc(db,'ops',opId),{statut:'ARCHIVE', boiteArchivage: boite.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString()}); notify("success", "Archivé", "OP archivé."); setModalPaiement(null); setBoiteModalPaiement('');}catch(e){notify("error", "Erreur", e.message);}
-        setSaving(false);
-      });
+    ask("Archivage", `Archiver dans "${boite}" ?`, async () => {
+      setSaving(true);
+      try{await updateDoc(doc(db,'ops',opId),{statut:'ARCHIVE', boiteArchivage: boite.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString()}); notify("success", "Archivé", "OP archivé."); setModalPaiement(null); setBoiteModalPaiement('');}catch(e){notify("error", "Erreur", e.message);}
+      setSaving(false);
     });
   };
 
@@ -615,7 +614,7 @@ const PageCircuitAC = () => {
             {isExp && <div style={{border:`2px solid ${P.green}`,borderTop:'none',borderRadius:'0 0 12px 12px',padding:16,background:P.card}}>
               
               {locked && <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,color:P.gold,fontSize:13,fontWeight:600}}>
-                 {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
+                  {I.lock(P.gold,16)} <span>Bordereau verrouillé : Des OP ont avancé.</span>
               </div>}
 
               {isPrep && <div style={{background:P.goldLight,borderRadius:10,padding:14,marginBottom:14,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
@@ -854,9 +853,9 @@ const PageCircuitAC = () => {
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Action Rejet / Différé</div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:10}}>
               <div>
-                 <div style={{display:'flex',gap:8}}>
-                   {[{v:'DIFFERE',l:'Différer',c:P.gold,bg:P.goldLight},{v:'REJETE',l:'Rejeter',c:P.red,bg:P.redLight}].map(o=><button key={o.v} onClick={()=>setResultatAC(o.v)} style={{flex:1,padding:8,borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer',border:resultatAC===o.v?`2px solid ${o.c}`:`1px solid ${P.border}`,background:resultatAC===o.v?o.bg:P.card,color:resultatAC===o.v?o.c:P.textMuted}}>{o.l}</button>)}
-                 </div>
+                  <div style={{display:'flex',gap:8}}>
+                    {[{v:'DIFFERE',l:'Différer',c:P.gold,bg:P.goldLight},{v:'REJETE',l:'Rejeter',c:P.red,bg:P.redLight}].map(o=><button key={o.v} onClick={()=>setResultatAC(o.v)} style={{flex:1,padding:8,borderRadius:8,fontWeight:700,fontSize:12,cursor:'pointer',border:resultatAC===o.v?`2px solid ${o.c}`:`1px solid ${P.border}`,background:resultatAC===o.v?o.bg:P.card,color:resultatAC===o.v?o.c:P.textMuted}}>{o.l}</button>)}
+                  </div>
               </div>
               <div><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('retourAC',el)} style={iS}/></div>
             </div>
@@ -868,13 +867,13 @@ const PageCircuitAC = () => {
           </div>}
           {op.statut !== 'ARCHIVE' && <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16,marginTop:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Mise en Archive</div>
-            {!isSolde && <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:P.goldLight,borderRadius:8,color:P.gold,fontSize:12,marginBottom:12}}>{I.warn(P.gold,16)} OP non soldé (reste {formatMontant(reste)} F) — mot de passe requis.</div>}
+            {!isSolde && <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:P.redLight,borderRadius:8,color:P.red,fontSize:12,marginBottom:12}}>{I.lock(P.red,16)} <strong>Impossible :</strong> L'OP doit être totalement soldé pour être archivé.</div>}
             <div style={{display:'flex', gap:10, alignItems:'flex-end'}}>
                <div style={{flex:1}}>
                  <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Référence Boîte</label>
                  <input type="text" value={boiteModalPaiement} onChange={e=>setBoiteModalPaiement(e.target.value)} placeholder="Ex: BOX-2025-001" style={iS}/>
                </div>
-               <ActionBtn label="Archiver" icon={I.archive('#fff',14)} color={P.olive} onClick={()=>handleArchiverDirect(op.id,boiteModalPaiement)} disabled={saving||!boiteModalPaiement.trim()}/>
+               <ActionBtn label="Archiver" icon={I.archive('#fff',14)} color={P.olive} onClick={()=>handleArchiverDirect(op.id,boiteModalPaiement)} disabled={saving||!boiteModalPaiement.trim()||!isSolde}/>
             </div>
           </div>}
         </>;
