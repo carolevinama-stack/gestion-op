@@ -1,7 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, writeBatch, increment } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, increment, getDocs } from 'firebase/firestore';
+//                                                             ^^^^^^^^^
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
@@ -289,7 +290,41 @@ const PageCircuitCF = () => {
     });
   };
 
-  const handleOpenEditBT = (bt) => { setEditBtNumero(bt.numero||''); setEditBtDate(bt.dateTransmission||''); setModalEditBT(bt); };
+// ============================================================
+  // handleOpenEditBT CORRIGÉE : Force le rafraîchissement des OPs
+  // ============================================================
+  const handleOpenEditBT = async (bt) => {
+    // 1. On active l'état de chargement pour faire patienter l'utilisateur
+    setSaving(true);
+    
+    try {
+      // 2. FORCE LE RAFRAÎCHISSEMENT : On refait une requête unique à Firestore
+      // pour obtenir la version la plus récente de TOUS les OPs.
+      // Cela mettra à jour la liste globale 'ops' dans l'AppContext via Snapshot.
+      const opsRef = collection(db, 'ops');
+      const snapshot = await getDocs(opsRef);
+      
+      // Cette étape est cruciale : elle garantit que 'ops.find()' dans la modale
+      // utilisera les données qui viennent d'être téléchargées.
+      const freshOps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Optionnel mais recommandé : Mettre à jour explicitement le contexte localement
+      // si le Snapshot met du temps à réagir.
+      if (setOps) setOps(freshOps);
+
+      // 3. Une fois les données fraîches, on prépare et on ouvre la modale
+      setEditBtNumero(bt.numero || '');
+      setEditBtDate(bt.dateTransmission || '');
+      setModalEditBT(bt);
+      
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement des OPs:", error);
+      notify("error", "Erreur", "Impossible de rafraîchir les données des OPs.");
+    } finally {
+      // 4. On désactive l'état de chargement
+      setSaving(false);
+    }
+  };
 
   const handleSaveBtNumero = async (bt) => {
     const nn = editBtNumero.trim(); if(!nn){notify("error", "Erreur", "Numéro vide."); return;}
