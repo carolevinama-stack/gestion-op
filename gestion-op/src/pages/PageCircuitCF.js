@@ -104,19 +104,17 @@ const formatDate = (ds) => {
 const PageCircuitCF = () => {
   const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux } = useAppContext();
 
-
-  
   const navigate = useNavigate();
-const location = useLocation();
-const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-const subTabCF = searchParams.get('tab') || 'NOUVEAU';
+  const subTabCF = searchParams.get('tab') || 'NOUVEAU';
 
-const setSubTabCF = (newTab) => {
-  navigate(`${location.pathname}?tab=${newTab}`, { replace: true });
-};
+  const setSubTabCF = (newTab) => {
+    navigate(`${location.pathname}?tab=${newTab}`, { replace: true });
+  };
 
-const [subTabSuiviCF, setSubTabSuiviCF] = useState('DIFFERES');
+  const [subTabSuiviCF, setSubTabSuiviCF] = useState('DIFFERES');
   const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
   const [selectedOps, setSelectedOps] = useState([]);
   const [saving, setSaving] = useState(false);
