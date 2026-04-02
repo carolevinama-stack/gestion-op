@@ -293,6 +293,9 @@ const PageCircuitCF = () => {
 // ============================================================
   // handleOpenEditBT CORRIGÉE : Force le rafraîchissement des OPs
   // ============================================================
+  // ====================================================================
+  // handleOpenEditBT CORRIGÉE V2 : Force le rafraîchissement + injection directe
+  // ====================================================================
   const handleOpenEditBT = async (bt) => {
     // 1. On active l'état de chargement pour faire patienter l'utilisateur
     setSaving(true);
@@ -300,22 +303,23 @@ const PageCircuitCF = () => {
     try {
       // 2. FORCE LE RAFRAÎCHISSEMENT : On refait une requête unique à Firestore
       // pour obtenir la version la plus récente de TOUS les OPs.
-      // Cela mettra à jour la liste globale 'ops' dans l'AppContext via Snapshot.
-      const opsRef = collection(db, 'ops');
-      const snapshot = await getDocs(opsRef);
+      const snapshot = await getDocs(collection(db, 'ops'));
       
-      // Cette étape est cruciale : elle garantit que 'ops.find()' dans la modale
-      // utilisera les données qui viennent d'être téléchargées.
-      const freshOps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // On crée la liste des OPs frais
+      const freshOpsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Optionnel mais recommandé : Mettre à jour explicitement le contexte localement
-      // si le Snapshot met du temps à réagir.
-      if (setOps) setOps(freshOps);
+      // Met à jour le contexte global (pour le reste de l'application)
+      if (setOps) setOps(freshOpsList);
 
-      // 3. Une fois les données fraîches, on prépare et on ouvre la modale
+      // 3. MODIFICATION ICI : On stocke les données fraîches DIRECTEMENT dans l'objet de la modale.
+      // Au lieu de passer juste 'bt', on passe '{ ...bt, freshOps: freshOpsList }'.
+      // Cela garantit que la modale aura accès à ces données spécifiques,
+      // même si le contexte global met du temps à se mettre à jour.
       setEditBtNumero(bt.numero || '');
       setEditBtDate(bt.dateTransmission || '');
-      setModalEditBT(bt);
+      
+      // On ouvre la modale en lui injectant les OPs frais qu'on vient de télécharger
+      setModalEditBT({ ...bt, freshOps: freshOpsList }); // <- Injection directe de force
       
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des OPs:", error);
@@ -325,7 +329,6 @@ const PageCircuitCF = () => {
       setSaving(false);
     }
   };
-
   const handleSaveBtNumero = async (bt) => {
     const nn = editBtNumero.trim(); if(!nn){notify("error", "Erreur", "Numéro vide."); return;}
     if(nn === bt.numero) return;
@@ -786,15 +789,23 @@ const handlePrintBordereau = (bt) => {
           <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l'année de l'exercice en cours.</p>
         </div>
       )}
-      <div style={{marginBottom:20}}>
+     <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
-        {(modalEditBT.opsIds||[]).map(id=>{const op=ops.find(o=>o.id===id);if(!op)return null;
+        
+        {/* ✅ NOUVELLE LOGIQUE RÉACTIVE */}
+        {(modalEditBT.opsIds||[]).map(id=>{
+          const targetOpsList = modalEditBT.freshOps || ops; 
+          const op = targetOpsList.find(o => o.id === id);
+          
+          if(!op) return null;
+          
           return <div key={id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'#FAFAF8',borderRadius:10,marginBottom:4,border:`1px solid ${P.border}`}}>
             <div><div style={{fontFamily:'monospace',fontWeight:700,fontSize:11}}>{op.numero}</div><div style={{fontSize:12,color:P.textSec}}>{getBen(op)} — {op.objet||'-'}</div></div>
             <div style={{display:'flex',alignItems:'center',gap:10}}><span style={{fontFamily:'monospace',fontWeight:700,fontSize:12}}>{formatMontant(op.montant)} F</span>
             {!isBordereauLocked(modalEditBT) && <IBtn icon={I.minusCircle(P.red,16)} title="Retirer" bg={P.redLight} onClick={()=>handleRemoveOpFromBT(modalEditBT,op.id)}/>}
             </div>
           </div>;})}
+      </div>
       </div>
       {!isBordereauLocked(modalEditBT) && <div>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Ajouter un OP</div>
