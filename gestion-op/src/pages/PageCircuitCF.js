@@ -790,7 +790,6 @@ const handlePrintBordereau = (bt) => {
         </div>
       )}
    
-      )}
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
         
