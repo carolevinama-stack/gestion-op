@@ -789,7 +789,9 @@ const handlePrintBordereau = (bt) => {
           <p style={{fontSize:11,color:P.textMuted,marginTop:6}}>Ne peut être antérieure à l'année de l'exercice en cours.</p>
         </div>
       )}
-     <div style={{marginBottom:20}}>
+    // ... (lignes précédentes inchangées) ...
+      )}
+      <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
         
         {/* ✅ NOUVELLE LOGIQUE RÉACTIVE */}
@@ -805,7 +807,6 @@ const handlePrintBordereau = (bt) => {
             {!isBordereauLocked(modalEditBT) && <IBtn icon={I.minusCircle(P.red,16)} title="Retirer" bg={P.redLight} onClick={()=>handleRemoveOpFromBT(modalEditBT,op.id)}/>}
             </div>
           </div>;})}
-      </div>
       </div>
       {!isBordereauLocked(modalEditBT) && <div>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Ajouter un OP</div>
