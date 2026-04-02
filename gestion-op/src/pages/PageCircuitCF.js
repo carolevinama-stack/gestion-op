@@ -3,14 +3,10 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, updateDoc, writeBatch, increment, getDocs } from 'firebase/firestore';
-//                                                             ^^^^^^^^^
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 
-// ============================================================
-// PALETTE & ICÔNES
-// ============================================================
 const P = {
   bg:'#F6F4F1',card:'#FFFFFF',green:'#2E9940',greenDark:'#1B6B2E',greenLight:'#E8F5E9',
   olive:'#5D6A55',oliveDark:'#4A5A42',gold:'#C5961F',goldLight:'#FFF8E1',goldBorder:'#E8B931',
@@ -36,9 +32,6 @@ const I={
   refresh:(c=P.textSec,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
 };
 
-// ============================================================
-// COMPOSANTS UI & HELPERS
-// ============================================================
 const Badge=React.memo(({bg,color,children})=><span style={{background:bg,color,padding:'4px 10px',borderRadius:6,fontSize:11,fontWeight:600,whiteSpace:'nowrap',letterSpacing:.3}}>{children}</span>);
 const Empty=React.memo(({text})=><div style={{textAlign:'center',padding:40,color:P.textMuted}}><div style={{marginBottom:12,opacity:.5}}>{I.fileText(P.textMuted,40)}</div><p style={{fontSize:14,margin:0}}>{text}</p></div>);
 const STab=React.memo(({active,label,count,color,onClick})=><button onClick={onClick} style={{padding:'10px 18px',borderRadius:10,border:active?`2px solid ${color}`:'2px solid transparent',background:active?color:P.card,color:active?'#fff':P.textSec,fontWeight:600,cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',gap:6,transition:'all .2s',boxShadow:active?`0 4px 12px ${color}33`:'0 1px 3px rgba(0,0,0,.06)'}}>{label}{count!==undefined&&<span style={{background:active?'rgba(255,255,255,.25)':P.border,padding:'1px 7px',borderRadius:10,fontSize:10,fontWeight:700}}>{count}</span>}</button>);
@@ -98,9 +91,6 @@ const formatDate = (ds) => {
   return ds;
 };
 
-// ============================================================
-// COMPOSANT PRINCIPAL : CF
-// ============================================================
 const PageCircuitCF = () => {
   const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux } = useAppContext();
 
@@ -121,8 +111,7 @@ const PageCircuitCF = () => {
   const [searchBT, setSearchBT] = useState('');
   const [searchSuivi, setSearchSuivi] = useState('');
   
-  // Modales
-  const [alertData, setAlertData] = useState(null); 
+  const [alertData, setAlertData] = useState(null);
   const [modalRetourCF, setModalRetourCF] = useState(false);
   const [resultatCF, setResultatCF] = useState('VISE');
   const [motifRetour, setMotifRetour] = useState('');
