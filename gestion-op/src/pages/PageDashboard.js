@@ -123,21 +123,27 @@ const PageDashboard = () => {
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
     const regulariser = opsForAlerts
-      .filter(op => {
-        if (op.type !== 'PROVISOIRE') return false;
-        if (!['PAYE', 'PAYE_PARTIEL'].includes(op.statut)) return false; // Strictement Payé
-        
-        // VÉRIFICATION UNIQUE : Existe-t-il un OP DEFINITIF rattaché ?
-        const hasDefinitif = allOpsExercice.some(o => 
-          o.type === 'DEFINITIF' && 
-          (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
-          !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-        );
-        // S'il y a un OP Définitif, on le cache (false). Sinon, on le garde (true).
-        return !hasDefinitif;
-      })
-      .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
+  .filter(op => {
+    // 1. L'OP doit être de type 'PROVISOIRE'
+    if (op.type !== 'PROVISOIRE') return false;
 
+    // 2. L'OP doit avoir été PAYÉ (Total réglé consolidé différent de zéro)
+    // Nous utilisons exclusivement 'totalPaye' pour gérer les paiements partiels.
+    const totalRegleConsolide = Number(op.totalPaye || 0);
+    if (totalRegleConsolide === 0) return false;
+    
+    // 3. VÉRIFICATION DU RATTACHEMENT : Existe-t-il un OP DEFINITIF ?
+    // L'OPD ne doit pas être rejeté ni supprimé.
+    const hasDefinitif = allOpsExercice.some(o => 
+      o.type === 'DEFINITIF' && 
+      (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+
+    // On l'affiche s'il n'est PAS encore rattaché à un définitif validé (false).
+    return !hasDefinitif;
+  })
+  .map(op => ({ ...op, _jours: joursDepuis(op.datePaiement || op.dateCreation) }));
     const solder = opsForAlerts
       .filter(op => ['TRANSMIS_AC', 'PAYE_PARTIEL'].includes(op.statut))
       .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionAC || op.dateCreation) }));
