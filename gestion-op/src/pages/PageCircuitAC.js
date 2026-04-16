@@ -780,10 +780,20 @@ const PageCircuitAC = () => {
           <th style={{...thS,width:30}}></th>
         </tr></thead><tbody>
           {filterOps(opsTransmisAC,searchBT).map(op=>{
-            const paiem = op.paiements || [];
-            const tot = paiem.reduce((s,p) => s + (p.montant||0), 0);
-            const reste = (op.montant||0) - tot;
-            const pct = Math.round(tot/Math.max(op.montant||1,1)*100);
+            const paiemDirects = op.paiements || [];
+let totalCumule = paiemDirects.reduce((s,p) => s + (p.montant||0), 0);
+
+if(op.type === 'DEFINITIF') {
+  const provIds = op.opProvisoireIds || (op.opProvisoireId ? [op.opProvisoireId] : []);
+  provIds.forEach(id => {
+    const opp = ops.find(o => o.id === id);
+    if(opp?.paiements) totalCumule += opp.paiements.reduce((s,p) => s + (p.montant||0), 0);
+  });
+}
+
+const tot = totalCumule;
+const reste = (op.montant||0) - tot;
+const pct = Math.round(tot/Math.max(op.montant||1,1)*100);
             
             return <tr key={op.id} onClick={()=>{setModalPaiement(op);setPaiementMontant('');setPaiementReference('');setMotifRetourAC('');setBoiteModalPaiement('');setResultatAC('DIFFERE');}} style={{cursor:'pointer',background:modalPaiement?.id===op.id?P.goldLight:'transparent', transition:'all .15s'}}>
               <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{op.numero}</td>
