@@ -814,7 +814,45 @@ const tot = totalCumule;
 const reste = (op.montant||0) - tot;
 const pct = Math.round(tot/Math.max(op.montant||1,1)*100);
             
-            return <tr key={op.id} onClick={()=>{setModalPaiement(op);setPaiementMontant('');setPaiementReference('');setMotifRetourAC('');setBoiteModalPaiement('');setResultatAC('DIFFERE');}} style={{cursor:'pointer',background:modalPaiement?.id===op.id?P.goldLight:'transparent', transition:'all .15s'}}>
+            return <tr key={op.id} // ✅ OUVERTURE INTELLIGENTE (Met à jour le statut au clic)
+onClick={async () => {
+  // 1. On calcule le reste à payer réel
+  const paiemDirects = op.paiements || [];
+  let totalPaye = paiemDirects.reduce((s, p) => s + (p.montant || 0), 0);
+  
+  if (op.type === 'DEFINITIF') {
+    const provIds = op.opProvisoireIds || (op.opProvisoireId ? [op.opProvisoireId] : []);
+    provIds.forEach(id => {
+      const opp = ops.find(o => o.id === id);
+      if (opp?.paiements) totalPaye += opp.paiements.reduce((s, p) => s + (p.montant || 0), 0);
+    });
+  }
+  
+  const resteReel = Math.round((op.montant || 0) - totalPaye);
+
+  // 2. Si le reste est 0 mais que le statut est encore 'TRANSMIS_AC'
+  // On met à jour la base de données automatiquement
+  if (resteReel === 0 && op.statut === 'TRANSMIS_AC') {
+    try {
+      await updateDoc(doc(db, 'ops', op.id), { 
+        statut: 'PAYE', 
+        updatedAt: new Date().toISOString() 
+      });
+      // On met aussi à jour l'état local pour que l'affichage change de suite
+      op.statut = 'PAYE';
+    } catch (e) {
+      console.error("Erreur mise à jour statut auto:", e);
+    }
+  }
+
+  // 3. On ouvre le modal normalement
+  setModalPaiement(op);
+  setPaiementMontant('');
+  setPaiementReference('');
+  setMotifRetourAC('');
+  setBoiteModalPaiement('');
+  setResultatAC('DIFFERE');
+}}
               <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{op.numero}</td>
               <td style={{...styles.td, fontSize:10, fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td, fontSize:11, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
