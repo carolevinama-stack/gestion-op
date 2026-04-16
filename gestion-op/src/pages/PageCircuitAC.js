@@ -859,7 +859,7 @@ onClick={async () => {
               <td style={{...styles.td, fontSize:11, maxWidth:250, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
               <td style={{...styles.td, textAlign:'right', fontFamily:'monospace', fontWeight:700, color:P.greenDark}}>{formatMontant(op.montant)}</td>
               <td style={{...styles.td, textAlign:'center'}}>{tot > 0 && <Badge bg={P.goldLight} color={P.gold}>{pct}%</Badge>}</td>
-              <td style={{...styles.td, textAlign:'right', fontWeight:700, color:reste > 0 ? P.red : P.greenDark}}>{reste > 0 ? formatMontant(reste) : 'Soldé'}</td>
+              <td style={{...styles.td, textAlign: 'right', fontWeight: 700, color: reste > 0 ? P.red : (reste === 0 ? P.greenDark : P.orange) // Rouge si dû, Vert si 0, Orange si négatif}}>{formatMontant(reste)} F</td>
               <td style={styles.td}>{I.chevron(P.gold,14)}</td>
             </tr>;
           })}
