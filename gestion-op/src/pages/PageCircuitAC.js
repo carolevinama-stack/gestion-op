@@ -852,7 +852,7 @@ onClick={async () => {
   setMotifRetourAC('');
   setBoiteModalPaiement('');
   setResultatAC('DIFFERE');
-}}
+}}>
               <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{op.numero}</td>
               <td style={{...styles.td, fontSize:10, fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td, fontSize:11, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
