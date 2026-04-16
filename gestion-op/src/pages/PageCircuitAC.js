@@ -432,10 +432,29 @@ const PageCircuitAC = () => {
         
         const estSolde = (tot >= montantInitial);
         
-        await updateDoc(doc(db,'ops',opId),{
-          paiements: nP, totalPaye: tot, datePaiement: d, updatedAt: new Date().toISOString(),
-          statut: estSolde ? 'PAYE' : 'PAYE_PARTIEL'
-        });
+        // ✅ NOUVEAU BLOC (Logique stricte)
+const resteFinal = Math.round((op.montant || 0) - tot);
+let statutCalculé = 'PAYE_PARTIEL';
+
+if (resteFinal === 0) {
+  statutCalculé = 'PAYE'; // Le compte est bon
+} else if (resteFinal < 0) {
+  statutCalculé = 'PAYE_PARTIEL'; // Trop perçu : reste en partiel pour signaler le reversement
+}
+
+await updateDoc(doc(db, 'ops', opId), {
+  paiements: nP, 
+  totalPaye: tot, 
+  datePaiement: d, 
+  updatedAt: new Date().toISOString(),
+  statut: statutCalculé
+});
+
+if (resteFinal < 0) {
+  notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
+} else {
+  notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
+}
         
         notify("success", "Paiement", estSolde ? "OP totalement soldé." : "Paiement partiel enregistré.");
         setPaiementMontant(''); setPaiementReference('');
