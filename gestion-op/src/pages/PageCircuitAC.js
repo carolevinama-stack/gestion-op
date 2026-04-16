@@ -805,8 +805,38 @@ const PageCircuitAC = () => {
     {/* MODALES SPECIFIQUES AC */}
     {modalPaiement && <Modal title="Gestion Financière OP" titleColor={P.orange} onClose={()=>setModalPaiement(null)} width={600}>
       {(()=>{
+        // ✅ NOUVELLE LOGIQUE COMPTABLE UNIFIÉE
         const op = ops.find(o => o.id === modalPaiement.id) || modalPaiement;
-        const paiem = op.paiements || []; const tot = paiem.reduce((s,p) => s + (p.montant||0), 0); const reste = (op.montant||0) - tot; const pct = Math.round(tot/Math.max(op.montant||1,1)*100); const isSolde = reste < 1;
+        
+        // 1. Calcul des paiements faits DIRECTEMENT sur cet OP
+        const paiemDirects = op.paiements || []; 
+        const totalPayeDirect = paiemDirects.reduce((s,p) => s + (p.montant||0), 0); 
+        
+        // 2. Initialisation du total payé consolidé
+        let tot = totalPayeDirect; 
+        
+        // 3. Cas spécifique de l'OP Définitif rattaché
+        if(op.type === 'DEFINITIF') {
+          // On récupère la liste des IDs des Provisoires rattachés
+          const provisoireIds = op.opProvisoireIds || (op.opProvisoireId ? [op.opProvisoireId] : []);
+          
+          provisoireIds.forEach(oppId => {
+            const opp = ops.find(o => o.id === oppId);
+            if(opp && opp.paiements) {
+              // On additionne les paiements de l'OP Provisoire rattaché
+              const oppTotPaye = opp.paiements.reduce((s,p) => s + (p.montant||0), 0);
+              tot += oppTotPaye;
+            }
+          });
+        }
+
+        // 4. Calcul final du reste à payer consolidé
+        const reste = Math.round((op.montant||0) - tot); 
+        const pct = Math.round(tot/Math.max(op.montant||1,1)*100); 
+        const isSolde = reste < 1;
+        
+        // MODIF: Pour l'affichage de l'historique direct en dessous
+        const paiem = paiemDirects;
         return <>
           <div style={{marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${P.border}`, position:'relative'}}>
             <div style={{fontFamily:'monospace',fontSize:12,fontWeight:700,color:P.orange}}>{op.numero}</div>
