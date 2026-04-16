@@ -945,7 +945,15 @@ onClick={async () => {
                <ActionBtn label="Valider Paiement" color={P.gold} onClick={()=>handlePaiement(op.id)} disabled={saving}/>
             </div>
           </div>}
-          {isSolde && <div style={{background:P.greenLight,borderRadius:10,padding:12,textAlign:'center',color:P.greenDark,fontWeight:700,fontSize:13,marginBottom:16}}>OP entièrement soldé</div>}
+          {reste <= 0 && (<div style={{background: reste === 0 ? P.greenLight : P.redLight,borderRadius: 10,padding: 12,textAlign: 'center',color: reste === 0 ? P.greenDark : P.red,fontWeight: 700,fontSize: 13,marginBottom: 16,
+    border: `1px solid ${reste === 0 ? P.green : P.red}`
+  }}>
+    {reste === 0 
+      ? "OP ENTIÈREMENT RÉGLÉ (RESTE : 0 F)" 
+      : `ATTENTION : TROP PERÇU DE ${formatMontant(Math.abs(reste))} F (REVERSEMENT À PRÉVOIR)`
+    }
+  </div>
+)}
           {op.statut === 'TRANSMIS_AC' && <div style={{borderTop:`1px solid ${P.border}`,paddingTop:16}}>
             <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>Action Rejet / Différé</div>
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:10}}>
