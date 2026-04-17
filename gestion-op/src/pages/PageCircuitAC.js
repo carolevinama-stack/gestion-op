@@ -931,14 +931,27 @@ onClick={async () => {
             {paiem.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:i%2===0?P.goldLight:P.card,borderRadius:8,marginBottom:2}}><div><span style={{fontSize:12}}>{formatDate(p.date)}</span><span style={{fontSize:11,color:P.textMuted,marginLeft:8}}>{p.reference||'Sans réf.'}</span></div><span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,color:P.gold}}>{formatMontant(p.montant)} F</span></div>)}
             <button onClick={()=>handleAnnulerPaiement(op.id)} disabled={saving} style={{marginTop:8,padding:'6px 14px',background:P.redLight,color:P.red,border:'none',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}>{I.undo(P.red,13)} Annuler dernier paiement</button>
           </div>}
-          {!isSolde && (op.statut==='TRANSMIS_AC'||op.statut==='PAYE_PARTIEL') && <div style={{background:P.goldLight,borderRadius:12,padding:16,marginBottom:16}}>
-            <div style={{fontSize:11,fontWeight:700,color:P.gold,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Enregistrer un paiement</div>
-            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
-              <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
-              <div style={{flex:1,minWidth:100}}>
-                 <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
-                 <input type="text" value={String(paiementMontant).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} placeholder="" style={iS} />
-              </div>
+         {reste !== 0 && (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && (
+  <div style={{background:P.goldLight,borderRadius:12,padding:16,marginBottom:16}}>
+    <div style={{fontSize:11,fontWeight:700,color:P.gold,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Enregistrer un paiement / Reversement</div>
+    <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
+      <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
+      <div style={{flex:1,minWidth:100}}>
+        <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé (négatif pour reversement)</label>
+        <input 
+          type="text" 
+          value={paiementMontant} 
+          onChange={e => {
+            const v = e.target.value;
+            // Autorise uniquement les chiffres et le signe moins au début
+            if (v === '' || v === '-' || /^-?\d+$/.test(v)) {
+              setPaiementMontant(v);
+            }
+          }} 
+          placeholder="Ex: -50000" 
+          style={iS} 
+        />
+      </div>
               <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Réf. Virement</label><input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/></div>
             </div>
             <div style={{textAlign:'right'}}>
