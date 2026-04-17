@@ -601,7 +601,7 @@ const PageConsulterOp = () => {
       '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
       '<div class="page-container"><div class="inner-frame">',
       '<div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
-      '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">MINISTERE DES EAUX ET FORETS</div><div class="sep">------------------------</div><div class="project">PROJET D\'INVESTISSEMENT FORESTIER 2</div><div class="sep">------------------------</div></div>',
+      '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">' + (projet?.ministere || '') + '</div><div class="sep">------------------------</div><div class="project">' + (projet?.nomProjet || '') + '</div><div class="sep">------------------------</div></div>',
       '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" /><div>Union – Discipline – Travail</div></div></div></div>',
       
       '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N° ' + (selectedOp.numero || '').replace(/^N°?\s*/i, '') + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
@@ -632,7 +632,7 @@ const PageConsulterOp = () => {
       '<tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">' + printDisponible + '</td><td class="col-empty"></td></tr></table>',
       '</div></div>', // Fin budget-section et body-content
 
-      '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>COORDONNATRICE</div><div class="sig-content"><div class="sig-name">ABE-KOFFI Thérèse</div></div></div>',
+      '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>' + (projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div><div class="sig-content"><div class="sig-name">' + nomCoordonnateur + '</div></div></div>',
       '<div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA<br/>AGENT COMPTABLE</div><div class="sig-content"></div></div></div>',
       '<div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div>',
       '<div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"></div><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>'
