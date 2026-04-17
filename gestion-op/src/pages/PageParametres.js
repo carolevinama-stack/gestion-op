@@ -320,5 +320,109 @@ const TabMaintenance = () => {
     </div>
   );
 };
+// ============================================================
+// ONGLET MAINTENANCE (VERSION SÉCURISÉE)
+// ============================================================
+// ============================================================
+// ONGLET MAINTENANCE (VERSION SÉCURISÉE)
+// ============================================================
+const TabMaintenance = () => {
+  const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets } = useAppContext();
+  const [saving, setSaving] = useState(false);
+  const [alertData, setAlertData] = useState(null);
+  
+  const notify = (type, title, message) => setAlertData({ type, title, message });
+  const ask = (title, message, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message, onConfirm, showPwd });
 
+  const checkPwd = (cb) => {
+    ask("Sécurité requise", "Saisissez le mot de passe administrateur :", (pwd) => {
+      // On vérifie le mot de passe dans les paramètres du projet
+      if (pwd === (projet?.adminPassword || 'admin123')) cb();
+      else notify("error", "Erreur", "Mot de passe incorrect.");
+    }, true);
+  };
+
+  const handleExportData = () => {
+    try {
+      const dataToSave = {
+        dateExport: new Date().toISOString(),
+        projet, sources, exercices, beneficiaires, budgets, ops, bordereaux
+      };
+      const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `SAUVEGARDE_BASE_OP_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      notify("success", "Sauvegarde", "Fichier généré avec succès.");
+    } catch (e) {
+      notify("error", "Erreur", "Échec de l'exportation.");
+    }
+  };
+
+  const handleRecalerCompteurs = () => {
+    checkPwd(async () => {
+      setSaving(true);
+      try {
+        const batch = writeBatch(db);
+        let countFixed = 0;
+        for (const ex of exercices) {
+          for (const src of sources) {
+            const opsExistants = ops.filter(o => o.sourceId === src.id && o.exerciceId === ex.id && o.statut !== 'SUPPRIME');
+            let maxNum = 0;
+            opsExistants.forEach(o => {
+              const match = (o.numero || '').match(/N°(\d+)\//);
+              if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+            });
+            const counterRef = doc(db, 'compteurs', `op_${src.id}_${ex.id}`);
+            batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
+            countFixed++;
+          }
+        }
+        await batch.commit();
+        notify("success", "Réussite", "Les compteurs ont été recalés.");
+      } catch (e) {
+        notify("error", "Erreur", "Problème de synchronisation base de données.");
+      }
+      setSaving(false);
+    });
+  };
+
+  return (
+    <div style={{ padding: '10px 0' }}>
+      <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
+      
+      <div style={{ marginBottom: 30 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: P.text }}>Maintenance & Sécurité</h2>
+        <p style={{ fontSize: 14, color: P.textSec }}>Gérez vos sauvegardes et les numéros de série.</p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        {/* BOUTON SAUVEGARDE */}
+        <div onClick={handleExportData} 
+          style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={P.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.greenDark }}>Sauvegarder la base</h3>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Télécharger une copie de sécurité (Format JSON).</p>
+        </div>
+
+        {/* BOUTON RECALAGE */}
+        <div onClick={handleRecalerCompteurs} 
+          style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={P.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.gold }}>Recaler les numéros</h3>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Remettre à jour les compteurs selon les OP existants.</p>
+        </div>
+      </div>
+      
+      {saving && <div style={{ marginTop: 24, textAlign: 'center', color: P.gold, fontWeight: 700 }}>Synchronisation en cours...</div>}
+    </div>
+  );
+};
 export default PageParametres;
