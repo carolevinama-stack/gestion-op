@@ -27,10 +27,6 @@ const I = {
   eye: (c = P.textSec, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
   eyeOff: (c = P.textSec, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
   close: (c = P.textMuted, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
-  download: (c = '#fff', s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  search: (c = P.textMuted, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  calendar: (c, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
-  source: (c, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>,
   arrowLeft: (c = P.textSec, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
   alertCircle: (c = P.gold, s = 40) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
 };
@@ -105,7 +101,10 @@ const PageParametres = () => {
   const [activeTab, setActiveTab] = useState('infos');
   const isAdmin = ['ADMIN'].includes(userProfile?.role);
   const tabs = [{ id: 'infos', label: 'Infos & Structure', icon: 'info' }];
-  if (isAdmin) { tabs.push({ id: 'utilisateurs', label: 'Utilisateurs', icon: 'users' }); tabs.push({ id: 'maintenance', label: 'Maintenance', icon: 'maintenance' }); }
+  if (isAdmin) { 
+    tabs.push({ id: 'utilisateurs', label: 'Utilisateurs', icon: 'users' }); 
+    tabs.push({ id: 'maintenance', label: 'Maintenance', icon: 'maintenance' }); 
+  }
 
   return (
     <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
@@ -180,6 +179,29 @@ const TabInfos = () => {
     } catch (e) { notify('error', 'Erreur', 'Impossible de sauvegarder.'); }
   };
 
+  const setActifEx = async (ex) => {
+    ask('Changement d\'exercice', `Basculer l'application sur l'exercice budgétaire ${ex.annee} ?`, async () => {
+      try { for (const e of exercices) await updateDoc(doc(db, 'exercices', e.id), { actif: e.id === ex.id }); setExercices(exercices.map(e => ({ ...e, actif: e.id === ex.id }))); } 
+      catch (error) { notify('error', 'Erreur', 'Impossible d\'activer l\'exercice.'); }
+    });
+  };
+
+  const handleDeleteEx = async (ex) => {
+    const isUsed = (ops && ops.some(o => o.exerciceId === ex.id)) || (budgets && budgets.some(b => b.exerciceId === ex.id));
+    if (isUsed) return notify('error', 'Sécurité activée', `Impossible de supprimer l'exercice ${ex.annee}.\nDes données y sont rattachées.`);
+    ask('Suppression Exercice', `Êtes-vous sûr de vouloir supprimer définitivement l'exercice ${ex.annee} ?`, async () => {
+      try { await deleteDoc(doc(db, 'exercices', ex.id)); setExercices(exercices.filter(e => e.id !== ex.id)); } catch (error) { notify('error', 'Erreur', 'Impossible de supprimer l\'exercice.'); }
+    });
+  };
+
+  const handleDeleteSrc = async (source) => {
+    const isUsed = (ops && ops.some(o => o.sourceId === source.id)) || (budgets && budgets.some(b => b.sourceId === source.id));
+    if (isUsed) return notify('error', 'Sécurité activée', `Impossible de supprimer la source "${source.sigle}".\nDes données y sont rattachées.`);
+    ask('Suppression Source', `Êtes-vous sûr de vouloir supprimer définitivement la source "${source.sigle}" ?`, async () => {
+      try { await deleteDoc(doc(db, 'sources', source.id)); setSources(sources.filter(s => s.id !== source.id)); } catch (error) { notify('error', 'Erreur', 'Impossible de supprimer la source.'); }
+    });
+  };
+
   const iS = { ...styles.input, marginBottom: 0, borderRadius: 8, fontSize: 13, padding: '10px 14px', width: '100%', background: '#FAFAF8' };
 
   return (
@@ -212,119 +234,36 @@ const TabInfos = () => {
           </div>
         </SettingRow>
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '24px 0' }}><button onClick={handleSaveProjet} disabled={savingProj} style={{ padding: '12px 28px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 800 }}>{savingProj ? "Enregistrement..." : "Enregistrer"}</button></div>
+
+        <SettingRow title="Sources de financement" desc="Gérez les bailleurs.">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}><ActionBtn label="Nouvelle source" icon={I.plus()} color={P.greenDark} onClick={openNewSrc} /></div>
+          {sources.length === 0 ? <Empty text="Aucune source" /> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr><th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Sigle</th><th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Nom</th><th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec, textAlign: 'right' }}>Actions</th></tr></thead>
+              <tbody>{sources.map(s => (<tr key={s.id} style={{ borderBottom: `1px solid ${P.border}` }}><td style={{ padding: '16px', fontWeight: 800 }}><div style={{display:'flex', alignItems:'center', gap:10}}><div style={{width:12, height:12, borderRadius:'50%', background: s.couleur}}/>{s.sigle}</div></td><td style={{ padding: '16px' }}>{s.nom}</td><td style={{ padding: '16px', textAlign: 'right' }}><button onClick={() => openEditSrc(s)} style={{ marginRight: 8, background:'none', border:'none', cursor:'pointer' }}>{I.edit(P.textSec, 14)}</button><button onClick={() => handleDeleteSrc(s)} style={{ background:'none', border:'none', cursor:'pointer' }}>{I.trash(P.red, 14)}</button></td></tr>))}</tbody>
+            </table>
+          )}
+        </SettingRow>
+
+        <SettingRow title="Exercices budgétaires" desc="Activer clôture le précédent.">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}><ActionBtn label="Nouvel exercice" icon={I.plus()} color={P.greenDark} onClick={() => { setFormEx({ annee: new Date().getFullYear() + 1, actif: false }); setShowExModal(true); }} /></div>
+          {exercices.length === 0 ? <Empty text="Aucun exercice" /> : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr><th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Année</th><th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec }}>Statut</th><th style={{ ...styles.th, padding: '12px 16px', background: P.bg, color: P.textSec, textAlign: 'right' }}>Actions</th></tr></thead>
+              <tbody>{exercices.map(ex => (<tr key={ex.id} style={{ borderBottom: `1px solid ${P.border}`, background: ex.actif ? P.greenLight : 'transparent' }}><td style={{ padding: '16px', fontWeight: 800, fontSize: 16, color: ex.actif ? P.greenDark : P.text }}>{ex.annee}</td><td style={{ padding: '16px' }}>{ex.actif ? <Badge bg={P.greenDark} color="#fff">Actif</Badge> : <span style={{color:P.textMuted}}>Clôturé</span>}</td><td style={{ padding: '16px', textAlign: 'right' }}>{!ex.actif && <button onClick={() => setActifEx(ex)} style={{ marginRight: 8, padding: '6px 12px', borderRadius:6, border:`1px solid ${P.border}`, cursor:'pointer' }}>Activer</button>}{!ex.actif && <button onClick={() => handleDeleteEx(ex)} style={{ background:'none', border:'none', cursor:'pointer' }}>{I.trash(P.red, 14)}</button>}</td></tr>))}</tbody>
+            </table>
+          )}
+        </SettingRow>
       </div>
 
-      {showSrcModal && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ background: '#fff', borderRadius: 16, width: 450, padding: 24 }}><h3 style={{ marginBottom: 16 }}>{editSource ? 'Modifier' : 'Nouvelle'} Source</h3><Label>Sigle</Label><input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={iS} /><Label>Nom complet</Label><input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={iS} /><div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 12 }}><button onClick={() => setShowSrcModal(false)}>Annuler</button><button onClick={handleSaveSrc}>Valider</button></div></div></div>)}
+      {showSrcModal && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ background: '#fff', borderRadius: 16, width: 450, padding: 24 }}><h3>{editSource ? 'Modifier' : 'Nouvelle'} Source</h3><Label>Sigle</Label><input value={formSrc.sigle} onChange={e => setFormSrc({...formSrc, sigle: e.target.value})} style={iS} /><Label>Nom complet</Label><input value={formSrc.nom} onChange={e => setFormSrc({...formSrc, nom: e.target.value})} style={iS} /><div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 12 }}><button onClick={() => setShowSrcModal(false)}>Annuler</button><button onClick={handleSaveSrc}>Valider</button></div></div></div>)}
+      {showExModal && (<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ background: '#fff', borderRadius: 16, width: 350, padding: 24 }}><h3>Nouvel exercice</h3><Label>Année</Label><input type="number" value={formEx.annee} onChange={e => setFormEx({...formEx, annee: parseInt(e.target.value)})} style={iS} /><label><input type="checkbox" checked={formEx.actif} onChange={e => setFormEx({...formEx, actif: e.target.checked})} /> Actif</label><div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 12 }}><button onClick={() => setShowExModal(false)}>Annuler</button><button onClick={handleSaveEx}>Créer</button></div></div></div>)}
     </div>
   );
 };
 
 // ============================================================
-// ONGLET MAINTENANCE (SAUVEGARDE & RECALAGE)
-// ============================================================
-const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets } = useAppContext();
-  const [saving, setSaving] = useState(false);
-  const [alertData, setAlertData] = useState(null);
-  
-  const notify = (t, ti, m) => setAlertData({ type: t, title: ti, message: m });
-  const ask = (ti, m, onC, sp = false) => setAlertData({ type: 'confirm', title: ti, message: m, onConfirm: onC, showPwd: sp });
-
-  const checkPwd = (cb) => {
-    ask("Sécurité requise", "Saisissez le mot de passe administrateur :", (pwd) => {
-      if (pwd === (projet?.adminPassword || 'admin123')) cb();
-      else notify("error", "Erreur", "Mot de passe incorrect.");
-    }, true);
-  };
-
-  const handleExportData = () => {
-    try {
-      const dataToSave = {
-        dateExport: new Date().toISOString(),
-        projet, sources, exercices, beneficiaires, budgets, ops, bordereaux
-      };
-      const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `BACKUP_PIF2_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      notify("success", "Sauvegarde", "Le fichier a été téléchargé.");
-    } catch (e) {
-      notify("error", "Erreur", "Échec de l'exportation.");
-    }
-  };
-
-  const handleRecalerCompteurs = () => {
-    checkPwd(async () => {
-      setSaving(true);
-      try {
-        const batch = writeBatch(db);
-        let countFixed = 0;
-        for (const ex of exercices) {
-          for (const src of sources) {
-            const opsExistants = ops.filter(o => o.sourceId === src.id && o.exerciceId === ex.id && o.statut !== 'SUPPRIME');
-            let maxNum = 0;
-            opsExistants.forEach(o => {
-              const match = (o.numero || '').match(/N°(\d+)\//);
-              if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-            });
-            const counterRef = doc(db, 'compteurs', `op_${src.id}_${ex.id}`);
-            batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
-            countFixed++;
-          }
-        }
-        await batch.commit();
-        notify("success", "Réussite", "Compteurs synchronisés.");
-      } catch (e) {
-        notify("error", "Erreur", "Erreur technique.");
-      }
-      setSaving(false);
-    });
-  };
-
-  return (
-    <div style={{ animation: 'fadeIn 0.3s ease' }}>
-      <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
-      
-      <div style={{ marginBottom: 30 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: P.text, textTransform: 'uppercase' }}>Maintenance & Sécurité</h2>
-        <p style={{ fontSize: 14, color: P.textSec }}>Outils d'administration du système.</p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        {/* BOUTON SAUVEGARDE */}
-        <div onClick={handleExportData} 
-          style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', transition: 'all 0.2s', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-            {I.download(P.green, 24)}
-          </div>
-          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.greenDark }}>Sauvegarder la base</h3>
-          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Télécharger une copie de sécurité (Format JSON).</p>
-        </div>
-
-        {/* BOUTON RECALAGE */}
-        <div onClick={handleRecalerCompteurs} 
-          style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', transition: 'all 0.2s', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-            {I.refresh(P.gold, 24)}
-          </div>
-          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.gold }}>Recaler les numéros</h3>
-          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Synchroniser les compteurs avec les OP existants.</p>
-        </div>
-      </div>
-      
-      {saving && <div style={{ marginTop: 30, textAlign: 'center', color: P.gold, fontWeight: 700 }}>Traitement en cours...</div>}
-    </div>
-  );
-};
-// ============================================================
-// ONGLET MAINTENANCE (VERSION SÉCURISÉE)
-// ============================================================
-// ============================================================
-// ONGLET MAINTENANCE (VERSION SÉCURISÉE)
+// ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
   const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets } = useAppContext();
@@ -336,7 +275,6 @@ const TabMaintenance = () => {
 
   const checkPwd = (cb) => {
     ask("Sécurité requise", "Saisissez le mot de passe administrateur :", (pwd) => {
-      // On vérifie le mot de passe dans les paramètres du projet
       if (pwd === (projet?.adminPassword || 'admin123')) cb();
       else notify("error", "Erreur", "Mot de passe incorrect.");
     }, true);
@@ -352,7 +290,7 @@ const TabMaintenance = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `SAUVEGARDE_BASE_OP_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `SAUVEGARDE_BASE_PIF2_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -384,7 +322,7 @@ const TabMaintenance = () => {
         await batch.commit();
         notify("success", "Réussite", "Les compteurs ont été recalés.");
       } catch (e) {
-        notify("error", "Erreur", "Problème de synchronisation base de données.");
+        notify("error", "Erreur", "Problème de synchronisation.");
       }
       setSaving(false);
     });
@@ -393,26 +331,19 @@ const TabMaintenance = () => {
   return (
     <div style={{ padding: '10px 0' }}>
       <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
-      
       <div style={{ marginBottom: 30 }}>
         <h2 style={{ fontSize: 18, fontWeight: 800, color: P.text }}>Maintenance & Sécurité</h2>
         <p style={{ fontSize: 14, color: P.textSec }}>Gérez vos sauvegardes et les numéros de série.</p>
       </div>
-
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        {/* BOUTON SAUVEGARDE */}
-        <div onClick={handleExportData} 
-          style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <div onClick={handleExportData} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={P.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
           <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.greenDark }}>Sauvegarder la base</h3>
           <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Télécharger une copie de sécurité (Format JSON).</p>
         </div>
-
-        {/* BOUTON RECALAGE */}
-        <div onClick={handleRecalerCompteurs} 
-          style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <div onClick={handleRecalerCompteurs} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={P.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </div>
@@ -420,9 +351,9 @@ const TabMaintenance = () => {
           <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Remettre à jour les compteurs selon les OP existants.</p>
         </div>
       </div>
-      
       {saving && <div style={{ marginTop: 24, textAlign: 'center', color: P.gold, fontWeight: 700 }}>Synchronisation en cours...</div>}
     </div>
   );
 };
+
 export default PageParametres;
