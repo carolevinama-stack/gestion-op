@@ -632,7 +632,7 @@ const PageConsulterOp = () => {
       '<tr><td class="col-letter">E</td><td class="col-label">Disponible budgétaire (A - D)</td><td class="col-amount">' + printDisponible + '</td><td class="col-empty"></td></tr></table>',
       '</div></div>', // Fin budget-section et body-content
 
-      '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>' + (projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div><div class="sig-content"><div class="sig-name">' + nomCoordonnateur + '</div></div></div>',
+      '<div class="signatures-section"><div class="sig-box"><div class="sig-header">VISA<br/>' + (projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div><div class="sig-content"><div class="sig-name">' + (projet?.coordonnateur || 'ABE-KOFFI Thérèse') + '</div></div></div>',
       '<div class="sig-box"><div class="sig-header">VISA<br/>CONTRÔLEUR FINANCIER</div><div class="sig-content"></div></div><div class="sig-box"><div class="sig-header">VISA<br/>AGENT COMPTABLE</div><div class="sig-content"></div></div></div>',
       '<div class="abidjan-row"><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div><div class="abidjan-cell">Abidjan, le</div></div>',
       '<div class="acquit-section"><div class="acquit-empty"></div><div class="acquit-box"><div class="acquit-header">ACQUIT LIBERATOIRE</div><div class="acquit-content"></div><div class="acquit-date">Abidjan, le</div></div></div></div></div></div></body></html>'
