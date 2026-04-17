@@ -942,7 +942,7 @@ onClick={async () => {
               <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Réf. Virement</label><input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/></div>
             </div>
             <div style={{textAlign:'right'}}>
-               <ActionBtn label="Valider Paiement" color={P.gold} onClick={()=>handlePaiement(op.id)} disabled={saving}/>
+              <ActionBtn label={parseFloat(paiementMontant) < 0 ? "Valider le Reversement" : "Valider Paiement"} color={parseFloat(paiementMontant) < 0 ? P.red : P.gold} onClick={()=>handlePaiement(op.id)} disabled={saving || !paiementMontant || paiementMontant === '-'}/>
             </div>
           </div>}
           {reste <= 0 && (<div style={{background: reste === 0 ? P.greenLight : P.redLight,borderRadius: 10,padding: 12,textAlign: 'center',color: reste === 0 ? P.greenDark : P.red,fontWeight: 700,fontSize: 13,marginBottom: 16,
