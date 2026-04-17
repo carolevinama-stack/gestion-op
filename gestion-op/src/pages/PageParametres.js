@@ -220,33 +220,116 @@ const TabInfos = () => {
 };
 
 // ============================================================
-// ONGLET MAINTENANCE
+// ONGLET MAINTENANCE (SAUVEGARDE & RECALAGE)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux } = useAppContext();
+  const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets } = useAppContext();
   const [tool, setTool] = useState(null); 
   const [saving, setSaving] = useState(false);
   const [alertData, setAlertData] = useState(null);
+  
   const notify = (t, ti, m) => setAlertData({ type: t, title: ti, message: m });
   const ask = (ti, m, onC, sp = false) => setAlertData({ type: 'confirm', title: ti, message: m, onConfirm: onC, showPwd: sp });
 
   const checkPwd = (cb) => {
-    ask("Sécurité", "Mot de passe admin :", (pwd) => {
-      if (pwd === (projet?.motDePasseAdmin || 'admin123')) cb();
+    ask("Sécurité requise", "Saisissez le mot de passe administrateur :", (pwd) => {
+      if (pwd === (projet?.adminPassword || 'admin123')) cb();
       else notify("error", "Erreur", "Mot de passe incorrect.");
     }, true);
   };
 
-  const handlePurge = () => { checkPwd(async () => { notify("success", "Prêt", "Fonction de purge déverrouillée."); }); };
+  // --- 1. FONCTION DE SAUVEGARDE ---
+  const handleExportData = () => {
+    try {
+      const dataToSave = {
+        dateExport: new Date().toISOString(),
+        projet, sources, exercices, beneficiaires, budgets, ops, bordereaux
+      };
+      const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `BACKUP_GESTION_OP_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      notify("success", "Sauvegarde", "Le fichier a été téléchargé sur votre ordinateur.");
+    } catch (e) {
+      notify("error", "Erreur", "Échec de l'exportation.");
+    }
+  };
+
+  // --- 2. FONCTION DE RECALAGE DES COMPTEURS ---
+  const handleRecalerCompteurs = () => {
+    checkPwd(async () => {
+      setSaving(true);
+      try {
+        const batch = writeBatch(db);
+        let countFixed = 0;
+
+        // On parcourt chaque source et chaque exercice pour trouver le dernier numéro utilisé
+        for (const ex of exercices) {
+          for (const src of sources) {
+            const opsExistants = ops.filter(o => o.sourceId === src.id && o.exerciceId === ex.id && o.statut !== 'SUPPRIME');
+            
+            let maxNum = 0;
+            opsExistants.forEach(o => {
+              const match = (o.numero || '').match(/N°(\d+)\//);
+              if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+            });
+
+            // Mise à jour du compteur dans Firebase
+            const counterRef = doc(db, 'compteurs', `op_${src.id}_${ex.id}`);
+            batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
+            countFixed++;
+          }
+        }
+
+        await batch.commit();
+        notify("success", "Réussite", `Les compteurs de ${countFixed} sources ont été synchronisés.`);
+      } catch (e) {
+        notify("error", "Erreur", "Impossible de mettre à jour les compteurs.");
+      }
+      setSaving(false);
+    });
+  };
 
   return (
     <div>
       <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
-      {tool === null ? (
-        <div style={{ display: 'flex', gap: 24 }}><div onClick={() => setTool('purge')} style={{ padding: 24, border: `1px solid ${P.border}`, borderRadius: 12, cursor: 'pointer' }}>{I.trash(P.red, 24)}<h3>Purge</h3></div></div>
-      ) : (
-        <div><button onClick={() => setTool(null)}>Retour</button>{tool === 'purge' && <div>Outil de purge sélectionné</div>}</div>
-      )}
+      
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: P.text }}>Maintenance & Sécurité</h2>
+        <p style={{ fontSize: 14, color: P.textSec }}>Gérez vos sauvegardes et synchronisez les numéros de série.</p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        {/* BOUTON SAUVEGARDE */}
+        <div onClick={handleExportData} 
+          style={{ flex: 1, minWidth: 280, padding: 24, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = P.green}
+          onMouseLeave={e => e.currentTarget.style.borderColor = P.border}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            {I.download(P.green, 24)}
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.green }}>Sauvegarder la base</h3>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec }}>Télécharger toutes les données (OP, Budgets, Sources) en un seul fichier JSON.</p>
+        </div>
+
+        {/* BOUTON RECALAGE COMPTEURS */}
+        <div onClick={handleRecalerCompteurs} 
+          style={{ flex: 1, minWidth: 280, padding: 24, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = P.gold}
+          onMouseLeave={e => e.currentTarget.style.borderColor = P.border}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            {I.refresh(P.gold, 24)}
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.gold }}>Recaler les numéros</h3>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec }}>Réparer les compteurs si vous constatez des sauts de numéros ou des doublons.</p>
+        </div>
+      </div>
+      
+      {saving && <div style={{ marginTop: 20, textAlign: 'center', color: P.gold, fontWeight: 700 }}>Traitement en cours...</div>}
     </div>
   );
 };
