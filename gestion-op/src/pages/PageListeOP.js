@@ -426,26 +426,27 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                     </tr>
                   </thead>
                   <tbody>
-                    {opsSupprimes.map(op => (
-                      <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
-                        <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
-                        <td style={{...styles.td, color: P.textSec}}>{formatDate(op.updatedAt)}</td>
-                        <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
-                        <td style={{...styles.td, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
-                        <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
-                        <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
-                        <td style={{...styles.td, fontWeight:700, color:P.oliveDark}}>{op.supprimePar || 'Admin'}</td>
-                        <td style={styles.td}>
-                          <button 
-                            onClick={() => handleRestaurerOP(op)}
-                            style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:10}}
-                          >
-                            RESTAURER
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  {opsSupprimes.map((op) => (
+                    <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
+                      <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
+                      <td style={{...styles.td, color: P.textSec}}>{formatDate(op.updatedAt)}</td>
+                      <td style={styles.td}>{op.type}</td>
+                      <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
+                      <td style={{...styles.td, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
+                      <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
+                      <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
+                      <td style={{...styles.td, fontWeight:700, color:P.oliveDark}}>{op.supprimePar || 'Admin'}</td>
+                      <td style={styles.td}>
+                        <button 
+                          onClick={() => handleRestaurerOP(op)}
+                          style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:10}}
+                        >
+                          RESTAURER
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
                 </table>
               )}
             </div>
