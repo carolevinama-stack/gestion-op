@@ -373,59 +373,52 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
         </div>
       )}
 
-      {/* MODALE DE LA CORBEILLE (OP SUPPRIMÉS) */}
-      {/* ... (fin de ton code précédent) ... */}
-    </div> {/* Fermeture du div principal de la page */}
-
-    {/* NOUVELLE MODALE DE LA CORBEILLE (SORTIE DU DIV PRINCIPAL) */}
-    {modalSuppression && (
-      <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-        <div style={{background:P.card, borderRadius:16, width:900, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
-          <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <h3 style={{color:'#fff', margin:0, fontSize:16, fontWeight:800}}>CORBEILLE — HISTORIQUE DES SUPPRESSIONS</h3>
-            <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>{I.close('#fff', 22)}</button>
-          </div>
-          
-          <div style={{padding:20, overflowY:'auto'}}>
-            {opsSupprimes.length === 0 ? (
-              <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p>
-            ) : (
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>N° OP</th>
-                    <th style={thStyle}>Type</th>
-                    <th style={thStyle}>Bénéficiaire</th>
-                    <th style={thStyle}>Objet</th>
-                    <th style={thStyle}>Ligne</th>
-                    <th style={{...thStyle, textAlign:'right'}}>Montant</th>
-                    <th style={thStyle}>Motif Suppression</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {opsSupprimes.map(op => (
-                    <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
-                      <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
-                      <td style={styles.td}>{op.type}</td>
-                      <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
-                      <td style={{...styles.td, fontSize:11, maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
-                      <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
-                      <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
-                      <td style={{...styles.td, fontSize:11, color:P.textSec, fontStyle:'italic'}}>{op.motifSuppression || 'Non spécifié'}</td>
+     {/* MODALE DE LA CORBEILLE */}
+      {modalSuppression && (
+        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:P.card, borderRadius:16, width:900, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
+            <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <h3 style={{color:'#fff', margin:0, fontSize:16, fontWeight:800}}>CORBEILLE (OP SUPPRIMÉS)</h3>
+              <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>{I.close('#fff', 22)}</button>
+            </div>
+            <div style={{padding:20, overflowY:'auto'}}>
+              {opsSupprimes.length === 0 ? <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p> : (
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>N° OP</th>
+                      <th style={thStyle}>Type</th>
+                      <th style={thStyle}>Bénéficiaire</th>
+                      <th style={thStyle}>Objet</th>
+                      <th style={thStyle}>Ligne</th>
+                      <th style={{...thStyle, textAlign:'right'}}>Montant</th>
+                      <th style={thStyle}>Motif Suppression</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          <div style={{padding:'15px 20px', background:'#f9f9f9', borderTop:`1px solid ${P.border}`, textAlign:'right'}}>
-            <button onClick={() => setModalSuppression(false)} style={{padding:'8px 20px', background:P.textSec, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Fermer</button>
+                  </thead>
+                  <tbody>
+                    {opsSupprimes.map(op => (
+                      <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
+                        <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
+                        <td style={styles.td}>{op.type}</td>
+                        <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
+                        <td style={{...styles.td, fontSize:11, maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
+                        <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
+                        <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
+                        <td style={{...styles.td, fontSize:11, color:P.textSec, fontStyle:'italic'}}>{op.motifSuppression || 'Non spécifié'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div style={{padding:'15px 20px', background:'#f9f9f9', borderTop:`1px solid ${P.border}`, textAlign:'right'}}>
+              <button onClick={() => setModalSuppression(false)} style={{padding:'8px 20px', background:P.textSec, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Fermer</button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  </> // <-- FERMETURE DU FRAGMENT (Ligne 425+)
-  );
-};
+      )}
+    </div> // Fermeture du div principal
+  ); // Fin du return
+}; // Fin du composant
 
 export default PageListeOP;
