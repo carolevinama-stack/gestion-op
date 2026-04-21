@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { db } from '../firebase'; // Importation de la base de données
+import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
 import { formatMontant } from '../utils/formatters';
 
@@ -104,6 +106,26 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
   }, [displayOps]);
 
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
+  // --- FONCTION DE RESTAURATION (À COLLER AVANT LE RETURN) ---
+  const handleRestaurerOP = async (op) => {
+    if(!window.confirm(`Voulez-vous restaurer l'OP ${op.numero} ?`)) return;
+    
+    try {
+      // On met à jour le statut dans Firebase
+      const opRef = doc(db, 'ops', op.id);
+      await updateDoc(opRef, {
+        statut: 'EN_COURS', // Il revient au début du circuit
+        updatedAt: new Date().toISOString(),
+        motifSuppression: null,
+        supprimePar: null
+      });
+      
+      alert(`L'OP ${op.numero} a été restauré avec succès.`);
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la restauration : " + err.message);
+    }
+  };
 
   const handleExportExcel = async () => {
     try {
