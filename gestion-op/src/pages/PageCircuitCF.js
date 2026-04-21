@@ -136,7 +136,7 @@ const PageCircuitCF = () => {
   
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
-  const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && !op.bordereauCF), [opsForSource]);
+  const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && op.statut !== 'SUPPRIME' && !op.bordereauCF), [opsForSource]);
   const opsTransmisCF = useMemo(() => opsForSource.filter(op => op.statut === 'TRANSMIS_CF'), [opsForSource]);
   const opsDifferesCF = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_CF'), [opsForSource]);
   const opsRejetesCF = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_CF' && op.type !== 'REJET'), [opsForSource]);
