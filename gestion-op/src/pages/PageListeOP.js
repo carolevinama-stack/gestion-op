@@ -399,6 +399,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                  <tbody>
   {opsSupprimes.map(op => (
     {/* --- C'EST ICI QU'IL FAUT COLLER --- */}
+      {/* MODALE DE LA CORBEILLE (VERSION CORRIGÉE SANS ERREUR DE SYNTAXE) */}
       {modalSuppression && (
         <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
           <div style={{background:P.card, borderRadius:16, width:1100, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
@@ -417,6 +418,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                     <tr>
                       <th style={thStyle}>N° OP</th>
                       <th style={thStyle}>Date Suppr.</th>
+                      <th style={thStyle}>Type</th>
                       <th style={thStyle}>Bénéficiaire</th>
                       <th style={thStyle}>Objet</th>
                       <th style={thStyle}>Ligne</th>
@@ -426,27 +428,30 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                     </tr>
                   </thead>
                   <tbody>
-                  {opsSupprimes.map((op) => (
-                    <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
-                      <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
-                      <td style={{...styles.td, color: P.textSec}}>{formatDate(op.updatedAt)}</td>
-                      <td style={styles.td}>{op.type}</td>
-                      <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
-                      <td style={{...styles.td, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
-                      <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
-                      <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
-                      <td style={{...styles.td, fontWeight:700, color:P.oliveDark}}>{op.supprimePar || 'Admin'}</td>
-                      <td style={styles.td}>
-                        <button 
-                          onClick={() => handleRestaurerOP(op)}
-                          style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:10}}
-                        >
-                          RESTAURER
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                    {opsSupprimes.map((op) => {
+                      return (
+                        <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
+                          <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
+                          <td style={{...styles.td, color: P.textSec}}>{formatDate(op.updatedAt)}</td>
+                          <td style={styles.td}>{op.type}</td>
+                          <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
+                          <td style={{...styles.td, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
+                          <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
+                          <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
+                          <td style={{...styles.td, fontWeight:700, color:P.oliveDark}}>{op.supprimePar || 'Admin'}</td>
+                          <td style={styles.td}>
+                            <button 
+                              type="button"
+                              onClick={() => handleRestaurerOP(op)}
+                              style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:10}}
+                            >
+                              RESTAURER
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
                 </table>
               )}
             </div>
@@ -457,8 +462,5 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
           </div>
         </div>
       )}
-    </div> // <-- C'est le DIV qui ferme toute la page
-  ); // <-- C'est la fin du return
-}; // <-- C'est la fin du composant PageListeOP
 
 export default PageListeOP;
