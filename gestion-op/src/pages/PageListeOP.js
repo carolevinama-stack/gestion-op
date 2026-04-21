@@ -375,64 +375,61 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
     {/* MODALE DE LA CORBEILLE (OP SUPPRIMÉS) */}
       {modalSuppression && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:P.card, borderRadius:16, width:1100, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
-            
-            <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <h3 style={{color:'#fff', margin:0, fontSize:16, fontWeight:800}}>CORBEILLE — HISTORIQUE DES SUPPRESSIONS</h3>
-              <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>{I.close('#fff', 22)}</button>
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:'#fff', borderRadius:16, width:1100, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+            <div style={{padding:20, background:P.red, color:'#fff', display:'flex', justifyContent:'space-between'}}>
+              <b>CORBEILLE (OP SUPPRIMÉS)</b>
+              <button onClick={() => setModalSuppression(false)} style={{color:'#fff', background:'none', border:'none', cursor:'pointer'}}>FERMER</button>
             </div>
-            
             <div style={{padding:20, overflowY:'auto'}}>
-              {opsSupprimes.length === 0 ? (
-                <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p>
-              ) : (
-                <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>N° OP</th>
-                      <th style={thStyle}>Date Suppr.</th>
-                      <th style={thStyle}>Type</th>
-                      <th style={thStyle}>Bénéficiaire</th>
-                      <th style={thStyle}>Ligne</th>
-                      <th style={{...thStyle, textAlign:'right'}}>Montant</th>
-                      <th style={thStyle}>Auteur</th>
-                      <th style={thStyle}>Action</th>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
+                <thead>
+                  <tr style={{background:'#f5f5f5'}}>
+                    <th style={styles.td}>N° OP</th>
+                    <th style={styles.td}>Date Suppr.</th>
+                    <th style={styles.td}>Bénéficiaire</th>
+                    <th style={{...styles.td, textAlign:'right'}}>Montant</th>
+                    <th style={styles.td}>Auteur</th>
+                    <th style={styles.td}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {opsSupprimes.map((op) => (
+                    <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
+                      <td style={styles.td}><b>{op.numero}</b></td>
+                      <td style={styles.td}>{formatDate(op.updatedAt)}</td>
+                      <td style={styles.td}>{getBenNom(op)}</td>
+                      <td style={{...styles.td, textAlign:'right', color:P.red}}><b>{formatMontant(op.montant)}</b></td>
+                      <td style={{...styles.td, fontWeight:700}}>{op.supprimePar || 'Admin'}</td>
+                      <td style={styles.td}>
+                        <button 
+                          onClick={() => handleRestaurerOP(op)}
+                          style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700}}
+                        >
+                          RESTAURER
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {opsSupprimes.map(function(op) {
-                      return (
-                        <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
-                          <td style={styles.td}><strong>{op.numero}</strong></td>
-                          <td style={styles.td}>{formatDate(op.updatedAt)}</td>
-                          <td style={styles.td}>{op.type}</td>
-                          <td style={styles.td}>{getBenNom(op)}</td>
-                          <td style={styles.td}>{op.ligneBudgetaire || '-'}</td>
-                          <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
-                          <td style={{...styles.td, fontWeight:700}}>{op.supprimePar || 'Admin'}</td>
-                          <td style={styles.td}>
-                            <button 
-                              type="button"
-                              onClick={function() { handleRestaurerOP(op); }}
-                              style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700}}
-                            >
-                              RESTAURER
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            
-            <div style={{padding:'15px 20px', background:'#f9f9f9', borderTop:`1px solid ${P.border}`, textAlign:'right'}}>
-              <button onClick={() => setModalSuppression(false)} style={{padding:'8px 20px', background:P.textSec, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Fermer</button>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
+
+      {livePreviewOp && (
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:'#fff', borderRadius:16, width:450, padding:20}}>
+            <h3>{livePreviewOp.numero}</h3>
+            <p><b>Bénéficiaire:</b> {getBenNom(livePreviewOp)}</p>
+            <p><b>Montant:</b> {formatMontant(livePreviewOp.montant)} F</p>
+            <button onClick={() => setPreviewOpId(null)} style={{width:'100%', padding:10, background:P.orange, color:'#fff', border:'none', borderRadius:8}}>Fermer</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default PageListeOP;
