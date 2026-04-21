@@ -381,11 +381,8 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               <h3 style={{color:'#fff', margin:0, fontSize:16, fontWeight:800}}>CORBEILLE — HISTORIQUE DES SUPPRESSIONS</h3>
               <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>{I.close('#fff', 22)}</button>
             </div>
-            
             <div style={{padding:20, overflowY:'auto'}}>
-              {opsSupprimes.length === 0 ? (
-                <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p>
-              ) : (
+              {opsSupprimes.length === 0 ? <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p> : (
                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
                   <thead>
                     <tr>
@@ -416,10 +413,14 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                 </table>
               )}
             </div>
-            
             <div style={{padding:'15px 20px', background:'#f9f9f9', borderTop:`1px solid ${P.border}`, textAlign:'right'}}>
               <button onClick={() => setModalSuppression(false)} style={{padding:'8px 20px', background:P.textSec, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Fermer</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+export default PageListeOP;
