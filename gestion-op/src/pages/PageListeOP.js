@@ -375,34 +375,8 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
     {/* MODALE DE LA CORBEILLE (OP SUPPRIMÉS) */}
       {modalSuppression && (
-        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:P.card, borderRadius:16, width:1000, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
-            <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <h3 style={{color:'#fff', margin:0, fontSize:16, fontWeight:800}}>CORBEILLE — HISTORIQUE DES SUPPRESSIONS</h3>
-              <button onClick={() => setModalSuppression(false)} style={{background:'none', border:'none', cursor:'pointer'}}>{I.close('#fff', 22)}</button>
-            </div>
-            <div style={{padding:20, overflowY:'auto'}}>
-              {opsSupprimes.length === 0 ? <p style={{textAlign:'center', padding:40, color:P.textMuted}}>La corbeille est vide.</p> : (
-                <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>N° OP</th>
-                      <th style={thStyle}>Date Suppr.</th>
-                      <th style={thStyle}>Type</th>
-                      <th style={thStyle}>Bénéficiaire</th>
-                      <th style={thStyle}>Objet</th>
-                      <th style={thStyle}>Ligne</th>
-                      <th style={{...thStyle, textAlign:'right'}}>Montant</th>
-                      <th style={thStyle}>Motif</th>
-                    </tr>
-                  </thead>
-                 <tbody>
-  {opsSupprimes.map(op => (
-    {/* --- C'EST ICI QU'IL FAUT COLLER --- */}
-      {/* MODALE DE LA CORBEILLE (VERSION CORRIGÉE SANS ERREUR DE SYNTAXE) */}
-      {modalSuppression && (
-        <div style={{position:'fixed', top:0, left:0, width:'100vw', height:'100vh', background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:P.card, borderRadius:16, width:1100, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden', boxShadow:'0 20px 50px rgba(0,0,0,0.3)'}}>
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', backdropFilter:'blur(3px)', zIndex:99999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:P.card, borderRadius:16, width:1100, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
             
             <div style={{padding:'16px 20px', background:P.red, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <h3 style={{color:'#fff', margin:0, fontSize:16, fontWeight:800}}>CORBEILLE — HISTORIQUE DES SUPPRESSIONS</h3>
@@ -420,7 +394,6 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                       <th style={thStyle}>Date Suppr.</th>
                       <th style={thStyle}>Type</th>
                       <th style={thStyle}>Bénéficiaire</th>
-                      <th style={thStyle}>Objet</th>
                       <th style={thStyle}>Ligne</th>
                       <th style={{...thStyle, textAlign:'right'}}>Montant</th>
                       <th style={thStyle}>Auteur</th>
@@ -428,22 +401,21 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                     </tr>
                   </thead>
                   <tbody>
-                    {opsSupprimes.map((op) => {
+                    {opsSupprimes.map(function(op) {
                       return (
                         <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
-                          <td style={{...styles.td, fontFamily:'monospace', fontWeight:700}}>{op.numero}</td>
-                          <td style={{...styles.td, color: P.textSec}}>{formatDate(op.updatedAt)}</td>
+                          <td style={styles.td}><strong>{op.numero}</strong></td>
+                          <td style={styles.td}>{formatDate(op.updatedAt)}</td>
                           <td style={styles.td}>{op.type}</td>
-                          <td style={{...styles.td, fontWeight:600}}>{getBenNom(op)}</td>
-                          <td style={{...styles.td, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
-                          <td style={{...styles.td, fontFamily:'monospace'}}>{op.ligneBudgetaire || '-'}</td>
+                          <td style={styles.td}>{getBenNom(op)}</td>
+                          <td style={styles.td}>{op.ligneBudgetaire || '-'}</td>
                           <td style={{...styles.td, textAlign:'right', fontWeight:700, color:P.red}}>{formatMontant(op.montant)}</td>
-                          <td style={{...styles.td, fontWeight:700, color:P.oliveDark}}>{op.supprimePar || 'Admin'}</td>
+                          <td style={{...styles.td, fontWeight:700}}>{op.supprimePar || 'Admin'}</td>
                           <td style={styles.td}>
                             <button 
                               type="button"
-                              onClick={() => handleRestaurerOP(op)}
-                              style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:10}}
+                              onClick={function() { handleRestaurerOP(op); }}
+                              style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700}}
                             >
                               RESTAURER
                             </button>
