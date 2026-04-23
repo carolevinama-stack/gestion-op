@@ -635,9 +635,11 @@ const PageConsulterOp = () => {
     '<div class="signatures-section">' +
     // BLOC COORDONNATRICE
     '<div class="sig-box" style="text-align: center;">' + 
-      '<div class="sig-header" style="font-weight: bold;">VISA<br/>' + (projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div>' +
-      '<div class="sig-content" style="height: 80px;"></div>' + // Espace conservé pour le cachet
-      '<div class="sig-name" style="font-weight: bold; text-decoration: underline; display: block; width: 100%;">' + (projet?.coordonnateur || 'ABE-KOFFI Thérèse') + '</div>' +
+      '<div class="sig-header">VISA<br/>' + (projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div>' +
+      '<div class="sig-content" style="height: 80px;"></div>' + // Espace pour le cachet
+      '<div class="sig-name" style="text-align: center; font-weight: bold; text-decoration: underline; width: 100%;">' + 
+        (projet?.coordonnateur || 'ABE-KOFFI Thérèse') + 
+      '</div>' +
     '</div>' +
 
     // AUTRES BLOCS (CF et AC)
