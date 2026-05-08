@@ -416,7 +416,10 @@ const PageCircuitAC = () => {
   const handlePaiement = async (opId) => {
     const op = ops.find(o => o.id === opId); if(!op) return;
     const m = parseFloat(String(paiementMontant).replace(/\s/g, ''));
-    if(isNaN(m) || m <= 0){notify("error", "Erreur", "Veuillez saisir un montant valide."); return;}
+    
+    // MODIFICATION ICI : On met "m === 0" pour bloquer juste le zéro, mais autoriser les négatifs !
+    if(isNaN(m) || m === 0){notify("error", "Erreur", "Veuillez saisir un montant différent de zéro."); return;}
+    
     const d = readDate('paiement'); if(!d){notify("error", "Erreur", "Date requise."); return;}
     
     const paiem = op.paiements || [];
@@ -430,7 +433,42 @@ const PageCircuitAC = () => {
         const tot = Math.round(nP.reduce((s,p) => s + (p.montant||0), 0));
         const montantInitial = Math.round(op.montant||0);
         
-        const estSolde = (tot >= montantInitial);
+        const resteFinal = Math.round(montantInitial - tot);
+        let statutCalculé = 'PAYE_PARTIEL';
+
+        if (resteFinal === 0) {
+          statutCalculé = 'PAYE';
+        } else if (resteFinal < 0) {
+          statutCalculé = 'PAYE_PARTIEL';
+        }
+
+        await updateDoc(doc(db, 'ops', opId), {
+          paiements: nP, 
+          totalPaye: tot, 
+          datePaiement: d, 
+          updatedAt: new Date().toISOString(),
+          statut: statutCalculé
+        });
+
+        if (resteFinal < 0) {
+          notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
+        } else {
+          notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
+        }
+        
+        setPaiementMontant(''); setPaiementReference('');
+      }catch(e){notify("error", "Erreur", e.message);}
+      setSaving(false);
+    };
+
+    if (m < 0) {
+        ask("Reversement", `Enregistrer le reversement de ${formatMontant(m)} F ?`, exec);
+    } else if(m > reste){
+      ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste théorique : ${formatMontant(reste)} F\nPaiement saisi : ${formatMontant(m)} F\nVoulez-vous forcer ce paiement et solder l'OP ?`, exec);
+    } else {
+      ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
+    }
+  };
         
         // ✅ NOUVEAU BLOC (Logique stricte)
 const resteFinal = Math.round((op.montant || 0) - tot);
