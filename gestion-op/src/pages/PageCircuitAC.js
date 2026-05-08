@@ -903,7 +903,7 @@ onClick={async () => {
         // 4. Calcul final du reste à payer consolidé
         const reste = Math.round((op.montant||0) - tot); 
         const pct = Math.round(tot/Math.max(op.montant||1,1)*100); 
-        const isSolde = reste < 1;
+        const isSolde = reste === 0;
         
         // MODIF: Pour l'affichage de l'historique direct en dessous
         const paiem = paiemDirects;
