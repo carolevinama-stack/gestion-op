@@ -416,10 +416,7 @@ const PageCircuitAC = () => {
   const handlePaiement = async (opId) => {
     const op = ops.find(o => o.id === opId); if(!op) return;
     const m = parseFloat(String(paiementMontant).replace(/\s/g, ''));
-    
-    // MODIFICATION ICI : On met "m === 0" pour bloquer juste le zéro, mais autoriser les négatifs !
-    if(isNaN(m) || m === 0){notify("error", "Erreur", "Veuillez saisir un montant différent de zéro."); return;}
-    
+    if(isNaN(m) || m <= 0){notify("error", "Erreur", "Veuillez saisir un montant valide."); return;}
     const d = readDate('paiement'); if(!d){notify("error", "Erreur", "Date requise."); return;}
     
     const paiem = op.paiements || [];
@@ -433,78 +430,45 @@ const PageCircuitAC = () => {
         const tot = Math.round(nP.reduce((s,p) => s + (p.montant||0), 0));
         const montantInitial = Math.round(op.montant||0);
         
-        const resteFinal = Math.round(montantInitial - tot);
-        let statutCalculé = 'PAYE_PARTIEL';
-
-        if (resteFinal === 0) {
-          statutCalculé = 'PAYE';
-        } else if (resteFinal < 0) {
-          statutCalculé = 'PAYE_PARTIEL';
-        }
-
-        await updateDoc(doc(db, 'ops', opId), {
-          paiements: nP, 
-          totalPaye: tot, 
-          datePaiement: d, 
-          updatedAt: new Date().toISOString(),
-          statut: statutCalculé
-        });
-
-        if (resteFinal < 0) {
-          notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
-        } else {
-          notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
-        }
+        const estSolde = (tot >= montantInitial);
         
+        // ✅ NOUVEAU BLOC (Logique stricte)
+const resteFinal = Math.round((op.montant || 0) - tot);
+let statutCalculé = 'PAYE_PARTIEL';
+
+if (resteFinal === 0) {
+  statutCalculé = 'PAYE'; // Le compte est bon
+} else if (resteFinal < 0) {
+  statutCalculé = 'PAYE_PARTIEL'; // Trop perçu : reste en partiel pour signaler le reversement
+}
+
+await updateDoc(doc(db, 'ops', opId), {
+  paiements: nP, 
+  totalPaye: tot, 
+  datePaiement: d, 
+  updatedAt: new Date().toISOString(),
+  statut: statutCalculé
+});
+
+if (resteFinal < 0) {
+  notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
+} else {
+  notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
+}
+        
+        notify("success", "Paiement", estSolde ? "OP totalement soldé." : "Paiement partiel enregistré.");
         setPaiementMontant(''); setPaiementReference('');
       }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     };
 
-    if (m < 0) {
-        ask("Reversement", `Enregistrer le reversement de ${formatMontant(m)} F ?`, exec);
-    } else if(m > reste){
+    if(m > reste){
       ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste théorique : ${formatMontant(reste)} F\nPaiement saisi : ${formatMontant(m)} F\nVoulez-vous forcer ce paiement et solder l'OP ?`, exec);
     } else {
       ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
     }
   };
-        
-        // ✅ NOUVEAU BLOC (Logique stricte)
-const exec = async () => {
-      setSaving(true);
-      try{
-        const nP = [...paiem, {date: d, montant: m, reference: paiementReference.trim(), createdAt: new Date().toISOString()}];
-        const tot = Math.round(nP.reduce((s,p) => s + (p.montant||0), 0));
-        const montantInitial = Math.round(op.montant||0);
-        
-        const resteFinal = Math.round(montantInitial - tot);
-        let statutCalculé = 'PAYE_PARTIEL';
 
-        if (resteFinal === 0) {
-          statutCalculé = 'PAYE';
-        } else if (resteFinal < 0) {
-          statutCalculé = 'PAYE_PARTIEL';
-        }
-
-        await updateDoc(doc(db, 'ops', opId), {
-          paiements: nP, 
-          totalPaye: tot, 
-          datePaiement: d, 
-          updatedAt: new Date().toISOString(),
-          statut: statutCalculé
-        });
-
-        if (resteFinal < 0) {
-          notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
-        } else {
-          notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
-        }
-        
-        setPaiementMontant(''); setPaiementReference('');
-      }catch(e){notify("error", "Erreur", e.message);}
-      setSaving(false);
-    };
   const handleAnnulerPaiement = async (opId) => {
     const op = ops.find(o => o.id === opId); const p = op?.paiements || []; if(p.length === 0) return;
     const der = p[p.length-1];
@@ -706,7 +670,7 @@ const exec = async () => {
         <th style={thS}>MOTIF</th>
         <th style={{...thS,width:36}}></th>
       </tr></thead><tbody>{filterOps(differes,searchSuivi).map(op=>{const ch=selectedOps.includes(op.id);
-         onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
+        return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
           <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
           <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
           <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
@@ -798,7 +762,7 @@ const exec = async () => {
           <th style={{...thS,width:90}}>VISA CF</th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesAC,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
-             onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
+            return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
@@ -967,28 +931,20 @@ onClick={async () => {
             {paiem.map((p,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:i%2===0?P.goldLight:P.card,borderRadius:8,marginBottom:2}}><div><span style={{fontSize:12}}>{formatDate(p.date)}</span><span style={{fontSize:11,color:P.textMuted,marginLeft:8}}>{p.reference||'Sans réf.'}</span></div><span style={{fontFamily:'monospace',fontWeight:700,fontSize:12,color:P.gold}}>{formatMontant(p.montant)} F</span></div>)}
             <button onClick={()=>handleAnnulerPaiement(op.id)} disabled={saving} style={{marginTop:8,padding:'6px 14px',background:P.redLight,color:P.red,border:'none',borderRadius:8,cursor:'pointer',fontSize:11,fontWeight:600,display:'inline-flex',alignItems:'center',gap:6}}>{I.undo(P.red,13)} Annuler dernier paiement</button>
           </div>}
-        {reste !== 0 && (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && (
-  <div style={{background:P.goldLight, borderRadius:12, padding:16, marginBottom:16}}>
-    <div style={{fontSize:11, fontWeight:700, color:P.gold, textTransform:'uppercase', letterSpacing:1, marginBottom:12}}>Enregistrer un paiement / Reversement</div>
-    <div style={{display:'flex', gap:10, flexWrap:'wrap', marginBottom:16}}>
-      <div style={{flex:1, minWidth:120}}>
-        <label style={{fontSize:10, fontWeight:600, display:'block', marginBottom:4, color:P.textSec}}>Date Valeur</label>
-        <input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/>
-      </div>
-      <div style={{flex:1, minWidth:100}}>
-        <label style={{fontSize:10, fontWeight:600, display:'block', marginBottom:4, color:P.textSec}}>Montant payé</label>
-        <input type="text" placeholder="Ex: -50000" value={paiementMontant} onChange={(e) => { const v = e.target.value; if (v === '' || v === '-' || /^-?\d+$/.test(v)) setPaiementMontant(v); }} style={iS} />
-      </div>
-      <div style={{flex:1, minWidth:100}}>
-        <label style={{fontSize:10, fontWeight:600, display:'block', marginBottom:4, color:P.textSec}}>Réf. Virement</label>
-        <input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/>
-      </div>
-    </div>
-    <div style={{textAlign:'right'}}>
-      <ActionBtn label={parseFloat(paiementMontant) < 0 ? "Valider le Reversement" : "Valider Paiement"} color={parseFloat(paiementMontant) < 0 ? P.red : P.gold} onClick={()=>handlePaiement(op.id)} disabled={saving || !paiementMontant || paiementMontant === '-'}/>
-    </div>
-  </div>
-)}
+          {!isSolde && (op.statut==='TRANSMIS_AC'||op.statut==='PAYE_PARTIEL') && <div style={{background:P.goldLight,borderRadius:12,padding:16,marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:P.gold,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Enregistrer un paiement</div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:16}}>
+              <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
+              <div style={{flex:1,minWidth:100}}>
+                 <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
+                 <input type="text" value={String(paiementMontant).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} placeholder="" style={iS} />
+              </div>
+              <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Réf. Virement</label><input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/></div>
+            </div>
+            <div style={{textAlign:'right'}}>
+               <ActionBtn label="Valider Paiement" color={P.gold} onClick={()=>handlePaiement(op.id)} disabled={saving}/>
+            </div>
+          </div>}
           {reste <= 0 && (<div style={{background: reste === 0 ? P.greenLight : P.redLight,borderRadius: 10,padding: 12,textAlign: 'center',color: reste === 0 ? P.greenDark : P.red,fontWeight: 700,fontSize: 13,marginBottom: 16,
     border: `1px solid ${reste === 0 ? P.green : P.red}`
   }}>
