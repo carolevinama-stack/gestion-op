@@ -708,7 +708,7 @@ if (resteFinal < 0) {
         <th style={thS}>MOTIF</th>
         <th style={{...thS,width:36}}></th>
       </tr></thead><tbody>{filterOps(differes,searchSuivi).map(op=>{const ch=selectedOps.includes(op.id);
-        return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
+         onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
           <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
           <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
           <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
@@ -800,7 +800,7 @@ if (resteFinal < 0) {
           <th style={{...thS,width:90}}>VISA CF</th>
         </tr></thead><tbody>
           {filterOps(opsEligiblesAC,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
-            return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
+             onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
