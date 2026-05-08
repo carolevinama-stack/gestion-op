@@ -462,11 +462,14 @@ if (resteFinal < 0) {
       setSaving(false);
     };
 
-    if(m > reste){
-      ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste théorique : ${formatMontant(reste)} F\nPaiement saisi : ${formatMontant(m)} F\nVoulez-vous forcer ce paiement et solder l'OP ?`, exec);
-    } else {
-      ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
-    }
+    if(m < 0){
+  // Reversement : montant négatif, on confirme directement
+  ask("Reversement", `Enregistrer un reversement de ${formatMontant(Math.abs(m))} F ?\nCela réduira le total payé.`, exec);
+} else if(m > reste){
+  ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste théorique : ${formatMontant(reste)} F\nPaiement saisi : ${formatMontant(m)} F\nVoulez-vous forcer ce paiement et solder l'OP ?`, exec);
+} else {
+  ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
+}
   };
 
   const handleAnnulerPaiement = async (opId) => {
@@ -937,7 +940,20 @@ onClick={async () => {
               <div style={{flex:1,minWidth:120}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Date Valeur</label><input type="date" defaultValue={new Date().toISOString().split('T')[0]} ref={el=>setDateRef('paiement',el)} style={iS}/></div>
               <div style={{flex:1,minWidth:100}}>
                  <label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Montant payé</label>
-                 <input type="text" value={String(paiementMontant).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} onChange={e => setPaiementMontant(e.target.value.replace(/[^0-9]/g, ''))} placeholder="" style={iS} />
+                <input type="text" 
+  value={(() => { 
+    const s = String(paiementMontant); 
+    const neg = s.startsWith('-'); 
+    const digits = s.replace('-',''); 
+    return (neg ? '-' : '') + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' '); 
+  })()} 
+  onChange={e => { 
+    // Autorise le signe moins uniquement en première position
+    const v = e.target.value.replace(/[^0-9-]/g,'').replace(/(?!^)-/g,''); 
+    setPaiementMontant(v); 
+  }} 
+  placeholder="Montant (négatif = reversement)" 
+  style={iS} />
               </div>
               <div style={{flex:1,minWidth:100}}><label style={{fontSize:10,fontWeight:600,display:'block',marginBottom:4,color:P.textSec}}>Réf. Virement</label><input type="text" value={paiementReference} onChange={e=>setPaiementReference(e.target.value)} placeholder="VIR-001..." style={iS}/></div>
             </div>
