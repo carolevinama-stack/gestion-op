@@ -416,7 +416,8 @@ const PageCircuitAC = () => {
   const handlePaiement = async (opId) => {
     const op = ops.find(o => o.id === opId); if(!op) return;
     const m = parseFloat(String(paiementMontant).replace(/\s/g, ''));
-    if(isNaN(m) || m <= 0){notify("error", "Erreur", "Veuillez saisir un montant valide."); return;}
+    // CORRECTION
+if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant valide."); return; }
     const d = readDate('paiement'); if(!d){notify("error", "Erreur", "Date requise."); return;}
     
     const paiem = op.paiements || [];
