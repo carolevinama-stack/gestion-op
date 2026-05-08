@@ -471,42 +471,40 @@ const PageCircuitAC = () => {
   };
         
         // ✅ NOUVEAU BLOC (Logique stricte)
-const resteFinal = Math.round((op.montant || 0) - tot);
-let statutCalculé = 'PAYE_PARTIEL';
-
-if (resteFinal === 0) {
-  statutCalculé = 'PAYE'; // Le compte est bon
-} else if (resteFinal < 0) {
-  statutCalculé = 'PAYE_PARTIEL'; // Trop perçu : reste en partiel pour signaler le reversement
-}
-
-await updateDoc(doc(db, 'ops', opId), {
-  paiements: nP, 
-  totalPaye: tot, 
-  datePaiement: d, 
-  updatedAt: new Date().toISOString(),
-  statut: statutCalculé
-});
-
-if (resteFinal < 0) {
-  notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
-} else {
-  notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
-}
+const exec = async () => {
+      setSaving(true);
+      try{
+        const nP = [...paiem, {date: d, montant: m, reference: paiementReference.trim(), createdAt: new Date().toISOString()}];
+        const tot = Math.round(nP.reduce((s,p) => s + (p.montant||0), 0));
+        const montantInitial = Math.round(op.montant||0);
         
-        notify("success", "Paiement", estSolde ? "OP totalement soldé." : "Paiement partiel enregistré.");
+        const resteFinal = Math.round(montantInitial - tot);
+        let statutCalculé = 'PAYE_PARTIEL';
+
+        if (resteFinal === 0) {
+          statutCalculé = 'PAYE';
+        } else if (resteFinal < 0) {
+          statutCalculé = 'PAYE_PARTIEL';
+        }
+
+        await updateDoc(doc(db, 'ops', opId), {
+          paiements: nP, 
+          totalPaye: tot, 
+          datePaiement: d, 
+          updatedAt: new Date().toISOString(),
+          statut: statutCalculé
+        });
+
+        if (resteFinal < 0) {
+          notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
+        } else {
+          notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
+        }
+        
         setPaiementMontant(''); setPaiementReference('');
       }catch(e){notify("error", "Erreur", e.message);}
       setSaving(false);
     };
-
-    if(m > reste){
-      ask("Dépassement", `Le paiement dépasse le reste à payer.\nReste théorique : ${formatMontant(reste)} F\nPaiement saisi : ${formatMontant(m)} F\nVoulez-vous forcer ce paiement et solder l'OP ?`, exec);
-    } else {
-      ask("Paiement", `Enregistrer le paiement de ${formatMontant(m)} F ?`, exec);
-    }
-  };
-
   const handleAnnulerPaiement = async (opId) => {
     const op = ops.find(o => o.id === opId); const p = op?.paiements || []; if(p.length === 0) return;
     const der = p[p.length-1];
