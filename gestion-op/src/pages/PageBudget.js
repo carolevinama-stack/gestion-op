@@ -603,7 +603,7 @@ const PageBudget = () => {
         </div>
       )}
 
-      {/* ==================== MODAL IMPORT ==================== */}
+     {/* ==================== MODAL IMPORT ==================== */}
       {showImportModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
           <div style={{ background: 'white', borderRadius: 16, width: 600, maxHeight: '85vh', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -641,6 +641,41 @@ const PageBudget = () => {
             <div style={{ padding: '16px 28px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}`, flexShrink: 0 }}>
               <button className="bud-btn" onClick={() => { setShowImportModal(false); setImportData([]); setImportErrors([]); }} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
               <button className="bud-btn" onClick={confirmImport} style={{ background: P.blue || '#1976D2', color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Confirmer l'import</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== MODAL NOUVELLE RÉVISION BUDGETAIRE (AJOUTÉ ICI) ==================== */}
+      {showRevisionModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
+          <div style={{ background: 'white', borderRadius: 16, width: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 28px', background: accent, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
+              {Icon.filePlus('white', 18)}
+              <span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Préparer une révision budgétaire</span>
+            </div>
+            <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ margin: 0, color: P.textSec, fontSize: 13, lineHeight: 1.5 }}>
+                Cette action va dupliquer les lignes et dotations de la version actuelle (V{latestVersion?.version || 1}) pour créer une nouvelle version modifiable.
+              </p>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>NOM DE LA RÉVISION *</label>
+                <input type="text" value={nomRevision} onChange={e => setNomRevision(e.target.value)} placeholder="Ex: Budget Révisé N°1" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>DATE DE VALIDATION / NOTIFICATION *</label>
+                <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOTIF DE LA RÉVISION (OPTIONNEL)</label>
+                <textarea value={motifRevision} onChange={e => setMotifRevision(e.target.value)} placeholder="Ex: Intégration de subventions additionnelles..." style={{ ...inputStyle, height: 80, resize: 'none', fontFamily: 'inherit' }} />
+              </div>
+            </div>
+            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
+              <button className="bud-btn" onClick={() => setShowRevisionModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
+              <button className="bud-btn" onClick={createRevision} disabled={saving} style={{ background: accent, color: 'white', padding: '10px 20px' }}>
+                {Icon.check('white', 14)} {saving ? 'Création...' : 'Créer la révision'}
+              </button>
             </div>
           </div>
         </div>
