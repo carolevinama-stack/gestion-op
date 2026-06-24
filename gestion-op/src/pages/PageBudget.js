@@ -148,8 +148,7 @@ const PageBudget = () => {
     else { showToast('error', 'Mot de passe incorrect'); }
   };
 
-  const openRevisionModal = () => { setMotifRevision(''); setNomRevision(''); setDateNotification(''); setShowRevisionModal(true); };
-
+  const openRevisionModal = () => { setMotifRevision(''); setNomRevision(`Budget Révisé N°${(latestVersion?.version || 1)}`); setDateNotification(new Date().toISOString().split('T')[0]); setShowRevisionModal(true); };
   const createRevision = async () => {
     if (!nomRevision.trim()) { showToast('error', 'Champ obligatoire', 'Veuillez nommer cette révision'); return; }
     if (!dateNotification) { showToast('error', 'Champ obligatoire', 'Veuillez renseigner la date de validation'); return; }
