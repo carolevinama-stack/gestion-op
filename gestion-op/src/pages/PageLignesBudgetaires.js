@@ -273,7 +273,7 @@ const PageLignesBudgetaires = () => {
       {lignesBudgetaires.length > 0 && (
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>{Icon.search(P.textMuted, 16)}</div>
-          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Rechercher par code ou libellé..."
+          <input value={searchTerm} ={e => setSearchTerm(e.target.value)} placeholder="Rechercher par code ou libellé..."
             style={{ ...inputStyle, paddingLeft: 40, background: P.card }} />
         </div>
       )}
@@ -353,18 +353,28 @@ const PageLignesBudgetaires = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>CODE *</label>
-                  <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value })}
+                  <input 
+                    type="text"
+                    value={form.code} 
+                    onChange={e => setForm(prev => ({ ...prev, code: e.target.value }))} // CORRIGÉ : Utilisation d'une fonction fonctionnelle
                     style={{ ...inputStyle, background: P.goldLight, fontFamily: 'monospace', fontWeight: 700, fontSize: 16 }}
-                    placeholder="6221" autoFocus disabled={editingLigne && budgets.some(b => b.lignes?.some(l => l.code === editingLigne.code))} />
+                    placeholder="6221" 
+                    autoFocus 
+                    disabled={editingLigne && budgets.some(b => b.lignes?.some(l => l.code === editingLigne.code))} 
+                  />
                   {editingLigne && budgets.some(b => b.lignes?.some(l => l.code === editingLigne.code)) && (
                     <p style={{ fontSize: 11, color: P.orange, marginTop: 4 }}>Code non modifiable (utilisé dans un budget)</p>
                   )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>LIBELLÉ *</label>
-                  <input value={form.libelle} onChange={e => setForm({ ...form, libelle: e.target.value })}
+                  <input 
+                    type="text"
+                    value={form.libelle} 
+                    onChange={e => setForm(prev => ({ ...prev, libelle: e.target.value }))} // CORRIGÉ : Utilisation d'une fonction fonctionnelle
                     style={{ ...inputStyle, background: P.goldLight }}
-                    placeholder="Ex: Personnel temporaire" />
+                    placeholder="Ex: Personnel temporaire" 
+                  />
                 </div>
               </div>
             </div>
