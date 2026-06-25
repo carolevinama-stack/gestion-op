@@ -401,8 +401,11 @@ const PageConsulterOp = () => {
         montant: newMontant, ligneBudgetaire: form.ligneBudgetaire,
         libelleLigne: newBudgetLigne?.libelle || selectedOp.libelleLigne || '',
         dotationFigee: form.ligneBudgetaire !== selectedOp.ligneBudgetaire 
-          ? (newBudgetLigne?.dotation ?? 0)
-          : (selectedOp.dotationFigee ?? newBudgetLigne?.dotation ?? 0),
+          ? (budgets
+              .filter(b => b.sourceId === activeSource && b.exerciceId === exerciceActif?.id)
+              .sort((a, b) => (b.version || 1) - (a.version || 1))[0]
+              ?.lignes?.find(l => l.code === form.ligneBudgetaire)?.dotation ?? 0)
+          : (selectedOp.dotationFigee ?? 0),
         tvaRecuperable: form.tvaRecuperable || false,
         montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
         ...opProvFields,
