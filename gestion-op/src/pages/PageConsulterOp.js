@@ -264,7 +264,14 @@ const PageConsulterOp = () => {
     .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
   const selectedLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
 
-  const getDotation = () => selectedOp?.dotationFigee ?? selectedLigne?.dotation ?? 0;
+  const getDotation = () => selectedOp?.dotationFigee ?? selectedLigne?.dotation ?? 0;const getDotation = () => {
+    // Si on modifie l'OP ET que la ligne du formulaire est différente de la ligne d'origine
+    if (isEditMode && form.ligneBudgetaire !== selectedOp?.ligneBudgetaire) {
+      return selectedLigne?.dotation ?? 0; // Il prend la dotation de la nouvelle ligne choisie
+    }
+    // En consultation normale, il prend la dotation figée de l'OP
+    return selectedOp?.dotationFigee ?? selectedLigne?.dotation ?? 0;
+  };
   
   // ===================== CALCUL DES ENGAGEMENTS =====================
   const getEngagementsAnterieurs = () => {
