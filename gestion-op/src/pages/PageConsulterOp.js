@@ -400,7 +400,7 @@ const PageConsulterOp = () => {
         objet: form.objet, piecesJustificatives: form.piecesJustificatives,
         montant: newMontant, ligneBudgetaire: form.ligneBudgetaire,
         libelleLigne: newBudgetLigne?.libelle || selectedOp.libelleLigne || '',
-        dotationFigee: newBudgetLigne?.dotation ?? selectedOp.dotationFigee ?? 0,
+        dotationFigee: selectedOp.dotationFigee ?? newBudgetLigne?.dotation ?? 0,
         tvaRecuperable: form.tvaRecuperable || false,
         montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
         ...opProvFields,
