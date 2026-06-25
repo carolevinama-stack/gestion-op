@@ -264,7 +264,7 @@ const PageConsulterOp = () => {
     .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
   const selectedLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
 
-  const getDotation = () => selectedLigne?.dotation || 0;
+  const getDotation = () => selectedOp?.dotationFigee ?? selectedLigne?.dotation ?? 0;
   
   // ===================== CALCUL DES ENGAGEMENTS =====================
   const getEngagementsAnterieurs = () => {
