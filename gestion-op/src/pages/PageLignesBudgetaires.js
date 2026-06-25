@@ -78,7 +78,7 @@ const PageLignesBudgetaires = () => {
 
   // Form modal state
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingLigne, setEditingLigne] = useState(null); // null = ajout, objet = modification
+  const [editingLigne, setEditingLigne] = useState(null);
   const [form, setForm] = useState({ code: '', libelle: '' });
 
   // Import modal state
@@ -114,7 +114,6 @@ const PageLignesBudgetaires = () => {
         const updated = { code: form.code.trim(), libelle: form.libelle.trim() };
         await updateDoc(doc(db, 'lignesBudgetaires', editingLigne.id), updated);
 
-        // Mettre à jour aussi dans les budgets qui utilisent cette ligne (libellé seulement, code ne devrait pas changer en principe)
         setLignesBudgetaires(lignesBudgetaires.map(l => l.id === editingLigne.id ? { ...l, ...updated } : l).sort((a, b) => a.code.localeCompare(b.code)));
         setShowFormModal(false);
         showToast('success', 'Ligne modifiée');
@@ -273,7 +272,7 @@ const PageLignesBudgetaires = () => {
       {lignesBudgetaires.length > 0 && (
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>{Icon.search(P.textMuted, 16)}</div>
-          <input value={searchTerm} ={e => setSearchTerm(e.target.value)} placeholder="Rechercher par code ou libellé..."
+          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Rechercher par code ou libellé..."
             style={{ ...inputStyle, paddingLeft: 40, background: P.card }} />
         </div>
       )}
@@ -356,7 +355,7 @@ const PageLignesBudgetaires = () => {
                   <input 
                     type="text"
                     value={form.code} 
-                    onChange={e => setForm(prev => ({ ...prev, code: e.target.value }))} // CORRIGÉ : Utilisation d'une fonction fonctionnelle
+                    onChange={e => setForm(prev => ({ ...prev, code: e.target.value }))}
                     style={{ ...inputStyle, background: P.goldLight, fontFamily: 'monospace', fontWeight: 700, fontSize: 16 }}
                     placeholder="6221" 
                     autoFocus 
@@ -371,7 +370,7 @@ const PageLignesBudgetaires = () => {
                   <input 
                     type="text"
                     value={form.libelle} 
-                    onChange={e => setForm(prev => ({ ...prev, libelle: e.target.value }))} // CORRIGÉ : Utilisation d'une fonction fonctionnelle
+                    onChange={e => setForm(prev => ({ ...prev, libelle: e.target.value }))}
                     style={{ ...inputStyle, background: P.goldLight }}
                     placeholder="Ex: Personnel temporaire" 
                   />
