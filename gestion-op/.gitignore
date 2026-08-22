@@ -1,0 +1,18 @@
+# Dépendances
+node_modules/
+
+# Fichiers d'environnement (NE JAMAIS PARTAGER)
+.env
+.env.local
+.env.production
+
+# Build
+build/
+dist/
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
