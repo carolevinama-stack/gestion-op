@@ -57,6 +57,55 @@ const LoaderPIF = ({ label }) => (
   </div>
 );
 
+// ==================== ERROR BOUNDARY ====================
+// Capture les erreurs React et affiche un message de récupération au lieu d'un écran blanc.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Erreur applicative capturée :', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100vw',
+          background: '#F7F5F2',
+          padding: 24,
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#C43E3E', marginBottom: 12 }}>
+            Une erreur inattendue s'est produite
+          </div>
+          <div style={{ fontSize: 14, color: '#666', marginBottom: 24, maxWidth: 420 }}>
+            L'application a rencontré un problème. Vous pouvez essayer de recharger la page pour continuer.
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: '12px 28px', background: '#2E9940', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+          >
+            Recharger l'application
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function AppLayout() {
   const { currentPage, loading } = useAppContext();
 
@@ -92,7 +141,7 @@ function AppLayout() {
   );
 }
 
-export default function App() {
+function AppRoot() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -114,14 +163,31 @@ export default function App() {
     }
   };
 
+  const handleForgotPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: "Impossible d'envoyer l'email de réinitialisation. Vérifiez l'adresse saisie." };
+    }
+  };
+
   // Premier chargement (authentification)
   if (authLoading) return <LoaderPIF label="Connexion au système..." />;
 
-  if (!user) return <LoginPage onLogin={handleLogin} error={authError} />;
+  if (!user) return <LoginPage onLogin={handleLogin} onForgotPassword={handleForgotPassword} error={authError} />;
 
   return (
     <AppProvider user={user}>
       <AppLayout />
     </AppProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppRoot />
+    </ErrorBoundary>
   );
 }
