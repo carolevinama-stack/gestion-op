@@ -29,7 +29,7 @@ service cloud.firestore {
     match /users/{userId} {
   allow read: if isConnected();
   allow create: if isConnected() && request.auth.uid == userId;
-  allow update: if isAdmin() || request.auth.uid == userId;
+  allow update: if isAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role);
   allow delete: if isAdmin();
 }
 

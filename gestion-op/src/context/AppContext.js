@@ -98,12 +98,13 @@ export function AppProvider({ user, children }) {
         if (profileDoc.exists()) {
           setUserProfile(profileDoc.data());
         } else {
-          // Premier utilisateur (admin bootstrap) - créer un profil ADMIN automatiquement
+          // Aucun profil pour cet utilisateur authentifié : accès minimal par défaut.
+          // Seul un ADMIN peut élever ce rôle depuis la page Administration.
           const newProfile = {
             uid: user.uid,
             email: user.email,
             nom: user.email.split('@')[0],
-            role: 'ADMIN',
+            role: 'CONSULTATION',
             actif: true,
             mustChangePassword: false,
             createdAt: new Date().toISOString(),
@@ -111,6 +112,7 @@ export function AppProvider({ user, children }) {
           };
           await setDoc(doc(db, 'users', user.uid), newProfile);
           setUserProfile(newProfile);
+          window.alert("Votre compte n'a pas encore de rôle attribué. Vous avez un accès en consultation seule — contactez un administrateur pour obtenir les droits nécessaires.");
         }
       } catch (error) {
         console.error('Erreur chargement profil:', error);
