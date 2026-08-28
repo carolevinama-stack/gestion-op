@@ -120,7 +120,7 @@ const Sidebar = () => {
   }, [currentPage]);
 
   const items = useMemo(() => {
-    if (userProfile?.role !== 'admin') return menuConfig;
+    if (userProfile?.role !== 'ADMIN') return menuConfig;
     return menuConfig.map(item =>
       item.id === 'grp_config'
         ? { ...item, subItems: [...item.subItems, { id: 'admin', icon: 'admin', label: 'Administration' }] }

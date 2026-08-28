@@ -182,6 +182,9 @@ unsubOps = onSnapshot(opsQuery, (snapshot) => {
     // On retourne le nouveau tableau d'OPs
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   });
+}, (error) => {
+  console.error('Erreur écoute temps réel OPs:', error);
+  window.alert("Impossible de recevoir les mises à jour des ordres de paiement en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
 });
 
         // Écouteur Bordereaux
@@ -189,6 +192,9 @@ unsubOps = onSnapshot(opsQuery, (snapshot) => {
         unsubBordereaux = onSnapshot(btQuery, (snapshot) => {
           console.log(`AppContext: Mise à jour reçue pour Bordereaux (${snapshot.size})`);
           setBordereaux(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (error) => {
+          console.error('Erreur écoute temps réel Bordereaux:', error);
+          window.alert("Impossible de recevoir les mises à jour des bordereaux en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
         });
 
       } catch (error) {
