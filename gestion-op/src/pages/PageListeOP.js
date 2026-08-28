@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase'; // Importation de la base de données
 import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
-import { formatMontant } from '../utils/formatters';
+import { formatMontant, sanitizeForExport } from '../utils/formatters';
 
 // Palette de couleurs
 const P = {
@@ -134,8 +134,8 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       const exportData = displayOps.map(op => ({
         'N° OP': op.numero,
         'Type': op.type,
-        'Bénéficiaire': getBenNom(op),
-        'Objet': op.objet || '',
+        'Bénéficiaire': sanitizeForExport(getBenNom(op)),
+        'Objet': sanitizeForExport(op.objet || ''),
         'ligne': op.ligneBudgetaire,
         'dotation': Number(op.dotationLigne || 0),
         'Montant': Number(op.montant || 0),

@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, addDoc, collection, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
-import { formatMontant } from '../utils/formatters';
+import { formatMontant, sanitizeForExport } from '../utils/formatters';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -390,34 +390,34 @@ export default function PageRapport() {
         return dataArray;
       };
 
-      const d1 = appendTotal(opsCompta.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Statut': op.statut, 'Observation': getDefaultObs(op) })), opsCompta.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': getDefaultObs(op) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
+      const d1 = appendTotal(opsCompta.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Statut': op.statut, 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsCompta.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
+      const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       
       // Excel Export pour "Non soldés" incluant DIRECT, PROVISOIRE, DEFINITIF
       // Note: J'utilise 'o' comme nom de variable pour les callbacks afin d'éviter les erreurs 'no-undef' reportées par ESLint
-      const d3 = appendTotal(opsNonSoldes.map(o => ({ 
-        'N° OP': o.numero, 
-        'Type': o.type || '', 
-        'Bénéficiaire': getBen(o), 
-        'Objet': o.objet || '', 
-        'Montant OP': Number(o.montant || 0), 
+      const d3 = appendTotal(opsNonSoldes.map(o => ({
+        'N° OP': o.numero,
+        'Type': o.type || '',
+        'Bénéficiaire': sanitizeForExport(getBen(o)),
+        'Objet': sanitizeForExport(o.objet || ''),
+        'Montant OP': Number(o.montant || 0),
         'Montant payé': Number(o.montantPaye || o.totalPaye || 0), // CORRECTION ICI : op -> o
-        'N° Bordereau AC': o.bordereauAC || '', 
-        'Date transmission AC': formatDate(o.dateTransmissionAC), 
-        'Délai (j ouvrés)': o.delai ?? '', 
-        'Statut délai': dl(o.delai, 5), 
-        'OP prov. rattaché': o.prov ? o.prov.numero : '', 
+        'N° Bordereau AC': o.bordereauAC || '',
+        'Date transmission AC': formatDate(o.dateTransmissionAC),
+        'Délai (j ouvrés)': o.delai ?? '',
+        'Statut délai': dl(o.delai, 5),
+        'OP prov. rattaché': o.prov ? o.prov.numero : '',
         'Solde': o.solde ?? '', // CORRECTION ICI : op -> o
-        'Observation': getDefaultObs(o) 
+        'Observation': sanitizeForExport(getDefaultObs(o))
       })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.totalPaye || 0), 0));
       
-      const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': getDefaultObs(op) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d5 = appendTotal(opsAReg.map(op => { 
-        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
-        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': getDefaultObs(op) }; 
+      const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
+      const d5 = appendTotal(opsAReg.map(op => {
+        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut));
+        return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': sanitizeForExport(getDefaultObs(op)) };
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
-      
-      const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': getBen(op), 'Objet': op.objet || '', 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': getDefaultObs(op) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
+
+      const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
 
       const wb = XLSX.utils.book_new();
       const fDate = dateRef.split('-').reverse().join('/'); 

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { formatMontant, exportToCSV } from '../utils/formatters';
+import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 
@@ -172,8 +172,8 @@ const PageHistoriqueBudget = () => {
   const exportHistorique = () => {
     if (allBudgetsForSourceExercice.length === 0) return;
     const now = new Date().toLocaleDateString('fr-FR');
-    let csv = `HISTORIQUE DES REVISIONS - ${currentSourceObj?.nom || ''}\nExercice: ${currentExerciceObj?.annee || ''}\nDate d'export: ${now}\n\nRévision;Montant Total;Date Validation;Motif\n`;
-    allBudgetsForSourceExercice.forEach(b => { csv += `${getVersionLabel(b)};${getTotaux(b).dotation};${b.dateNotification || '-'};${b.motifRevision || ''}\n`; });
+    let csv = `HISTORIQUE DES REVISIONS - ${sanitizeForExport(currentSourceObj?.nom || '')}\nExercice: ${currentExerciceObj?.annee || ''}\nDate d'export: ${now}\n\nRévision;Montant Total;Date Validation;Motif\n`;
+    allBudgetsForSourceExercice.forEach(b => { csv += `${sanitizeForExport(getVersionLabel(b))};${getTotaux(b).dotation};${b.dateNotification || '-'};${sanitizeForExport(b.motifRevision || '')}\n`; });
     exportToCSV(csv, `Historique_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}.csv`);
   };
 

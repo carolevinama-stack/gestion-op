@@ -9,6 +9,13 @@ export const escapeHtml = (str) => String(str ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+// Neutralise l'injection de formules Excel/CSV : préfixe une apostrophe devant
+// tout texte commençant par = + - @, pour empêcher son interprétation comme formule.
+export const sanitizeForExport = (str) => {
+  const s = String(str ?? '');
+  return /^[=+\-@]/.test(s) ? `'${s}` : s;
+};
+
 export const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
 
 export const formatDate = (date) => {

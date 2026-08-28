@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { formatMontant, exportToCSV } from '../utils/formatters';
+import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
@@ -314,8 +314,8 @@ const PageBudget = () => {
   const exportSuiviBudgetaire = () => {
     if (!currentBudget?.lignes?.length) return;
     const now = new Date().toLocaleDateString('fr-FR');
-    let csv = `SUIVI BUDGETAIRE - ${currentSourceObj?.nom || ''}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${getVersionLabel(currentBudget)}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
-    currentBudget.lignes.forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${l.libelle};${l.dotation || 0};${eng};${disp};${taux}\n`; });
+    let csv = `SUIVI BUDGETAIRE - ${sanitizeForExport(currentSourceObj?.nom || '')}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${sanitizeForExport(getVersionLabel(currentBudget))}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
+    currentBudget.lignes.forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
     csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
   };
