@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { collection, doc, updateDoc, writeBatch, increment, getDocs } from 'firebase/firestore';
 //                                                             ^^^^^^^^^
 import { styles } from '../utils/styles';
-import { formatMontant, escapeHtml } from '../utils/formatters';
+import { formatMontant, escapeHtml, montantEnLettres } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 
 // ============================================================
@@ -489,28 +489,6 @@ const PageCircuitCF = () => {
     });
   };
 
-  const montantEnLettres = (n) => {
-    const neg=n<0;n=Math.abs(n);if(n===0)return'zéro';
-    const u=['','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
-    const d=['','dix','vingt','trente','quarante','cinquante','soixante','soixante','quatre-vingt','quatre-vingt'];
-    const cb=(num)=>{
-      if(num===0)return'';if(num<20)return u[num];
-      if(num<100){const dz=Math.floor(num/10);const r=num%10;
-        if(dz===7||dz===9)return d[dz]+(r===0?'-dix':(r===1&&dz===7?' et onze':'-'+u[10+r]));
-        if(r===0)return d[dz]+(dz===8?'s':'');if(r===1&&dz<8)return d[dz]+' et un';return d[dz]+'-'+u[r];}
-      const c=Math.floor(num/100);const r=num%100;
-      let s=c===1?'cent':u[c]+' cent';if(r===0&&c>1)s+='s';else if(r>0)s+=' '+cb(r);return s;
-    };
-    const g=[{v:1e9,l:'milliard',lp:'milliards'},{v:1e6,l:'million',lp:'millions'},{v:1e3,l:'mille',lp:'mille'},{v:1,l:'',lp:''}];
-    let res='';let rem=Math.floor(Math.abs(n));
-    for(const x of g){const c=Math.floor(rem/x.v);rem=rem%x.v;if(c===0)continue;
-      if(x.v===1){res+=(res?' ':'')+cb(c);continue;}
-      if(x.v===1000&&c===1){res+=(res?' ':'')+'mille';continue;}
-      res+=(res?' ':'')+cb(c)+' '+(c>1?x.lp:x.l);}
-    return(neg?'moins ':'')+res.trim();
-  };
-
- 
 const handlePrintBordereau = (bt) => {
   const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
   
