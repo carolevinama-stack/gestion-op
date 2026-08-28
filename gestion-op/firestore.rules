@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    //  FONCTION : récupérer le rôle de l'utilisateur connecté
+    // ============================================================
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return request.auth != null && getUserRole() == 'ADMIN';
+    }
+
+    function isOperateur() {
+      return request.auth != null && getUserRole() in ['ADMIN', 'OPERATEUR', 'SAISIE', 'CF', 'AC'];
+    }
+
+    function isConnected() {
+      return request.auth != null;
+    }
+
+    // ============================================================
+    //  COLLECTION : users (gestion des comptes)
+    //  → Seul un ADMIN peut créer/modifier/supprimer des comptes
+    //  → Chaque utilisateur peut lire SON propre profil
+    // ============================================================
+    match /users/{userId} {
+  allow read: if isConnected();
+  allow create: if isConnected() && request.auth.uid == userId;
+  allow update: if isAdmin() || request.auth.uid == userId;
+  allow delete: if isAdmin();
+}
+
+    // ============================================================
+    //  COLLECTION : parametres (configuration du projet)
+    //  → Tout connecté peut lire
+    //  → Seul un ADMIN peut modifier
+    // ============================================================
+    match /parametres/{docId} {
+      allow read: if isConnected();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    //  COLLECTIONS : sources, exercices, lignesBudgetaires
+    //  (configuration budgétaire)
+    //  → Tout connecté peut lire
+    //  → ADMIN et OPERATEUR peuvent modifier
+    // ============================================================
+    match /sources/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+
+    match /exercices/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+
+    match /lignesBudgetaires/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+
+    // ============================================================
+    //  COLLECTION : beneficiaires
+    //  → Tout connecté peut lire
+    //  → ADMIN et OPERATEUR peuvent modifier
+    // ============================================================
+    match /beneficiaires/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+
+    // ============================================================
+    //  COLLECTION : budgets
+    //  → Tout connecté peut lire
+    //  → ADMIN et OPERATEUR peuvent modifier
+    // ============================================================
+    match /budgets/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+
+    // ============================================================
+    //  COLLECTION : ops (ordres de paiement)
+    //  → Tout connecté peut lire
+    //  → ADMIN et OPERATEUR peuvent créer/modifier/supprimer
+    // ============================================================
+    match /ops/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+
+    // ============================================================
+    //  COLLECTION : bordereaux
+    //  → Tout connecté peut lire
+    //  → ADMIN et OPERATEUR peuvent modifier
+    // ============================================================
+    match /bordereaux/{docId} {
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
+    match /compteurs/{docId} {
+    allow read: if isConnected();
+    allow write: if isOperateur();
+   }
+  }
+}
