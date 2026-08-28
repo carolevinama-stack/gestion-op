@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant } from '../utils/formatters';
 import { db } from '../firebase';
-import { collection, doc, addDoc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -222,36 +222,6 @@ const PageNouvelOp = () => {
     return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
   };
 
-  const genererNumeroTransaction = async () => {
-    const sigleProjet = projet?.sigle || 'PROJET';
-    const sigleSource = currentSourceObj?.sigle || 'OP';
-    const annee = exerciceActif?.annee || new Date().getFullYear();
-    const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
-    const compteurRef = doc(db, 'compteurs', compteurId);
-
-    let initCount = 0;
-    const snapCheck = await getDoc(compteurRef);
-    if (!snapCheck.exists()) {
-      const allOpsSnap = await getDocs(query(
-        collection(db, 'ops'),
-        where('sourceId', '==', activeSource),
-        where('exerciceId', '==', exerciceActif.id)
-      ));
-      allOpsSnap.docs.forEach(d => {
-        const match = (d.data().numero || '').match(/N°(\d+)\//);
-        if (match) initCount = Math.max(initCount, parseInt(match[1]));
-      });
-    }
-
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(compteurRef);
-      const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
-      const nextNum = currentCount + 1;
-      tx.set(compteurRef, { count: nextNum, type: 'OP', sourceId: activeSource, exerciceId: exerciceActif?.id, updatedAt: new Date().toISOString() });
-      return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
-    });
-  };
-
   const handleSelectOpProvisoire = (opId) => {
     if (!opId) { setForm({ ...form, opProvisoireId: '', opProvisoireNumero: '', opProvisoireManuel: '' }); return; }
     const op = ops.find(o => o.id === opId);
@@ -330,25 +300,6 @@ const PageNouvelOp = () => {
 
     setSaving(true);
     try {
-      if (form.type !== 'ANNULATION') {
-        const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
-        const engagementsReels = opsSnap.docs
-          .map(d => d.data())
-          .filter(op => op.ligneBudgetaire === form.ligneBudgetaire && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut))
-          .reduce((sum, o) => sum + (parseFloat(o.montant) || 0), 0);
-
-        const dotation = getDotation();
-        const disponibleReel = dotation - engagementsReels - finalMontant;
-
-        if (disponibleReel < 0) {
-          setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${formatMontant(dotation - engagementsReels)} FCFA.` });
-          setSaving(false);
-          return;
-        }
-      }
-
-      const numero = await genererNumeroTransaction();
-      
       let opProvFields = {};
       if (form.type === 'ANNULATION') {
         opProvFields.opProvisoireId = form.opProvisoireId || null;
@@ -362,45 +313,104 @@ const PageNouvelOp = () => {
         opProvFields.opProvisoireNumeros = numeros.length > 0 ? numeros : null;
       }
 
-      // MODIFICATION : Capturer les données "Figées" (Nom, Libellé, Dotation)
-      const opData = {
-        numero, 
-        type: form.type, 
-        sourceId: activeSource, 
-        exerciceId: exerciceActif.id,
-        beneficiaireId: form.beneficiaireId, 
-        beneficiaireNom: selectedBeneficiaire?.nom || 'N/A', // FIGÉ
-        modeReglement: form.modeReglement,
-        rib: selectedRib || null, 
-        ligneBudgetaire: form.ligneBudgetaire,
-        libelleLigne: selectedLigne?.libelle || '', // FIGÉ
-        dotationFigee: getDotation(), // FIGÉ
-        objet: form.objet.trim(), 
-        piecesJustificatives: form.piecesJustificatives.trim(),
-        montant: finalMontant, 
-        montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
-        tvaRecuperable: form.tvaRecuperable === true, 
-        statut: 'EN_COURS',
-        ...opProvFields,
-        dateCreation: new Date().toISOString().split('T')[0], 
-        createdAt: new Date().toISOString(), 
-        updatedAt: new Date().toISOString(),
-        creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
-      };
+      // Attribution du numéro : mêmes règles qu'avant (compteur dédié par source/exercice,
+      // avec repli sur le scan de la collection ops si le compteur n'existe pas encore).
+      const sigleProjet = projet?.sigle || 'PROJET';
+      const sigleSource = currentSourceObj?.sigle || 'OP';
+      const annee = exerciceActif?.annee || new Date().getFullYear();
+      const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
+      const compteurRef = doc(db, 'compteurs', compteurId);
 
-      const docRef = await addDoc(collection(db, 'ops'), opData);
-      
+      let initCount = 0;
+      const snapCheck = await getDoc(compteurRef);
+      if (!snapCheck.exists()) {
+        const allOpsSnap = await getDocs(query(
+          collection(db, 'ops'),
+          where('sourceId', '==', activeSource),
+          where('exerciceId', '==', exerciceActif.id)
+        ));
+        allOpsSnap.docs.forEach(d => {
+          const match = (d.data().numero || '').match(/N°(\d+)\//);
+          if (match) initCount = Math.max(initCount, parseInt(match[1]));
+        });
+      }
+
+      const newOpRef = doc(collection(db, 'ops'));
+
+      // Tout est regroupé dans UNE seule transaction, dans cet ordre :
+      // 1) vérifier le budget disponible en relisant les engagements depuis Firestore
+      //    (pas depuis le cache React `ops`) 2) rejeter si insuffisant 3) attribuer le
+      // numéro chronologique 4) créer l'OP. Ainsi aucun numéro n'est consommé si le
+      // budget ne le permet pas.
+      const opData = await runTransaction(db, async (tx) => {
+        const dotation = getDotation(); // FIGÉ
+
+        if (form.type !== 'ANNULATION') {
+          const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
+          const engagementsReels = opsSnap.docs
+            .map(d => d.data())
+            .filter(op => op.ligneBudgetaire === form.ligneBudgetaire && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut))
+            .reduce((sum, o) => sum + (parseFloat(o.montant) || 0), 0);
+
+          const disponibleReel = dotation - engagementsReels - finalMontant;
+
+          if (disponibleReel < 0) {
+            throw new Error(`BUDGET_INSUFFISANT:${formatMontant(dotation - engagementsReels)}`);
+          }
+        }
+
+        const snap = await tx.get(compteurRef);
+        const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
+        const nextNum = currentCount + 1;
+        const numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+        tx.set(compteurRef, { count: nextNum, type: 'OP', sourceId: activeSource, exerciceId: exerciceActif?.id, updatedAt: new Date().toISOString() });
+
+        // MODIFICATION : Capturer les données "Figées" (Nom, Libellé, Dotation)
+        const newOpData = {
+          numero,
+          type: form.type,
+          sourceId: activeSource,
+          exerciceId: exerciceActif.id,
+          beneficiaireId: form.beneficiaireId,
+          beneficiaireNom: selectedBeneficiaire?.nom || 'N/A', // FIGÉ
+          modeReglement: form.modeReglement,
+          rib: selectedRib || null,
+          ligneBudgetaire: form.ligneBudgetaire,
+          libelleLigne: selectedLigne?.libelle || '', // FIGÉ
+          dotationFigee: dotation, // FIGÉ
+          objet: form.objet.trim(),
+          piecesJustificatives: form.piecesJustificatives.trim(),
+          montant: finalMontant,
+          montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
+          tvaRecuperable: form.tvaRecuperable === true,
+          statut: 'EN_COURS',
+          ...opProvFields,
+          dateCreation: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          creePar: userProfile?.nom || userProfile?.email || 'Inconnu'
+        };
+
+        tx.set(newOpRef, newOpData);
+        return newOpData;
+      });
+
       // *** CORRECTION ICI (DIAGNOSTIC) ***
       // J'ai commenté la ligne ci-dessous. C'était elle qui posait problème.
       // En la désactivant, on laisse AppContext.js faire la mise à jour tout seul, sans conflit.
-      
-      // setOps([...ops, { id: docRef.id, ...opData }]);
-      
+
+      // setOps([...ops, { id: newOpRef.id, ...opData }]);
+
       setModal({ type: 'success', title: 'OP créé avec succès', message: `L'ordre de paiement N° ${opData.numero} a été enregistré.` });
       handleClear();
     } catch (error) {
       console.error('Erreur:', error);
-      setModal({ type: 'error', title: 'Erreur système', message: 'Erreur lors de la création de l\'OP. Veuillez réessayer.' });
+      if (typeof error.message === 'string' && error.message.startsWith('BUDGET_INSUFFISANT:')) {
+        const disponibleReel = error.message.split(':')[1];
+        setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${disponibleReel} FCFA.` });
+      } else {
+        setModal({ type: 'error', title: 'Erreur système', message: 'Erreur lors de la création de l\'OP. Veuillez réessayer.' });
+      }
     }
     setSaving(false);
   };

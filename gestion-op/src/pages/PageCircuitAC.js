@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml } from '../utils/formatters';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
@@ -431,36 +431,47 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
     const exec = async () => {
       setSaving(true);
       try{
-        const nP = [...paiem, {date: d, montant: m, reference: paiementReference.trim(), createdAt: new Date().toISOString()}];
-        const tot = Math.round(nP.reduce((s,p) => s + (p.montant||0), 0));
-        const montantInitial = Math.round(op.montant||0);
-        
-        const estSolde = (tot >= montantInitial);
-        
-        // ✅ NOUVEAU BLOC (Logique stricte)
-const resteFinal = Math.round((op.montant || 0) - tot);
-let statutCalculé = 'PAYE_PARTIEL';
+        const opRef = doc(db, 'ops', opId);
+        // Lecture des paiements depuis Firestore dans la transaction (pas depuis le cache
+        // React `op`), pour éviter qu'un paiement concurrent en écrase un autre.
+        const { resteFinal, estSolde } = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(opRef);
+          const freshOp = snap.exists() ? snap.data() : op;
+          const freshPaiem = freshOp.paiements || [];
 
-if (resteFinal === 0) {
-  statutCalculé = 'PAYE'; // Le compte est bon
-} else if (resteFinal < 0) {
-  statutCalculé = 'PAYE_PARTIEL'; // Trop perçu : reste en partiel pour signaler le reversement
-}
+          const nP = [...freshPaiem, {date: d, montant: m, reference: paiementReference.trim(), createdAt: new Date().toISOString()}];
+          const tot = Math.round(nP.reduce((s,p) => s + (p.montant||0), 0));
+          const montantInitial = Math.round(freshOp.montant||0);
 
-await updateDoc(doc(db, 'ops', opId), {
-  paiements: nP, 
-  totalPaye: tot, 
-  datePaiement: d, 
-  updatedAt: new Date().toISOString(),
-  statut: statutCalculé
-});
+          const estSolde = (tot >= montantInitial);
 
-if (resteFinal < 0) {
-  notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
-} else {
-  notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
-}
-        
+          // ✅ NOUVEAU BLOC (Logique stricte)
+          const resteFinal = Math.round((freshOp.montant || 0) - tot);
+          let statutCalculé = 'PAYE_PARTIEL';
+
+          if (resteFinal === 0) {
+            statutCalculé = 'PAYE'; // Le compte est bon
+          } else if (resteFinal < 0) {
+            statutCalculé = 'PAYE_PARTIEL'; // Trop perçu : reste en partiel pour signaler le reversement
+          }
+
+          tx.update(opRef, {
+            paiements: nP,
+            totalPaye: tot,
+            datePaiement: d,
+            updatedAt: new Date().toISOString(),
+            statut: statutCalculé
+          });
+
+          return { resteFinal, estSolde };
+        });
+
+        if (resteFinal < 0) {
+          notify("warning", "Attention", `Le total payé dépasse le montant de l'OP (${formatMontant(Math.abs(resteFinal))} F en trop).`);
+        } else {
+          notify("success", "Paiement", resteFinal === 0 ? "OP totalement soldé." : "Paiement partiel enregistré.");
+        }
+
         notify("success", "Paiement", estSolde ? "OP totalement soldé." : "Paiement partiel enregistré.");
         setPaiementMontant(''); setPaiementReference('');
       }catch(e){notify("error", "Erreur", e.message);}
