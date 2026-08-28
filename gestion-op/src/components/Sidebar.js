@@ -99,7 +99,7 @@ const NavItem = ({ id, icon, label, active, collapsed, onClick, hasChildren, isO
 };
 
 const Sidebar = () => {
-  const { currentPage, setCurrentPage, projet, exerciceActif, user, handleLogout, userProfile } = useAppContext();
+  const { currentPage, setCurrentPage, projet, exerciceActif, user, handleLogout, userProfile, canAccessPage } = useAppContext();
   const [collapsed, setCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState({}); // Initialisé vide
   
@@ -120,13 +120,23 @@ const Sidebar = () => {
   }, [currentPage]);
 
   const items = useMemo(() => {
-    if (userProfile?.role !== 'ADMIN') return menuConfig;
-    return menuConfig.map(item =>
-      item.id === 'grp_config'
-        ? { ...item, subItems: [...item.subItems, { id: 'admin', icon: 'admin', label: 'Administration' }] }
+    // Ajoute l'entrée Administration au menu pour les admins
+    const withAdmin = userProfile?.role !== 'ADMIN'
+      ? menuConfig
+      : menuConfig.map(item =>
+          item.id === 'grp_config'
+            ? { ...item, subItems: [...item.subItems, { id: 'admin', icon: 'admin', label: 'Administration' }] }
+            : item
+        );
+
+    // Ne garde que les pages/groupes accessibles au rôle de l'utilisateur connecté
+    return withAdmin
+      .map(item => item.subItems
+        ? { ...item, subItems: item.subItems.filter(sub => canAccessPage(sub.id)) }
         : item
-    );
-  }, [userProfile?.role]);
+      )
+      .filter(item => item.isDivider || (item.subItems ? item.subItems.length > 0 : canAccessPage(item.id)));
+  }, [userProfile?.role, canAccessPage]);
 
   const handleGroupClick = (id) => {
     if (collapsed) setCollapsed(false); 

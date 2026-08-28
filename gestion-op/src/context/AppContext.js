@@ -10,11 +10,11 @@ const AppContext = createContext(null);
 // ==================== PERMISSIONS PAR RÔLE ====================
 const ROLE_PERMISSIONS = {
   ADMIN: {
-    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'suivi', 'budget', 'beneficiaires', 'parametres', 'admin', 'historique'],
+    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'circuitCF', 'circuitAC', 'archives', 'suivi', 'budget', 'beneficiaires', 'parametres', 'admin', 'historique'],
     canCreate: true, canEdit: true, canDelete: true, canVisa: true, canPay: true, canArchive: true, canManageUsers: true
   },
   OPERATEUR: {
-    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'suivi', 'budget', 'beneficiaires', 'historique'],
+    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'circuitCF', 'circuitAC', 'archives', 'suivi', 'budget', 'beneficiaires', 'historique'],
     canCreate: true, canEdit: true, canDelete: true, canVisa: true, canPay: true, canArchive: true, canManageUsers: false
   },
   CONSULTATION: {
