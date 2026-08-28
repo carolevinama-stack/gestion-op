@@ -131,7 +131,7 @@ const TabInfos = () => {
   const notify = (type, title, msg) => setAlertData({ type, title, message: msg });
   const ask = (title, msg, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message: msg, onConfirm, showPwd });
 
-  const [formProj, setFormProj] = useState({ pays: "", devise: "", ministere: "", nomProjet: "", sigle: "", codeImputation: "", nbCaracteresLigne: 4, coordonnateur: "", titreCoordonnateur: "", nbExemplairesCF: 4, nbExemplairesAC: 2, adminPassword: "" });
+  const [formProj, setFormProj] = useState({ pays: "", devise: "", ministere: "", nomProjet: "", sigle: "", codeImputation: "", nbCaracteresLigne: 4, coordonnateur: "", titreCoordonnateur: "", nbExemplairesCF: 4, nbExemplairesAC: 2, motDePasseAdmin: "" });
   const [savingProj, setSavingProj] = useState(false);
   const [savedProj, setSavedProj] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -145,12 +145,12 @@ const TabInfos = () => {
   useEffect(() => {
     if (projet) {
       setFormProj({ pays: "République de Côte d'Ivoire", devise: "Union – Discipline – Travail", nbExemplairesCF: 4, nbExemplairesAC: 2, nbCaracteresLigne: 4, ...projet });
-      setConfirmPassword(projet.adminPassword || '');
+      setConfirmPassword(projet.motDePasseAdmin || '');
     }
   }, [projet]);
 
   const handleSaveProjet = async () => {
-    if (formProj.adminPassword && formProj.adminPassword !== confirmPassword) { notify('error', 'Erreur de saisie', 'Les mots de passe ne correspondent pas.'); return; }
+    if (formProj.motDePasseAdmin && formProj.motDePasseAdmin !== confirmPassword) { notify('error', 'Erreur de saisie', 'Les mots de passe ne correspondent pas.'); return; }
     setSavingProj(true);
     try { await setDoc(doc(db, 'parametres', 'projet'), formProj); setProjet(formProj); setSavedProj(true); setTimeout(() => setSavedProj(false), 3000); } 
     catch (e) { notify('error', 'Erreur', 'Impossible de sauvegarder.'); }
@@ -229,7 +229,7 @@ const TabInfos = () => {
         </SettingRow>
         <SettingRow title="Sécurité" desc="Mot de passe admin.">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
-            <div style={{ gridColumn: 'span 6' }}><Label>Mot de passe</Label><div style={{ position: 'relative' }}><input type={showPassword ? 'text' : 'password'} value={formProj.adminPassword || ''} onChange={e => setFormProj({...formProj, adminPassword: e.target.value})} style={{ ...iS, paddingRight: 40 }} /><button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}>{showPassword ? I.eyeOff(P.textSec, 18) : I.eye(P.textSec, 18)}</button></div></div>
+            <div style={{ gridColumn: 'span 6' }}><Label>Mot de passe</Label><div style={{ position: 'relative' }}><input type={showPassword ? 'text' : 'password'} value={formProj.motDePasseAdmin || ''} onChange={e => setFormProj({...formProj, motDePasseAdmin: e.target.value})} style={{ ...iS, paddingRight: 40 }} /><button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}>{showPassword ? I.eyeOff(P.textSec, 18) : I.eye(P.textSec, 18)}</button></div></div>
             <div style={{ gridColumn: 'span 6' }}><Label>Confirmation</Label><input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={iS} /></div>
           </div>
         </SettingRow>
@@ -274,8 +274,12 @@ const TabMaintenance = () => {
   const ask = (title, message, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message, onConfirm, showPwd });
 
   const checkPwd = (cb) => {
+    if (!projet?.motDePasseAdmin) {
+      notify("error", "Mot de passe non configuré", "Un administrateur doit configurer le mot de passe administrateur dans l'onglet Infos avant de pouvoir effectuer cette action.");
+      return;
+    }
     ask("Sécurité requise", "Saisissez le mot de passe administrateur :", (pwd) => {
-      if (pwd === (projet?.adminPassword || 'admin123')) cb();
+      if (pwd === projet.motDePasseAdmin) cb();
       else notify("error", "Erreur", "Mot de passe incorrect.");
     }, true);
   };

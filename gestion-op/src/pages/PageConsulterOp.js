@@ -355,9 +355,13 @@ const PageConsulterOp = () => {
       showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
       return;
     }
+    if (!projet?.motDePasseAdmin) {
+      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
+      return;
+    }
     const pwd = await askPassword('Mot de passe requis pour modifier');
     if (pwd === null) return;
-    if (pwd === (projet?.motDePasseAdmin || 'admin123')) {
+    if (pwd === projet.motDePasseAdmin) {
       setIsEditMode(true);
     } else {
       showToast('error', 'Mot de passe incorrect');
@@ -433,9 +437,13 @@ const PageConsulterOp = () => {
       showToast('error', 'Action bloquée', "Impossible de supprimer un OP déjà transmis à l'Agent Comptable ou payé.");
       return;
     }
+    if (!projet?.motDePasseAdmin) {
+      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
+      return;
+    }
     const pwd = await askPassword('Mot de passe requis pour supprimer (Corbeille)');
     if (pwd === null) return;
-    if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+    if (pwd !== projet.motDePasseAdmin) {
       showToast('error', 'Mot de passe incorrect');
       return;
     }
@@ -465,9 +473,13 @@ const PageConsulterOp = () => {
   };
 
   const handleStartEditNumero = async () => {
+    if (!projet?.motDePasseAdmin) {
+      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
+      return;
+    }
     const pwd = await askPassword('Mot de passe admin requis');
     if (pwd === null) return;
-    if (pwd !== (projet?.motDePasseAdmin || 'admin123')) {
+    if (pwd !== projet.motDePasseAdmin) {
       showToast('error', 'Mot de passe incorrect');
       return;
     }

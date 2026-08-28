@@ -78,7 +78,7 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
-  const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
+  const { projet, sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
   const activeSource = activeBudgetSource || sources[0]?.id || null;
   const setActiveSource = (sourceId) => setActiveBudgetSource(sourceId);
 
@@ -99,8 +99,6 @@ const PageBudget = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState([]);
   const [importErrors, setImportErrors] = useState([]);
-
-  const PASSWORD_CORRECTION = 'admin';
 
   const showToast = useCallback((type, title, message = '') => {
     const uid = Date.now() + Math.random();
@@ -141,10 +139,16 @@ const PageBudget = () => {
   };
 
   const openCreateModal = () => { setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
-  const openCorrectionModal = () => { setPassword(''); setShowPasswordModal(true); };
+  const openCorrectionModal = () => {
+    if (!projet?.motDePasseAdmin) {
+      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
+      return;
+    }
+    setPassword(''); setShowPasswordModal(true);
+  };
 
   const verifyPasswordAndEdit = () => {
-    if (password === PASSWORD_CORRECTION) { setShowPasswordModal(false); setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true); }
+    if (password === projet?.motDePasseAdmin) { setShowPasswordModal(false); setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true); }
     else { showToast('error', 'Mot de passe incorrect'); }
   };
 
@@ -277,8 +281,9 @@ const PageBudget = () => {
     if (!currentBudget) return;
     const totaux = getTotaux(currentBudget);
     if (totaux.engagement > 0) { showToast('error', 'Suppression impossible', `Ce budget a ${formatMontant(totaux.engagement)} FCFA d'engagements. Supprimez d'abord les OP liés.`); return; }
+    if (!projet?.motDePasseAdmin) { showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.'); return; }
     const password = window.prompt('Mot de passe requis pour supprimer :');
-    if (password !== PASSWORD_CORRECTION) { if (password !== null) showToast('error', 'Mot de passe incorrect'); return; }
+    if (password !== projet.motDePasseAdmin) { if (password !== null) showToast('error', 'Mot de passe incorrect'); return; }
     if (!window.confirm(`Supprimer définitivement "${getVersionLabel(currentBudget)}" ?`)) return;
     setSaving(true);
     try {

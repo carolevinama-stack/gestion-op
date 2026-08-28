@@ -154,8 +154,12 @@ const PageCircuitCF = () => {
   };
 
   const checkPwd = (callback) => {
+    if (!projet?.motDePasseAdmin) {
+      notify("error", "Mot de passe non configuré", "Un administrateur doit configurer le mot de passe administrateur dans les Paramètres avant de pouvoir effectuer cette action.");
+      return;
+    }
     ask("Sécurité", "Veuillez saisir le mot de passe administrateur :", (pwd) => {
-      if(pwd === (projet?.motDePasseAdmin || 'admin123')) callback();
+      if(pwd === projet.motDePasseAdmin) callback();
       else notify("error", "Erreur", "Mot de passe incorrect");
     }, true);
   };

@@ -16,13 +16,12 @@ const PasswordModal = ({ show, isOpen, onClose, onConfirm, title, description, w
   if (!isVisible) return null;
 
   const handleConfirm = () => {
-    if (!projet?.adminPassword) {
-      onConfirm();
-      setPassword('');
+    if (!projet?.motDePasseAdmin) {
+      // Aucun mot de passe configuré : on bloque l'action au lieu de l'autoriser par défaut.
       return;
     }
-    
-    if (password === projet.adminPassword) {
+
+    if (password === projet.motDePasseAdmin) {
       onConfirm();
       setPassword('');
       setError('');
@@ -55,12 +54,12 @@ const PasswordModal = ({ show, isOpen, onClose, onConfirm, title, description, w
             </div>
           )}
           
-          {!projet?.adminPassword ? (
+          {!projet?.motDePasseAdmin ? (
             <div style={{ background: '#fff3e0', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
               <strong style={{ color: '#e65100' }}>ℹ️</strong>
               <span style={{ color: '#e65100', marginLeft: 4 }}>
-                Aucun mot de passe administrateur configuré. 
-                <span 
+                Aucun mot de passe administrateur configuré. Contactez un administrateur pour le configurer dans les Paramètres avant de pouvoir effectuer cette action.
+                <span
                   onClick={() => { handleClose(); setCurrentPage('parametres'); }}
                   style={{ textDecoration: 'underline', cursor: 'pointer', marginLeft: 4 }}
                 >
@@ -95,7 +94,7 @@ const PasswordModal = ({ show, isOpen, onClose, onConfirm, title, description, w
         </div>
         <div style={{ padding: 24, borderTop: '1px solid #e9ecef', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
           <button onClick={handleClose} style={styles.buttonSecondary}>Annuler</button>
-          <button onClick={handleConfirm} style={{ ...styles.button, background: buttonColor }}>
+          <button onClick={handleConfirm} disabled={!projet?.motDePasseAdmin} style={{ ...styles.button, background: buttonColor, opacity: !projet?.motDePasseAdmin ? 0.5 : 1, cursor: !projet?.motDePasseAdmin ? 'not-allowed' : 'pointer' }}>
             {buttonText}
           </button>
         </div>

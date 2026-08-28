@@ -128,10 +128,15 @@ const PageHistoriqueBudget = () => {
   };
 
   // Delete flow: password → confirm → delete
-  const startDelete = (budget) => setPwdState({ budget });
+  const startDelete = (budget) => {
+    if (!projet?.motDePasseAdmin) {
+      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
+      return;
+    }
+    setPwdState({ budget });
+  };
   const onPwdConfirm = (pwd) => {
-    const expected = projet?.motDePasseAdmin || 'admin123';
-    if (pwd !== expected) { showToast('error', 'Mot de passe incorrect'); setPwdState(null); return; }
+    if (pwd !== projet?.motDePasseAdmin) { showToast('error', 'Mot de passe incorrect'); setPwdState(null); return; }
     setPwdState(null);
     setConfirmState({ budget: pwdState.budget });
   };
