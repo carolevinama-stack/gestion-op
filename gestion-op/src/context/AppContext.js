@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase';
 import { 
   collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot
@@ -144,24 +144,23 @@ export function AppProvider({ user, children }) {
       console.log("AppContext: Début chargement des données");
       try {
         // --- CHARGEMENT UNIQUE (PARAMÈTRES) ---
-        // Nous attendons (await) que tout cela soit chargé
-        const projetDoc = await getDoc(doc(db, 'parametres', 'projet'));
-        if (projetDoc.exists()) setProjet(projetDoc.data());
+        // Les 6 lectures sont indépendantes : on les lance en parallèle (Promise.all)
+        // plutôt qu'en attendant chacune séquentiellement.
+        const [projetDoc, sourcesSnap, exercicesSnap, lignesSnap, benSnap, budgetsSnap] = await Promise.all([
+          getDoc(doc(db, 'parametres', 'projet')),
+          getDocs(collection(db, 'sources')),
+          getDocs(query(collection(db, 'exercices'), orderBy('annee', 'desc'))),
+          getDocs(collection(db, 'lignesBudgetaires')),
+          getDocs(query(collection(db, 'beneficiaires'), orderBy('nom'))),
+          getDocs(collection(db, 'budgets'))
+        ]);
 
-        const sourcesSnap = await getDocs(collection(db, 'sources'));
-        setSources(sourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-        const exercicesSnap = await getDocs(query(collection(db, 'exercices'), orderBy('annee', 'desc')));
-        setExercices(exercicesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-        const lignesSnap = await getDocs(collection(db, 'lignesBudgetaires'));
-        setLignesBudgetaires(lignesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-        const benSnap = await getDocs(query(collection(db, 'beneficiaires'), orderBy('nom')));
-        setBeneficiaires(benSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-        const budgetsSnap = await getDocs(collection(db, 'budgets'));
-        setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        if (projetDoc.exists()) setProjet(projetDoc.data());
+        setSources(sourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setExercices(exercicesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLignesBudgetaires(lignesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setBeneficiaires(benSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
         // --- CHARGEMENT TEMPS RÉEL (onSnapshot) ---
         console.log("AppContext: Accrochage des écouteurs temps réel");
@@ -226,7 +225,7 @@ unsubOps = onSnapshot(opsQuery, (snapshot) => {
     }
   };
 
-  const value = {
+  const value = useMemo(() => ({
     // Data
     projet, setProjet,
     sources, setSources,
@@ -253,7 +252,28 @@ unsubOps = onSnapshot(opsQuery, (snapshot) => {
     exerciceActif,
     // Loading
     loading,
-  };
+  }), [
+    projet, setProjet,
+    sources, setSources,
+    exercices, setExercices,
+    lignesBudgetaires, setLignesBudgetaires,
+    beneficiaires, setBeneficiaires,
+    budgets, setBudgets,
+    ops, setOps,
+    bordereaux, setBordereaux,
+    currentPage, setCurrentPage,
+    historiqueParams, setHistoriqueParams,
+    activeBudgetSource, setActiveBudgetSource,
+    consultOpId, setConsultOpId,
+    consultOpData, setConsultOpData,
+    user, handleLogout,
+    userProfile, setUserProfile,
+    userRole, permissions, canAccessPage,
+    profileLoading,
+    isOnline,
+    exerciceActif,
+    loading,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LOGO_PIF2 } from '../utils/logos';
 
@@ -119,11 +119,14 @@ const Sidebar = () => {
     }
   }, [currentPage]);
 
-  const items = JSON.parse(JSON.stringify(menuConfig)); 
-  if (userProfile?.role === 'admin') {
-    const configGrp = items.find(i => i.id === 'grp_config');
-    if(configGrp) configGrp.subItems.push({ id: 'admin', icon: 'admin', label: 'Administration' });
-  }
+  const items = useMemo(() => {
+    if (userProfile?.role !== 'admin') return menuConfig;
+    return menuConfig.map(item =>
+      item.id === 'grp_config'
+        ? { ...item, subItems: [...item.subItems, { id: 'admin', icon: 'admin', label: 'Administration' }] }
+        : item
+    );
+  }, [userProfile?.role]);
 
   const handleGroupClick = (id) => {
     if (collapsed) setCollapsed(false); 
