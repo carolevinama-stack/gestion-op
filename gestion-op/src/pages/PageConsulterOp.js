@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
-import { formatMontant } from '../utils/formatters';
+import { formatMontant, escapeHtml } from '../utils/formatters';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore'; 
@@ -525,7 +525,7 @@ const PageConsulterOp = () => {
     const banqueDisplay = selectedRib && typeof selectedRib === 'object' ? selectedRib.banque : '';
 
     const htmlParts = [
-      '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + selectedOp.numero + '</title>',
+      '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OP ' + escapeHtml(selectedOp.numero) + '</title>',
       '<style>',
       '@page { size: A4 portrait; margin: 5mm; }', 
       '*{box-sizing:border-box; margin:0; padding:0}',
@@ -620,30 +620,30 @@ const PageConsulterOp = () => {
       '.acquit-content{flex:1}',
       '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:4px 10px}',
       '</style></head><body>',
-      '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + selectedOp.numero + '</span></div>',
+      '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + escapeHtml(selectedOp.numero) + '</span></div>',
       '<div class="page-container"><div class="inner-frame">',
       '<div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
-      '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">' + (projet?.ministere || '') + '</div><div class="sep">------------------------</div><div class="project">' + (projet?.nomProjet || '') + '</div><div class="sep">------------------------</div></div>',
+      '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">' + escapeHtml(projet?.ministere || '') + '</div><div class="sep">------------------------</div><div class="project">' + escapeHtml(projet?.nomProjet || '') + '</div><div class="sep">------------------------</div></div>',
       '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" /><div>Union – Discipline – Travail</div></div></div></div>',
       
-      '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N° ' + (selectedOp.numero || '').replace(/^N°?\s*/i, '') + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
-      
-      '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (ben?.ncc || '') + '</span></div>',
+      '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N° ' + escapeHtml((selectedOp.numero || '').replace(/^N°?\s*/i, '')) + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
+
+      '<div class="body-content"><div class="field"><div class="field-title">REFERENCE DU BENEFICIAIRE</div></div><div class="field">BENEFICIAIRE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + escapeHtml(ben?.nom || '') + '</span></div><div class="field">COMPTE CONTRIBUABLE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + escapeHtml(ben?.ncc || '') + '</span></div>',
       '<div class="checkbox-line"><span class="checkbox-label">COMPTE DE DISPONIBILITE A DEBITER :</span><div class="checkbox-options"><span class="check-item">BAILLEUR <span class="box">' + (isBailleur ? 'x' : '') + '</span></span><span class="check-item">TRESOR <span class="box">' + (isTresor ? 'x' : '') + '</span></span></div></div>',
       '<div class="checkbox-line"><span class="checkbox-label">MODE DE REGLEMENT :</span><div class="checkbox-options"><span class="check-item">ESPECE <span class="box">' + (selectedOp.modeReglement === 'ESPECES' ? 'x' : '') + '</span></span><span class="check-item">CHEQUE <span class="box">' + (selectedOp.modeReglement === 'CHEQUE' ? 'x' : '') + '</span></span><span class="check-item">VIREMENT <span class="box">' + (selectedOp.modeReglement === 'VIREMENT' ? 'x' : '') + '</span></span></div></div>',
       
-      '<div class="field" style="margin-bottom: 16px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? (banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay : '') + '</span></div>',
-      
+      '<div class="field" style="margin-bottom: 16px;">REFERENCES BANCAIRES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.modeReglement === 'VIREMENT' ? escapeHtml((banqueDisplay ? banqueDisplay + ' - ' : '') + ribDisplay) : '') + '</span></div>',
+
       /* OBJET avec une hauteur limite fixe, et un espace naturel */
-      '<div class="block-objet">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.objet || '') + '</span></div>',
-      
+      '<div class="block-objet">OBJET DE LA DEPENSE :&nbsp;&nbsp;&nbsp;<span class="field-value">' + escapeHtml(selectedOp.objet || '') + '</span></div>',
+
       /* PIECES JUSTIFICATIVES avec une hauteur limite fixe */
-      '<div class="block-pieces">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + (selectedOp.piecesJustificatives || '') + '</span></div>',
+      '<div class="block-pieces">PIECES JUSTIFICATIVES :&nbsp;&nbsp;&nbsp;<span class="field-value">' + escapeHtml(selectedOp.piecesJustificatives || '') + '</span></div>',
       
       /* Section budget centrée verticalement grâce au margin: auto 0 */
       '<div class="budget-section">',
       '<div class="budget-row"><div class="col-left">MONTANT TOTAL :</div><div class="col-center"><div class="value-box">' + printMontantTotal + '</div></div><div class="col-right"></div></div>',
-      '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + codeImputationComplet + '</div></div><div class="col-right"></div></div>',
+      '<div class="budget-row"><div class="col-left">IMPUTATION BUDGETAIRE :</div><div class="col-center"><div class="value-box">' + escapeHtml(codeImputationComplet) + '</div></div><div class="col-right"></div></div>',
       
       '<div class="separator-line"></div>',
       
@@ -657,10 +657,10 @@ const PageConsulterOp = () => {
     '<div class="signatures-section">' +
     // BLOC COORDONNATRICE
     '<div class="sig-box" style="text-align: center;">' + 
-      '<div class="sig-header">VISA<br/>' + (projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div>' +
+      '<div class="sig-header">VISA<br/>' + escapeHtml(projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div>' +
       '<div class="sig-content" style="height: 80px;"></div>' + // Espace pour le cachet
-      '<div class="sig-name" style="text-align: center; font-weight: bold; text-decoration: underline; width: 100%;">' + 
-        (projet?.coordonnateur || 'ABE-KOFFI Thérèse') + 
+      '<div class="sig-name" style="text-align: center; font-weight: bold; text-decoration: underline; width: 100%;">' +
+        escapeHtml(projet?.coordonnateur || 'ABE-KOFFI Thérèse') +
       '</div>' +
     '</div>' +
 

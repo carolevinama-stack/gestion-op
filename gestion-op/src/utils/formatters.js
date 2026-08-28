@@ -1,5 +1,14 @@
 // ==================== UTILITAIRES ====================
 
+// Échappe les caractères HTML spéciaux pour prévenir les injections XSS
+// lorsqu'une valeur est insérée dans du HTML généré dynamiquement (ex: document.write).
+export const escapeHtml = (str) => String(str ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 export const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
 
 export const formatDate = (date) => {
