@@ -22,7 +22,7 @@ const I = {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData } = useAppContext();
+  const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   
@@ -424,12 +424,14 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                       <td style={{...styles.td, textAlign:'right', color:P.red}}><b>{formatMontant(op.montant)}</b></td>
                       <td style={{...styles.td, fontWeight:700}}>{op.supprimePar || 'Admin'}</td>
                       <td style={styles.td}>
-                        <button 
+                        {permissions.canDelete && (
+                        <button
                           onClick={() => handleRestaurerOP(op)}
                           style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700}}
                         >
                           RESTAURER
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}

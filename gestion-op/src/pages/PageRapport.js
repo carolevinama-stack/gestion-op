@@ -107,7 +107,7 @@ const tdE = { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis'
 // COMPOSANT PRINCIPAL
 // ============================================================
 export default function PageRapport() {
-  const { ops, beneficiaires, sources, exercices, exerciceActif, setConsultOpData, setCurrentPage } = useAppContext();
+  const { ops, beneficiaires, sources, exercices, exerciceActif, setConsultOpData, setCurrentPage, permissions } = useAppContext();
   const [activeTab, setActiveTab] = useState('compta');
   const [dateRef, setDateRef] = useState(new Date().toISOString().split('T')[0]);
   const [filtreEx, setFiltreEx] = useState('tous');
@@ -536,10 +536,12 @@ export default function PageRapport() {
             {I.download(P.textSec, 16)}
           </button>
           
+          {permissions.canCreate && (
           <label title="Importer des OP antérieurs (Excel)" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.orange, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.orange}44`, opacity: importing ? 0.6 : 1 }}>
             {importing ? I.loader('#fff', 16) : I.upload('#fff', 16)}
             <input type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} disabled={importing} />
           </label>
+          )}
 
           <button onClick={handleExport} title="Exporter le rapport actuel en Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.greenDark}44` }}>
             {I.fileText('#fff', 16)}
@@ -550,6 +552,8 @@ export default function PageRapport() {
       {sel.length > 0 && (
         <div style={{ background: `${activeTab === 'extratraite' ? P.greenLight : P.goldLight}`, borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', border: `1px solid ${activeTab === 'extratraite' ? P.green : P.goldBorder}` }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: activeTab === 'extratraite' ? P.greenDark : P.gold }}>{sel.length} OP sélectionné(s)</span>
+          {permissions.canEdit && (
+          <>
           <input value={obsText} onChange={e => setObsText(e.target.value)} placeholder="Saisir une observation pour la sélection..." style={{ ...styles.input, marginBottom: 0, flex: 1, minWidth: 250, fontSize: 12, borderRadius: 8 }} onKeyDown={e => { if (e.key === 'Enter') saveObs(); }} />
           <button onClick={saveObs} disabled={savingObs} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: savingObs ? 0.6 : 1 }}>
             {savingObs ? I.loader() : I.save()} Enregistrer l'observation
@@ -563,6 +567,8 @@ export default function PageRapport() {
             <button onClick={handleUnTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.orange, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               {I.undo('#fff', 14)} Remettre dans le circuit
             </button>
+          )}
+          </>
           )}
           <button onClick={() => { setSel([]); setObsText(''); }} style={{ padding: '8px 16px', background: 'transparent', color: P.textSec, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
             Annuler la sélection

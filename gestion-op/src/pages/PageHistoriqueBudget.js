@@ -95,7 +95,7 @@ const PasswordModal = ({ onConfirm, onCancel }) => {
 
 // ==================== PAGE ====================
 const PageHistoriqueBudget = () => {
-  const { projet, historiqueParams, sources, exercices, budgets, setBudgets, setCurrentPage } = useAppContext();
+  const { projet, historiqueParams, sources, exercices, budgets, setBudgets, setCurrentPage, permissions } = useAppContext();
   const { sourceId, exerciceId } = historiqueParams;
   const [expandedVersion, setExpandedVersion] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -293,10 +293,12 @@ const PageHistoriqueBudget = () => {
                         {budget.motifRevision || '-'}
                       </td>
                       <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                        {permissions.canDelete && (
                         <button className="hist-btn" onClick={() => startDelete(budget)} title="Supprimer"
                           style={{ background: P.redLight, color: P.red, padding: '6px 8px' }}>
                           {Icon.trash(P.red, 13)}
                         </button>
+                        )}
                       </td>
                     </tr>
 

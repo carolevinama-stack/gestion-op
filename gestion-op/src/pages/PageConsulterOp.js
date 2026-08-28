@@ -143,7 +143,7 @@ const statutConfig = {
 const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A', ANNULATION: '#C43E3E' };
 
 const PageConsulterOp = () => {
-  const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage } = useAppContext();
+  const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions } = useAppContext();
   const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
   const [selectedOp, setSelectedOp] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -819,7 +819,7 @@ const PageConsulterOp = () => {
                         </div>
                       ) : (
                         <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', color: P.textBlack }}>
-                          {selectedOp.numero} <span onClick={handleStartEditNumero} style={{ opacity: 0.3, cursor: 'pointer' }}>{Icons.editPen(P.labelMuted)}</span>
+                          {selectedOp.numero} {permissions.canEdit && <span onClick={handleStartEditNumero} style={{ opacity: 0.3, cursor: 'pointer' }}>{Icons.editPen(P.labelMuted)}</span>}
                         </span>
                       )}
                     </div>
@@ -1121,9 +1121,10 @@ const PageConsulterOp = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: `1px solid ${P.bgApp}` }}>
                       <span style={{ padding: '8px 14px', background: accent + '10', color: accent, borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.eyeSearch(accent)} {selectedOp.numero}</span>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {/* Bouton Modifier : Grisé si OP verrouillé (Visé CF, Payé, transmis AC, archivé) */}
-                        <button 
-                          title={isLockedForEdit ? "Verrouillé : OP déjà visé par le CF" : "Modifier"} 
+                        {/* Bouton Modifier : Grisé si OP verrouillé (Visé CF, Payé, transmis AC, archivé), masqué si le rôle ne peut pas modifier */}
+                        {permissions.canEdit && (
+                        <button
+                          title={isLockedForEdit ? "Verrouillé : OP déjà visé par le CF" : "Modifier"}
                           onClick={() => {
                             if (isLockedForEdit) {
                               showToast('warning', 'Action impossible', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
@@ -1131,29 +1132,34 @@ const PageConsulterOp = () => {
                               handleModifier();
                             }
                           }}
-                          style={{ 
-                            width: 42, height: 42, borderRadius: '50%', border: 'none', 
-                            background: isLockedForEdit ? P.bgSection : P.gold, 
-                            color: 'white', cursor: isLockedForEdit ? 'not-allowed' : 'pointer', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                            boxShadow: isLockedForEdit ? 'none' : `0 3px 12px ${P.gold}44`, transition: 'all 0.2s' 
+                          style={{
+                            width: 42, height: 42, borderRadius: '50%', border: 'none',
+                            background: isLockedForEdit ? P.bgSection : P.gold,
+                            color: 'white', cursor: isLockedForEdit ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: isLockedForEdit ? 'none' : `0 3px 12px ${P.gold}44`, transition: 'all 0.2s'
                           }}
-                          onMouseEnter={e => { if(!isLockedForEdit) e.currentTarget.style.transform = 'scale(1.12)'; }} 
+                          onMouseEnter={e => { if(!isLockedForEdit) e.currentTarget.style.transform = 'scale(1.12)'; }}
                           onMouseLeave={e => { if(!isLockedForEdit) e.currentTarget.style.transform = 'scale(1)'; }}
                         >
                           {Icons.edit(isLockedForEdit ? P.labelMuted : '#fff')}
                         </button>
+                        )}
 
+                        {permissions.canDelete && (
                         <button title="Mettre à la corbeille" onClick={handleSupprimer}
                           style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: P.labelMuted, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${P.labelMuted}44`, transition: 'all 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
                           {Icons.trash('#fff')}
                         </button>
+                        )}
+                        {permissions.canCreate && (
                         <button title="Dupliquer" onClick={handleDupliquer}
                           style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: P.orange, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${P.orange}44`, transition: 'all 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
                           {Icons.copy('#fff')}
                         </button>
+                        )}
                         <button title="Imprimer" onClick={handlePrint}
                           style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: accent, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${accent}44`, transition: 'all 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
