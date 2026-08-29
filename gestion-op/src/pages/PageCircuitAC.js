@@ -461,7 +461,7 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
             const cloneRef = doc(collection(db, 'ops'));
             const cloneData = {
               ...modalPaiement,
-              type: 'REJET', numero: modalPaiement.numero + '-R', montant: -Math.abs(modalPaiement.montant || 0),
+              type: 'REJET', numero: modalPaiement.numero + '-R', montant: (modalPaiement.montant || 0) < 0 ? Math.abs(modalPaiement.montant || 0) : -Math.abs(modalPaiement.montant || 0),
               statut: 'REJETE_AC', dateRejet: d, motifRejet: motifRetourAC.trim(),
               opOriginalId: modalPaiement.id, bordereauCF: null, bordereauAC: null,
               createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()

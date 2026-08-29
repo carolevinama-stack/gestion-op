@@ -372,7 +372,7 @@ const PageCircuitCF = () => {
                const cloneRef = doc(collection(db, 'ops'));
                const cloneData = {
                  ...op,
-                 type: 'REJET', numero: op.numero + '-R', montant: -Math.abs(op.montant || 0),
+                 type: 'REJET', numero: op.numero + '-R', montant: (op.montant || 0) < 0 ? Math.abs(op.montant || 0) : -Math.abs(op.montant || 0),
                  statut: 'REJETE_CF', dateRejet: d, motifRejet: motifRetour.trim(),
                  opOriginalId: op.id, bordereauCF: null, bordereauAC: null,
                  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
