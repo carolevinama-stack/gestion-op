@@ -48,6 +48,8 @@ const PageCircuitAC = () => {
   const BT_PAGE_SIZE = 50;
   const [triBT, setTriBT] = useState('NUM_DESC');
   const [filtreStatutBT, setFiltreStatutBT] = useState('TOUS');
+  const [showAnterieurBT, setShowAnterieurBT] = useState(false);
+  const [selectedExerciceBT, setSelectedExerciceBT] = useState(null);
   const [searchSuivi, setSearchSuivi] = useState('');
   
   // Modales
@@ -83,7 +85,8 @@ const PageCircuitAC = () => {
   const opsDifferesAC = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_AC').sort((a,b) => (b.dateDiffere||'').localeCompare(a.dateDiffere||'')), [opsForSource]);
   const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC' && op.type !== 'REJET').sort((a,b) => (b.dateRejet||'').localeCompare(a.dateRejet||'')), [opsForSource]);
   
-  const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, exerciceActif]);
+  const currentExerciceIdBT = showAnterieurBT ? selectedExerciceBT : exerciceActif?.id;
+  const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === currentExerciceIdBT && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, currentExerciceIdBT]);
 
   // === HELPERS ===
   const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
@@ -555,6 +558,22 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
     const totalPagesBT = Math.max(1, Math.ceil(sortedBts.length / BT_PAGE_SIZE));
     const pageBts = sortedBts.slice((pageBT-1)*BT_PAGE_SIZE, pageBT*BT_PAGE_SIZE);
     return <div style={crd}>
+      <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',marginBottom:14}}>
+        <div>
+          <span style={{fontSize:13,color:P.textSec}}>Exercice : </span>
+          <strong style={{fontSize:15,color:P.greenDark}}>{(showAnterieurBT ? exercices.find(e=>e.id===selectedExerciceBT) : exerciceActif)?.annee || 'Non défini'}</strong>
+          {!showAnterieurBT && exerciceActif && <span style={{background:P.greenLight,color:P.greenDark,padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:700,marginLeft:8}}>Actif</span>}
+        </div>
+        <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:P.textSec}}>
+          <input type="checkbox" checked={showAnterieurBT} onChange={e=>{setShowAnterieurBT(e.target.checked); if(!e.target.checked) setSelectedExerciceBT(exerciceActif?.id); setPageBT(1);}} style={{accentColor:P.green}}/>
+          Exercices antérieurs
+        </label>
+        {showAnterieurBT && (
+          <select value={selectedExerciceBT || ''} onChange={e=>{setSelectedExerciceBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,width:'auto',padding:'8px 12px'}}>
+            {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
+          </select>
+        )}
+      </div>
       <div style={{position:'relative',maxWidth:400,marginBottom:14}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
         <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>{setSearchBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
       </div>
