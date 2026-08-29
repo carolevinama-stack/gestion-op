@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
-import { formatMontant } from '../utils/formatters';
+import { formatMontant, sanitizeForExport, exportToCSV } from '../utils/formatters';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -81,7 +81,10 @@ const PageArchives = () => {
   const [selectedOps, setSelectedOps] = useState([]);
   const [saving, setSaving] = useState(false);
   const [searchArch, setSearchArch] = useState('');
-  
+  const [filtreBoite, setFiltreBoite] = useState('');
+  const [pageArchives, setPageArchives] = useState(1);
+  const ARCHIVES_PAGE_SIZE = 50;
+
   // Modales
   const [alertData, setAlertData] = useState(null); 
   const [modalArchive, setModalArchive] = useState(false);
@@ -93,12 +96,36 @@ const PageArchives = () => {
   };
 
   const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
-  
+  const filterOps = (list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); };
+
   const exerciceActif = exercices.find(e => e.actif);
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
   const opsAArchiver = useMemo(() => opsForSource.filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE'), [opsForSource]);
   const opsArchives = useMemo(() => opsForSource.filter(op => op.statut === 'ARCHIVE'), [opsForSource]);
+
+  const boitesDisponibles = useMemo(() => {
+    const set = new Set(opsArchives.map(op => op.boiteArchivage).filter(Boolean));
+    return Array.from(set).sort();
+  }, [opsArchives]);
+
+  const opsArchivesFiltres = useMemo(() => {
+    let list = opsArchives;
+    if (filtreBoite) list = list.filter(op => op.boiteArchivage === filtreBoite);
+    return filterOps(list, searchArch);
+  }, [opsArchives, filtreBoite, searchArch]);
+
+  const totalPagesArchives = Math.max(1, Math.ceil(opsArchivesFiltres.length / ARCHIVES_PAGE_SIZE));
+  const opsArchivesPage = opsArchivesFiltres.slice((pageArchives - 1) * ARCHIVES_PAGE_SIZE, pageArchives * ARCHIVES_PAGE_SIZE);
+
+  const exportDossiersClasses = () => {
+    if (opsArchivesFiltres.length === 0) return;
+    let csv = 'N° OP;Type;Bénéficiaire;Objet;Montant;Réf. Boîte;Classé le\n';
+    opsArchivesFiltres.forEach(op => {
+      csv += `${op.numero};${op.type};${sanitizeForExport(getBen(op))};${sanitizeForExport(op.objet || '')};${op.montant || 0};${sanitizeForExport(op.boiteArchivage || '')};${formatDate(op.dateArchivage)}\n`;
+    });
+    exportToCSV(csv, `Dossiers_Classes_${activeSourceBT || 'source'}.csv`);
+  };
 
   const checkPwd = (callback) => {
     if (!projet?.motDePasseAdmin) {
@@ -111,7 +138,6 @@ const PageArchives = () => {
     }, true);
   };
 
-  const filterOps = (list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); };
   const toggleOp = (opId) => setSelectedOps(p => p.includes(opId) ? p.filter(id => id !== opId) : [...p, opId]);
   const toggleAll = (list) => { if(selectedOps.length === list.length && list.length > 0) setSelectedOps([]); else setSelectedOps(list.map(o => o.id)); };
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
@@ -155,6 +181,28 @@ const PageArchives = () => {
     });
   };
 
+  const handleRetourAvantArchivage = async (opId) => {
+    checkPwd(() => {
+      ask("Retour", "Renvoyer cet OP à l'étape précédente (avant classement) ?", async () => {
+        setSaving(true);
+        try{
+          const op = ops.find(o => o.id === opId);
+          let nextStatut;
+          if(op.statut === 'ANNULE') {
+            nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
+          } else {
+            const paiem = op.paiements || [];
+            const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+            nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
+          }
+          await updateDoc(doc(db, 'ops', opId), { statut: nextStatut, updatedAt: new Date().toISOString() });
+          notify("success", "Retour effectué", "L'OP a été renvoyé à l'étape précédente.");
+        }catch(e){notify("error", "Erreur", e.message);}
+        setSaving(false);
+      });
+    });
+  };
+
   const handleModifierBoite = async (opId) => {
     checkPwd(() => {
       ask("Modifier boîte", "Nouvelle référence de boîte :", async (val) => {
@@ -164,7 +212,7 @@ const PageArchives = () => {
     });
   };
 
-  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchArch(''); };
+  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchArch(''); setFiltreBoite(''); setPageArchives(1); };
   const thS = {...styles.th, fontSize: 11, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', letterSpacing: .5, background: '#FAFAF8'};
   const crd = {...styles.card, background: P.card, borderRadius: 14, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)'};
 
@@ -208,6 +256,7 @@ const PageArchives = () => {
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
           <th style={{...thS,width:80}}>STATUT</th>
           <th style={{...thS,width:90}}>DATE</th>
+          <th style={{...thS,width:50}}>ACTIONS</th>
         </tr></thead><tbody>
           {filterOps(opsAArchiver,searchArch).map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
@@ -219,15 +268,28 @@ const PageArchives = () => {
               <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
               <td style={styles.td}>{op.statut==='ANNULE'?<Badge bg={P.redLight} color={P.red}>Annulé</Badge>:<Badge bg={P.greenLight} color={P.greenDark}>Payé</Badge>}</td>
               <td style={{...styles.td,fontSize:11}}>{formatDate(op.datePaiement)||formatDate(op.dateVisaCF)}</td>
+              <td style={styles.td} onClick={e=>e.stopPropagation()}>
+                <IBtn icon={I.undo(P.gold,14)} title={op.statut==='ANNULE' ? "Renvoyer vers le retour CF" : "Renvoyer vers le retour Paiement"} bg={`${P.gold}15`} onClick={()=>handleRetourAvantArchivage(op.id)}/>
+              </td>
             </tr>;})}
         </tbody></table></div>}
         {selectedOps.length > 0 && <div style={{marginTop:14,textAlign:'right'}}><ActionBtn label="Archiver les éléments sélectionnés" icon={I.archive('#fff',14)} count={selectedOps.length} color={P.olive} onClick={()=>{setModalArchive(true);setBoiteArchivage('');}}/></div>}
       </div>}
 
       {subTabArch==='ARCHIVES' && <div style={crd}>
-        <h3 style={{margin:'0 0 16px',color:P.oliveDark,fontSize:15}}>Consultation des Archives ({opsArchives.length})</h3>
-        <input type="text" placeholder="Rechercher par N° de boîte, OP, Bénéficiaire..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:450,borderRadius:10,border:`1px solid ${P.border}`}}/>
-        {filterOps(opsArchives,searchArch).length===0?<Empty text="Aucun dossier trouvé dans les archives"/>:
+        <h3 style={{margin:'0 0 16px',color:P.oliveDark,fontSize:15}}>Consultation des Archives ({opsArchivesFiltres.length})</h3>
+        <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end',marginBottom:12}}>
+          <input type="text" placeholder="Rechercher par N° de boîte, OP, Bénéficiaire..." value={searchArch} onChange={e=>{setSearchArch(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
+          <div>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>RÉF. BOÎTE</label>
+            <select value={filtreBoite} onChange={e=>{setFiltreBoite(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:180,borderRadius:10,border:`1px solid ${P.border}`}}>
+              <option value="">Toutes les boîtes</option>
+              {boitesDisponibles.map(b=><option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <button onClick={exportDossiersClasses} disabled={opsArchivesFiltres.length===0} style={{padding:'10px 16px',border:'none',borderRadius:10,background:P.oliveDark,color:'#fff',fontWeight:700,cursor:opsArchivesFiltres.length===0?'not-allowed':'pointer',opacity:opsArchivesFiltres.length===0?0.5:1,fontSize:13,height:38}}>Exporter</button>
+        </div>
+        {opsArchivesFiltres.length===0?<Empty text="Aucun dossier trouvé dans les archives"/>:<>
         <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
@@ -238,7 +300,7 @@ const PageArchives = () => {
           <th style={{...thS,width:80}}>CLASSÉ LE</th>
           <th style={{...thS,width:80}}>ACTIONS</th>
         </tr></thead><tbody>
-          {filterOps(opsArchives,searchArch).map(op=><tr key={op.id}>
+          {opsArchivesPage.map(op=><tr key={op.id}>
             <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
             <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
             <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
@@ -250,7 +312,15 @@ const PageArchives = () => {
               <IBtn icon={I.edit(P.olive,14)} title="Modifier la référence de la boîte" bg={P.greenLight} onClick={()=>handleModifierBoite(op.id)}/>
               <IBtn icon={I.undo(P.gold,14)} title="Sortir des archives (Rétropédalage)" bg={`${P.gold}15`} onClick={()=>handleRetropedalage(op.id)}/>
             </td>
-          </tr>)}</tbody></table></div>}
+          </tr>)}</tbody></table></div>
+        {totalPagesArchives > 1 && (
+          <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:12,marginTop:14}}>
+            <button onClick={()=>setPageArchives(p=>Math.max(1,p-1))} disabled={pageArchives<=1} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',cursor:pageArchives<=1?'not-allowed':'pointer',opacity:pageArchives<=1?0.5:1}}>Précédent</button>
+            <span style={{fontSize:12,color:P.textSec,fontWeight:600}}>Page {pageArchives} / {totalPagesArchives}</span>
+            <button onClick={()=>setPageArchives(p=>Math.min(totalPagesArchives,p+1))} disabled={pageArchives>=totalPagesArchives} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',cursor:pageArchives>=totalPagesArchives?'not-allowed':'pointer',opacity:pageArchives>=totalPagesArchives?0.5:1}}>Suivant</button>
+          </div>
+        )}
+        </>}
       </div>}
     </div>
 
