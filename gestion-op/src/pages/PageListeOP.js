@@ -26,9 +26,12 @@ const I = {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet } = useAppContext();
+  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
+  const [showAnterieur, setShowAnterieur] = useState(false);
+  const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
+  const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
   
   const [filters, setFilters] = useState({ types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
   const [showStatutFilter, setShowStatutFilter] = useState(false);
@@ -100,7 +103,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
-      if (op.exerciceId !== exerciceActif?.id) return false;
+      if (op.exerciceId !== currentExerciceId) return false;
       if (op.statut === 'SUPPRIME') return false;
       if (activeSource !== 'ALL' && op.sourceId !== activeSource) return false;
       if (activeTab === 'PAYES') {
@@ -139,13 +142,13 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       if (filters.dateFin && (op.dateCreation || '') > filters.dateFin) return false;
       return true;
     }).reverse();
-  }, [ops, activeSource, activeTab, filters, exerciceActif, budgets, beneficiaires]);
+  }, [ops, activeSource, activeTab, filters, currentExerciceId, budgets, beneficiaires]);
 
   const totalMontantAffichage = useMemo(() => {
     return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   }, [displayOps]);
 
-  useEffect(() => { setPageOP(1); }, [activeSource, activeTab, filters]);
+  useEffect(() => { setPageOP(1); }, [activeSource, activeTab, filters, currentExerciceId]);
 
   const totalPagesOP = Math.max(1, Math.ceil(displayOps.length / OP_PAGE_SIZE));
   const displayOpsPage = useMemo(() => displayOps.slice((pageOP - 1) * OP_PAGE_SIZE, pageOP * OP_PAGE_SIZE), [displayOps, pageOP]);
@@ -243,6 +246,23 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       <div style={{ display: 'flex', borderBottom: `1px solid ${P.border}`, marginBottom: 20 }}>
         <button onClick={() => setActiveTab('TOUS')} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'TOUS' ? `3px solid ${P.green}` : 'none', cursor: 'pointer', fontWeight: 700, color: activeTab === 'TOUS' ? P.green : P.textSec }}>TOUS LES OP</button>
         <button onClick={() => setActiveTab('PAYES')} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'PAYES' ? `3px solid ${P.green}` : 'none', cursor: 'pointer', fontWeight: 700, color: activeTab === 'PAYES' ? P.green : P.textSec }}>OP PAYÉS</button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div>
+          <span style={{ fontSize: 13, color: P.textSec }}>Exercice : </span>
+          <strong style={{ fontSize: 15, color: P.green }}>{(showAnterieur ? exercices.find(e => e.id === selectedExercice) : exerciceActif)?.annee || 'Non défini'}</strong>
+          {!showAnterieur && exerciceActif && <span style={{ background: P.greenLight, color: P.green, padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, marginLeft: 8 }}>Actif</span>}
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: P.textSec }}>
+          <input type="checkbox" checked={showAnterieur} onChange={(e) => { setShowAnterieur(e.target.checked); if (!e.target.checked) setSelectedExercice(exerciceActif?.id); }} style={{ accentColor: P.green }} />
+          Exercices antérieurs
+        </label>
+        {showAnterieur && (
+          <select value={selectedExercice || ''} onChange={(e) => setSelectedExercice(e.target.value)} style={{ ...styles.input, marginBottom: 0, width: 'auto', padding: '8px 12px' }}>
+            {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
+          </select>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
