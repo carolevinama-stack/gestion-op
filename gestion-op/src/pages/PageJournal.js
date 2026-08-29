@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { db } from '../firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { styles } from '../utils/styles';
-import { ACTIONS_JOURNAL } from '../utils/journal';
+import { ACTIONS_JOURNAL, nomUtilisateurJournal } from '../utils/journal';
 
 const PAGE_SIZE = 50;
 const MAX_ENTREES = 1000; // plafond de lecture, pour limiter le coût Firestore sur un journal qui grossit continuellement
@@ -27,11 +27,24 @@ const PageJournal = () => {
   const [aRecherche, setARecherche] = useState(false);
 
   const [recherche, setRecherche] = useState('');
-  const [filtreUtilisateur, setFiltreUtilisateur] = useState('');
+  const [filtreUtilisateur, setFiltreUtilisateur] = useState('TOUS');
   const [filtreAction, setFiltreAction] = useState('TOUS');
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [page, setPage] = useState(0);
+  const [utilisateurs, setUtilisateurs] = useState([]);
+
+  useEffect(() => {
+    getDocs(collection(db, 'users'))
+      .then(snap => {
+        const noms = snap.docs
+          .map(d => nomUtilisateurJournal(d.data()))
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+        setUtilisateurs([...new Set(noms)]);
+      })
+      .catch(e => console.error('Erreur chargement utilisateurs:', e));
+  }, []);
 
   const lancerRecherche = async () => {
     setLoading(true);
@@ -49,10 +62,9 @@ const PageJournal = () => {
 
   const entreesFiltrees = useMemo(() => {
     const rech = recherche.trim().toLowerCase();
-    const util = filtreUtilisateur.trim().toLowerCase();
     return entrees.filter(e => {
       if (filtreAction !== 'TOUS' && e.action !== filtreAction) return false;
-      if (util && !(e.utilisateur || '').toLowerCase().includes(util)) return false;
+      if (filtreUtilisateur !== 'TOUS' && e.utilisateur !== filtreUtilisateur) return false;
       if (dateDebut && (e.date || '') < dateDebut) return false;
       if (dateFin && (e.date || '') > dateFin + 'T23:59:59') return false;
       if (rech && !(`${e.opNumero || ''} ${e.details || ''}`.toLowerCase().includes(rech))) return false;
@@ -82,13 +94,10 @@ const PageJournal = () => {
           </div>
           <div>
             <label style={styles.label}>UTILISATEUR</label>
-            <input
-              value={filtreUtilisateur}
-              onChange={(e) => { setFiltreUtilisateur(e.target.value); setPage(0); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') lancerRecherche(); }}
-              placeholder="Nom ou email..."
-              style={styles.input}
-            />
+            <select value={filtreUtilisateur} onChange={(e) => { setFiltreUtilisateur(e.target.value); setPage(0); }} style={styles.select}>
+              <option value="TOUS">Tous les utilisateurs</option>
+              {utilisateurs.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
           </div>
           <div>
             <label style={styles.label}>ACTION</label>
