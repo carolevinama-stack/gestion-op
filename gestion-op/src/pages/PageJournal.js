@@ -64,18 +64,12 @@ const PageJournal = () => {
   const pageAffichee = Math.min(page, totalPages - 1);
   const entreesPage = entreesFiltrees.slice(pageAffichee * PAGE_SIZE, (pageAffichee + 1) * PAGE_SIZE);
 
-  const pillStyle = (active) => ({
-    padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    border: `1.5px solid ${active ? '#1B6B2E' : '#ddd'}`, background: active ? '#1B6B2E' : '#fff',
-    color: active ? '#fff' : '#555', whiteSpace: 'nowrap',
-  });
-
   return (
     <div>
       <div style={styles.title}>Journal des actions</div>
 
       <div style={{ ...styles.card, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 130px 130px', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1.1fr 1.3fr 120px 120px', gap: 12 }}>
           <div>
             <label style={styles.label}>RECHERCHE (N° OP, détails)</label>
             <input
@@ -97,6 +91,15 @@ const PageJournal = () => {
             />
           </div>
           <div>
+            <label style={styles.label}>ACTION</label>
+            <select value={filtreAction} onChange={(e) => { setFiltreAction(e.target.value); setPage(0); }} style={styles.select}>
+              <option value="TOUS">Toutes les actions</option>
+              {Object.entries(LABELS_ACTION).map(([key, { label }]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label style={styles.label}>DU</label>
             <input type="date" value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); setPage(0); }} style={styles.input} />
           </div>
@@ -104,13 +107,6 @@ const PageJournal = () => {
             <label style={styles.label}>AU</label>
             <input type="date" value={dateFin} onChange={(e) => { setDateFin(e.target.value); setPage(0); }} style={styles.input} />
           </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <div onClick={() => { setFiltreAction('TOUS'); setPage(0); }} style={pillStyle(filtreAction === 'TOUS')}>Toutes les actions</div>
-          {Object.entries(LABELS_ACTION).map(([key, { label }]) => (
-            <div key={key} onClick={() => { setFiltreAction(key); setPage(0); }} style={pillStyle(filtreAction === key)}>{label}</div>
-          ))}
         </div>
 
         <button onClick={lancerRecherche} disabled={loading} style={{ ...styles.button, alignSelf: 'flex-start', opacity: loading ? 0.6 : 1 }}>
