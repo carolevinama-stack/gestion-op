@@ -10,6 +10,8 @@ import {
   maxNumeroExistant,
   calculerMontantTVA,
   montantDoitEtrePositif,
+  filtrerOpProvisoiresPourAnnulation,
+  filtrerOpProvisoiresPourDefinitif,
 } from '../utils/opCalculs';
 import { db } from '../firebase';
 import { collection, doc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
@@ -238,21 +240,9 @@ const PageNouvelOp = () => {
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => calculerDisponible(getDotation(), getEngagementsAnterieurs(), getEngagementActuel());
 
-  const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' &&
-    op.beneficiaireId === form.beneficiaireId &&
-    op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
-    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && o.statut !== 'SUPPRIME')
-  ) : [];
+  const opProvisoiresAnnulation = filtrerOpProvisoiresPourAnnulation(ops, { beneficiaireId: form.beneficiaireId, sourceId: activeSource });
 
-  const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' &&
-    (autresBeneficiairesDefinitif || op.beneficiaireId === form.beneficiaireId) &&
-    op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
-    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
-  ) : [];
+  const opProvisoiresDefinitif = filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: form.beneficiaireId, sourceId: activeSource, autresBeneficiaires: autresBeneficiairesDefinitif });
 
 
   const getOpProvLabel = (op) => {

@@ -94,3 +94,37 @@ export const calculerMontantTVASiRecuperable = (tvaRecuperable, finalMontant, mo
   const m = Math.abs(parseFloat(montantTVA) || 0);
   return finalMontant < 0 ? -m : m;
 };
+
+// ==================== RATTACHEMENT AUX OP PROVISOIRES (Annulation / Définitif) ====================
+
+// Un OP Provisoire ne peut lui-même pas être sélectionné s'il est dans un de ces statuts.
+const STATUTS_PROVISOIRE_INDISPONIBLE = ['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'];
+
+// Un OP (Annulation/Définitif) rattaché à un Provisoire ne le "consomme" plus s'il a été
+// supprimé OU rejeté : dans ce cas le Provisoire doit redevenir disponible pour un nouveau
+// rattachement.
+const STATUTS_RATTACHEMENT_INACTIF = ['SUPPRIME', 'REJETE_CF', 'REJETE_AC'];
+
+// OP Provisoires disponibles pour être annulés par un nouvel OP Annulation.
+export const filtrerOpProvisoiresPourAnnulation = (ops, { beneficiaireId, sourceId }) => {
+  if (!beneficiaireId) return [];
+  return ops.filter(op =>
+    op.type === 'PROVISOIRE' &&
+    op.beneficiaireId === beneficiaireId &&
+    op.sourceId === sourceId &&
+    !STATUTS_PROVISOIRE_INDISPONIBLE.includes(op.statut) &&
+    !ops.some(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut))
+  );
+};
+
+// OP Provisoires disponibles pour être régularisés par un nouvel OP Définitif.
+export const filtrerOpProvisoiresPourDefinitif = (ops, { beneficiaireId, sourceId, autresBeneficiaires }) => {
+  if (!beneficiaireId) return [];
+  return ops.filter(op =>
+    op.type === 'PROVISOIRE' &&
+    (autresBeneficiaires || op.beneficiaireId === beneficiaireId) &&
+    op.sourceId === sourceId &&
+    !STATUTS_PROVISOIRE_INDISPONIBLE.includes(op.statut) &&
+    !ops.some(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut))
+  );
+};

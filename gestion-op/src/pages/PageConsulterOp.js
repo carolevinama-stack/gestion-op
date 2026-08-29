@@ -8,6 +8,8 @@ import {
   calculerDotationConsultation,
   calculerEngagementsAnterieursAvantOp,
   calculerMontantTVASiRecuperable,
+  filtrerOpProvisoiresPourAnnulation,
+  filtrerOpProvisoiresPourDefinitif,
 } from '../utils/opCalculs';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { buildOpPrintHtml } from '../utils/opPrint';
@@ -294,18 +296,8 @@ const PageConsulterOp = () => {
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
   const getDisponible = () => calculerDisponible(getDotation(), getEngagementsAnterieurs(), getEngagementActuel());
 
-  const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
-    op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
-    !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && o.statut !== 'SUPPRIME')
-  ) : [];
-  const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' && (autresBeneficiairesDefinitif || op.beneficiaireId === form.beneficiaireId) &&
-    op.sourceId === activeSource &&
-    !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
-    !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
-  ) : [];
+  const opProvisoiresAnnulation = filtrerOpProvisoiresPourAnnulation(ops, { beneficiaireId: form.beneficiaireId, sourceId: activeSource });
+  const opProvisoiresDefinitif = filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: form.beneficiaireId, sourceId: activeSource, autresBeneficiaires: autresBeneficiairesDefinitif });
 
   const getOpProvLabel = (op) => {
     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);

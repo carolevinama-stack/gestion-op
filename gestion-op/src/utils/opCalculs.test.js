@@ -10,6 +10,8 @@ import {
   calculerDotationConsultation,
   calculerEngagementsAnterieursAvantOp,
   calculerMontantTVASiRecuperable,
+  filtrerOpProvisoiresPourAnnulation,
+  filtrerOpProvisoiresPourDefinitif,
 } from './opCalculs';
 
 const opsFixture = [
@@ -184,5 +186,66 @@ describe('calculerMontantTVASiRecuperable', () => {
 
   test('gère une saisie de TVA vide sans planter (0)', () => {
     expect(calculerMontantTVASiRecuperable(true, 1000, '')).toBe(0);
+  });
+});
+
+describe('filtrerOpProvisoiresPourAnnulation', () => {
+  test('propose un OP Provisoire non encore rattaché', () => {
+    const ops = [{ id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'B1', sourceId: 'S1', statut: 'EN_COURS' }];
+    expect(filtrerOpProvisoiresPourAnnulation(ops, { beneficiaireId: 'B1', sourceId: 'S1' })).toHaveLength(1);
+  });
+
+  test("n'affiche plus un Provisoire déjà rattaché à une Annulation active", () => {
+    const ops = [
+      { id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'B1', sourceId: 'S1', statut: 'EN_COURS' },
+      { id: 'a1', type: 'ANNULATION', opProvisoireId: 'p1', sourceId: 'S1', statut: 'EN_COURS' },
+    ];
+    expect(filtrerOpProvisoiresPourAnnulation(ops, { beneficiaireId: 'B1', sourceId: 'S1' })).toHaveLength(0);
+  });
+
+  test('redevient disponible si son Annulation a été rejetée (bug corrigé)', () => {
+    const ops = [
+      { id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'B1', sourceId: 'S1', statut: 'EN_COURS' },
+      { id: 'a1', type: 'ANNULATION', opProvisoireId: 'p1', sourceId: 'S1', statut: 'REJETE_CF' },
+    ];
+    const result = filtrerOpProvisoiresPourAnnulation(ops, { beneficiaireId: 'B1', sourceId: 'S1' });
+    expect(result.map(o => o.id)).toEqual(['p1']);
+  });
+
+  test('redevient disponible si son Annulation a été supprimée (corbeille)', () => {
+    const ops = [
+      { id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'B1', sourceId: 'S1', statut: 'EN_COURS' },
+      { id: 'a1', type: 'ANNULATION', opProvisoireId: 'p1', sourceId: 'S1', statut: 'SUPPRIME' },
+    ];
+    expect(filtrerOpProvisoiresPourAnnulation(ops, { beneficiaireId: 'B1', sourceId: 'S1' })).toHaveLength(1);
+  });
+
+  test('retourne un tableau vide sans bénéficiaire sélectionné', () => {
+    expect(filtrerOpProvisoiresPourAnnulation([{ id: 'p1', type: 'PROVISOIRE' }], { beneficiaireId: '', sourceId: 'S1' })).toEqual([]);
+  });
+});
+
+describe('filtrerOpProvisoiresPourDefinitif', () => {
+  test("n'affiche plus un Provisoire déjà rattaché à un Définitif actif", () => {
+    const ops = [
+      { id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'B1', sourceId: 'S1', statut: 'EN_COURS' },
+      { id: 'd1', type: 'DEFINITIF', opProvisoireIds: ['p1'], sourceId: 'S1', statut: 'EN_COURS' },
+    ];
+    expect(filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: 'B1', sourceId: 'S1' })).toHaveLength(0);
+  });
+
+  test('redevient disponible si son Définitif a été rejeté (bug corrigé)', () => {
+    const ops = [
+      { id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'B1', sourceId: 'S1', statut: 'EN_COURS' },
+      { id: 'd1', type: 'DEFINITIF', opProvisoireIds: ['p1'], sourceId: 'S1', statut: 'REJETE_AC' },
+    ];
+    const result = filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: 'B1', sourceId: 'S1' });
+    expect(result.map(o => o.id)).toEqual(['p1']);
+  });
+
+  test("ignore les Provisoires d'un autre bénéficiaire sauf si demandé explicitement", () => {
+    const ops = [{ id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'AUTRE', sourceId: 'S1', statut: 'EN_COURS' }];
+    expect(filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: 'B1', sourceId: 'S1', autresBeneficiaires: false })).toHaveLength(0);
+    expect(filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: 'B1', sourceId: 'S1', autresBeneficiaires: true })).toHaveLength(1);
   });
 });
