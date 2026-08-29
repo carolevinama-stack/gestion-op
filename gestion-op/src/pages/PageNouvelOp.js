@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant } from '../utils/formatters';
 import { db } from '../firebase';
@@ -82,6 +82,54 @@ const ModalMessage = ({ data, onClose }) => {
   );
 };
 
+const ConfirmModal = ({ data, onCancel, onConfirm }) => {
+  if (!data) return null;
+  const style = MODAL_STYLES.warning;
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 10000, animation: 'fadeIn 0.2s ease-out'
+    }}>
+      <div style={{
+        background: 'white', borderRadius: 20, padding: '32px',
+        width: '90%', maxWidth: 420, textAlign: 'center',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+        animation: 'scaleUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%', background: style.bgIcon,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto'
+        }}>
+          {style.icon}
+        </div>
+        <h3 style={{ margin: '0 0 10px 0', color: '#1a1a1a', fontSize: 18, fontWeight: 700 }}>
+          {data.title}
+        </h3>
+        <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14, lineHeight: 1.5 }}>
+          {data.message}
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, background: '#f5f5f5', color: '#555', border: 'none',
+            padding: '12px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer'
+          }}>
+            Annuler
+          </button>
+          <button onClick={onConfirm} style={{
+            flex: 1, background: style.btnBg, color: 'white', border: 'none',
+            padding: '12px 20px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer'
+          }}>
+            Confirmer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ==================== PAGE NOUVEL OP ====================
 const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D4722A', ANNULATION: '#C43E3E' };
 
@@ -106,7 +154,17 @@ const PageNouvelOp = () => {
   };
 
   const [activeSource, setActiveSource] = useState(loadSource);
-  const [modal, setModal] = useState(null); 
+  const [modal, setModal] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+  const confirmResolveRef = useRef(null);
+  const askConfirm = (title, message) => new Promise((resolve) => {
+    confirmResolveRef.current = resolve;
+    setConfirmData({ title, message });
+  });
+  const closeConfirm = (result) => {
+    if (confirmResolveRef.current) confirmResolveRef.current(result);
+    setConfirmData(null);
+  }; 
   const [form, setForm] = useState(loadDraft);
   const [saving, setSaving] = useState(false);
   const [autresBeneficiairesDefinitif, setAutresBeneficiairesDefinitif] = useState(false);
@@ -281,7 +339,8 @@ const PageNouvelOp = () => {
       setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Provisoire doit être positif.' }); return;
     }
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
-      if (!window.confirm(`Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP ${form.type === 'DIRECT' ? 'Direct' : 'Définitif'} avec un montant négatif ?`)) return;
+      const okNeg = await askConfirm('Montant négatif', `Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP ${form.type === 'DIRECT' ? 'Direct' : 'Définitif'} avec un montant négatif ?`);
+      if (!okNeg) return;
     }
     if (form.type === 'ANNULATION') {
       finalMontant = -Math.abs(finalMontant);
@@ -307,7 +366,8 @@ const PageNouvelOp = () => {
           .map(op => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A')
       )];
       if (autresBens.length > 0) {
-        if (!window.confirm(`Cet OP Définitif sera rattaché à (au moins) un OP Provisoire du bénéficiaire "${autresBens.join('", "')}", différent du bénéficiaire de cet OP. Voulez-vous continuer ?`)) return;
+        const okAutreBen = await askConfirm('Bénéficiaire différent', `Cet OP Définitif sera rattaché à (au moins) un OP Provisoire du bénéficiaire "${autresBens.join('", "')}", différent du bénéficiaire de cet OP. Voulez-vous continuer ?`);
+        if (!okAutreBen) return;
       }
     }
     if (form.type !== 'ANNULATION' && getDisponible() < 0) {
@@ -451,6 +511,7 @@ const PageNouvelOp = () => {
       `}</style>
       
       <ModalMessage data={modal} onClose={() => setModal(null)} />
+      <ConfirmModal data={confirmData} onCancel={() => closeConfirm(false)} onConfirm={() => closeConfirm(true)} />
 
       <div style={{ maxWidth: 1020, margin: '0 auto', marginBottom: 4 }}>
         <label style={{ ...labelStyle, fontSize: 12, marginBottom: 10 }}>SOURCE DE FINANCEMENT</label>
