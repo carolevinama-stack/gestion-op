@@ -349,11 +349,14 @@ const PageConsulterOp = () => {
 
   const statutInfo = selectedOp ? (statutConfig[selectedOp.statut] || { bg: P.bgApp, color: P.labelMuted, label: selectedOp.statut || '' }) : null;
 
-  const isLockedForEdit = selectedOp && ['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE'].includes(selectedOp.statut);
+  const isLockedForEdit = selectedOp && (
+    ['VISE_CF', 'TRANSMIS_AC', 'PAYE_PARTIEL', 'PAYE', 'ARCHIVE', 'ANNULE', 'REJETE_CF', 'REJETE_AC'].includes(selectedOp.statut) ||
+    selectedOp.type === 'REJET'
+  );
 
   const handleModifier = async () => {
     if (isLockedForEdit) {
-      showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
+      showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable, payé, annulé ou rejeté. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux ou effectuer un rétropédalage.");
       return;
     }
     if (!projet?.motDePasseAdmin) {
@@ -972,10 +975,10 @@ const PageConsulterOp = () => {
                         {/* Bouton Modifier : Grisé si OP verrouillé (Visé CF, Payé, transmis AC, archivé), masqué si le rôle ne peut pas modifier */}
                         {permissions.canEdit && (
                         <button
-                          title={isLockedForEdit ? "Verrouillé : OP déjà visé par le CF" : "Modifier"}
+                          title={isLockedForEdit ? "Verrouillé : OP déjà visé, payé, annulé ou rejeté" : "Modifier"}
                           onClick={() => {
                             if (isLockedForEdit) {
-                              showToast('warning', 'Action impossible', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable ou payé. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux.");
+                              showToast('warning', 'Action impossible', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable, payé, annulé ou rejeté. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux ou effectuer un rétropédalage.");
                             } else {
                               handleModifier();
                             }
