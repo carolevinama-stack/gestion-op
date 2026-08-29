@@ -109,6 +109,7 @@ const PageNouvelOp = () => {
   const [modal, setModal] = useState(null); 
   const [form, setForm] = useState(loadDraft);
   const [saving, setSaving] = useState(false);
+  const [autresBeneficiairesDefinitif, setAutresBeneficiairesDefinitif] = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem('op_draft_v3', JSON.stringify(form)); } catch (e) {}
@@ -193,7 +194,7 @@ const PageNouvelOp = () => {
 
   const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
-    op.beneficiaireId === form.beneficiaireId &&
+    (autresBeneficiairesDefinitif || op.beneficiaireId === form.beneficiaireId) &&
     op.sourceId === activeSource &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
     !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
@@ -296,6 +297,17 @@ const PageNouvelOp = () => {
     }
     if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length === 0 && !form.opProvisoireManuel.trim()) {
       setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner ou saisir le(s) N° d\'OP Provisoire à régulariser' }); return;
+    }
+    if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0) {
+      const autresBens = [...new Set(
+        (form.opProvisoireIds || [])
+          .map(id => ops.find(o => o.id === id))
+          .filter(op => op && op.beneficiaireId !== form.beneficiaireId)
+          .map(op => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A')
+      )];
+      if (autresBens.length > 0) {
+        if (!window.confirm(`Cet OP Définitif sera rattaché à (au moins) un OP Provisoire du bénéficiaire "${autresBens.join('", "')}", différent du bénéficiaire de cet OP. Voulez-vous continuer ?`)) return;
+      }
     }
     if (form.type !== 'ANNULATION' && getDisponible() < 0) {
       setModal({ type: 'error', title: 'Budget insuffisant', message: `Disponible : ${formatMontant(getDisponible())} FCFA` }); return;
@@ -478,7 +490,7 @@ const PageNouvelOp = () => {
               <div style={{ flex: '0 0 auto' }}>
                 <label style={labelStyle}>TYPE *</label>
                 <select value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable })}
+                  onChange={(e) => { setForm({ ...form, type: e.target.value, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '', tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(e.target.value) ? null : form.tvaRecuperable }); setAutresBeneficiairesDefinitif(false); }}
                   style={{ padding: '10px 10px', border: `1.5px solid ${(typeColors[form.type] || '#999')}40`, borderRadius: 8, fontWeight: 700, fontSize: 13, color: typeColors[form.type] || '#000000', cursor: 'pointer', background: '#fff', height: 44 }}>
                   <option value="" disabled>-- Sélectionner --</option>
                   <option value="PROVISOIRE">Provisoire</option>
@@ -519,6 +531,10 @@ const PageNouvelOp = () => {
               {form.type === 'DEFINITIF' && (
                 <div style={{ flex: '1 1 auto', minWidth: 320 }}>
                   <label style={{ display: 'block', fontSize: 9, fontWeight: 700, marginBottom: 3, color: '#2e7d32' }}>OP PROV. À RÉGULARISER *</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#666', marginBottom: 4, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={autresBeneficiairesDefinitif} onChange={(e) => setAutresBeneficiairesDefinitif(e.target.checked)} />
+                    Afficher aussi les OP provisoires d'un autre bénéficiaire
+                  </label>
                   <Autocomplete
                     isMulti
                     options={opProvisoiresDefinitif.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
