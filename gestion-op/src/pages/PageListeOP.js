@@ -52,7 +52,6 @@ const PageListeOP = () => {
   const OP_PAGE_SIZE = 50;
 
 const getBenNom = (op) => op.beneficiaireNom || 'N/A';
-  const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
 
   const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -195,48 +194,68 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
     handleRestaurerOP(op);
   };
 
+  const buildExportRow = (op) => {
+    const paiements = op.paiements || [];
+    const totalPaye = paiements.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+    const solde = (Number(op.montant) || 0) - totalPaye;
+    const refs = paiements.map(p => p.reference).filter(Boolean).join(', ');
+    const datesPaiement = paiements.map(p => formatDate(p.date)).filter(Boolean).join(', ');
+    return {
+      'N° OP': op.numero,
+      'Type': op.type,
+      'Date création': formatDate(op.dateCreation) || '',
+      'Bénéficiaire': sanitizeForExport(getBenNom(op)),
+      'Objet': sanitizeForExport(op.objet || ''),
+      'Ligne budgétaire': op.ligneBudgetaire || '',
+      'Dotation': Number(op.dotationFigee || 0),
+      'Montant': Number(op.montant || 0),
+      'Mode règlement': op.modeReglement || '',
+      'Montant TVA': Number(op.montantTVA || 0),
+      'OP provisoire rattaché': sanitizeForExport(op.opProvisoireNumero || ''),
+      'Statut': op.statut || '',
+      'N° Bordereau CF': op.bordereauCF || '',
+      'Date transmission CF': formatDate(op.dateTransmissionCF) || '',
+      'Date différé CF': formatDate(op.dateDiffere) || '',
+      'Date rejet CF': formatDate(op.dateRejet) || '',
+      'Date visa CF': formatDate(op.dateVisaCF) || '',
+      'Motif CF': sanitizeForExport(op.motifRejet || op.motifDiffere || ''),
+      'N° Bordereau AC': op.bordereauAC || '',
+      'Date transmission AC': formatDate(op.dateTransmissionAC) || '',
+      'Montant total payé': totalPaye,
+      'Solde restant': solde,
+      'Références paiement': sanitizeForExport(refs),
+      'Dates paiement': datesPaiement,
+      'Date archivage': formatDate(op.dateArchivage) || '',
+      'Référence boîte': op.boiteArchivage || ''
+    };
+  };
+
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
-      
-      const exportData = displayOps.map(op => ({
-        'N° OP': op.numero,
-        'Type': op.type,
-        'Statut': (op.statut || '').replace('_', ' '),
-        'Bénéficiaire': sanitizeForExport(getBenNom(op)),
-        'Objet': sanitizeForExport(op.objet || ''),
-        'Source': getSrcSigle(op.sourceId),
-        'Ligne': op.ligneBudgetaire,
-        'Dotation': Number(op.dotationLigne || 0),
-        'Montant': Number(op.montant || 0),
-        'Engagement antérieur': Number(op.engagementAnterieur || 0),
-        'Montant payé': Number(op.totalPaye || 0),
-        'Solde': Number(op.solde || 0),
-        'Réf. paiement': sanitizeForExport(op.refs || ''),
-        'N° Bordereau CF': op.bordereauCF || '',
-        'Date transmission CF': formatDate(op.dateTransmissionCF) || '',
-        'Date visa CF': formatDate(op.dateVisaCF) || '',
-        'N° Bordereau AC': op.bordereauAC || '',
-        'Date transmission AC': formatDate(op.dateTransmissionAC) || '',
-        'Date paiement': formatDate(op.datePaiement) || '',
-        'OP Provisoire rattaché': sanitizeForExport(op.opProvisoireNumero || ''),
-        'Date OP': formatDate(op.dateCreation) || ''
-      }));
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      
-      // Auto-ajustement de la largeur des colonnes pour que ce soit propre
-      const colWidths = Object.keys(exportData[0]).map(key => ({
-        wch: Math.max(key.length + 5, 15)
-      }));
-      ws['!cols'] = colWidths;
-
+      const opsExercice = ops.filter(op => op.exerciceId === currentExerciceId && op.statut !== 'SUPPRIME');
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Liste_OP");
-      
-      XLSX.writeFile(wb, `Export_OP_${activeSource !== 'ALL' ? getSrcSigle(activeSource) : 'GENERAL'}.xlsx`);
-    } catch (err) { 
-      alert("Erreur lors de l'exportation : " + err.message); 
+
+      sources.forEach(src => {
+        const opsSource = opsExercice
+          .filter(op => op.sourceId === src.id)
+          .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
+        const rows = opsSource.map(buildExportRow);
+        const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+        if (rows.length) {
+          const colWidths = Object.keys(rows[0]).map(key => ({ wch: Math.max(key.length + 3, 14) }));
+          ws['!cols'] = colWidths;
+        }
+        const sheetName = (src.sigle || src.nom || 'Source').replace(/[:\\/?*[\]]/g, '').substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Source');
+      });
+
+      const annee = (showAnterieur ? exercices.find(e => e.id === selectedExercice) : exerciceActif)?.annee || '';
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      XLSX.writeFile(wb, `Export_Complet_OP_${annee}_${dateStr}.xlsx`);
+    } catch (err) {
+      alert("Erreur lors de l'exportation : " + err.message);
     }
   };
 
