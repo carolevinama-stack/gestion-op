@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { db } from '../firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { ACTIONS_JOURNAL } from '../utils/journal';
 
@@ -23,37 +23,46 @@ const formatDateHeure = (iso) => {
 
 const PageJournal = () => {
   const [entrees, setEntrees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [aRecherche, setARecherche] = useState(false);
+
   const [recherche, setRecherche] = useState('');
+  const [filtreUtilisateur, setFiltreUtilisateur] = useState('');
   const [filtreAction, setFiltreAction] = useState('TOUS');
-  const [filtreUtilisateur, setFiltreUtilisateur] = useState('TOUS');
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
-    const q = query(collection(db, 'journal'), orderBy('date', 'desc'), limit(MAX_ENTREES));
-    const unsub = onSnapshot(q, (snap) => {
+  const lancerRecherche = async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'journal'), orderBy('date', 'desc'), limit(MAX_ENTREES));
+      const snap = await getDocs(q);
       setEntrees(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, () => setLoading(false));
-    return () => unsub();
-  }, []);
-
-  const utilisateurs = useMemo(() => [...new Set(entrees.map(e => e.utilisateur).filter(Boolean))].sort(), [entrees]);
+    } catch (e) {
+      console.error('Erreur chargement journal:', e);
+    }
+    setARecherche(true);
+    setPage(0);
+    setLoading(false);
+  };
 
   const entreesFiltrees = useMemo(() => {
     const rech = recherche.trim().toLowerCase();
+    const util = filtreUtilisateur.trim().toLowerCase();
     return entrees.filter(e => {
       if (filtreAction !== 'TOUS' && e.action !== filtreAction) return false;
-      if (filtreUtilisateur !== 'TOUS' && e.utilisateur !== filtreUtilisateur) return false;
-      if (rech && !(`${e.opNumero || ''} ${e.details || ''} ${e.utilisateur || ''}`.toLowerCase().includes(rech))) return false;
+      if (util && !(e.utilisateur || '').toLowerCase().includes(util)) return false;
+      if (dateDebut && (e.date || '') < dateDebut) return false;
+      if (dateFin && (e.date || '') > dateFin + 'T23:59:59') return false;
+      if (rech && !(`${e.opNumero || ''} ${e.details || ''}`.toLowerCase().includes(rech))) return false;
       return true;
     });
-  }, [entrees, recherche, filtreAction, filtreUtilisateur]);
-
-  useEffect(() => { setPage(0); }, [recherche, filtreAction, filtreUtilisateur]);
+  }, [entrees, recherche, filtreUtilisateur, filtreAction, dateDebut, dateFin]);
 
   const totalPages = Math.max(1, Math.ceil(entreesFiltrees.length / PAGE_SIZE));
-  const entreesPage = entreesFiltrees.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageAffichee = Math.min(page, totalPages - 1);
+  const entreesPage = entreesFiltrees.slice(pageAffichee * PAGE_SIZE, (pageAffichee + 1) * PAGE_SIZE);
 
   const pillStyle = (active) => ({
     padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -66,34 +75,57 @@ const PageJournal = () => {
       <div style={styles.title}>Journal des actions</div>
 
       <div style={{ ...styles.card, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <input
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-          placeholder="Rechercher par N° OP, détail ou utilisateur..."
-          style={styles.input}
-        />
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 130px 130px', gap: 12 }}>
+          <div>
+            <label style={styles.label}>RECHERCHE (N° OP, détails)</label>
+            <input
+              value={recherche}
+              onChange={(e) => { setRecherche(e.target.value); setPage(0); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') lancerRecherche(); }}
+              placeholder="Rechercher..."
+              style={styles.input}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>UTILISATEUR</label>
+            <input
+              value={filtreUtilisateur}
+              onChange={(e) => { setFiltreUtilisateur(e.target.value); setPage(0); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') lancerRecherche(); }}
+              placeholder="Nom ou email..."
+              style={styles.input}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>DU</label>
+            <input type="date" value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); setPage(0); }} style={styles.input} />
+          </div>
+          <div>
+            <label style={styles.label}>AU</label>
+            <input type="date" value={dateFin} onChange={(e) => { setDateFin(e.target.value); setPage(0); }} style={styles.input} />
+          </div>
+        </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <div onClick={() => setFiltreAction('TOUS')} style={pillStyle(filtreAction === 'TOUS')}>Toutes les actions</div>
+          <div onClick={() => { setFiltreAction('TOUS'); setPage(0); }} style={pillStyle(filtreAction === 'TOUS')}>Toutes les actions</div>
           {Object.entries(LABELS_ACTION).map(([key, { label }]) => (
-            <div key={key} onClick={() => setFiltreAction(key)} style={pillStyle(filtreAction === key)}>{label}</div>
+            <div key={key} onClick={() => { setFiltreAction(key); setPage(0); }} style={pillStyle(filtreAction === key)}>{label}</div>
           ))}
         </div>
 
-        {utilisateurs.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <div onClick={() => setFiltreUtilisateur('TOUS')} style={pillStyle(filtreUtilisateur === 'TOUS')}>Tous les utilisateurs</div>
-            {utilisateurs.map(u => (
-              <div key={u} onClick={() => setFiltreUtilisateur(u)} style={pillStyle(filtreUtilisateur === u)}>{u}</div>
-            ))}
-          </div>
-        )}
+        <button onClick={lancerRecherche} disabled={loading} style={{ ...styles.button, alignSelf: 'flex-start', opacity: loading ? 0.6 : 1 }}>
+          {loading ? 'Recherche...' : aRecherche ? 'Actualiser' : 'Rechercher'}
+        </button>
       </div>
 
-      {loading ? (
+      {!aRecherche ? (
+        <div style={{ ...styles.card, textAlign: 'center', color: '#888' }}>
+          Choisissez vos critères ci-dessus puis cliquez sur "Rechercher" pour afficher le journal.
+        </div>
+      ) : loading ? (
         <div style={{ ...styles.card, textAlign: 'center', color: '#888' }}>Chargement du journal...</div>
       ) : entreesFiltrees.length === 0 ? (
-        <div style={{ ...styles.card, textAlign: 'center', color: '#888' }}>Aucune entrée dans le journal.</div>
+        <div style={{ ...styles.card, textAlign: 'center', color: '#888' }}>Aucune entrée ne correspond à ces critères.</div>
       ) : (
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
@@ -128,17 +160,17 @@ const PageJournal = () => {
         </div>
       )}
 
-      {totalPages > 1 && (
+      {aRecherche && totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 16 }}>
-          <button disabled={page === 0} onClick={() => setPage(p => p - 1)} style={{ ...styles.buttonIcon, opacity: page === 0 ? 0.4 : 1 }}>◀</button>
-          <span style={{ fontSize: 13, color: '#666' }}>Page {page + 1} / {totalPages} ({entreesFiltrees.length} entrées)</span>
-          <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} style={{ ...styles.buttonIcon, opacity: page >= totalPages - 1 ? 0.4 : 1 }}>▶</button>
+          <button disabled={pageAffichee === 0} onClick={() => setPage(p => p - 1)} style={{ ...styles.buttonIcon, opacity: pageAffichee === 0 ? 0.4 : 1 }}>◀</button>
+          <span style={{ fontSize: 13, color: '#666' }}>Page {pageAffichee + 1} / {totalPages} ({entreesFiltrees.length} entrées)</span>
+          <button disabled={pageAffichee >= totalPages - 1} onClick={() => setPage(p => p + 1)} style={{ ...styles.buttonIcon, opacity: pageAffichee >= totalPages - 1 ? 0.4 : 1 }}>▶</button>
         </div>
       )}
 
-      {entrees.length >= MAX_ENTREES && (
+      {aRecherche && entrees.length >= MAX_ENTREES && (
         <div style={{ marginTop: 12, fontSize: 12, color: '#C5961F', textAlign: 'center' }}>
-          Seules les {MAX_ENTREES} entrées les plus récentes sont affichées.
+          Seules les {MAX_ENTREES} entrées les plus récentes sont chargées.
         </div>
       )}
     </div>
