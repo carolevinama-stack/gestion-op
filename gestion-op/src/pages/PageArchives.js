@@ -111,7 +111,7 @@ const PageArchives = () => {
 
   const opsArchivesFiltres = useMemo(() => {
     let list = opsArchives;
-    if (filtreBoite) list = list.filter(op => op.boiteArchivage === filtreBoite);
+    if (filtreBoite) { const t = filtreBoite.toLowerCase(); list = list.filter(op => (op.boiteArchivage || '').toLowerCase().includes(t)); }
     return filterOps(list, searchArch);
   }, [opsArchives, filtreBoite, searchArch]);
 
@@ -282,10 +282,17 @@ const PageArchives = () => {
           <input type="text" placeholder="Rechercher par N° de boîte, OP, Bénéficiaire..." value={searchArch} onChange={e=>{setSearchArch(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
           <div>
             <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>RÉF. BOÎTE</label>
-            <select value={filtreBoite} onChange={e=>{setFiltreBoite(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:180,borderRadius:10,border:`1px solid ${P.border}`}}>
-              <option value="">Toutes les boîtes</option>
-              {boitesDisponibles.map(b=><option key={b} value={b}>{b}</option>)}
-            </select>
+            <input
+              type="text"
+              list="boites-datalist"
+              placeholder="Toutes les boîtes"
+              value={filtreBoite}
+              onChange={e=>{setFiltreBoite(e.target.value);setPageArchives(1);}}
+              style={{...styles.input,marginBottom:0,width:200,borderRadius:10,border:`1px solid ${P.border}`}}
+            />
+            <datalist id="boites-datalist">
+              {boitesDisponibles.map(b=><option key={b} value={b} />)}
+            </datalist>
           </div>
           <button onClick={exportDossiersClasses} disabled={opsArchivesFiltres.length===0} style={{padding:'10px 16px',border:'none',borderRadius:10,background:P.oliveDark,color:'#fff',fontWeight:700,cursor:opsArchivesFiltres.length===0?'not-allowed':'pointer',opacity:opsArchivesFiltres.length===0?0.5:1,fontSize:13,height:38}}>Exporter</button>
         </div>
