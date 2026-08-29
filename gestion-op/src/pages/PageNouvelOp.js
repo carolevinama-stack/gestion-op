@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant } from '../utils/formatters';
+import {
+  calculerEngagementsAnterieurs,
+  calculerEngagementActuel,
+  calculerDisponible,
+  prochainNumero,
+  construireNumeroOp,
+  maxNumeroExistant,
+  calculerMontantTVA,
+  montantDoitEtrePositif,
+} from '../utils/opCalculs';
 import { db } from '../firebase';
 import { collection, doc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
@@ -221,26 +231,12 @@ const PageNouvelOp = () => {
 
   const getDotation = () => selectedLigne?.dotation || 0;
   
-  const getEngagementsAnterieurs = () => {
-    if (!form.ligneBudgetaire) return 0;
-    return ops
-      .filter(op => 
-        op.sourceId === activeSource && 
-        op.exerciceId === exerciceActif?.id &&
-        op.ligneBudgetaire === form.ligneBudgetaire &&
-        !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
-      )
-      .reduce((sum, o) => sum + (parseFloat(o.montant) || 0), 0);
-  };
+  const getEngagementsAnterieurs = () => calculerEngagementsAnterieurs(ops, { sourceId: activeSource, exerciceId: exerciceActif?.id, ligneBudgetaire: form.ligneBudgetaire });
 
-  const getEngagementActuel = () => {
-    let montant = parseFloat(form.montant) || 0;
-    if (form.type === 'ANNULATION') return -Math.abs(montant);
-    return montant;
-  };
+  const getEngagementActuel = () => calculerEngagementActuel(form.montant, form.type);
 
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
-  const getDisponible = () => getDotation() - getEngagementsCumules();
+  const getDisponible = () => calculerDisponible(getDotation(), getEngagementsAnterieurs(), getEngagementActuel());
 
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' &&
@@ -271,14 +267,8 @@ const PageNouvelOp = () => {
     const sigleProjet = projet?.sigle || 'PROJET';
     const sigleSource = currentSourceObj?.sigle || 'OP';
     const annee = exerciceActif?.annee || new Date().getFullYear();
-    const opsSource = ops.filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id);
-    let maxNum = 0;
-    opsSource.forEach(op => {
-      const match = (op.numero || '').match(/N°(\d+)\//);
-      if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-    });
-    const nextNum = maxNum + 1;
-    return `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+    const nextNum = prochainNumero(ops, { sourceId: activeSource, exerciceId: exerciceActif?.id });
+    return construireNumeroOp(nextNum, { sigleProjet, sigleSource, annee });
   };
 
   const handleSelectOpProvisoire = (opId) => {
@@ -335,7 +325,7 @@ const PageNouvelOp = () => {
       setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; 
     }
 
-    if (!['ANNULATION', 'DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
+    if (montantDoitEtrePositif(form.type) && finalMontant < 0) {
       setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Provisoire doit être positif.' }); return;
     }
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
@@ -405,10 +395,7 @@ const PageNouvelOp = () => {
           where('sourceId', '==', activeSource),
           where('exerciceId', '==', exerciceActif.id)
         ));
-        allOpsSnap.docs.forEach(d => {
-          const match = (d.data().numero || '').match(/N°(\d+)\//);
-          if (match) initCount = Math.max(initCount, parseInt(match[1]));
-        });
+        initCount = maxNumeroExistant(allOpsSnap.docs.map(d => d.data()));
       }
 
       const newOpRef = doc(collection(db, 'ops'));
@@ -423,12 +410,12 @@ const PageNouvelOp = () => {
 
         if (form.type !== 'ANNULATION') {
           const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
-          const engagementsReels = opsSnap.docs
-            .map(d => d.data())
-            .filter(op => op.ligneBudgetaire === form.ligneBudgetaire && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut))
-            .reduce((sum, o) => sum + (parseFloat(o.montant) || 0), 0);
+          const engagementsReels = calculerEngagementsAnterieurs(
+            opsSnap.docs.map(d => d.data()),
+            { sourceId: activeSource, exerciceId: exerciceActif.id, ligneBudgetaire: form.ligneBudgetaire }
+          );
 
-          const disponibleReel = dotation - engagementsReels - finalMontant;
+          const disponibleReel = calculerDisponible(dotation, engagementsReels, finalMontant);
 
           if (disponibleReel < 0) {
             throw new Error(`BUDGET_INSUFFISANT:${formatMontant(dotation - engagementsReels)}`);
@@ -438,7 +425,7 @@ const PageNouvelOp = () => {
         const snap = await tx.get(compteurRef);
         const currentCount = snap.exists() ? (snap.data().count || 0) : initCount;
         const nextNum = currentCount + 1;
-        const numero = `N°${String(nextNum).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
+        const numero = construireNumeroOp(nextNum, { sigleProjet, sigleSource, annee });
         tx.set(compteurRef, { count: nextNum, type: 'OP', sourceId: activeSource, exerciceId: exerciceActif?.id, updatedAt: new Date().toISOString() });
 
         // MODIFICATION : Capturer les données "Figées" (Nom, Libellé, Dotation)
@@ -457,7 +444,7 @@ const PageNouvelOp = () => {
           objet: form.objet.trim(),
           piecesJustificatives: form.piecesJustificatives.trim(),
           montant: finalMontant,
-          montantTVA: form.montantTVA ? (finalMontant < 0 ? -Math.abs(parseFloat(form.montantTVA)) : Math.abs(parseFloat(form.montantTVA))) : null,
+          montantTVA: calculerMontantTVA(finalMontant, form.montantTVA),
           tvaRecuperable: form.tvaRecuperable === true,
           statut: 'EN_COURS',
           ...opProvFields,
