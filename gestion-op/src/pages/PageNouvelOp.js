@@ -275,11 +275,14 @@ const PageNouvelOp = () => {
       setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; 
     }
 
-    if (form.type !== 'ANNULATION' && finalMontant < 0) {
-      setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Direct, Provisoire ou Définitif doit être positif.' }); return; 
+    if (!['ANNULATION', 'DIRECT'].includes(form.type) && finalMontant < 0) {
+      setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Provisoire ou Définitif doit être positif.' }); return;
+    }
+    if (form.type === 'DIRECT' && finalMontant < 0) {
+      if (!window.confirm(`Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP Direct avec un montant négatif ?`)) return;
     }
     if (form.type === 'ANNULATION') {
-      finalMontant = -Math.abs(finalMontant); 
+      finalMontant = -Math.abs(finalMontant);
     }
 
     if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
@@ -381,7 +384,7 @@ const PageNouvelOp = () => {
           objet: form.objet.trim(),
           piecesJustificatives: form.piecesJustificatives.trim(),
           montant: finalMontant,
-          montantTVA: form.montantTVA ? parseFloat(form.montantTVA) : null,
+          montantTVA: form.montantTVA ? (finalMontant < 0 ? -Math.abs(parseFloat(form.montantTVA)) : Math.abs(parseFloat(form.montantTVA))) : null,
           tvaRecuperable: form.tvaRecuperable === true,
           statut: 'EN_COURS',
           ...opProvFields,
