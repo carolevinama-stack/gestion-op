@@ -25,6 +25,20 @@ const I = {
   chevronRight: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
 };
 
+const ModalAlert = ({ data, onClose }) => {
+  if (!data) return null;
+  const color = data.type === 'error' ? P.red : P.green;
+  return <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)', zIndex:20000, display:'flex', alignItems:'center', justifyContent:'center'}}>
+    <div style={{background:'white', borderRadius:16, padding:24, width:420, boxShadow:'0 10px 40px rgba(0,0,0,.2)'}}>
+      <h3 style={{color, margin:'0 0 12px', textAlign:'center'}}>{data.title}</h3>
+      <p style={{color:'#444', fontSize:14, marginBottom:24, whiteSpace:'pre-line', textAlign:'center', lineHeight:1.5}}>{data.message}</p>
+      <div style={{display:'flex', justifyContent:'center'}}>
+        <button onClick={onClose} style={{padding:'10px 32px', borderRadius:8, border:'none', background:color, color:'white', cursor:'pointer', fontWeight:700, minWidth:120}}>OK</button>
+      </div>
+    </div>
+  </div>;
+};
+
 const PageListeOP = () => {
   const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
@@ -47,6 +61,8 @@ const PageListeOP = () => {
   const [opARestaurer, setOpARestaurer] = useState(null);
   const [pwdRestaurer, setPwdRestaurer] = useState('');
   const [pwdRestaurerErr, setPwdRestaurerErr] = useState('');
+  const [alertData, setAlertData] = useState(null);
+  const notify = (type, title, message) => setAlertData({ type, title, message });
   const CORBEILLE_PAGE_SIZE = 50;
   const [pageOP, setPageOP] = useState(1);
   const OP_PAGE_SIZE = 50;
@@ -165,10 +181,10 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
         supprimePar: null
       });
       
-      alert(`L'OP ${op.numero} a été restauré avec succès.`);
+      notify('success', 'Restauré', `L'OP ${op.numero} a été restauré avec succès.`);
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la restauration : " + err.message);
+      notify('error', 'Erreur', "Erreur lors de la restauration : " + err.message);
     }
   };
 
@@ -255,7 +271,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
       XLSX.writeFile(wb, `Export_Complet_OP_${annee}_${dateStr}.xlsx`);
     } catch (err) {
-      alert("Erreur lors de l'exportation : " + err.message);
+      notify('error', 'Erreur', "Erreur lors de l'exportation : " + err.message);
     }
   };
 
@@ -266,6 +282,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
   return (
     <div>
+      <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
