@@ -275,11 +275,11 @@ const PageNouvelOp = () => {
       setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir un montant valide' }); return; 
     }
 
-    if (!['ANNULATION', 'DIRECT'].includes(form.type) && finalMontant < 0) {
-      setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Provisoire ou Définitif doit être positif.' }); return;
+    if (!['ANNULATION', 'DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
+      setModal({ type: 'error', title: 'Montant invalide', message: 'Le montant d\'un OP Provisoire doit être positif.' }); return;
     }
-    if (form.type === 'DIRECT' && finalMontant < 0) {
-      if (!window.confirm(`Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP Direct avec un montant négatif ?`)) return;
+    if (['DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
+      if (!window.confirm(`Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP ${form.type === 'DIRECT' ? 'Direct' : 'Définitif'} avec un montant négatif ?`)) return;
     }
     if (form.type === 'ANNULATION') {
       finalMontant = -Math.abs(finalMontant);
