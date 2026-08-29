@@ -398,6 +398,10 @@ const PageConsulterOp = () => {
         showToast('error', 'Champ obligatoire', "Veuillez saisir l'objet de la dépense");
         return;
       }
+      if (!form.piecesJustificatives.trim()) {
+        showToast('error', 'Champ obligatoire', 'Veuillez renseigner les pièces justificatives');
+        return;
+      }
 
       let finalMontant = parseFloat(form.montant);
       if (isNaN(finalMontant) || finalMontant === 0) {

@@ -270,6 +270,7 @@ const PageNouvelOp = () => {
     if (form.modeReglement === 'VIREMENT' && !selectedRib) { setModal({ type: 'error', title: 'RIB manquant', message: 'Veuillez renseigner un RIB pour le bénéficiaire' }); return; }
     if (!form.ligneBudgetaire) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez sélectionner une ligne budgétaire' }); return; }
     if (!form.objet.trim()) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez saisir l\'objet de la dépense' }); return; }
+    if (!form.piecesJustificatives.trim()) { setModal({ type: 'error', title: 'Champ obligatoire', message: 'Veuillez renseigner les pièces justificatives' }); return; }
     
     let finalMontant = parseFloat(form.montant);
     if (isNaN(finalMontant) || finalMontant === 0) { 
