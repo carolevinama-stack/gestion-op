@@ -42,6 +42,8 @@ const PageCircuitCF = () => {
   const [saving, setSaving] = useState(false);
   const [searchBT, setSearchBT] = useState('');
   const [searchSuivi, setSearchSuivi] = useState('');
+  const [pageBT, setPageBT] = useState(1);
+  const BT_PAGE_SIZE = 50;
   
   // Modales
   const [alertData, setAlertData] = useState(null); 
@@ -128,7 +130,7 @@ const PageCircuitCF = () => {
     });
   };
 
-  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); };
+  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); setPageBT(1); };
 
   // ================================================================
   // ACTIONS
@@ -431,15 +433,22 @@ const handlePrintBordereau = (bt) => {
   const crd = {...styles.card, background: P.card, borderRadius: 14, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)'};
 
   const renderBordereaux = (btList) => {
-    const sortedBts = filterBordereaux(btList).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+    const sortedBts = filterBordereaux(btList).sort((a,b)=>{
+      const aPrep = a.statut==='EN_COURS', bPrep = b.statut==='EN_COURS';
+      if(aPrep && !bPrep) return -1;
+      if(!aPrep && bPrep) return 1;
+      return (b.dateTransmission||b.createdAt||'').localeCompare(a.dateTransmission||a.createdAt||'');
+    });
+    const totalPagesBT = Math.max(1, Math.ceil(sortedBts.length / BT_PAGE_SIZE));
+    const pageBts = sortedBts.slice((pageBT-1)*BT_PAGE_SIZE, pageBT*BT_PAGE_SIZE);
     return (
       <div style={crd}>
         <div style={{position:'relative',maxWidth:400,marginBottom:16}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
-          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
+          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>{setSearchBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
         </div>
-        {sortedBts.length===0?<Empty text="Aucun bordereau"/>:
+        {sortedBts.length===0?<Empty text="Aucun bordereau"/>:<>
         <div style={{maxHeight:'65vh',overflowY:'auto'}}>
-          {sortedBts.map(bt=>{
+          {pageBts.map(bt=>{
             const isExp = expandedBT === bt.id; const isPrep = bt.statut === 'EN_COURS'; const locked = isBordereauLocked(bt);
             const btOps = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
             return (
@@ -472,7 +481,15 @@ const handlePrintBordereau = (bt) => {
               </div>
             );
           })}
-        </div>}
+        </div>
+        {totalPagesBT > 1 && (
+          <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:12,marginTop:14}}>
+            <button onClick={()=>setPageBT(p=>Math.max(1,p-1))} disabled={pageBT<=1} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',cursor:pageBT<=1?'not-allowed':'pointer',opacity:pageBT<=1?0.5:1}}>Précédent</button>
+            <span style={{fontSize:12,color:P.textSec,fontWeight:600}}>Page {pageBT} / {totalPagesBT}</span>
+            <button onClick={()=>setPageBT(p=>Math.min(totalPagesBT,p+1))} disabled={pageBT>=totalPagesBT} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',cursor:pageBT>=totalPagesBT?'not-allowed':'pointer',opacity:pageBT>=totalPagesBT?0.5:1}}>Suivant</button>
+          </div>
+        )}
+        </>}
       </div>
     );
   };
@@ -553,7 +570,7 @@ const handlePrintBordereau = (bt) => {
         const isActif = activeSourceBT === src.id;
         const srcColor = src.couleur || P.greenDark; 
         return (
-          <button key={src.id} onClick={()=>{setActiveSourceBT(src.id);setSelectedOps([]);setExpandedBT(null);closeAllModals();}} 
+          <button key={src.id} onClick={()=>{setActiveSourceBT(src.id);setSelectedOps([]);setExpandedBT(null);closeAllModals();setPageBT(1);}}
             style={{padding:'8px 20px',borderRadius:10,border:isActif?`2px solid ${srcColor}`:'2px solid transparent',background:isActif?srcColor:'#EDEAE5',color:isActif?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:13,boxShadow:isActif?`0 2px 8px ${srcColor}55`:'none'}}>
             {src.sigle}
           </button>
