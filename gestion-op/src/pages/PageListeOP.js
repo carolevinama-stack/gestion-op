@@ -41,12 +41,13 @@ const ModalAlert = ({ data, onClose }) => {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile } = useAppContext();
+  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile, chargerExerciceOps } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   const [showAnterieur, setShowAnterieur] = useState(false);
   const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
+  useEffect(() => { if (showAnterieur && selectedExercice) chargerExerciceOps(selectedExercice); }, [showAnterieur, selectedExercice, chargerExerciceOps]);
   
   const [filters, setFilters] = useState({ types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
   const [showStatutFilter, setShowStatutFilter] = useState(false);

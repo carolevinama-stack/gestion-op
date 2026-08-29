@@ -1,9 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { db, auth } from '../firebase';
-import { 
-  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot
+import {
+  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where, or
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+
+// Statuts "clos" : un OP dans un de ces statuts n'évoluera plus. Tout le reste
+// ("en cours" dans un circuit quelconque) doit rester chargé en permanence, quel que
+// soit l'exercice, pour ne jamais disparaître d'un circuit de validation.
+const STATUTS_CLOS = ['ARCHIVE', 'SUPPRIME'];
 
 const AppContext = createContext(null);
 
@@ -68,7 +73,31 @@ export function AppProvider({ user, children }) {
   const [lignesBudgetaires, setLignesBudgetaires] = useState([]);
   const [beneficiaires, setBeneficiaires] = useState([]);
   const [budgets, setBudgets] = useState([]);
-  const [ops, setOps] = useState([]);
+  // `ops` combine deux sources : opsLive (chargement temps réel, exercice actif +
+  // tout ce qui est encore "en cours" ailleurs) et opsHistorique (exercices clos
+  // chargés à la demande via chargerExerciceOps, voir plus bas).
+  const [opsLive, setOpsLive] = useState([]);
+  const [opsHistorique, setOpsHistorique] = useState([]);
+  const exercicesChargeesRef = useRef(new Set());
+  const setOps = setOpsLive; // les mises à jour optimistes ciblent toujours des OP "vivants"
+  const ops = useMemo(() => {
+    if (opsHistorique.length === 0) return opsLive;
+    const ids = new Set(opsLive.map(o => o.id));
+    const extra = opsHistorique.filter(o => !ids.has(o.id));
+    return extra.length ? [...opsLive, ...extra] : opsLive;
+  }, [opsLive, opsHistorique]);
+
+  const chargerExerciceOps = useCallback(async (exerciceId) => {
+    if (!exerciceId || exercicesChargeesRef.current.has(exerciceId)) return;
+    exercicesChargeesRef.current.add(exerciceId);
+    try {
+      const snap = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', exerciceId)));
+      setOpsHistorique(prev => [...prev, ...snap.docs.map(d => ({ id: d.id, ...d.data() }))]);
+    } catch (e) {
+      exercicesChargeesRef.current.delete(exerciceId);
+      console.error('Erreur chargement OP historique:', e);
+    }
+  }, []);
   const [bordereaux, setBordereaux] = useState([]);
   
   // Loading
@@ -165,27 +194,25 @@ export function AppProvider({ user, children }) {
         // --- CHARGEMENT TEMPS RÉEL (onSnapshot) ---
         console.log("AppContext: Accrochage des écouteurs temps réel");
 
-        // Écouteur OPs
-        const opsQuery = query(collection(db, 'ops'));
-        // C'est le nouveau code à mettre à la place
-unsubOps = onSnapshot(opsQuery, (snapshot) => {
-  // Functional update : On garantit à React qu'on crée un NOUVEL objet tableau
-  // React NE PEUT PAS ignorer cette mise à jour.
-  setOps((_prevOps) => {
-    // DIAGNOSTIC : On vérifie exactement ce qui vient d'arriver
-    snapshot.docChanges().forEach((change) => {
-      if (change.type === "modified") {
-        console.log("AppContext: J'ai BIEN REÇU une modification pour l'OP ID :", change.doc.id);
-      }
-    });
-
-    // On retourne le nouveau tableau d'OPs
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-  });
-}, (error) => {
-  console.error('Erreur écoute temps réel OPs:', error);
-  window.alert("Impossible de recevoir les mises à jour des ordres de paiement en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
-});
+        // Écouteur OPs — se limite à l'exercice actif + tout ce qui est encore "en
+        // cours" (non clos) dans n'importe quel exercice + les OP importés historiques,
+        // pour éviter de charger indéfiniment tous les OP archivés des années passées.
+        // Le reste (exercices clos consultés via "afficher exercice antérieur") est
+        // chargé à la demande par chargerExerciceOps.
+        const activeExerciceId = exercicesSnap.docs.find(d => d.data().actif)?.id;
+        const opsQuery = activeExerciceId
+          ? query(collection(db, 'ops'), or(
+              where('exerciceId', '==', activeExerciceId),
+              where('statut', 'not-in', STATUTS_CLOS),
+              where('importAnterieur', '==', true)
+            ))
+          : query(collection(db, 'ops'), where('statut', 'not-in', STATUTS_CLOS));
+        unsubOps = onSnapshot(opsQuery, (snapshot) => {
+          setOpsLive(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (error) => {
+          console.error('Erreur écoute temps réel OPs:', error);
+          window.alert("Impossible de recevoir les mises à jour des ordres de paiement en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
+        });
 
         // Écouteur Bordereaux
         const btQuery = query(collection(db, 'bordereaux'), orderBy('createdAt', 'desc'));
@@ -240,6 +267,7 @@ unsubOps = onSnapshot(opsQuery, (snapshot) => {
     beneficiaires, setBeneficiaires,
     budgets, setBudgets,
     ops, setOps,
+    chargerExerciceOps,
     bordereaux, setBordereaux,
     // Navigation
     currentPage, setCurrentPage,
@@ -266,6 +294,7 @@ unsubOps = onSnapshot(opsQuery, (snapshot) => {
     beneficiaires, setBeneficiaires,
     budgets, setBudgets,
     ops, setOps,
+    chargerExerciceOps,
     bordereaux, setBordereaux,
     currentPage, setCurrentPage,
     historiqueParams, setHistoriqueParams,

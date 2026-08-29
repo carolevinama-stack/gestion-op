@@ -78,7 +78,7 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
-  const { projet, sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams } = useAppContext();
+  const { projet, sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams, chargerExerciceOps } = useAppContext();
   const activeSource = activeBudgetSource || sources[0]?.id || null;
   const setActiveSource = (sourceId) => setActiveBudgetSource(sourceId);
 
@@ -109,6 +109,7 @@ const PageBudget = () => {
   const removeToast = useCallback((uid) => setToasts(prev => prev.filter(t => t.uid !== uid)), []);
 
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
+  useEffect(() => { if (showAnterieur && selectedExercice) chargerExerciceOps(selectedExercice); }, [showAnterieur, selectedExercice, chargerExerciceOps]);
   const currentExerciceObj = exercices.find(e => e.id === currentExerciceId);
   const currentSourceObj = sources.find(s => s.id === activeSource);
   const accent = currentSourceObj?.couleur || P.green;

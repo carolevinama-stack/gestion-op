@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -78,7 +78,7 @@ const formatDate = (ds) => {
 // COMPOSANT PRINCIPAL : ARCHIVES
 // ============================================================
 const PageArchives = () => {
-  const { projet, sources, exercices, beneficiaires, ops, userProfile } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, userProfile, chargerExerciceOps } = useAppContext();
   
   const [subTabArch, setSubTabArch] = useState('A_ARCHIVER');
   const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
@@ -115,6 +115,7 @@ const PageArchives = () => {
     .sort((a,b) => getNumOp(b.numero) - getNumOp(a.numero)), [opsForSource]);
 
   const currentExerciceIdArch = showAnterieurArch ? selectedExerciceArch : exerciceActif?.id;
+  useEffect(() => { if (showAnterieurArch && selectedExerciceArch) chargerExerciceOps(selectedExerciceArch); }, [showAnterieurArch, selectedExerciceArch, chargerExerciceOps]);
   const opsForSourceClasses = useMemo(() => ops.filter(op => op.exerciceId === currentExerciceIdArch && op.sourceId === activeSourceBT), [ops, activeSourceBT, currentExerciceIdArch]);
   const opsArchives = useMemo(() => opsForSourceClasses
     .filter(op => op.statut === 'ARCHIVE')

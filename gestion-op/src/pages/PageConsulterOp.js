@@ -154,11 +154,12 @@ const statutConfig = {
 const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A', ANNULATION: '#C43E3E' };
 
 const PageConsulterOp = () => {
-  const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions, userProfile } = useAppContext();
+  const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions, userProfile, chargerExerciceOps } = useAppContext();
   const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
   const [showAnterieur, setShowAnterieur] = useState(false);
   const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
+  useEffect(() => { if (showAnterieur && selectedExercice) chargerExerciceOps(selectedExercice); }, [showAnterieur, selectedExercice, chargerExerciceOps]);
   const [selectedOp, setSelectedOp] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchText, setSearchText] = useState('');
