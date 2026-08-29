@@ -202,13 +202,25 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       const exportData = displayOps.map(op => ({
         'N° OP': op.numero,
         'Type': op.type,
+        'Statut': (op.statut || '').replace('_', ' '),
         'Bénéficiaire': sanitizeForExport(getBenNom(op)),
         'Objet': sanitizeForExport(op.objet || ''),
-        'ligne': op.ligneBudgetaire,
-        'dotation': Number(op.dotationLigne || 0),
+        'Source': getSrcSigle(op.sourceId),
+        'Ligne': op.ligneBudgetaire,
+        'Dotation': Number(op.dotationLigne || 0),
         'Montant': Number(op.montant || 0),
-        'engagemen anterieur': Number(op.engagementAnterieur || 0),
-        'date op': formatDate(op.dateCreation)
+        'Engagement antérieur': Number(op.engagementAnterieur || 0),
+        'Montant payé': Number(op.totalPaye || 0),
+        'Solde': Number(op.solde || 0),
+        'Réf. paiement': sanitizeForExport(op.refs || ''),
+        'N° Bordereau CF': op.bordereauCF || '',
+        'Date transmission CF': formatDate(op.dateTransmissionCF) || '',
+        'Date visa CF': formatDate(op.dateVisaCF) || '',
+        'N° Bordereau AC': op.bordereauAC || '',
+        'Date transmission AC': formatDate(op.dateTransmissionAC) || '',
+        'Date paiement': formatDate(op.datePaiement) || '',
+        'OP Provisoire rattaché': sanitizeForExport(op.opProvisoireNumero || ''),
+        'Date OP': formatDate(op.dateCreation) || ''
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
