@@ -103,7 +103,9 @@ const PageArchives = () => {
   const exerciceActif = exercices.find(e => e.actif);
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
-  const opsAArchiver = useMemo(() => opsForSource.filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE'), [opsForSource]);
+  const opsAArchiver = useMemo(() => opsForSource
+    .filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE')
+    .sort((a,b) => ((b.datePaiement||b.dateVisaCF||'')).localeCompare(a.datePaiement||a.dateVisaCF||'')), [opsForSource]);
   const opsArchives = useMemo(() => opsForSource.filter(op => op.statut === 'ARCHIVE'), [opsForSource]);
 
   const boitesDisponibles = useMemo(() => {

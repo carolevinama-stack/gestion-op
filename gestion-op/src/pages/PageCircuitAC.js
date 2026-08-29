@@ -47,6 +47,7 @@ const PageCircuitAC = () => {
   const [pageBT, setPageBT] = useState(1);
   const BT_PAGE_SIZE = 50;
   const [triBT, setTriBT] = useState('NUM_DESC');
+  const [filtreStatutBT, setFiltreStatutBT] = useState('TOUS');
   const [searchSuivi, setSearchSuivi] = useState('');
   
   // Modales
@@ -78,9 +79,9 @@ const PageCircuitAC = () => {
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
   const opsEligiblesAC = useMemo(() => opsForSource.filter(op => op.statut === 'VISE_CF' && !op.bordereauAC && op.statut !== 'ANNULE'), [opsForSource]);
-  const opsTransmisAC = useMemo(() => opsForSource.filter(op => (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && op.statut !== 'ANNULE'), [opsForSource]);
-  const opsDifferesAC = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_AC'), [opsForSource]);
-  const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC' && op.type !== 'REJET'), [opsForSource]);
+  const opsTransmisAC = useMemo(() => opsForSource.filter(op => (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && op.statut !== 'ANNULE').sort((a,b) => (b.dateTransmissionAC||'').localeCompare(a.dateTransmissionAC||'')), [opsForSource]);
+  const opsDifferesAC = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_AC').sort((a,b) => (b.dateDiffere||'').localeCompare(a.dateDiffere||'')), [opsForSource]);
+  const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC' && op.type !== 'REJET').sort((a,b) => (b.dateRejet||'').localeCompare(a.dateRejet||'')), [opsForSource]);
   
   const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === exerciceActif?.id && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, exerciceActif]);
 
@@ -543,7 +544,10 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
   const getNumBT = (numero) => { const m = (numero||'').match(/-(\d+)\//); return m ? parseInt(m[1]) : 0; };
 
   const renderBordereaux = (btList) => {
-    const sortedBts = filterBordereaux(btList).sort((a,b)=>{
+    const enCoursCount = btList.filter(bt => bt.statut === 'EN_COURS').length;
+    const searched = filterBordereaux(btList);
+    const statusFiltered = filtreStatutBT === 'EN_COURS' ? searched.filter(bt => bt.statut === 'EN_COURS') : searched;
+    const sortedBts = statusFiltered.sort((a,b)=>{
       if(triBT==='DATE_ASC') return (a.dateTransmission||a.createdAt||'').localeCompare(b.dateTransmission||b.createdAt||'');
       if(triBT==='DATE_DESC') return (b.dateTransmission||b.createdAt||'').localeCompare(a.dateTransmission||a.createdAt||'');
       return getNumBT(b.numero) - getNumBT(a.numero);
@@ -551,15 +555,20 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
     const totalPagesBT = Math.max(1, Math.ceil(sortedBts.length / BT_PAGE_SIZE));
     const pageBts = sortedBts.slice((pageBT-1)*BT_PAGE_SIZE, pageBT*BT_PAGE_SIZE);
     return <div style={crd}>
-      <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:16}}>
-        <div style={{position:'relative',maxWidth:400,flex:'1 1 240px'}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
-          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>{setSearchBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
+      <div style={{position:'relative',maxWidth:400,marginBottom:14}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
+        <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>{setSearchBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
+      </div>
+      <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+        <div style={{display:'flex',gap:8}}>
+          <STab active={filtreStatutBT==='TOUS'} label="Tous" count={btList.length} color={P.green} onClick={()=>{setFiltreStatutBT('TOUS');setPageBT(1);}}/>
+          <STab active={filtreStatutBT==='EN_COURS'} label="En cours" count={enCoursCount} color={P.gold} onClick={()=>{setFiltreStatutBT('EN_COURS');setPageBT(1);}}/>
         </div>
-        <select value={triBT} onChange={e=>{setTriBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,width:220,borderRadius:10,border:`1px solid ${P.border}`,height:38}}>
-          <option value="NUM_DESC">N° (récent → ancien)</option>
-          <option value="DATE_ASC">Date (ancienne → récente)</option>
-          <option value="DATE_DESC">Date (récente → ancienne)</option>
-        </select>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <span style={{fontSize:11,color:P.textMuted,fontWeight:700}}>TRIER :</span>
+          <STab active={triBT==='NUM_DESC'} label="N° ↓" color={P.oliveDark} onClick={()=>{setTriBT('NUM_DESC');setPageBT(1);}}/>
+          <STab active={triBT==='DATE_ASC'} label="Date ↑" color={P.oliveDark} onClick={()=>{setTriBT('DATE_ASC');setPageBT(1);}}/>
+          <STab active={triBT==='DATE_DESC'} label="Date ↓" color={P.oliveDark} onClick={()=>{setTriBT('DATE_DESC');setPageBT(1);}}/>
+        </div>
       </div>
       {sortedBts.length===0?<Empty text="Aucun bordereau"/>:<>
       <div style={{maxHeight:'65vh',overflowY:'auto'}}>
