@@ -97,6 +97,27 @@ const ExBadge = ({ exerciceId, exercices, exerciceActif }) => {
   return <span style={{ background: P.redLight, color: P.red, padding: '1px 5px', borderRadius: 4, fontSize: 9, fontWeight: 700, marginLeft: 6 }}>{ex.annee}</span>;
 };
 
+const ModalAlert = ({ data, onClose }) => {
+  if (!data) return null;
+  const isConfirm = data.type === 'confirm';
+  const color = data.type === 'error' ? P.red : isConfirm ? P.gold : P.green;
+
+  return <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.4)', backdropFilter:'blur(4px)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center'}}>
+    <div style={{background:'white', borderRadius:16, padding:24, width:420, boxShadow:'0 10px 40px rgba(0,0,0,.2)'}}>
+      <h3 style={{color, margin:'0 0 12px', textAlign:'center'}}>{data.title}</h3>
+      <p style={{color:'#444', fontSize:14, marginBottom:24, whiteSpace:'pre-line', textAlign:'center', lineHeight:1.5}}>{data.message}</p>
+      <div style={{display:'flex', gap:12, justifyContent:'center'}}>
+        {isConfirm && <button onClick={onClose} style={{padding:'10px 24px', borderRadius:8, border:`1px solid ${P.border}`, background:'#f9f9f9', cursor:'pointer', fontWeight:600, color:P.text}}>Annuler</button>}
+        <button onClick={() => {
+          const confirmFn = data.onConfirm;
+          onClose();
+          if(isConfirm && confirmFn) setTimeout(() => confirmFn(), 150);
+        }} style={{padding:'10px 32px', borderRadius:8, border:'none', background:color, color:'white', cursor:'pointer', fontWeight:700, minWidth:120}}>{isConfirm ? 'Confirmer' : 'OK'}</button>
+      </div>
+    </div>
+  </div>;
+};
+
 const th = { padding: '12px 10px', fontSize: 11, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', textAlign: 'left', borderBottom: `1px solid ${P.border}`, background: '#FAFAF8', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1 };
 const td = { padding: '10px 10px', fontSize: 11, borderBottom: '1px solid #eee', color: P.text };
 const tdR = { ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 };
@@ -118,6 +139,9 @@ export default function PageRapport() {
   const [editId, setEditId] = useState(null);
   const [editText, setEditText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [alertData, setAlertData] = useState(null);
+  const notify = (type, title, message) => setAlertData({ type, title, message });
+  const ask = (title, message, onConfirm) => setAlertData({ type: 'confirm', title, message, onConfirm });
 
   const getBen = useCallback((op) => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || op.beneficiaireNom || '—', [beneficiaires]);
   const getSrc = useCallback((op) => sources.find(s => s.id === op.sourceId)?.sigle || op.sourceSigle || '—', [sources]);
@@ -247,8 +271,8 @@ export default function PageRapport() {
       }
       await batch.commit();
       setSel([]); setObsText('');
-      alert(`Observation enregistrée pour ${sel.length} OP.`);
-    } catch (e) { alert('Erreur : ' + e.message); }
+      notify('success', 'Enregistré', `Observation enregistrée pour ${sel.length} OP.`);
+    } catch (e) { notify('error', 'Erreur', e.message); }
     setSavingObs(false);
   };
 
@@ -257,38 +281,40 @@ export default function PageRapport() {
       const v = editText.trim() || null;
       await updateDoc(doc(db, 'ops', id), { observation: v, updatedAt: new Date().toISOString() });
       setEditId(null); setEditText('');
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { notify('error', 'Erreur', e.message); }
   };
 
-  const handleTraite = async () => {
+  const handleTraite = () => {
     const extras = sel.filter(id => ops.find(o => o.id === id)?.importAnterieur);
-    if (extras.length === 0) { alert('Sélectionnez au moins un OP importé.'); return; }
-    if (!window.confirm(`Marquer ${extras.length} OP importés comme "Traité" ?\nIls seront déplacés dans l'onglet "Importés Traités".`)) return;
-    try {
-      const batch = writeBatch(db);
-      for (const id of extras) {
-        batch.update(doc(db, 'ops', id), { statut: 'TRAITE', updatedAt: new Date().toISOString() });
-      }
-      await batch.commit();
-      setSel([]); 
-      alert(`${extras.length} OP marqué(s) comme traité(s).`);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    if (extras.length === 0) { notify('error', 'Sélection requise', 'Sélectionnez au moins un OP importé.'); return; }
+    ask('Marquer comme traité', `Marquer ${extras.length} OP importés comme "Traité" ?\nIls seront déplacés dans l'onglet "Importés Traités".`, async () => {
+      try {
+        const batch = writeBatch(db);
+        for (const id of extras) {
+          batch.update(doc(db, 'ops', id), { statut: 'TRAITE', updatedAt: new Date().toISOString() });
+        }
+        await batch.commit();
+        setSel([]);
+        notify('success', 'Terminé', `${extras.length} OP marqué(s) comme traité(s).`);
+      } catch (e) { notify('error', 'Erreur', e.message); }
+    });
   };
 
-  const handleUnTraite = async () => {
+  const handleUnTraite = () => {
     if (sel.length === 0) return;
-    if (!window.confirm(`Remettre ${sel.length} OP dans les rapports en cours ?`)) return;
-    try {
-      const batch = writeBatch(db);
-      for (const id of sel) {
-        const op = ops.find(o => o.id === id);
-        const prev = op?.datePaiement ? 'PAYE' : op?.dateTransmissionAC ? 'TRANSMIS_AC' : op?.dateVisaCF ? 'VISE_CF' : op?.dateTransmissionCF ? 'TRANSMIS_CF' : 'EN_COURS';
-        batch.update(doc(db, 'ops', id), { statut: prev, updatedAt: new Date().toISOString() });
-      }
-      await batch.commit();
-      setSel([]); 
-      alert(`OP remis dans les rapports.`);
-    } catch (e) { alert('Erreur : ' + e.message); }
+    ask('Remettre en circuit', `Remettre ${sel.length} OP dans les rapports en cours ?`, async () => {
+      try {
+        const batch = writeBatch(db);
+        for (const id of sel) {
+          const op = ops.find(o => o.id === id);
+          const prev = op?.datePaiement ? 'PAYE' : op?.dateTransmissionAC ? 'TRANSMIS_AC' : op?.dateVisaCF ? 'VISE_CF' : op?.dateTransmissionCF ? 'TRANSMIS_CF' : 'EN_COURS';
+          batch.update(doc(db, 'ops', id), { statut: prev, updatedAt: new Date().toISOString() });
+        }
+        await batch.commit();
+        setSel([]);
+        notify('success', 'Terminé', 'OP remis dans les rapports.');
+      } catch (e) { notify('error', 'Erreur', e.message); }
+    });
   };
 
   // === IMPORT / EXPORT EXCEL ===
@@ -300,7 +326,7 @@ export default function PageRapport() {
       ws['!cols'] = Object.keys(tpl[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Canevas');
       XLSX.writeFile(wb, 'Canevas_Import_OP_Anterieurs.xlsx');
-    } catch (e) { alert('Erreur : ' + e.message); }
+    } catch (e) { notify('error', 'Erreur', e.message); }
   };
 
   const handleImport = async (e) => {
@@ -311,7 +337,7 @@ export default function PageRapport() {
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data); const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws);
-      if (rows.length === 0) { alert('Fichier vide.'); setImporting(false); return; }
+      if (rows.length === 0) { notify('error', 'Fichier vide', 'Le fichier sélectionné ne contient aucune donnée.'); setImporting(false); return; }
       let imp = 0, skip = 0;
       const fmtDate = (v) => { if (!v) return null; if (typeof v === 'number') { const d = new Date((v - 25569) * 86400000); return d.toISOString().split('T')[0]; } return String(v).trim(); };
 
@@ -346,9 +372,9 @@ export default function PageRapport() {
         });
         imp++;
       }
-      alert(`Import terminé : ${imp} OP importé(s), ${skip} ignoré(s).`); 
-      window.location.reload();
-    } catch (err) { alert('Erreur : ' + err.message); }
+      notify('success', 'Import terminé', `${imp} OP importé(s), ${skip} ignoré(s).`);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) { notify('error', 'Erreur', err.message); }
     setImporting(false); e.target.value = '';
   };
 
@@ -443,7 +469,7 @@ export default function PageRapport() {
 
       const fileNameDate = dateRef.split('-').reverse().join('-');
       XLSX.writeFile(wb, `OP EN TRAITEMENT AU ${fileNameDate}.xlsx`);
-    } catch (err) { alert('Erreur : ' + err.message); }
+    } catch (err) { notify('error', 'Erreur', err.message); }
   };
 
   const ObsCell = ({ op }) => {
@@ -487,6 +513,7 @@ export default function PageRapport() {
 
   return (
     <div>
+      <ModalAlert data={alertData} onClose={() => setAlertData(null)} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: P.greenDark, margin: 0 }}>Rapport Comptable</h1>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>

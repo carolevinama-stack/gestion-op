@@ -86,6 +86,8 @@ const PageBudget = () => {
   const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
   const [showModal, setShowModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pwdPurpose, setPwdPurpose] = useState('correction');
+  const [confirmDeleteData, setConfirmDeleteData] = useState(null);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [selectedLigne, setSelectedLigne] = useState('');
   const [budgetLignes, setBudgetLignes] = useState([]);
@@ -144,12 +146,18 @@ const PageBudget = () => {
       showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
       return;
     }
+    setPwdPurpose('correction');
     setPassword(''); setShowPasswordModal(true);
   };
 
   const verifyPasswordAndEdit = () => {
-    if (password === projet?.motDePasseAdmin) { setShowPasswordModal(false); setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true); }
-    else { showToast('error', 'Mot de passe incorrect'); }
+    if (password !== projet?.motDePasseAdmin) { showToast('error', 'Mot de passe incorrect'); return; }
+    setShowPasswordModal(false);
+    if (pwdPurpose === 'delete') {
+      setConfirmDeleteData({ title: 'Supprimer le budget', message: `Supprimer définitivement "${getVersionLabel(currentBudget)}" ?` });
+    } else {
+      setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
+    }
   };
 
   const openRevisionModal = () => { setMotifRevision(''); setNomRevision(`Budget Révisé N°${(latestVersion?.version || 1)}`); setDateNotification(new Date().toISOString().split('T')[0]); setShowRevisionModal(true); };
@@ -277,14 +285,17 @@ const PageBudget = () => {
     setSaving(false);
   };
 
-  const handleDeleteBudget = async () => {
+  const handleDeleteBudget = () => {
     if (!currentBudget) return;
     const totaux = getTotaux(currentBudget);
     if (totaux.engagement > 0) { showToast('error', 'Suppression impossible', `Ce budget a ${formatMontant(totaux.engagement)} FCFA d'engagements. Supprimez d'abord les OP liés.`); return; }
     if (!projet?.motDePasseAdmin) { showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.'); return; }
-    const password = window.prompt('Mot de passe requis pour supprimer :');
-    if (password !== projet.motDePasseAdmin) { if (password !== null) showToast('error', 'Mot de passe incorrect'); return; }
-    if (!window.confirm(`Supprimer définitivement "${getVersionLabel(currentBudget)}" ?`)) return;
+    setPwdPurpose('delete');
+    setPassword(''); setShowPasswordModal(true);
+  };
+
+  const executeDeleteBudget = async () => {
+    setConfirmDeleteData(null);
     setSaving(true);
     try {
       await deleteDoc(doc(db, 'budgets', currentBudget.id));
@@ -594,7 +605,7 @@ const PageBudget = () => {
       {showPasswordModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
           <div style={{ background: 'white', borderRadius: 16, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 28px', background: P.orange, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>{Icon.lock('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Correction du budget</span></div>
+            <div style={{ padding: '20px 28px', background: P.orange, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>{Icon.lock('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>{pwdPurpose === 'delete' ? 'Suppression du budget' : 'Correction du budget'}</span></div>
             <div style={{ padding: '24px 28px' }}>
               <p style={{ marginBottom: 16, color: P.textSec, fontSize: 13, lineHeight: 1.5 }}>Cette action nécessite un mot de passe administrateur.</p>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOT DE PASSE</label>
@@ -606,6 +617,18 @@ const PageBudget = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {confirmDeleteData && (
+        <ConfirmModal
+          title={confirmDeleteData.title}
+          message={confirmDeleteData.message}
+          confirmLabel="Supprimer"
+          confirmColor={P.red}
+          icon={Icon.trash('white', 18)}
+          onConfirm={executeDeleteBudget}
+          onCancel={() => setConfirmDeleteData(null)}
+        />
       )}
 
      {/* ==================== MODAL IMPORT ==================== */}
