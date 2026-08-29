@@ -1,14 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { db, auth } from '../firebase';
 import {
-  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where, or
+  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-
-// Statuts "clos" : un OP dans un de ces statuts n'évoluera plus. Tout le reste
-// ("en cours" dans un circuit quelconque) doit rester chargé en permanence, quel que
-// soit l'exercice, pour ne jamais disparaître d'un circuit de validation.
-const STATUTS_CLOS = ['ARCHIVE', 'SUPPRIME'];
 
 const AppContext = createContext(null);
 
@@ -194,19 +189,10 @@ export function AppProvider({ user, children }) {
         // --- CHARGEMENT TEMPS RÉEL (onSnapshot) ---
         console.log("AppContext: Accrochage des écouteurs temps réel");
 
-        // Écouteur OPs — se limite à l'exercice actif + tout ce qui est encore "en
-        // cours" (non clos) dans n'importe quel exercice + les OP importés historiques,
-        // pour éviter de charger indéfiniment tous les OP archivés des années passées.
-        // Le reste (exercices clos consultés via "afficher exercice antérieur") est
-        // chargé à la demande par chargerExerciceOps.
-        const activeExerciceId = exercicesSnap.docs.find(d => d.data().actif)?.id;
-        const opsQuery = activeExerciceId
-          ? query(collection(db, 'ops'), or(
-              where('exerciceId', '==', activeExerciceId),
-              where('statut', 'not-in', STATUTS_CLOS),
-              where('importAnterieur', '==', true)
-            ))
-          : query(collection(db, 'ops'), where('statut', 'not-in', STATUTS_CLOS));
+        // Écouteur OPs — CORRECTIF TEMPORAIRE : revenu au chargement complet (comme
+        // avant), le temps de corriger la requête ciblée qui a fait planter la
+        // réception temps réel (limitation Firestore sur or()+not-in). À reprendre.
+        const opsQuery = query(collection(db, 'ops'));
         unsubOps = onSnapshot(opsQuery, (snapshot) => {
           setOpsLive(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         }, (error) => {
