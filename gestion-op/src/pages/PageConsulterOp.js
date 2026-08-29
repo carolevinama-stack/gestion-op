@@ -146,6 +146,9 @@ const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A'
 const PageConsulterOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions } = useAppContext();
   const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
+  const [showAnterieur, setShowAnterieur] = useState(false);
+  const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
+  const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
   const [selectedOp, setSelectedOp] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -203,7 +206,7 @@ const PageConsulterOp = () => {
   }, []);
 
   const opsSource = ops
-    .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.statut !== 'SUPPRIME')
+    .filter(op => op.sourceId === activeSource && op.exerciceId === currentExerciceId && op.statut !== 'SUPPRIME')
     .sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
 
   const opsFiltered = opsSource.filter(op => {
@@ -264,7 +267,7 @@ const PageConsulterOp = () => {
   const selectedRib = beneficiaireRibs[form.ribIndex] || beneficiaireRibs[0] || null;
 
   const currentBudget = budgets
-    .filter(b => b.sourceId === activeSource && b.exerciceId === exerciceActif?.id)
+    .filter(b => b.sourceId === activeSource && b.exerciceId === currentExerciceId)
     .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
   const selectedLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
 
@@ -279,7 +282,7 @@ const PageConsulterOp = () => {
   const getEngagementsAnterieurs = () => {
     if (!form.ligneBudgetaire || !selectedOp) return 0;
     const allOps = ops
-      .filter(op => op.sourceId === activeSource && op.exerciceId === exerciceActif?.id && op.statut !== 'SUPPRIME')
+      .filter(op => op.sourceId === activeSource && op.exerciceId === currentExerciceId && op.statut !== 'SUPPRIME')
       .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
     let cumul = 0;
     for (const op of allOps) {
@@ -487,7 +490,7 @@ const PageConsulterOp = () => {
         libelleLigne: newBudgetLigne?.libelle || selectedOp.libelleLigne || '',
         dotationFigee: form.ligneBudgetaire !== selectedOp.ligneBudgetaire 
           ? (budgets
-              .filter(b => b.sourceId === activeSource && b.exerciceId === exerciceActif?.id)
+              .filter(b => b.sourceId === activeSource && b.exerciceId === currentExerciceId)
               .sort((a, b) => (b.version || 1) - (a.version || 1))[0]
               ?.lignes?.find(l => l.code === form.ligneBudgetaire)?.dotation ?? 0)
           : (selectedOp.dotationFigee ?? 0),
@@ -672,6 +675,22 @@ const PageConsulterOp = () => {
             {sources.map(s => (
               <SourceCard key={s.id} source={s} active={activeSource === s.id} onClick={() => { setActiveSource(s.id); setSelectedOp(null); setSearchText(''); setIsEditMode(false); }} />
             ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
+            <div>
+              <span style={{ fontSize: 12, color: P.labelMuted }}>Exercice : </span>
+              <strong style={{ fontSize: 14, color: accent }}>{(showAnterieur ? exercices?.find(e => e.id === selectedExercice) : exerciceActif)?.annee || 'Non défini'}</strong>
+              {!showAnterieur && exerciceActif && <span style={{ background: P.olivePale, color: '#2e7d32', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700, marginLeft: 8 }}>Actif</span>}
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: P.labelMuted }}>
+              <input type="checkbox" checked={showAnterieur} onChange={(e) => { setShowAnterieur(e.target.checked); if (!e.target.checked) setSelectedExercice(exerciceActif?.id); setSelectedOp(null); setSearchText(''); setIsEditMode(false); }} />
+              Exercices antérieurs
+            </label>
+            {showAnterieur && (
+              <select value={selectedExercice || ''} onChange={(e) => { setSelectedExercice(e.target.value); setSelectedOp(null); setSearchText(''); setIsEditMode(false); }} style={{ ...fieldStyle, width: 'auto', padding: '6px 10px' }}>
+                {exercices?.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
+              </select>
+            )}
           </div>
         </div>
       </div>
