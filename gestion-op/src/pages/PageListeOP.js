@@ -38,6 +38,7 @@ const PageListeOP = () => {
   const [modalSuppression, setModalSuppression] = useState(false);
   const [corbeilleSearch, setCorbeilleSearch] = useState('');
   const [corbeillePage, setCorbeillePage] = useState(1);
+  const [corbeilleSource, setCorbeilleSource] = useState('ALL');
   const [opARestaurer, setOpARestaurer] = useState(null);
   const [pwdRestaurer, setPwdRestaurer] = useState('');
   const [pwdRestaurerErr, setPwdRestaurerErr] = useState('');
@@ -70,11 +71,21 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   }, [ops, exerciceActif]);
 
+  const opsSupprimesParSource = useMemo(() => {
+    const counts = {};
+    opsSupprimes.forEach(op => { counts[op.sourceId] = (counts[op.sourceId] || 0) + 1; });
+    return counts;
+  }, [opsSupprimes]);
+
   const opsSupprimesFiltres = useMemo(() => {
-    if (!corbeilleSearch) return opsSupprimes;
-    const s = corbeilleSearch.toLowerCase();
-    return opsSupprimes.filter(op => `${op.numero} ${getBenNom(op)} ${op.objet || ''}`.toLowerCase().includes(s));
-  }, [opsSupprimes, corbeilleSearch]);
+    let list = opsSupprimes;
+    if (corbeilleSource !== 'ALL') list = list.filter(op => op.sourceId === corbeilleSource);
+    if (corbeilleSearch) {
+      const s = corbeilleSearch.toLowerCase();
+      list = list.filter(op => `${op.numero} ${getBenNom(op)} ${op.objet || ''}`.toLowerCase().includes(s));
+    }
+    return list;
+  }, [opsSupprimes, corbeilleSource, corbeilleSearch]);
 
   const opsSupprimesPage = useMemo(() => {
     const start = (corbeillePage - 1) * CORBEILLE_PAGE_SIZE;
@@ -215,7 +226,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
-          <button onClick={() => { setModalSuppression(true); setCorbeilleSearch(''); setCorbeillePage(1); }} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
+          <button onClick={() => { setModalSuppression(true); setCorbeilleSearch(''); setCorbeillePage(1); setCorbeilleSource('ALL'); }} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
       </div>
@@ -445,11 +456,21 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
         <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center'}}>
           <div style={{background:'#fff', borderRadius:16, width:1100, maxHeight:'85vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
             <div style={{padding:20, background:P.red, color:'#fff', display:'flex', justifyContent:'space-between'}}>
-              <b>CORBEILLE (OP SUPPRIMÉS)</b>
+              <b>CORBEILLE (OP SUPPRIMÉS) — {opsSupprimes.length}</b>
               <button onClick={() => setModalSuppression(false)} style={{color:'#fff', background:'none', border:'none', cursor:'pointer'}}>FERMER</button>
             </div>
-            <div style={{padding:'14px 20px 0'}}>
-              <div style={{position:'relative', maxWidth:320}}>
+            <div style={{padding:'14px 20px 0', display:'flex', flexWrap:'wrap', gap:15, alignItems:'flex-end', justifyContent:'space-between'}}>
+              <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                <button onClick={() => { setCorbeilleSource('ALL'); setCorbeillePage(1); }} style={{padding:'6px 14px',borderRadius:8,border:corbeilleSource==='ALL'?`2px solid ${P.text}`:'2px solid transparent',background:corbeilleSource==='ALL'?'#fff':'#EDEAE5',color:corbeilleSource==='ALL'?P.text:P.textSec,fontWeight:700,cursor:'pointer',fontSize:12, display:'flex', alignItems:'center', gap:6}}>
+                  TOUTES SOURCES <span style={{background:corbeilleSource==='ALL'?P.border:'#fff', padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700}}>{opsSupprimes.length}</span>
+                </button>
+                {sources.map(s => (
+                  <button key={s.id} onClick={() => { setCorbeilleSource(s.id); setCorbeillePage(1); }} style={{padding:'6px 14px',borderRadius:8,border:corbeilleSource===s.id?`2px solid ${s.couleur}`:'2px solid transparent',background:corbeilleSource===s.id?s.couleur:'#EDEAE5',color:corbeilleSource===s.id?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:12, display:'flex', alignItems:'center', gap:6}}>
+                    {s.sigle} <span style={{background:corbeilleSource===s.id?'rgba(255,255,255,.3)':'#fff', padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700}}>{opsSupprimesParSource[s.id] || 0}</span>
+                  </button>
+                ))}
+              </div>
+              <div style={{position:'relative', maxWidth:320, flex:'1 1 240px'}}>
                 <span style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)'}}>{I.search()}</span>
                 <input
                   type="text"
