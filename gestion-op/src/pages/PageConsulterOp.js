@@ -178,6 +178,8 @@ const PageConsulterOp = () => {
     setShowPwd(false);
   }, [modal]);
 
+  const [autresBeneficiairesDefinitif, setAutresBeneficiairesDefinitif] = useState(false);
+
   const [form, setForm] = useState({
     type: 'PROVISOIRE', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT',
     objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '',
@@ -231,6 +233,7 @@ const PageConsulterOp = () => {
     setSelectedOp(op);
     setIsEditMode(false);
     setEditNumero(null);
+    setAutresBeneficiairesDefinitif(false);
     setSearchText(op.numero || '');
     setShowDropdown(false);
     if (op.sourceId) setActiveSource(op.sourceId);
@@ -303,7 +306,7 @@ const PageConsulterOp = () => {
     !ops.find(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && o.statut !== 'SUPPRIME')
   ) : [];
   const opProvisoiresDefinitif = form.beneficiaireId ? ops.filter(op =>
-    op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
+    op.type === 'PROVISOIRE' && (autresBeneficiairesDefinitif || op.beneficiaireId === form.beneficiaireId) &&
     op.sourceId === activeSource &&
     !['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TRAITE', 'SUPPRIME'].includes(op.statut) &&
     !ops.find(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && o.statut !== 'SUPPRIME')
@@ -375,10 +378,31 @@ const PageConsulterOp = () => {
   const handleEnregistrerModif = async () => {
     try {
       if (!selectedOp?.id) return;
-      
+
+      if (form.type === 'ANNULATION' && !form.opProvisoireId && !form.opProvisoireManuel.trim()) {
+        showToast('error', 'Champ obligatoire', "Veuillez sélectionner ou saisir le N° d'OP Provisoire à annuler");
+        return;
+      }
+      if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length === 0 && !form.opProvisoireManuel.trim()) {
+        showToast('error', 'Champ obligatoire', "Veuillez sélectionner ou saisir le(s) N° d'OP Provisoire à régulariser");
+        return;
+      }
+      if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0) {
+        const autresBens = [...new Set(
+          (form.opProvisoireIds || [])
+            .map(id => ops.find(o => o.id === id))
+            .filter(op => op && op.beneficiaireId !== form.beneficiaireId)
+            .map(op => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A')
+        )];
+        if (autresBens.length > 0) {
+          const ok = await askConfirm('Bénéficiaire différent', `Cet OP Définitif sera rattaché à (au moins) un OP Provisoire du bénéficiaire "${autresBens.join('", "')}", différent du bénéficiaire de cet OP. Continuer ?`);
+          if (!ok) return;
+        }
+      }
+
       const newBen = beneficiaires.find(b => b.id === form.beneficiaireId);
       const newBudgetLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
-      
+
       const benRibs = newBen?.ribs || (newBen?.rib ? [{ banque: '', numero: newBen.rib }] : []);
       const ribSel = benRibs[form.ribIndex || 0];
       const newMontant = parseFloat(form.montant) || selectedOp.montant;
@@ -682,6 +706,7 @@ const PageConsulterOp = () => {
                         <select value={form.type}
                           onChange={(e) => {
                             const newType = e.target.value;
+                            setAutresBeneficiairesDefinitif(false);
                             setForm({ ...form, type: newType, opProvisoireId: '', opProvisoireNumero: '', opProvisoireIds: [], opProvisoireManuel: '',
                               tvaRecuperable: ['DIRECT', 'DEFINITIF'].includes(newType) ? null : form.tvaRecuperable });
                           }}
@@ -731,6 +756,11 @@ const PageConsulterOp = () => {
                                 accentColor="#C43E3E"
                               />
                             ) : (
+                              <div>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: '#666', marginBottom: 4, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={autresBeneficiairesDefinitif} onChange={(e) => setAutresBeneficiairesDefinitif(e.target.checked)} />
+                                Afficher aussi les OP provisoires d'un autre bénéficiaire
+                              </label>
                               <Autocomplete
                                 isMulti
                                 options={opProvisoiresDefinitif.map(op => ({ value: op.id, label: getOpProvLabel(op), searchFields: [op.numero, beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || '', String(op.montant)] }))}
@@ -753,6 +783,7 @@ const PageConsulterOp = () => {
                                 noOptionsMessage="Aucun OP provisoire disponible"
                                 accentColor="#2e7d32"
                               />
+                              </div>
                             )}
                             <div style={{ marginTop: 4 }}>
                               <div style={{ fontSize: 9, color: '#999', marginBottom: 2 }}>Hors système :</div>
@@ -794,7 +825,15 @@ const PageConsulterOp = () => {
                         <div style={{ gridColumn: '1 / 3' }}>
                           <label style={labelStyle}>NOM / RAISON SOCIALE</label>
                           {isEditMode ? (
-                            <Autocomplete options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))} value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null} onChange={(option) => setForm({ ...form, beneficiaireId: option?.value || '', ribIndex: 0 })} placeholder="Rechercher..." accentColor={accent} />
+                            <Autocomplete options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))} value={form.beneficiaireId ? { value: form.beneficiaireId, label: beneficiaires.find(b => b.id === form.beneficiaireId)?.nom || '' } : null} onChange={(option) => {
+                              const newBenId = option?.value || '';
+                              if (['ANNULATION', 'DEFINITIF'].includes(form.type) && newBenId !== form.beneficiaireId) {
+                                setAutresBeneficiairesDefinitif(false);
+                                setForm({ ...form, beneficiaireId: newBenId, ribIndex: 0, opProvisoireId: '', opProvisoireIds: [], opProvisoireNumero: '', opProvisoireManuel: '' });
+                              } else {
+                                setForm({ ...form, beneficiaireId: newBenId, ribIndex: 0 });
+                              }
+                            }} placeholder="Rechercher..." accentColor={accent} />
                           ) : (
                             <div style={{ ...fieldStyle, height: 38, display: 'flex', alignItems: 'center' }}><span style={{ fontWeight: 600 }}>{selectedBeneficiaire?.nom || 'N/A'}</span></div>
                           )}
