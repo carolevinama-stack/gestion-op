@@ -5,7 +5,6 @@ import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy 
 import { initializeApp, getApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { styles } from '../utils/styles';
-import { formatDate } from '../utils/formatters';
 
 // ==================== CONFIGURATION DES RÔLES ====================
 const ROLES = {
@@ -31,10 +30,9 @@ const ConfirmModal = ({ data, onCancel, onConfirm }) => {
 };
 
 const PageAdmin = () => {
-  const { user, userProfile, sources, exercices, lignesBudgetaires, beneficiaires, budgets, ops, bordereaux } = useAppContext();
+  const { user, userProfile } = useAppContext();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -66,70 +64,6 @@ const PageAdmin = () => {
   };
 
   useEffect(() => { loadUsers(); }, []);
-
-  // Sauvegarde manuelle : exporte toutes les collections de la base dans un classeur
-  // Excel (un onglet par collection), à conserver comme sauvegarde. Ce n'est pas une
-  // sauvegarde technique de l'infrastructure Firestore, seulement un export des données.
-  const handleExportBase = async () => {
-    setExporting(true);
-    try {
-      const XLSX = await import('xlsx');
-      const wb = XLSX.utils.book_new();
-
-      const addSheet = (nom, rows) => {
-        const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
-        if (rows.length) {
-          const colWidths = Object.keys(rows[0]).map(key => ({ wch: Math.max(String(key).length + 3, 14) }));
-          ws['!cols'] = colWidths;
-        }
-        XLSX.utils.book_append_sheet(wb, ws, nom.substring(0, 31));
-      };
-
-      addSheet('OP', ops.map(op => ({
-        'N° OP': op.numero, 'Type': op.type, 'Statut': op.statut,
-        'Source': sources.find(s => s.id === op.sourceId)?.sigle || op.sourceId,
-        'Exercice': exercices.find(e => e.id === op.exerciceId)?.annee || op.exerciceId,
-        'Bénéficiaire': op.beneficiaireNom || '', 'Ligne budgétaire': op.ligneBudgetaire || '',
-        'Montant': Number(op.montant || 0), 'Montant TVA': Number(op.montantTVA || 0),
-        'Objet': op.objet || '', 'Date création': formatDate(op.dateCreation) || '',
-        'Créé par': op.creePar || '',
-      })));
-
-      addSheet('Budgets', budgets.flatMap(b => (b.lignes || []).map(l => ({
-        'Source': sources.find(s => s.id === b.sourceId)?.sigle || b.sourceId,
-        'Exercice': exercices.find(e => e.id === b.exerciceId)?.annee || b.exerciceId,
-        'Version': b.version || 1, 'Code ligne': l.code, 'Libellé': l.libelle, 'Dotation': Number(l.dotation || 0),
-      }))));
-
-      addSheet('Bénéficiaires', beneficiaires.map(b => ({
-        'Nom': b.nom || '', 'N°CC': b.ncc || '',
-        'RIB(s)': (b.ribs || []).map(r => `${r.banque ? r.banque + ' - ' : ''}${r.numero}`).join(' / ') || b.rib || '',
-      })));
-
-      addSheet('Sources', sources.map(s => ({ 'Sigle': s.sigle || '', 'Nom': s.nom || '' })));
-      addSheet('Exercices', exercices.map(e => ({ 'Année': e.annee || '', 'Actif': e.actif ? 'Oui' : 'Non' })));
-      addSheet('Lignes budgétaires', lignesBudgetaires.map(l => ({ 'Code': l.code || '', 'Libellé': l.libelle || '' })));
-      addSheet('Bordereaux', bordereaux.map(b => ({
-        'N° Bordereau': b.numero, 'Type': b.type, 'Statut': b.statut,
-        'Nb OP': b.nbOps || (b.opsIds || []).length, 'Montant total': Number(b.totalMontant || 0),
-        'Date création': formatDate(b.dateCreation) || '', 'Date transmission': formatDate(b.dateTransmission) || '',
-      })));
-      addSheet('Utilisateurs', users.map(u => ({ 'Nom': u.nom || '', 'Email': u.email || '', 'Rôle': u.role || '', 'Actif': u.actif !== false ? 'Oui' : 'Non' })));
-
-      const journalSnap = await getDocs(collection(db, 'journal'));
-      addSheet('Journal', journalSnap.docs
-        .map(d => d.data())
-        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-        .map(j => ({ 'Date': formatDate(j.date) || '', 'Utilisateur': j.utilisateur || '', 'Action': j.action || '', 'N° OP': j.opNumero || '', 'Détails': j.details || '' })));
-
-      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      XLSX.writeFile(wb, `Sauvegarde_GestionOP_${dateStr}.xlsx`);
-      showMessage('Export terminé — vérifiez votre dossier de téléchargements.', 'success');
-    } catch (error) {
-      showMessage("Erreur lors de l'export : " + error.message, 'error');
-    }
-    setExporting(false);
-  };
 
   // Afficher un message temporaire
   const showMessage = (text, type = 'success') => {
@@ -361,19 +295,6 @@ const PageAdmin = () => {
             <span style={{ opacity: 0.7 }}>— {role.description}</span>
           </div>
         ))}
-      </div>
-
-      {/* Sauvegarde de la base */}
-      <div style={{ ...styles.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#333' }}>Sauvegarde de la base</div>
-          <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-            Télécharge toutes les données (OP, budgets, bénéficiaires, utilisateurs, journal...) dans un fichier Excel, à garder comme sauvegarde.
-          </div>
-        </div>
-        <button onClick={handleExportBase} disabled={exporting} style={{ ...styles.button, opacity: exporting ? 0.6 : 1, cursor: exporting ? 'not-allowed' : 'pointer' }}>
-          {exporting ? 'Export en cours...' : 'Exporter toute la base (Excel)'}
-        </button>
       </div>
 
       {/* Liste des utilisateurs */}

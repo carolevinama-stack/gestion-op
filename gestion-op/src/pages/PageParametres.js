@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
+import { formatDate } from '../utils/formatters';
 import PageAdmin from './PageAdmin';
 
 // ============================================================
@@ -266,10 +267,11 @@ const TabInfos = () => {
 // ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets } = useAppContext();
+  const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
-  
+
   const notify = (type, title, message) => setAlertData({ type, title, message });
   const ask = (title, message, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message, onConfirm, showPwd });
 
@@ -284,24 +286,70 @@ const TabMaintenance = () => {
     }, true);
   };
 
-  const handleExportData = () => {
+  // Sauvegarde manuelle : exporte toutes les collections de la base dans un classeur
+  // Excel (un onglet par collection), à conserver comme sauvegarde. Ce n'est pas une
+  // sauvegarde technique de l'infrastructure Firestore, seulement un export des données.
+  const handleExportData = async () => {
+    setExporting(true);
     try {
-      const dataToSave = {
-        dateExport: new Date().toISOString(),
-        projet, sources, exercices, beneficiaires, budgets, ops, bordereaux
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
+
+      const addSheet = (nom, rows) => {
+        const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+        if (rows.length) {
+          const colWidths = Object.keys(rows[0]).map(key => ({ wch: Math.max(String(key).length + 3, 14) }));
+          ws['!cols'] = colWidths;
+        }
+        XLSX.utils.book_append_sheet(wb, ws, nom.substring(0, 31));
       };
-      const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `SAUVEGARDE_BASE_PIF2_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+
+      addSheet('OP', ops.map(op => ({
+        'N° OP': op.numero, 'Type': op.type, 'Statut': op.statut,
+        'Source': sources.find(s => s.id === op.sourceId)?.sigle || op.sourceId,
+        'Exercice': exercices.find(e => e.id === op.exerciceId)?.annee || op.exerciceId,
+        'Bénéficiaire': op.beneficiaireNom || '', 'Ligne budgétaire': op.ligneBudgetaire || '',
+        'Montant': Number(op.montant || 0), 'Montant TVA': Number(op.montantTVA || 0),
+        'Objet': op.objet || '', 'Date création': formatDate(op.dateCreation) || '',
+        'Créé par': op.creePar || '',
+      })));
+
+      addSheet('Budgets', budgets.flatMap(b => (b.lignes || []).map(l => ({
+        'Source': sources.find(s => s.id === b.sourceId)?.sigle || b.sourceId,
+        'Exercice': exercices.find(e => e.id === b.exerciceId)?.annee || b.exerciceId,
+        'Version': b.version || 1, 'Code ligne': l.code, 'Libellé': l.libelle, 'Dotation': Number(l.dotation || 0),
+      }))));
+
+      addSheet('Bénéficiaires', beneficiaires.map(b => ({
+        'Nom': b.nom || '', 'N°CC': b.ncc || '',
+        'RIB(s)': (b.ribs || []).map(r => `${r.banque ? r.banque + ' - ' : ''}${r.numero}`).join(' / ') || b.rib || '',
+      })));
+
+      addSheet('Sources', sources.map(s => ({ 'Sigle': s.sigle || '', 'Nom': s.nom || '' })));
+      addSheet('Exercices', exercices.map(e => ({ 'Année': e.annee || '', 'Actif': e.actif ? 'Oui' : 'Non' })));
+      addSheet('Lignes budgétaires', lignesBudgetaires.map(l => ({ 'Code': l.code || '', 'Libellé': l.libelle || '' })));
+      addSheet('Bordereaux', bordereaux.map(b => ({
+        'N° Bordereau': b.numero, 'Type': b.type, 'Statut': b.statut,
+        'Nb OP': b.nbOps || (b.opsIds || []).length, 'Montant total': Number(b.totalMontant || 0),
+        'Date création': formatDate(b.dateCreation) || '', 'Date transmission': formatDate(b.dateTransmission) || '',
+      })));
+
+      const usersSnap = await getDocs(collection(db, 'users'));
+      addSheet('Utilisateurs', usersSnap.docs.map(d => d.data()).map(u => ({ 'Nom': u.nom || '', 'Email': u.email || '', 'Rôle': u.role || '', 'Actif': u.actif !== false ? 'Oui' : 'Non' })));
+
+      const journalSnap = await getDocs(collection(db, 'journal'));
+      addSheet('Journal', journalSnap.docs
+        .map(d => d.data())
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        .map(j => ({ 'Date': formatDate(j.date) || '', 'Utilisateur': j.utilisateur || '', 'Action': j.action || '', 'N° OP': j.opNumero || '', 'Détails': j.details || '' })));
+
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      XLSX.writeFile(wb, `Sauvegarde_GestionOP_${dateStr}.xlsx`);
       notify("success", "Sauvegarde", "Fichier généré avec succès.");
     } catch (e) {
-      notify("error", "Erreur", "Échec de l'exportation.");
+      notify("error", "Erreur", "Échec de l'exportation : " + e.message);
     }
+    setExporting(false);
   };
 
   const handleRecalerCompteurs = () => {
@@ -340,12 +388,12 @@ const TabMaintenance = () => {
         <p style={{ fontSize: 14, color: P.textSec }}>Gérez vos sauvegardes et les numéros de série.</p>
       </div>
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        <div onClick={handleExportData} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <div onClick={exporting ? undefined : handleExportData} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: exporting ? 'not-allowed' : 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', opacity: exporting ? 0.6 : 1 }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={P.greenDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
           <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.greenDark }}>Sauvegarder la base</h3>
-          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Télécharger une copie de sécurité (Format JSON).</p>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{exporting ? 'Export en cours...' : 'Télécharger toutes les données (OP, budgets, bénéficiaires, utilisateurs, journal...) au format Excel.'}</p>
         </div>
         <div onClick={handleRecalerCompteurs} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
