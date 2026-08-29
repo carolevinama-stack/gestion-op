@@ -13,6 +13,22 @@ const ROLES = {
   CONSULTATION: { label: 'Consultation', color: '#616161', bg: '#f5f5f5', icon: 'C', description: 'Lecture seule — voir sans modifier' }
 };
 
+const ConfirmModal = ({ data, onCancel, onConfirm }) => {
+  if (!data) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+      <div style={{ background: 'white', borderRadius: 16, padding: 28, width: 420, maxWidth: '90vw' }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12, color: data.danger ? '#C43E3E' : '#333' }}>{data.title}</h3>
+        <p style={{ fontSize: 14, color: '#555', lineHeight: 1.5, marginBottom: 24, whiteSpace: 'pre-line' }}>{data.message}</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #ddd', background: 'white', cursor: 'pointer', fontWeight: 600, color: '#555' }}>Annuler</button>
+          <button onClick={onConfirm} style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: data.danger ? '#C43E3E' : '#2e7d32', color: 'white', cursor: 'pointer', fontWeight: 700 }}>Confirmer</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PageAdmin = () => {
   const { user, userProfile } = useAppContext();
   const [users, setUsers] = useState([]);
@@ -21,6 +37,14 @@ const PageAdmin = () => {
   const [showEditModal, setShowEditModal] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [confirmData, setConfirmData] = useState(null);
+  const askConfirm = (title, message, danger = false) => new Promise((resolve) => {
+    setConfirmData({ title, message, danger, resolve });
+  });
+  const closeConfirm = (result) => {
+    if (confirmData?.resolve) confirmData.resolve(result);
+    setConfirmData(null);
+  };
 
   // Formulaire création
   const [createForm, setCreateForm] = useState({
@@ -58,10 +82,10 @@ const PageAdmin = () => {
   // ==================== CRÉER UN UTILISATEUR ====================
   const handleCreateUser = async () => {
     if (!createForm.email || !createForm.nom || !createForm.password) {
-      alert('Veuillez remplir tous les champs'); return;
+      showMessage('Veuillez remplir tous les champs', 'error'); return;
     }
     if (createForm.password.length < 6) {
-      alert('Le mot de passe doit contenir au moins 6 caractères'); return;
+      showMessage('Le mot de passe doit contenir au moins 6 caractères', 'error'); return;
     }
 
     setSaving(true);
@@ -113,11 +137,11 @@ const PageAdmin = () => {
     } catch (error) {
       console.error('Erreur création utilisateur:', error);
       if (error.code === 'auth/email-already-in-use') {
-        alert('Cet email est déjà utilisé');
+        showMessage('Cet email est déjà utilisé', 'error');
       } else if (error.code === 'auth/invalid-email') {
-        alert('Email invalide');
+        showMessage('Email invalide', 'error');
       } else {
-        alert('Erreur: ' + error.message);
+        showMessage('Erreur: ' + error.message, 'error');
       }
     }
     setSaving(false);
@@ -136,25 +160,27 @@ const PageAdmin = () => {
       setShowEditModal(null);
     } catch (error) {
       console.error('Erreur mise à jour rôle:', error);
-      alert('Erreur: ' + error.message);
+      showMessage('Erreur: ' + error.message, 'error');
     }
   };
 
   // ==================== ACTIVER / DÉSACTIVER ====================
   const handleToggleActive = async (userDoc) => {
     if (userDoc.uid === user.uid) {
-      alert('Vous ne pouvez pas vous désactiver vous-même'); return;
+      showMessage('Vous ne pouvez pas vous désactiver vous-même', 'error'); return;
     }
     const newActif = !userDoc.actif;
-    const confirm = window.confirm(
-      newActif 
+    const confirm = await askConfirm(
+      newActif ? 'Réactiver le compte' : 'Désactiver le compte',
+      newActif
         ? `Réactiver le compte de ${userDoc.nom} ?`
-        : `Désactiver le compte de ${userDoc.nom} ? Il ne pourra plus se connecter.`
+        : `Désactiver le compte de ${userDoc.nom} ? Il ne pourra plus se connecter.`,
+      !newActif
     );
     if (!confirm) return;
 
     try {
-      await updateDoc(doc(db, 'users', userDoc.id), { 
+      await updateDoc(doc(db, 'users', userDoc.id), {
         actif: newActif,
         updatedAt: new Date().toISOString(),
         updatedBy: user.uid
@@ -162,13 +188,14 @@ const PageAdmin = () => {
       setUsers(users.map(u => u.id === userDoc.id ? { ...u, actif: newActif } : u));
       showMessage(newActif ? 'Compte réactivé' : 'Compte désactivé');
     } catch (error) {
-      alert('Erreur: ' + error.message);
+      showMessage('Erreur: ' + error.message, 'error');
     }
   };
 
   // ==================== RÉINITIALISER MOT DE PASSE ====================
   const handleResetPassword = async (userDoc) => {
-    const confirm = window.confirm(
+    const confirm = await askConfirm(
+      'Réinitialiser le mot de passe',
       `Envoyer un email de réinitialisation de mot de passe à ${userDoc.email} ?`
     );
     if (!confirm) return;
@@ -179,17 +206,19 @@ const PageAdmin = () => {
       showMessage(`Email de réinitialisation envoyé à ${userDoc.email}`);
     } catch (error) {
       console.error('Erreur réinitialisation:', error);
-      alert('Erreur: ' + error.message);
+      showMessage('Erreur: ' + error.message, 'error');
     }
   };
 
   // ==================== SUPPRIMER UTILISATEUR ====================
   const handleDeleteUser = async (userDoc) => {
     if (userDoc.uid === user.uid) {
-      alert('Vous ne pouvez pas supprimer votre propre compte'); return;
+      showMessage('Vous ne pouvez pas supprimer votre propre compte', 'error'); return;
     }
-    const confirm = window.confirm(
-      `Supprimer définitivement le compte de ${userDoc.nom} (${userDoc.email}) ?\n\nCette action est irréversible. Le profil sera supprimé mais le compte Firebase Auth restera (il pourra être nettoyé dans la console Firebase).`
+    const confirm = await askConfirm(
+      "Supprimer l'utilisateur",
+      `Supprimer définitivement le compte de ${userDoc.nom} (${userDoc.email}) ?\n\nCette action est irréversible. Le profil sera supprimé mais le compte Firebase Auth restera (il pourra être nettoyé dans la console Firebase).`,
+      true
     );
     if (!confirm) return;
 
@@ -198,7 +227,7 @@ const PageAdmin = () => {
       setUsers(users.filter(u => u.id !== userDoc.id));
       showMessage('Utilisateur supprimé');
     } catch (error) {
-      alert('Erreur: ' + error.message);
+      showMessage('Erreur: ' + error.message, 'error');
     }
   };
 
@@ -236,15 +265,17 @@ const PageAdmin = () => {
         </button>
       </div>
 
-      {/* Message de notification */}
+      {/* Message de notification (toast, visible même par-dessus les fenêtres modales) */}
       {message && (
-        <div style={{ 
-          padding: 14, 
+        <div style={{
+          position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 20000,
+          padding: '14px 20px',
           background: message.type === 'success' ? '#e8f5e9' : '#ffebee',
-          borderRadius: 10, 
+          borderRadius: 10,
           color: message.type === 'success' ? '#2e7d32' : '#C43E3E',
-          fontSize: 14, 
-          marginBottom: 20,
+          fontSize: 14,
+          maxWidth: 480,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
           border: `1px solid ${message.type === 'success' ? '#a5d6a7' : '#ef9a9a'}`
         }}>
           {message.text}
@@ -380,6 +411,8 @@ const PageAdmin = () => {
           </table>
         </div>
       )}
+
+      <ConfirmModal data={confirmData} onCancel={() => closeConfirm(false)} onConfirm={() => closeConfirm(true)} />
 
       {/* ==================== MODAL CRÉATION ==================== */}
       {showCreateModal && (
