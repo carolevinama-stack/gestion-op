@@ -124,6 +124,9 @@ const tdR = { ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 60
 const tdM = { ...td, fontWeight: 700, fontFamily: 'monospace', fontSize: 10 };
 const tdE = { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
+const RAPPORT_PAGE_SIZE = 50;
+const getNumOp = (numero) => { const m = (numero || '').match(/N°(\d+)\//); return m ? parseInt(m[1]) : 0; };
+
 // ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
@@ -133,6 +136,9 @@ export default function PageRapport() {
   const [dateRef, setDateRef] = useState(new Date().toISOString().split('T')[0]);
   const [filtreEx, setFiltreEx] = useState('tous');
   const [searchTerm, setSearchTerm] = useState('');
+  const [triChamp, setTriChamp] = useState('date');
+  const [triSens, setTriSens] = useState('asc');
+  const [page, setPage] = useState(1);
   const [sel, setSel] = useState([]);
   const [obsText, setObsText] = useState('');
   const [savingObs, setSavingObs] = useState(false);
@@ -165,15 +171,6 @@ export default function PageRapport() {
       o.type === 'DEFINITIF' && 
       (o.opProvisoireId === opProvId || (o.opProvisoireIds || []).includes(opProvId)) &&
       !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-  }, [ops]);
-
-  // === FONCTION COMMUNE POUR VÉRIFIER LES ANNULATIONS ===
-  const hasValidCancellation = useCallback((opProvId) => {
-    return ops.some(o => 
-      o.type === 'ANNULATION' && 
-      o.opProvisoireId === opProvId &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME', 'DIFFERE_CF', 'DIFFERE_AC'].includes(o.statut)
     );
   }, [ops]);
 
@@ -214,12 +211,17 @@ export default function PageRapport() {
     return { ...op, delai, prov, solde }; 
   }), [mainOps, ops, dateRef]);
 
-  // Filtre pour "À annuler"
+  // Filtre pour "À annuler" — mêmes règles que la catégorie "À annuler" du Tableau de bord
   const opsAAnnuler = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
-    if (op.statut !== 'VISE_CF') return false; 
-    return !hasValidCancellation(op.id);
-  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, hasValidCancellation, dateRef]);
+    if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
+    const hasAnnulation = ops.some(o =>
+      o.type === 'ANNULATION' &&
+      o.opProvisoireId === op.id &&
+      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
+    );
+    return !hasAnnulation;
+  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
 
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
@@ -243,8 +245,23 @@ export default function PageRapport() {
         return num.includes(lowerSearch) || ben.includes(lowerSearch) || obj.includes(lowerSearch) || mt.includes(lowerSearch);
       });
     }
-    return data.sort((a, b) => (a.dateCreation || '').localeCompare(b.dateCreation || ''));
-  }, [rawData, searchTerm, getBen]);
+    return [...data].sort((a, b) => {
+      const diff = triChamp === 'numero'
+        ? getNumOp(a.numero) - getNumOp(b.numero)
+        : (a.dateCreation || '').localeCompare(b.dateCreation || '');
+      return triSens === 'asc' ? diff : -diff;
+    });
+  }, [rawData, searchTerm, getBen, triChamp, triSens]);
+
+  const totalPagesRapport = Math.max(1, Math.ceil(displayData.length / RAPPORT_PAGE_SIZE));
+  const pageRapport = Math.min(page, totalPagesRapport);
+  const pageData = displayData.slice((pageRapport - 1) * RAPPORT_PAGE_SIZE, pageRapport * RAPPORT_PAGE_SIZE);
+
+  const toggleTri = (champ) => {
+    if (triChamp === champ) setTriSens(s => s === 'asc' ? 'desc' : 'asc');
+    else { setTriChamp(champ); setTriSens('asc'); }
+    setPage(1);
+  };
 
   const tabs = [
     { id: 'compta', label: 'En cours compta', icon: I.building, count: opsCompta.length, color: P.olive },
@@ -257,8 +274,8 @@ export default function PageRapport() {
 
   // === ACTIONS ===
   const toggleSel = (id) => setSel(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const toggleAll = () => setSel(sel.length === displayData.length && displayData.length > 0 ? [] : displayData.map(o => o.id));
-  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); setSearchTerm(''); };
+  const toggleAll = () => setSel(sel.length === pageData.length && pageData.length > 0 ? [] : pageData.map(o => o.id));
+  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); setSearchTerm(''); setPage(1); };
 
   const saveObs = async () => {
     if (sel.length === 0) return;
@@ -519,7 +536,7 @@ export default function PageRapport() {
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: P.textSec }}>Exercice :</label>
-            <select value={filtreEx} onChange={e => setFiltreEx(e.target.value)} style={{ ...styles.input, width: 140, marginBottom: 0, fontSize: 12, borderRadius: 8, border: `1px solid ${P.border}` }}>
+            <select value={filtreEx} onChange={e => { setFiltreEx(e.target.value); setPage(1); }} style={{ ...styles.input, width: 140, marginBottom: 0, fontSize: 12, borderRadius: 8, border: `1px solid ${P.border}` }}>
               <option value="tous">Tous les exercices</option>
               {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
             </select>
@@ -554,11 +571,27 @@ export default function PageRapport() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[{ champ: 'date', label: 'Date' }, { champ: 'numero', label: 'N° OP' }].map(t => {
+              const active = triChamp === t.champ;
+              return (
+                <button key={t.champ} onClick={() => toggleTri(t.champ)} title={`Trier par ${t.label}`} style={{
+                  display: 'flex', alignItems: 'center', gap: 4, padding: '8px 10px',
+                  background: active ? P.greenDark : '#FAFAF8', color: active ? '#fff' : P.textSec,
+                  border: `1px solid ${active ? P.greenDark : P.border}`, borderRadius: 8, cursor: 'pointer',
+                  fontSize: 11, fontWeight: 700, height: 36
+                }}>
+                  {t.label} {active ? (triSens === 'asc' ? '▲' : '▼') : ''}
+                </button>
+              );
+            })}
+          </div>
+
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', left: 12, top: 10 }}>{I.search(P.textMuted, 14)}</div>
-            <input type="text" placeholder="N°, Objet, Montant..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ ...styles.input, marginBottom: 0, width: 220, fontSize: 12, borderRadius: 8, paddingLeft: 34, border: `1px solid ${P.border}` }} />
+            <input type="text" placeholder="N°, Objet, Montant..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 220, fontSize: 12, borderRadius: 8, paddingLeft: 34, border: `1px solid ${P.border}` }} />
           </div>
-          
+
           <button onClick={handleDownloadTemplate} title="Télécharger le canevas d'importation Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: '#FAFAF8', color: P.textSec, border: `1px solid ${P.border}`, borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
             {I.download(P.textSec, 16)}
           </button>
@@ -615,47 +648,47 @@ export default function PageRapport() {
       <div style={{ background: P.card, borderRadius: 12, overflow: 'auto', border: `1px solid ${P.border}`, height: 'calc(100vh - 210px)' }}>
         {activeTab === 'compta' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date création</th><th style={th}>Statut</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date création</th><th style={th}>Statut</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><StatutBadge statut={op.statut} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'nonvise' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'nonsolde' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov. rattaché</th><th style={{ ...th, textAlign: 'right' }}>Solde</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>N° Bord.</th><th style={th}>Date transm. AC</th><th style={th}>Délai</th><th style={th}>OP prov. rattaché</th><th style={{ ...th, textAlign: 'right' }}>Solde</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {displayData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {pageData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
               {/* Rendu du tableau incluant DIRECT */}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || 0)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.prov ? formatNumeroOp(op.prov.numero) : '—'}</td><td style={tdR}>{op.solde !== null && op.solde !== undefined ? <span style={{ color: op.solde > 0 ? P.red : op.solde < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{op.solde > 0 ? '+' + formatMontant(op.solde) : op.solde < 0 ? formatMontant(op.solde) : '0'}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || 0)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.prov ? formatNumeroOp(op.prov.numero) : '—'}</td><td style={tdR}>{op.solde !== null && op.solde !== undefined ? <span style={{ color: op.solde > 0 ? P.red : op.solde < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{formatMontant(op.solde)}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'annuler' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date visa CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>Date visa CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.redLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateVisaCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={1} seuilRouge={2} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
         {activeTab === 'regulariser' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date Réf.</th><th style={th}>Délai</th><th style={th}>OP définitif</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP prov.</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Date Réf.</th><th style={th}>Délai</th><th style={th}>OP définitif</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {displayData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => { 
+              {pageData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {pageData.map(op => { 
                 const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
                 return (
                   <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent', cursor: 'pointer' }} onClick={(e) => { if(e.target.tagName !== 'INPUT') { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
@@ -678,14 +711,22 @@ export default function PageRapport() {
         )}
         {activeTab === 'extratraite' && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={displayData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Source</th><th style={th}>Date création</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
+            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Source</th><th style={th}>Date création</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
-              {displayData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {displayData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
       </div>
+
+      {totalPagesRapport > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 14 }}>
+          <button disabled={pageRapport === 1} onClick={() => setPage(p => p - 1)} style={{ ...styles.buttonIcon, opacity: pageRapport === 1 ? 0.4 : 1 }}>◀</button>
+          <span style={{ fontSize: 13, color: P.textSec }}>Page {pageRapport} / {totalPagesRapport} ({displayData.length} OP)</span>
+          <button disabled={pageRapport === totalPagesRapport} onClick={() => setPage(p => p + 1)} style={{ ...styles.buttonIcon, opacity: pageRapport === totalPagesRapport ? 0.4 : 1 }}>▶</button>
+        </div>
+      )}
     </div>
   );
 }
