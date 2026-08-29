@@ -7,6 +7,9 @@ import {
   construireNumeroOp,
   calculerMontantTVA,
   montantDoitEtrePositif,
+  calculerDotationConsultation,
+  calculerEngagementsAnterieursAvantOp,
+  calculerMontantTVASiRecuperable,
 } from './opCalculs';
 
 const opsFixture = [
@@ -128,5 +131,58 @@ describe('montantDoitEtrePositif', () => {
     expect(montantDoitEtrePositif('DIRECT')).toBe(false);
     expect(montantDoitEtrePositif('DEFINITIF')).toBe(false);
     expect(montantDoitEtrePositif('ANNULATION')).toBe(false);
+  });
+});
+
+describe('calculerDotationConsultation', () => {
+  test("utilise la dotation figée si la ligne budgétaire n'a pas changé", () => {
+    expect(calculerDotationConsultation({ ligneBudgetaireChangee: false, dotationFigee: 1000, dotationLigneSelectionnee: 2000 })).toBe(1000);
+  });
+
+  test('bascule sur la dotation de la nouvelle ligne si elle a été changée', () => {
+    expect(calculerDotationConsultation({ ligneBudgetaireChangee: true, dotationFigee: 1000, dotationLigneSelectionnee: 2000 })).toBe(2000);
+  });
+
+  test('retourne 0 si aucune dotation disponible', () => {
+    expect(calculerDotationConsultation({ ligneBudgetaireChangee: false, dotationFigee: null, dotationLigneSelectionnee: null })).toBe(0);
+  });
+});
+
+const opsChronologie = [
+  { id: 'op1', sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: 100, createdAt: '2026-01-01' },
+  { id: 'op2', sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'REJETE_CF', montant: 50, createdAt: '2026-01-02' }, // compte (rejeté ≠ supprimé)
+  { id: 'op3', sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'SUPPRIME', montant: 999, createdAt: '2026-01-03' }, // exclu
+  { id: 'opEdite', sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: 30, createdAt: '2026-01-04' },
+  { id: 'op5', sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: 9999, createdAt: '2026-01-05' }, // après : ignoré
+];
+
+describe('calculerEngagementsAnterieursAvantOp', () => {
+  test("cumule uniquement les OP créés avant l'OP en cours de modification, sur la même ligne", () => {
+    expect(calculerEngagementsAnterieursAvantOp(opsChronologie, { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', opId: 'opEdite' })).toBe(150);
+  });
+
+  test('les OP rejetés comptent (contrairement au calcul de création)', () => {
+    const result = calculerEngagementsAnterieursAvantOp(opsChronologie, { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', opId: 'opEdite' });
+    expect(result).toBeGreaterThanOrEqual(150); // inclut bien op2 (REJETE_CF, 50)
+  });
+
+  test('retourne 0 sans ligne budgétaire ou sans OP sélectionné', () => {
+    expect(calculerEngagementsAnterieursAvantOp(opsChronologie, { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: '', opId: 'opEdite' })).toBe(0);
+    expect(calculerEngagementsAnterieursAvantOp(opsChronologie, { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', opId: null })).toBe(0);
+  });
+});
+
+describe('calculerMontantTVASiRecuperable', () => {
+  test('retourne 0 si la TVA n\'est pas récupérable', () => {
+    expect(calculerMontantTVASiRecuperable(false, 1000, '18')).toBe(0);
+  });
+
+  test('applique le signe du montant principal si récupérable', () => {
+    expect(calculerMontantTVASiRecuperable(true, -1000, '18')).toBe(-18);
+    expect(calculerMontantTVASiRecuperable(true, 1000, '18')).toBe(18);
+  });
+
+  test('gère une saisie de TVA vide sans planter (0)', () => {
+    expect(calculerMontantTVASiRecuperable(true, 1000, '')).toBe(0);
   });
 });

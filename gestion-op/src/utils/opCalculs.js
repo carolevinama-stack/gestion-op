@@ -57,3 +57,40 @@ export const calculerMontantTVA = (finalMontant, montantTVA) => {
 // Un OP Provisoire doit toujours avoir un montant positif ; Direct/Définitif/Annulation
 // peuvent être négatifs (Direct/Définitif demandent alors une confirmation à l'utilisateur).
 export const montantDoitEtrePositif = (type) => !['ANNULATION', 'DIRECT', 'DEFINITIF'].includes(type);
+
+// ==================== SPÉCIFIQUE À "CONSULTER OP" (modification d'un OP existant) ====================
+
+// Dotation à utiliser pendant la modification d'un OP : la dotation "figée" au moment de sa
+// création, sauf si on vient de changer sa ligne budgétaire, auquel cas on prend la dotation
+// actuelle de la nouvelle ligne. Logique métier volontaire (cf. décision projet) : ne pas modifier.
+export const calculerDotationConsultation = ({ ligneBudgetaireChangee, dotationFigee, dotationLigneSelectionnee }) => {
+  if (ligneBudgetaireChangee) return dotationLigneSelectionnee ?? 0;
+  return dotationFigee ?? dotationLigneSelectionnee ?? 0;
+};
+
+// Engagements antérieurs à un OP en cours de modification : somme des montants des OP de la même
+// ligne budgétaire créés AVANT lui (ordre chronologique), en excluant seulement les OP supprimés.
+// Logique métier volontaire (cf. décision projet) : ne pas modifier, y compris le fait que les OP
+// rejetés comptent ici (contrairement au calcul utilisé à la création d'un nouvel OP).
+export const calculerEngagementsAnterieursAvantOp = (ops, { sourceId, exerciceId, ligneBudgetaire, opId }) => {
+  if (!ligneBudgetaire || !opId) return 0;
+  const allOps = ops
+    .filter(op => op.sourceId === sourceId && op.exerciceId === exerciceId && op.statut !== 'SUPPRIME')
+    .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  let cumul = 0;
+  for (const op of allOps) {
+    if (op.id === opId) break;
+    if (op.ligneBudgetaire === ligneBudgetaire) {
+      cumul += (parseFloat(op.montant) || 0);
+    }
+  }
+  return cumul;
+};
+
+// Montant de TVA à enregistrer en modification : 0 si la TVA n'est pas récupérable
+// (contrairement à la création, où l'absence de TVA donne null).
+export const calculerMontantTVASiRecuperable = (tvaRecuperable, finalMontant, montantTVA) => {
+  if (!tvaRecuperable) return 0;
+  const m = Math.abs(parseFloat(montantTVA) || 0);
+  return finalMontant < 0 ? -m : m;
+};

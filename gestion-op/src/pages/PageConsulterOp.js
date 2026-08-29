@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, formatNumeroOp } from '../utils/formatters';
+import {
+  calculerDisponible,
+  montantDoitEtrePositif,
+  calculerDotationConsultation,
+  calculerEngagementsAnterieursAvantOp,
+  calculerMontantTVASiRecuperable,
+} from '../utils/opCalculs';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { buildOpPrintHtml } from '../utils/opPrint';
 import { db } from '../firebase';
@@ -271,36 +278,21 @@ const PageConsulterOp = () => {
     .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
   const selectedLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
 
-  const getDotation = () => {
-    if (isEditMode && form.ligneBudgetaire !== selectedOp?.ligneBudgetaire) {
-      return selectedLigne?.dotation ?? 0;
-    }
-    return selectedOp?.dotationFigee ?? selectedLigne?.dotation ?? 0;
-  };
-  
-  // ===================== CALCUL DES ENGAGEMENTS =====================
-  const getEngagementsAnterieurs = () => {
-    if (!form.ligneBudgetaire || !selectedOp) return 0;
-    const allOps = ops
-      .filter(op => op.sourceId === activeSource && op.exerciceId === currentExerciceId && op.statut !== 'SUPPRIME')
-      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-    let cumul = 0;
-    for (const op of allOps) {
-      if (op.id === selectedOp.id) break;
-      if (op.ligneBudgetaire === form.ligneBudgetaire) {
-        cumul += (parseFloat(op.montant) || 0);
-      }
-    }
-    return cumul;
-  };
+  const getDotation = () => calculerDotationConsultation({
+    ligneBudgetaireChangee: isEditMode && form.ligneBudgetaire !== selectedOp?.ligneBudgetaire,
+    dotationFigee: selectedOp?.dotationFigee,
+    dotationLigneSelectionnee: selectedLigne?.dotation,
+  });
 
-  const getEngagementActuel = () => {
-    const montant = parseFloat(form.montant) || 0;
-    return montant;
-  };
+  // ===================== CALCUL DES ENGAGEMENTS =====================
+  const getEngagementsAnterieurs = () => calculerEngagementsAnterieursAvantOp(ops, {
+    sourceId: activeSource, exerciceId: currentExerciceId, ligneBudgetaire: form.ligneBudgetaire, opId: selectedOp?.id
+  });
+
+  const getEngagementActuel = () => parseFloat(form.montant) || 0;
 
   const getEngagementsCumules = () => getEngagementsAnterieurs() + getEngagementActuel();
-  const getDisponible = () => getDotation() - getEngagementsCumules();
+  const getDisponible = () => calculerDisponible(getDotation(), getEngagementsAnterieurs(), getEngagementActuel());
 
   const opProvisoiresAnnulation = form.beneficiaireId ? ops.filter(op =>
     op.type === 'PROVISOIRE' && op.beneficiaireId === form.beneficiaireId &&
@@ -408,7 +400,7 @@ const PageConsulterOp = () => {
         showToast('error', 'Champ obligatoire', 'Veuillez saisir un montant valide');
         return;
       }
-      if (!['ANNULATION', 'DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
+      if (montantDoitEtrePositif(form.type) && finalMontant < 0) {
         showToast('error', 'Montant invalide', "Le montant d'un OP Provisoire doit être positif.");
         return;
       }
@@ -499,7 +491,7 @@ const PageConsulterOp = () => {
               ?.lignes?.find(l => l.code === form.ligneBudgetaire)?.dotation ?? 0)
           : (selectedOp.dotationFigee ?? 0),
         tvaRecuperable: form.tvaRecuperable || false,
-        montantTVA: form.tvaRecuperable ? (newMontant < 0 ? -Math.abs(parseFloat(form.montantTVA) || 0) : Math.abs(parseFloat(form.montantTVA) || 0)) : 0,
+        montantTVA: calculerMontantTVASiRecuperable(form.tvaRecuperable, newMontant, form.montantTVA),
         ...opProvFields,
         updatedAt: new Date().toISOString()
       };
