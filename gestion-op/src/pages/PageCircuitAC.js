@@ -46,6 +46,7 @@ const PageCircuitAC = () => {
   const [searchBT, setSearchBT] = useState('');
   const [pageBT, setPageBT] = useState(1);
   const BT_PAGE_SIZE = 50;
+  const [triBT, setTriBT] = useState('NUM_DESC');
   const [searchSuivi, setSearchSuivi] = useState('');
   
   // Modales
@@ -539,18 +540,26 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
   const thS = {...styles.th, fontSize: 11, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', letterSpacing: .5, background: '#FAFAF8'};
   const crd = {...styles.card, background: P.card, borderRadius: 14, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)'};
 
+  const getNumBT = (numero) => { const m = (numero||'').match(/-(\d+)\//); return m ? parseInt(m[1]) : 0; };
+
   const renderBordereaux = (btList) => {
     const sortedBts = filterBordereaux(btList).sort((a,b)=>{
-      const aPrep = a.statut==='EN_COURS', bPrep = b.statut==='EN_COURS';
-      if(aPrep && !bPrep) return -1;
-      if(!aPrep && bPrep) return 1;
-      return (b.dateTransmission||b.createdAt||'').localeCompare(a.dateTransmission||a.createdAt||'');
+      if(triBT==='DATE_ASC') return (a.dateTransmission||a.createdAt||'').localeCompare(b.dateTransmission||b.createdAt||'');
+      if(triBT==='DATE_DESC') return (b.dateTransmission||b.createdAt||'').localeCompare(a.dateTransmission||a.createdAt||'');
+      return getNumBT(b.numero) - getNumBT(a.numero);
     });
     const totalPagesBT = Math.max(1, Math.ceil(sortedBts.length / BT_PAGE_SIZE));
     const pageBts = sortedBts.slice((pageBT-1)*BT_PAGE_SIZE, pageBT*BT_PAGE_SIZE);
     return <div style={crd}>
-      <div style={{position:'relative',maxWidth:400,marginBottom:16}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
-        <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>{setSearchBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:16}}>
+        <div style={{position:'relative',maxWidth:400,flex:'1 1 240px'}}><div style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}>{I.search(P.textMuted,16)}</div>
+          <input type="text" placeholder="Rechercher bordereau ou OP..." value={searchBT} onChange={e=>{setSearchBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,paddingLeft:40,borderRadius:10,border:`1px solid ${P.border}`,background:'#FAFAF8'}}/>
+        </div>
+        <select value={triBT} onChange={e=>{setTriBT(e.target.value);setPageBT(1);}} style={{...styles.input,marginBottom:0,width:220,borderRadius:10,border:`1px solid ${P.border}`,height:38}}>
+          <option value="NUM_DESC">N° (récent → ancien)</option>
+          <option value="DATE_ASC">Date (ancienne → récente)</option>
+          <option value="DATE_DESC">Date (récente → ancienne)</option>
+        </select>
       </div>
       {sortedBts.length===0?<Empty text="Aucun bordereau"/>:<>
       <div style={{maxHeight:'65vh',overflowY:'auto'}}>
