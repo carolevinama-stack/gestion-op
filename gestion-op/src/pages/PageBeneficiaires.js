@@ -87,6 +87,8 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, danger = false }) =
 const PageBeneficiaires = () => {
   const { beneficiaires, setBeneficiaires, ops } = useAppContext();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editBen, setEditBen] = useState(null);
@@ -111,6 +113,8 @@ const PageBeneficiaires = () => {
     b.ncc?.toLowerCase().includes(search.toLowerCase()) ||
     (b.ribs || []).some(r => r.numero?.toLowerCase().includes(search.toLowerCase()) || r.banque?.toLowerCase().includes(search.toLowerCase()))
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Rétrocompatibilité ancien format rib (string) → ribs (array)
   const getRibs = (ben) => {
@@ -347,7 +351,7 @@ const PageBeneficiaires = () => {
             type="text"
             placeholder="Rechercher par nom, NCC ou RIB..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
             style={{ ...inputStyle, paddingLeft: 40 }}
           />
         </div>
@@ -372,7 +376,7 @@ const PageBeneficiaires = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(ben => {
+              {paginated.map(ben => {
                 const ribs = getRibs(ben);
                 const opsCount = ops.filter(op => op.beneficiaireId === ben.id).length;
                 return (
@@ -421,6 +425,13 @@ const PageBeneficiaires = () => {
               })}
             </tbody>
           </table>
+          </div>
+        )}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '14px 20px', borderTop: `1px solid ${P.border}` }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="ben-btn" style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, opacity: page <= 1 ? 0.5 : 1, cursor: page <= 1 ? 'not-allowed' : 'pointer' }}>Précédent</button>
+            <span style={{ fontSize: 12, color: P.textSec, fontWeight: 600 }}>Page {page} / {totalPages}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="ben-btn" style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, opacity: page >= totalPages ? 0.5 : 1, cursor: page >= totalPages ? 'not-allowed' : 'pointer' }}>Suivant</button>
           </div>
         )}
       </div>
