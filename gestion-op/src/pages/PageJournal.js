@@ -46,6 +46,17 @@ const PageJournal = () => {
       .catch(e => console.error('Erreur chargement utilisateurs:', e));
   }, []);
 
+  const effacer = () => {
+    setRecherche('');
+    setFiltreUtilisateur('TOUS');
+    setFiltreAction('TOUS');
+    setDateDebut('');
+    setDateFin('');
+    setPage(0);
+    setEntrees([]);
+    setARecherche(false);
+  };
+
   const lancerRecherche = async () => {
     setLoading(true);
     try {
@@ -118,9 +129,16 @@ const PageJournal = () => {
           </div>
         </div>
 
-        <button onClick={lancerRecherche} disabled={loading} style={{ ...styles.button, alignSelf: 'flex-start', opacity: loading ? 0.6 : 1 }}>
-          {loading ? 'Recherche...' : aRecherche ? 'Actualiser' : 'Rechercher'}
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={lancerRecherche} disabled={loading} style={{ ...styles.button, opacity: loading ? 0.6 : 1 }}>
+            {loading ? 'Recherche...' : aRecherche ? 'Actualiser' : 'Rechercher'}
+          </button>
+          {aRecherche && (
+            <button onClick={effacer} style={{ ...styles.button, background: '#f5f5f5', color: '#555' }}>
+              Effacer
+            </button>
+          )}
+        </div>
       </div>
 
       {!aRecherche ? (
