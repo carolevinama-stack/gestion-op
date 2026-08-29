@@ -1,9 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { db, auth } from '../firebase';
 import {
-  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where
+  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where, or
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+
+// Statuts "non clos" : un OP dans un de ces statuts est encore quelque part dans un
+// circuit de validation et doit rester chargé en permanence, quel que soit l'exercice.
+// Liste positive (plutôt qu'une exclusion "not-in") car Firestore interdit de combiner
+// not-in avec or() dans une même requête — ce qui a fait échouer une première tentative.
+const STATUTS_NON_CLOS = ['EN_COURS', 'TRANSMIS_CF', 'VISE_CF', 'DIFFERE_CF', 'REJETE_CF', 'TRANSMIS_AC', 'DIFFERE_AC', 'REJETE_AC', 'PAYE_PARTIEL', 'PAYE', 'ANNULE'];
 
 const AppContext = createContext(null);
 
@@ -189,10 +195,19 @@ export function AppProvider({ user, children }) {
         // --- CHARGEMENT TEMPS RÉEL (onSnapshot) ---
         console.log("AppContext: Accrochage des écouteurs temps réel");
 
-        // Écouteur OPs — CORRECTIF TEMPORAIRE : revenu au chargement complet (comme
-        // avant), le temps de corriger la requête ciblée qui a fait planter la
-        // réception temps réel (limitation Firestore sur or()+not-in). À reprendre.
-        const opsQuery = query(collection(db, 'ops'));
+        // Écouteur OPs — se limite à l'exercice actif + tout ce qui est encore "en
+        // cours" (non clos) dans n'importe quel exercice + les OP importés historiques,
+        // pour éviter de charger indéfiniment tous les OP archivés des années passées.
+        // Le reste (exercices clos consultés via "afficher exercice antérieur") est
+        // chargé à la demande par chargerExerciceOps.
+        const activeExerciceId = exercicesSnap.docs.find(d => d.data().actif)?.id;
+        const opsQuery = activeExerciceId
+          ? query(collection(db, 'ops'), or(
+              where('exerciceId', '==', activeExerciceId),
+              where('statut', 'in', STATUTS_NON_CLOS),
+              where('importAnterieur', '==', true)
+            ))
+          : query(collection(db, 'ops'), where('statut', 'in', STATUTS_NON_CLOS));
         unsubOps = onSnapshot(opsQuery, (snapshot) => {
           setOpsLive(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         }, (error) => {
