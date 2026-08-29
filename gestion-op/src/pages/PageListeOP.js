@@ -18,11 +18,13 @@ const I = {
   trash: (c=P.red, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
   close: (c='#fff', s=20) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" x1="6" x2="18" y2="18"></line></svg>,
   filter: (c='#666', s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>,
-  info: (c=P.orange, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+  info: (c=P.orange, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
+  restore: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>,
+  search: (c=P.textMuted, s=15) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions } = useAppContext();
+  const { sources, exerciceActif, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   
@@ -34,6 +36,12 @@ const PageListeOP = () => {
 
   const [previewOpId, setPreviewOpId] = useState(null);
   const [modalSuppression, setModalSuppression] = useState(false);
+  const [corbeilleSearch, setCorbeilleSearch] = useState('');
+  const [corbeillePage, setCorbeillePage] = useState(1);
+  const [opARestaurer, setOpARestaurer] = useState(null);
+  const [pwdRestaurer, setPwdRestaurer] = useState('');
+  const [pwdRestaurerErr, setPwdRestaurerErr] = useState('');
+  const CORBEILLE_PAGE_SIZE = 50;
 
 const getBenNom = (op) => op.beneficiaireNom || 'N/A';
   const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
@@ -56,7 +64,24 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const opsSupprimes = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.statut === 'SUPPRIME'), [ops, exerciceActif]);
+  const opsSupprimes = useMemo(() => {
+    return ops
+      .filter(op => op.exerciceId === exerciceActif?.id && op.statut === 'SUPPRIME')
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  }, [ops, exerciceActif]);
+
+  const opsSupprimesFiltres = useMemo(() => {
+    if (!corbeilleSearch) return opsSupprimes;
+    const s = corbeilleSearch.toLowerCase();
+    return opsSupprimes.filter(op => `${op.numero} ${getBenNom(op)} ${op.objet || ''}`.toLowerCase().includes(s));
+  }, [opsSupprimes, corbeilleSearch]);
+
+  const opsSupprimesPage = useMemo(() => {
+    const start = (corbeillePage - 1) * CORBEILLE_PAGE_SIZE;
+    return opsSupprimesFiltres.slice(start, start + CORBEILLE_PAGE_SIZE);
+  }, [opsSupprimesFiltres, corbeillePage]);
+
+  const corbeilleTotalPages = Math.max(1, Math.ceil(opsSupprimesFiltres.length / CORBEILLE_PAGE_SIZE));
 
   const displayOps = useMemo(() => {
     let baseOps = ops.filter(op => {
@@ -106,10 +131,8 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
   }, [displayOps]);
 
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
-  // --- FONCTION DE RESTAURATION (À COLLER AVANT LE RETURN) ---
+  // --- FONCTION DE RESTAURATION (À COLLER AVANT LE RETOUR) ---
   const handleRestaurerOP = async (op) => {
-    if(!window.confirm(`Voulez-vous restaurer l'OP ${op.numero} ?`)) return;
-    
     try {
       // On met à jour le statut dans Firebase
       const opRef = doc(db, 'ops', op.id);
@@ -125,6 +148,28 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       console.error(err);
       alert("Erreur lors de la restauration : " + err.message);
     }
+  };
+
+  const demanderRestauration = (op) => {
+    setOpARestaurer(op);
+    setPwdRestaurer('');
+    setPwdRestaurerErr('');
+  };
+
+  const confirmerRestauration = () => {
+    if (!projet?.motDePasseAdmin) {
+      setPwdRestaurerErr('Mot de passe non configuré. Contactez un administrateur.');
+      return;
+    }
+    if (pwdRestaurer !== projet.motDePasseAdmin) {
+      setPwdRestaurerErr('Mot de passe incorrect');
+      return;
+    }
+    const op = opARestaurer;
+    setOpARestaurer(null);
+    setPwdRestaurer('');
+    setPwdRestaurerErr('');
+    handleRestaurerOP(op);
   };
 
   const handleExportExcel = async () => {
@@ -170,7 +215,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
-          <button onClick={() => setModalSuppression(true)} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
+          <button onClick={() => { setModalSuppression(true); setCorbeilleSearch(''); setCorbeillePage(1); }} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
       </div>
@@ -403,6 +448,18 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               <b>CORBEILLE (OP SUPPRIMÉS)</b>
               <button onClick={() => setModalSuppression(false)} style={{color:'#fff', background:'none', border:'none', cursor:'pointer'}}>FERMER</button>
             </div>
+            <div style={{padding:'14px 20px 0'}}>
+              <div style={{position:'relative', maxWidth:320}}>
+                <span style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)'}}>{I.search()}</span>
+                <input
+                  type="text"
+                  placeholder="Rechercher (N°, bénéficiaire, objet)..."
+                  value={corbeilleSearch}
+                  onChange={e => { setCorbeilleSearch(e.target.value); setCorbeillePage(1); }}
+                  style={{...styles.input, marginBottom:0, paddingLeft:32, height:36, fontSize:12}}
+                />
+              </div>
+            </div>
             <div style={{padding:20, overflowY:'auto'}}>
               <table style={{width:'100%', borderCollapse:'collapse', fontSize:11}}>
                 <thead>
@@ -410,33 +467,72 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                     <th style={styles.td}>N° OP</th>
                     <th style={styles.td}>Date Suppr.</th>
                     <th style={styles.td}>Bénéficiaire</th>
+                    <th style={styles.td}>Objet</th>
                     <th style={{...styles.td, textAlign:'right'}}>Montant</th>
                     <th style={styles.td}>Auteur</th>
                     <th style={styles.td}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {opsSupprimes.map((op) => (
+                  {opsSupprimesPage.map((op) => (
                     <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
                       <td style={styles.td}><b>{op.numero}</b></td>
                       <td style={styles.td}>{formatDate(op.updatedAt)}</td>
                       <td style={styles.td}>{getBenNom(op)}</td>
+                      <td style={{...styles.td, maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>
                       <td style={{...styles.td, textAlign:'right', color:P.red}}><b>{formatMontant(op.montant)}</b></td>
                       <td style={{...styles.td, fontWeight:700}}>{op.supprimePar || 'Admin'}</td>
                       <td style={styles.td}>
                         {permissions.canDelete && (
                         <button
-                          onClick={() => handleRestaurerOP(op)}
-                          style={{padding:'6px 12px', background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontWeight:700}}
+                          onClick={() => demanderRestauration(op)}
+                          title={`Restaurer l'OP ${op.numero}`}
+                          style={{width:30, height:30, padding:0, background:P.green, color:'#fff', border:'none', borderRadius:6, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}
                         >
-                          RESTAURER
+                          {I.restore('#fff', 15)}
                         </button>
                         )}
                       </td>
                     </tr>
                   ))}
+                  {opsSupprimesPage.length === 0 && (
+                    <tr><td colSpan={7} style={{...styles.td, textAlign:'center', color:P.textMuted, padding:20}}>Aucun OP supprimé{corbeilleSearch ? ' pour cette recherche' : ''}.</td></tr>
+                  )}
                 </tbody>
               </table>
+              {corbeilleTotalPages > 1 && (
+                <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16}}>
+                  <button onClick={() => setCorbeillePage(p => Math.max(1, p - 1))} disabled={corbeillePage <= 1} style={{padding:'6px 14px', borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', cursor: corbeillePage <= 1 ? 'not-allowed' : 'pointer', opacity: corbeillePage <= 1 ? 0.5 : 1}}>Précédent</button>
+                  <span style={{fontSize:12, color:P.textSec, fontWeight:600}}>Page {corbeillePage} / {corbeilleTotalPages}</span>
+                  <button onClick={() => setCorbeillePage(p => Math.min(corbeilleTotalPages, p + 1))} disabled={corbeillePage >= corbeilleTotalPages} style={{padding:'6px 14px', borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', cursor: corbeillePage >= corbeilleTotalPages ? 'not-allowed' : 'pointer', opacity: corbeillePage >= corbeilleTotalPages ? 0.5 : 1}}>Suivant</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE CONFIRMATION MOT DE PASSE POUR RESTAURATION */}
+      {opARestaurer && (
+        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div style={{background:'#fff', borderRadius:16, width:420, boxShadow:'0 20px 60px rgba(0,0,0,.2)', overflow:'hidden'}}>
+            <div style={{padding:'16px 20px', background:P.gold, color:'#fff'}}><b>CONFIRMER LA RESTAURATION</b></div>
+            <div style={{padding:20}}>
+              <p style={{fontSize:13, color:P.text, marginBottom:16}}>Confirmez le mot de passe administrateur pour restaurer l'OP <b>{opARestaurer.numero}</b>.</p>
+              <input
+                type="password"
+                autoFocus
+                placeholder="Mot de passe administrateur"
+                value={pwdRestaurer}
+                onChange={e => { setPwdRestaurer(e.target.value); setPwdRestaurerErr(''); }}
+                onKeyDown={e => e.key === 'Enter' && confirmerRestauration()}
+                style={{...styles.input, marginBottom:0}}
+              />
+              {pwdRestaurerErr && <div style={{color:P.red, fontSize:12, marginTop:8}}>{pwdRestaurerErr}</div>}
+            </div>
+            <div style={{padding:'16px 20px', borderTop:`1px solid ${P.border}`, display:'flex', justifyContent:'flex-end', gap:10}}>
+              <button onClick={() => { setOpARestaurer(null); setPwdRestaurer(''); setPwdRestaurerErr(''); }} style={{padding:'8px 16px', background:'#f5f5f5', border:`1px solid ${P.border}`, borderRadius:8, cursor:'pointer'}}>Annuler</button>
+              <button onClick={confirmerRestauration} style={{padding:'8px 16px', background:P.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Confirmer</button>
             </div>
           </div>
         </div>
