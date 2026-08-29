@@ -6,7 +6,7 @@ import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../utils/formatters';
 import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
-import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate } from '../components/circuitShared';
+import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate, ExBadge } from '../components/circuitShared';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 
 // ============================================================
@@ -79,7 +79,10 @@ const PageCircuitAC = () => {
   const exerciceActif = exercices.find(e => e.actif);
   const minDateLimit = exerciceActif?.annee ? `${exerciceActif.annee}-01-01` : null;
   
-  const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
+  // Pas de filtre par exercice ici : un OP encore en cours au circuit AC (transmis,
+  // différé, rejeté, en attente de bordereau) doit y rester visible même après le
+  // changement d'exercice actif, jusqu'à sa résolution (payé/annulé).
+  const opsForSource = useMemo(() => ops.filter(op => op.sourceId === activeSourceBT), [ops, activeSourceBT]);
 
   const getNumOp = (numero) => { const m = (numero||'').match(/N°(\d+)\//); return m ? parseInt(m[1]) : 0; };
   const opsEligiblesAC = useMemo(() => opsForSource.filter(op => op.statut === 'VISE_CF' && !op.bordereauAC && op.statut !== 'ANNULE').sort((a,b) => getNumOp(b.numero) - getNumOp(a.numero)), [opsForSource]);
@@ -672,7 +675,7 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
       </tr></thead><tbody>{filterOps(differes,searchSuivi).map(op=>{const ch=selectedOps.includes(op.id);
         return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
           <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
-          <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{formatNumeroOp(op.numero)}</td>
+          <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
           <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
           <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
           <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
@@ -702,7 +705,7 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
         <th style={thS}>MOTIF</th>
         <th style={{...thS,width:36}}></th>
       </tr></thead><tbody>{filterOps(rejetes,searchSuivi).map(op=><tr key={op.id} style={{background:P.redLight}}>
-        <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{formatNumeroOp(op.numero)}</td>
+        <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
         <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
         <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
         <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
@@ -764,7 +767,7 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
           {filterOps(opsEligiblesAC,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.goldLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
-              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}</td>
+              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
@@ -853,7 +856,7 @@ onClick={async () => {
   setBoiteModalPaiement('');
   setResultatAC('DIFFERE');
 }}>
-              <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{formatNumeroOp(op.numero)}</td>
+              <td style={{...styles.td, fontFamily:'monospace', fontWeight:700, fontSize:10}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
               <td style={{...styles.td, fontSize:10, fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td, fontSize:11, maxWidth:130, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
               <td style={{...styles.td, fontSize:11, maxWidth:250, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>

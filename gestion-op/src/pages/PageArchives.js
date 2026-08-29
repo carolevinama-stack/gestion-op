@@ -5,6 +5,7 @@ import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, exportToCSV, formatNumeroOp } from '../utils/formatters';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
+import { ExBadge } from '../components/circuitShared';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -104,7 +105,9 @@ const PageArchives = () => {
   const filterOps = (list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); };
 
   const exerciceActif = exercices.find(e => e.actif);
-  const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
+  // Pas de filtre par exercice ici : un OP payé/annulé en attente de classement doit
+  // rester visible dans "À archiver" même après le changement d'exercice actif.
+  const opsForSource = useMemo(() => ops.filter(op => op.sourceId === activeSourceBT), [ops, activeSourceBT]);
 
   const getNumOp = (numero) => { const m = (numero||'').match(/N°(\d+)\//); return m ? parseInt(m[1]) : 0; };
   const opsAArchiver = useMemo(() => opsForSource
@@ -280,7 +283,7 @@ const PageArchives = () => {
           {filterOps(opsAArchiver,searchArch).map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
-              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}</td>
+              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>

@@ -21,6 +21,14 @@ export const Badge=React.memo(({bg,color,children})=><span style={{background:bg
 export const Empty=React.memo(({text})=><div style={{textAlign:'center',padding:40,color:P.textMuted}}><div style={{marginBottom:12,opacity:.5}}>{I.fileText(P.textMuted,40)}</div><p style={{fontSize:14,margin:0}}>{text}</p></div>);
 export const STab=React.memo(({active,label,count,color,onClick})=><button onClick={onClick} style={{padding:'10px 18px',borderRadius:10,border:active?`2px solid ${color}`:'2px solid transparent',background:active?color:P.card,color:active?'#fff':P.textSec,fontWeight:600,cursor:'pointer',fontSize:12,display:'flex',alignItems:'center',gap:6,transition:'all .2s',boxShadow:active?`0 4px 12px ${color}33`:'0 1px 3px rgba(0,0,0,.06)'}}>{label}{count!==undefined&&<span style={{background:active?'rgba(255,255,255,.25)':P.border,padding:'1px 7px',borderRadius:10,fontSize:10,fontWeight:700}}>{count}</span>}</button>);
 
+// Petite pastille indiquant l'exercice d'origine d'un OP, affichée seulement quand il
+// diffère de l'exercice actif (ex : un OP resté dans un circuit d'une année sur l'autre).
+export const ExBadge=React.memo(({exerciceId,exercices,exerciceActif})=>{
+  const ex=exercices.find(e=>e.id===exerciceId);
+  if(!ex||(exerciceActif&&ex.id===exerciceActif.id))return null;
+  return <span style={{background:P.redLight,color:P.red,padding:'1px 5px',borderRadius:4,fontSize:9,fontWeight:700,marginLeft:6}}>{ex.annee}</span>;
+});
+
 export const IBtn = React.memo(({icon, title, bg, onClick, disabled, size = 30}) => (
   <button onClick={onClick} disabled={disabled} title={title} style={{width: size, height: size, borderRadius: 8, border: 'none', background: bg || P.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1, transition: 'all .15s', padding: 0}}>{icon}</button>
 ));
