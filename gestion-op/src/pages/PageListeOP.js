@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase'; // Importation de la base de données
 import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
-import { formatMontant, sanitizeForExport } from '../utils/formatters';
+import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 
 // Palette de couleurs
 const P = {
@@ -348,7 +348,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
           <tbody>
             {displayOpsPage.map((op, i) => (
               <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}>
-                <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero}</td>
+                <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{formatNumeroOp(op.numero)}</td>
                 <td style={{ ...styles.td, fontSize: '10px' }}>{op.type}</td>
                 <td style={{ ...styles.td, fontWeight: 600, fontSize: 12 }}>{getBenNom(op)}</td>
                 <td style={{ ...styles.td, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={op.objet}>{op.objet || '-'}</td>
@@ -406,7 +406,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20}}>
                  <div>
                     <div style={{fontSize:11, color:P.textMuted, fontWeight:700, marginBottom:4}}>RÉFÉRENCE</div>
-                    <div style={{fontFamily:'monospace', fontWeight:800, fontSize:18, color:P.text}}>{livePreviewOp.numero}</div>
+                    <div style={{fontFamily:'monospace', fontWeight:800, fontSize:18, color:P.text}}>{formatNumeroOp(livePreviewOp.numero)}</div>
                  </div>
                  <div style={{background:P.greenLight, padding:'6px 12px', borderRadius:8, color:P.greenDark, fontSize:11, fontWeight:700}}>
                     {livePreviewOp.statut.replace('_', ' ')}
@@ -513,7 +513,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                 <tbody>
                   {opsSupprimesPage.map((op) => (
                     <tr key={op.id} style={{borderBottom:'1px solid #eee'}}>
-                      <td style={styles.td}><b>{op.numero}</b></td>
+                      <td style={styles.td}><b>{formatNumeroOp(op.numero)}</b></td>
                       <td style={styles.td}>{formatDate(op.updatedAt)}</td>
                       <td style={styles.td}>{getBenNom(op)}</td>
                       <td style={{...styles.td, maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={op.objet}>{op.objet || '-'}</td>

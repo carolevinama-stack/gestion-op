@@ -18,6 +18,10 @@ export const sanitizeForExport = (str) => {
 
 export const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0);
 
+// Ajoute un espace après "N°" (ex: "N°0001/..." -> "N° 0001/...") pour que le
+// symbole degré ne soit pas collé aux chiffres dans les polices monospace.
+export const formatNumeroOp = (numero) => String(numero ?? '').replace(/^N°(?!\s)/, 'N° ');
+
 export const formatDate = (date) => {
   if (!date) return '';
   const d = date.toDate ? date.toDate() : new Date(date);

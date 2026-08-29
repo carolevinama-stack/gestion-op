@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
-import { formatMontant, sanitizeForExport, exportToCSV } from '../utils/formatters';
+import { formatMontant, sanitizeForExport, exportToCSV, formatNumeroOp } from '../utils/formatters';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -265,7 +265,7 @@ const PageArchives = () => {
           {filterOps(opsAArchiver,searchArch).map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
-              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{op.numero}</td>
+              <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}</td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
@@ -312,7 +312,7 @@ const PageArchives = () => {
           <th style={{...thS,width:80}}>ACTIONS</th>
         </tr></thead><tbody>
           {opsArchivesPage.map(op=><tr key={op.id}>
-            <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{op.numero}</td>
+            <td style={{...styles.td,fontFamily:'monospace',fontWeight:600,fontSize:10}}>{formatNumeroOp(op.numero)}</td>
             <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
             <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
             <td style={{...styles.td,fontSize:11,maxWidth:250,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={op.objet}>{op.objet||'-'}</td>
@@ -342,7 +342,7 @@ const PageArchives = () => {
         <div style={{marginBottom:16,paddingBottom:14,borderBottom:`1px solid ${P.border}`}}>
           {selectedOps.map(opId=>{const op=ops.find(o=>o.id===opId);if(!op)return null;
             return <div key={opId} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:P.greenLight,borderRadius:8,marginBottom:3,fontSize:12}}>
-              <span><strong style={{fontFamily:'monospace'}}>{op.numero}</strong> — {getBen(op)}</span>
+              <span><strong style={{fontFamily:'monospace'}}>{formatNumeroOp(op.numero)}</strong> — {getBen(op)}</span>
               <div style={{display:'flex',alignItems:'center',gap:8}}>{op.statut==='ANNULE'?<Badge bg={P.redLight} color={P.red}>Annulé</Badge>:<Badge bg={P.greenLight} color={P.greenDark}>Payé</Badge>}<span style={{fontFamily:'monospace',fontWeight:700}}>{formatMontant(op.montant)} F</span></div>
             </div>;})}
           <div style={{fontSize:15,fontWeight:800,color:P.olive,marginTop:10,textAlign:'right'}}>Total : {formatMontant(totalSelected)} F</div>

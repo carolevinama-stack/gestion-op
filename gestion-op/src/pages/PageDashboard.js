@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { formatMontant } from '../utils/formatters';
+import { formatMontant, formatNumeroOp } from '../utils/formatters';
 
 // ============================================================
 // ICÔNES SVG
@@ -312,7 +312,7 @@ const PageDashboard = () => {
                     <tr key={op.id || i} style={{ borderTop: '1px solid #f3f3f3', cursor: 'pointer' }} onClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }}>
                       <td style={{ padding: '12px 16px', borderBottom: '1px solid #f3f3f3' }}>
                         <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#333' }}>
-                          {(op.numero || '').split('/')[0] || `N°${op.numero}`}
+                          {formatNumeroOp((op.numero || '').split('/')[0] || `N°${op.numero}`)}
                         </div>
                         <div style={{ fontSize: 11, color: '#bbb' }}>
                           {getSourceSigle(op.sourceId)} • {op.dateCreation || ''}

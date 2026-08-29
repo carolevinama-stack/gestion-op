@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
-import { formatMontant, escapeHtml } from '../utils/formatters';
+import { formatMontant, escapeHtml, formatNumeroOp } from '../utils/formatters';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { buildOpPrintHtml } from '../utils/opPrint';
 import { db } from '../firebase';
@@ -639,7 +639,7 @@ const PageConsulterOp = () => {
                             onMouseOver={e => { if (!isSelected) e.currentTarget.style.background = P.bgApp; }}
                             onMouseOut={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? accent + '0a' : 'transparent'; }}>
                             <div>
-                              <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13, color: P.textBlack }}>{op.numero}</div>
+                              <div style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13, color: P.textBlack }}>{formatNumeroOp(op.numero)}</div>
                               <div style={{ fontSize: 11, color: P.labelMuted, marginTop: 2 }}>{ben?.nom || 'N/A'} — {(op.objet || '').substring(0, 40)}{(op.objet || '').length > 40 ? '...' : ''}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
@@ -667,7 +667,7 @@ const PageConsulterOp = () => {
                         </div>
                       ) : (
                         <span style={{ padding: '8px 10px', background: P.bgApp, border: '1.5px solid rgba(34,51,0,0.08)', borderRadius: 8, fontFamily: 'monospace', fontWeight: 800, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', color: P.textBlack }}>
-                          {selectedOp.numero} {permissions.canEdit && <span onClick={handleStartEditNumero} style={{ opacity: 0.3, cursor: 'pointer' }}>{Icons.editPen(P.labelMuted)}</span>}
+                          {formatNumeroOp(selectedOp.numero)} {permissions.canEdit && <span onClick={handleStartEditNumero} style={{ opacity: 0.3, cursor: 'pointer' }}>{Icons.editPen(P.labelMuted)}</span>}
                         </span>
                       )}
                     </div>
@@ -967,7 +967,7 @@ const PageConsulterOp = () => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTop: `1px solid ${P.bgApp}` }}>
-                      <span style={{ padding: '8px 14px', background: accent + '10', color: accent, borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.eyeSearch(accent)} {selectedOp.numero}</span>
+                      <span style={{ padding: '8px 14px', background: accent + '10', color: accent, borderRadius: 8, fontWeight: 700, fontSize: 12, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6 }}>{Icons.eyeSearch(accent)} {formatNumeroOp(selectedOp.numero)}</span>
                       <div style={{ display: 'flex', gap: 8 }}>
                         {/* Bouton Modifier : Grisé si OP verrouillé (Visé CF, Payé, transmis AC, archivé), masqué si le rôle ne peut pas modifier */}
                         {permissions.canEdit && (
