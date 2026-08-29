@@ -28,6 +28,8 @@ const Icon = {
   bank: (color = P.blue, size = 14) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M12 2L2 8h20L12 2z"/><line x1="7" y1="14" x2="7" y2="17"/><line x1="12" y1="14" x2="12" y2="17"/><line x1="17" y1="14" x2="17" y2="17"/></svg>,
   alert: (color = P.red, size = 18) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   clipboard: (color = P.blue, size = 16) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>,
+  chevronLeft: (color = P.textSec, size = 14) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  chevronRight: (color = P.textSec, size = 14) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
 };
 
 // ==================== TOAST ====================
@@ -429,9 +431,9 @@ const PageBeneficiaires = () => {
         )}
         {totalPages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '14px 20px', borderTop: `1px solid ${P.border}` }}>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="ben-btn" style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, opacity: page <= 1 ? 0.5 : 1, cursor: page <= 1 ? 'not-allowed' : 'pointer' }}>Précédent</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} title="Page précédente" style={{ width: 32, height: 32, padding: 0, borderRadius: 8, background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: page <= 1 ? 0.4 : 1, cursor: page <= 1 ? 'not-allowed' : 'pointer' }}>{Icon.chevronLeft()}</button>
             <span style={{ fontSize: 12, color: P.textSec, fontWeight: 600 }}>Page {page} / {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="ben-btn" style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, opacity: page >= totalPages ? 0.5 : 1, cursor: page >= totalPages ? 'not-allowed' : 'pointer' }}>Suivant</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} title="Page suivante" style={{ width: 32, height: 32, padding: 0, borderRadius: 8, background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: page >= totalPages ? 0.4 : 1, cursor: page >= totalPages ? 'not-allowed' : 'pointer' }}>{Icon.chevronRight()}</button>
           </div>
         )}
       </div>

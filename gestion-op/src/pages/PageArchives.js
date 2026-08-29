@@ -22,6 +22,8 @@ const I = {
   search: (c=P.textMuted, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   fileText: (c=P.textMuted, s=40) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   close: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  chevronLeft: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  chevronRight: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
 };
 
 // ============================================================
@@ -322,9 +324,9 @@ const PageArchives = () => {
           </tr>)}</tbody></table></div>
         {totalPagesArchives > 1 && (
           <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:12,marginTop:14}}>
-            <button onClick={()=>setPageArchives(p=>Math.max(1,p-1))} disabled={pageArchives<=1} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',cursor:pageArchives<=1?'not-allowed':'pointer',opacity:pageArchives<=1?0.5:1}}>Précédent</button>
+            <button onClick={()=>setPageArchives(p=>Math.max(1,p-1))} disabled={pageArchives<=1} title="Page précédente" style={{width:32,height:32,padding:0,borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',cursor:pageArchives<=1?'not-allowed':'pointer',opacity:pageArchives<=1?0.4:1}}>{I.chevronLeft()}</button>
             <span style={{fontSize:12,color:P.textSec,fontWeight:600}}>Page {pageArchives} / {totalPagesArchives}</span>
-            <button onClick={()=>setPageArchives(p=>Math.min(totalPagesArchives,p+1))} disabled={pageArchives>=totalPagesArchives} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',cursor:pageArchives>=totalPagesArchives?'not-allowed':'pointer',opacity:pageArchives>=totalPagesArchives?0.5:1}}>Suivant</button>
+            <button onClick={()=>setPageArchives(p=>Math.min(totalPagesArchives,p+1))} disabled={pageArchives>=totalPagesArchives} title="Page suivante" style={{width:32,height:32,padding:0,borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',cursor:pageArchives>=totalPagesArchives?'not-allowed':'pointer',opacity:pageArchives>=totalPagesArchives?0.4:1}}>{I.chevronRight()}</button>
           </div>
         )}
         </>}

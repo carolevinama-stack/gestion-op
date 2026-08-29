@@ -20,7 +20,9 @@ const I = {
   filter: (c='#666', s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>,
   info: (c=P.orange, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
   restore: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>,
-  search: (c=P.textMuted, s=15) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  search: (c=P.textMuted, s=15) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  chevronLeft: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  chevronRight: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
 };
 
 const PageListeOP = () => {
@@ -43,6 +45,8 @@ const PageListeOP = () => {
   const [pwdRestaurer, setPwdRestaurer] = useState('');
   const [pwdRestaurerErr, setPwdRestaurerErr] = useState('');
   const CORBEILLE_PAGE_SIZE = 50;
+  const [pageOP, setPageOP] = useState(1);
+  const OP_PAGE_SIZE = 50;
 
 const getBenNom = (op) => op.beneficiaireNom || 'N/A';
   const getSrcSigle = (srcId) => sources?.find(s => s.id === srcId)?.sigle || 'SRC';
@@ -140,6 +144,11 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
   const totalMontantAffichage = useMemo(() => {
     return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   }, [displayOps]);
+
+  useEffect(() => { setPageOP(1); }, [activeSource, activeTab, filters]);
+
+  const totalPagesOP = Math.max(1, Math.ceil(displayOps.length / OP_PAGE_SIZE));
+  const displayOpsPage = useMemo(() => displayOps.slice((pageOP - 1) * OP_PAGE_SIZE, pageOP * OP_PAGE_SIZE), [displayOps, pageOP]);
 
   const livePreviewOp = useMemo(() => ops.find(o => o.id === previewOpId), [ops, previewOpId]);
   // --- FONCTION DE RESTAURATION (À COLLER AVANT LE RETOUR) ---
@@ -337,7 +346,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
             </tr>
           </thead>
           <tbody>
-            {displayOps.map((op, i) => (
+            {displayOpsPage.map((op, i) => (
               <tr key={i} onDoubleClick={() => { setConsultOpData(op); setCurrentPage('consulterOp'); }} style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}>
                 <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero}</td>
                 <td style={{ ...styles.td, fontSize: '10px' }}>{op.type}</td>
@@ -376,6 +385,13 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
           </tfoot>
         </table>
       </div>
+      {totalPagesOP > 1 && (
+        <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16}}>
+          <button onClick={() => setPageOP(p => Math.max(1, p - 1))} disabled={pageOP <= 1} title="Page précédente" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: pageOP <= 1 ? 'not-allowed' : 'pointer', opacity: pageOP <= 1 ? 0.4 : 1}}>{I.chevronLeft()}</button>
+          <span style={{fontSize:12, color:P.textSec, fontWeight:600}}>Page {pageOP} / {totalPagesOP}</span>
+          <button onClick={() => setPageOP(p => Math.min(totalPagesOP, p + 1))} disabled={pageOP >= totalPagesOP} title="Page suivante" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: pageOP >= totalPagesOP ? 'not-allowed' : 'pointer', opacity: pageOP >= totalPagesOP ? 0.4 : 1}}>{I.chevronRight()}</button>
+        </div>
+      )}
 
       {/* MODALE D'APERÇU DÉTAILLÉ */}
       {livePreviewOp && (
@@ -523,9 +539,9 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               </table>
               {corbeilleTotalPages > 1 && (
                 <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16}}>
-                  <button onClick={() => setCorbeillePage(p => Math.max(1, p - 1))} disabled={corbeillePage <= 1} style={{padding:'6px 14px', borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', cursor: corbeillePage <= 1 ? 'not-allowed' : 'pointer', opacity: corbeillePage <= 1 ? 0.5 : 1}}>Précédent</button>
+                  <button onClick={() => setCorbeillePage(p => Math.max(1, p - 1))} disabled={corbeillePage <= 1} title="Page précédente" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: corbeillePage <= 1 ? 'not-allowed' : 'pointer', opacity: corbeillePage <= 1 ? 0.4 : 1}}>{I.chevronLeft()}</button>
                   <span style={{fontSize:12, color:P.textSec, fontWeight:600}}>Page {corbeillePage} / {corbeilleTotalPages}</span>
-                  <button onClick={() => setCorbeillePage(p => Math.min(corbeilleTotalPages, p + 1))} disabled={corbeillePage >= corbeilleTotalPages} style={{padding:'6px 14px', borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', cursor: corbeillePage >= corbeilleTotalPages ? 'not-allowed' : 'pointer', opacity: corbeillePage >= corbeilleTotalPages ? 0.5 : 1}}>Suivant</button>
+                  <button onClick={() => setCorbeillePage(p => Math.min(corbeilleTotalPages, p + 1))} disabled={corbeillePage >= corbeilleTotalPages} title="Page suivante" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: corbeillePage >= corbeilleTotalPages ? 'not-allowed' : 'pointer', opacity: corbeillePage >= corbeilleTotalPages ? 0.4 : 1}}>{I.chevronRight()}</button>
                 </div>
               )}
             </div>
