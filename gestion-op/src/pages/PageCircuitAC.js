@@ -221,6 +221,9 @@ const PageCircuitAC = () => {
     const d = readDate('trans_' + bt.id);
     if(!d){notify("error","Erreur","Saisissez une date."); return;}
     if(minDateLimit && d < minDateLimit) { notify("error", "Erreur", "La date de transmission ne peut pas être antérieure à l'exercice actif."); return; }
+    const opsDuBt = bt.opsIds.map(id => ops.find(o => o.id === id)).filter(Boolean);
+    const maxVisaCF = opsDuBt.reduce((max, op) => (op.dateVisaCF && op.dateVisaCF > max) ? op.dateVisaCF : max, '');
+    if(maxVisaCF && d < maxVisaCF) { notify("error", "Erreur", `La date de transmission à l'AC ne peut pas être antérieure à la date de validation du CF (${formatDate(maxVisaCF)}).`); return; }
 
     ask("Confirmation", `Transmettre ${bt.numero} à l'AC le ${formatDate(d)} ?`, async () => {
       setSaving(true);

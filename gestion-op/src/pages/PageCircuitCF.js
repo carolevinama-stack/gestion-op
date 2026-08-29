@@ -350,6 +350,8 @@ const PageCircuitCF = () => {
   const handleRetourCF = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez des OP."); return;}
     const d = readDate('retourCF'); if(!d){notify("error", "Erreur", "Date requise."); return;}
+    const opAvantTransmission = selectedOps.map(id => ops.find(o => o.id === id)).find(op => op?.dateTransmissionCF && d < op.dateTransmissionCF);
+    if(opAvantTransmission) { notify("error", "Erreur", `La date de validation ne peut pas être antérieure à la date de transmission du bordereau (${formatDate(opAvantTransmission.dateTransmissionCF)}) pour l'OP ${opAvantTransmission.numero}.`); return; }
     if((resultatCF === 'DIFFERE' || resultatCF === 'REJETE') && !motifRetour.trim()){notify("error", "Erreur", "Motif obligatoire."); return;}
     const exec = async () => {
       ask("Confirmation", `Marquer ${selectedOps.length} OP comme "${resultatCF}" ?`, async () => {
