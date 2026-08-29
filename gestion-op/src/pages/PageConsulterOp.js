@@ -379,6 +379,49 @@ const PageConsulterOp = () => {
     try {
       if (!selectedOp?.id) return;
 
+      if (!form.beneficiaireId) {
+        showToast('error', 'Champ obligatoire', 'Veuillez sélectionner un bénéficiaire');
+        return;
+      }
+      if (form.modeReglement === 'VIREMENT' && !selectedRib) {
+        showToast('error', 'RIB manquant', 'Veuillez renseigner un RIB pour le bénéficiaire');
+        return;
+      }
+      if (!form.ligneBudgetaire) {
+        showToast('error', 'Champ obligatoire', 'Veuillez sélectionner une ligne budgétaire');
+        return;
+      }
+      if (!form.objet.trim()) {
+        showToast('error', 'Champ obligatoire', "Veuillez saisir l'objet de la dépense");
+        return;
+      }
+
+      let finalMontant = parseFloat(form.montant);
+      if (isNaN(finalMontant) || finalMontant === 0) {
+        showToast('error', 'Champ obligatoire', 'Veuillez saisir un montant valide');
+        return;
+      }
+      if (!['ANNULATION', 'DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
+        showToast('error', 'Montant invalide', "Le montant d'un OP Provisoire doit être positif.");
+        return;
+      }
+      if (['DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
+        const okNeg = await askConfirm('Montant négatif', `Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP ${form.type === 'DIRECT' ? 'Direct' : 'Définitif'} avec un montant négatif ?`);
+        if (!okNeg) return;
+      }
+      if (form.type === 'ANNULATION') {
+        finalMontant = -Math.abs(finalMontant);
+      }
+
+      if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
+        showToast('error', 'Champ obligatoire', 'Veuillez indiquer si la TVA est récupérable (OUI / NON)');
+        return;
+      }
+      if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === true && (!form.montantTVA || parseFloat(form.montantTVA) === 0)) {
+        showToast('error', 'Champ obligatoire', 'TVA récupérable : veuillez saisir le montant de la TVA');
+        return;
+      }
+
       if (form.type === 'ANNULATION' && !form.opProvisoireId && !form.opProvisoireManuel.trim()) {
         showToast('error', 'Champ obligatoire', "Veuillez sélectionner ou saisir le N° d'OP Provisoire à annuler");
         return;
@@ -400,12 +443,17 @@ const PageConsulterOp = () => {
         }
       }
 
+      if (form.type !== 'ANNULATION' && getDisponible() < 0) {
+        showToast('error', 'Budget insuffisant', `Disponible : ${formatMontant(getDisponible())} FCFA`);
+        return;
+      }
+
       const newBen = beneficiaires.find(b => b.id === form.beneficiaireId);
       const newBudgetLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
 
       const benRibs = newBen?.ribs || (newBen?.rib ? [{ banque: '', numero: newBen.rib }] : []);
       const ribSel = benRibs[form.ribIndex || 0];
-      const newMontant = parseFloat(form.montant) || selectedOp.montant;
+      const newMontant = finalMontant;
       if (newMontant !== selectedOp.montant) {
         const opsSuivants = ops.filter(o => o.sourceId === selectedOp.sourceId && o.exerciceId === selectedOp.exerciceId && o.ligneBudgetaire === selectedOp.ligneBudgetaire && (o.createdAt || '') > (selectedOp.createdAt || '') && o.id !== selectedOp.id && o.statut !== 'SUPPRIME');
         if (opsSuivants.length > 0) {
@@ -444,7 +492,7 @@ const PageConsulterOp = () => {
               ?.lignes?.find(l => l.code === form.ligneBudgetaire)?.dotation ?? 0)
           : (selectedOp.dotationFigee ?? 0),
         tvaRecuperable: form.tvaRecuperable || false,
-        montantTVA: form.tvaRecuperable ? (parseFloat(form.montantTVA) || 0) : 0,
+        montantTVA: form.tvaRecuperable ? (newMontant < 0 ? -Math.abs(parseFloat(form.montantTVA) || 0) : Math.abs(parseFloat(form.montantTVA) || 0)) : 0,
         ...opProvFields,
         updatedAt: new Date().toISOString()
       };
