@@ -81,7 +81,8 @@ const PageCircuitAC = () => {
   
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
-  const opsEligiblesAC = useMemo(() => opsForSource.filter(op => op.statut === 'VISE_CF' && !op.bordereauAC && op.statut !== 'ANNULE'), [opsForSource]);
+  const getNumOp = (numero) => { const m = (numero||'').match(/N°(\d+)\//); return m ? parseInt(m[1]) : 0; };
+  const opsEligiblesAC = useMemo(() => opsForSource.filter(op => op.statut === 'VISE_CF' && !op.bordereauAC && op.statut !== 'ANNULE').sort((a,b) => getNumOp(b.numero) - getNumOp(a.numero)), [opsForSource]);
   const opsTransmisAC = useMemo(() => opsForSource.filter(op => (op.statut === 'TRANSMIS_AC' || op.statut === 'PAYE_PARTIEL') && op.statut !== 'ANNULE').sort((a,b) => (b.dateTransmissionAC||'').localeCompare(a.dateTransmissionAC||'')), [opsForSource]);
   const opsDifferesAC = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_AC').sort((a,b) => (b.dateDiffere||'').localeCompare(a.dateDiffere||'')), [opsForSource]);
   const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC' && op.type !== 'REJET').sort((a,b) => (b.dateRejet||'').localeCompare(a.dateRejet||'')), [opsForSource]);

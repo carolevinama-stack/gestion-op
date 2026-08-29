@@ -106,13 +106,16 @@ const PageArchives = () => {
   const exerciceActif = exercices.find(e => e.actif);
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
+  const getNumOp = (numero) => { const m = (numero||'').match(/N°(\d+)\//); return m ? parseInt(m[1]) : 0; };
   const opsAArchiver = useMemo(() => opsForSource
     .filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE')
-    .sort((a,b) => ((b.datePaiement||b.dateVisaCF||'')).localeCompare(a.datePaiement||a.dateVisaCF||'')), [opsForSource]);
+    .sort((a,b) => getNumOp(b.numero) - getNumOp(a.numero)), [opsForSource]);
 
   const currentExerciceIdArch = showAnterieurArch ? selectedExerciceArch : exerciceActif?.id;
   const opsForSourceClasses = useMemo(() => ops.filter(op => op.exerciceId === currentExerciceIdArch && op.sourceId === activeSourceBT), [ops, activeSourceBT, currentExerciceIdArch]);
-  const opsArchives = useMemo(() => opsForSourceClasses.filter(op => op.statut === 'ARCHIVE'), [opsForSourceClasses]);
+  const opsArchives = useMemo(() => opsForSourceClasses
+    .filter(op => op.statut === 'ARCHIVE')
+    .sort((a,b) => (b.dateArchivage||'').localeCompare(a.dateArchivage||'')), [opsForSourceClasses]);
 
   const boitesDisponibles = useMemo(() => {
     const set = new Set(opsArchives.map(op => op.boiteArchivage).filter(Boolean));

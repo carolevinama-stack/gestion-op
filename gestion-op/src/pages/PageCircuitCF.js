@@ -77,7 +77,8 @@ const PageCircuitCF = () => {
   
   const opsForSource = useMemo(() => ops.filter(op => op.exerciceId === exerciceActif?.id && op.sourceId === activeSourceBT), [ops, activeSourceBT, exerciceActif]);
 
-  const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && op.statut !== 'SUPPRIME' && !op.bordereauCF), [opsForSource]);
+  const getNumOp = (numero) => { const m = (numero||'').match(/N°(\d+)\//); return m ? parseInt(m[1]) : 0; };
+  const opsEligiblesCF = useMemo(() => opsForSource.filter(op => (op.statut === 'EN_COURS' || op.statut === 'DIFFERE_CF') && op.statut !== 'SUPPRIME' && !op.bordereauCF).sort((a,b) => getNumOp(b.numero) - getNumOp(a.numero)), [opsForSource]);
   const opsTransmisCF = useMemo(() => opsForSource.filter(op => op.statut === 'TRANSMIS_CF').sort((a,b) => (b.dateTransmissionCF||'').localeCompare(a.dateTransmissionCF||'')), [opsForSource]);
   const opsDifferesCF = useMemo(() => opsForSource.filter(op => op.statut === 'DIFFERE_CF').sort((a,b) => (b.dateDiffere||'').localeCompare(a.dateDiffere||'')), [opsForSource]);
   const opsRejetesCF = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_CF' && op.type !== 'REJET').sort((a,b) => (b.dateRejet||'').localeCompare(a.dateRejet||'')), [opsForSource]);
