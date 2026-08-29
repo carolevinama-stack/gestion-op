@@ -86,6 +86,8 @@ const PageArchives = () => {
   const [filtreBoite, setFiltreBoite] = useState('');
   const [pageArchives, setPageArchives] = useState(1);
   const ARCHIVES_PAGE_SIZE = 50;
+  const [showAnterieurArch, setShowAnterieurArch] = useState(false);
+  const [selectedExerciceArch, setSelectedExerciceArch] = useState(null);
 
   // Modales
   const [alertData, setAlertData] = useState(null); 
@@ -106,7 +108,10 @@ const PageArchives = () => {
   const opsAArchiver = useMemo(() => opsForSource
     .filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE')
     .sort((a,b) => ((b.datePaiement||b.dateVisaCF||'')).localeCompare(a.datePaiement||a.dateVisaCF||'')), [opsForSource]);
-  const opsArchives = useMemo(() => opsForSource.filter(op => op.statut === 'ARCHIVE'), [opsForSource]);
+
+  const currentExerciceIdArch = showAnterieurArch ? selectedExerciceArch : exerciceActif?.id;
+  const opsForSourceClasses = useMemo(() => ops.filter(op => op.exerciceId === currentExerciceIdArch && op.sourceId === activeSourceBT), [ops, activeSourceBT, currentExerciceIdArch]);
+  const opsArchives = useMemo(() => opsForSourceClasses.filter(op => op.statut === 'ARCHIVE'), [opsForSourceClasses]);
 
   const boitesDisponibles = useMemo(() => {
     const set = new Set(opsArchives.map(op => op.boiteArchivage).filter(Boolean));
@@ -282,6 +287,22 @@ const PageArchives = () => {
 
       {subTabArch==='ARCHIVES' && <div style={crd}>
         <h3 style={{margin:'0 0 16px',color:P.oliveDark,fontSize:15}}>Consultation des Archives ({opsArchivesFiltres.length})</h3>
+        <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',marginBottom:14}}>
+          <div>
+            <span style={{fontSize:13,color:P.textSec}}>Exercice : </span>
+            <strong style={{fontSize:15,color:P.oliveDark}}>{(showAnterieurArch ? exercices.find(e=>e.id===selectedExerciceArch) : exerciceActif)?.annee || 'Non défini'}</strong>
+            {!showAnterieurArch && exerciceActif && <span style={{background:P.greenLight,color:P.greenDark,padding:'2px 9px',borderRadius:20,fontSize:10,fontWeight:700,marginLeft:8}}>Actif</span>}
+          </div>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:P.textSec}}>
+            <input type="checkbox" checked={showAnterieurArch} onChange={e=>{setShowAnterieurArch(e.target.checked); if(!e.target.checked) setSelectedExerciceArch(exerciceActif?.id); setPageArchives(1);}} style={{accentColor:P.olive}}/>
+            Exercices antérieurs
+          </label>
+          {showAnterieurArch && (
+            <select value={selectedExerciceArch || ''} onChange={e=>{setSelectedExerciceArch(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:'auto',padding:'8px 12px'}}>
+              {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
+            </select>
+          )}
+        </div>
         <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end',marginBottom:12}}>
           <input type="text" placeholder="Rechercher par N° de boîte, OP, Bénéficiaire..." value={searchArch} onChange={e=>{setSearchArch(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
           <div>
