@@ -7,6 +7,7 @@ import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../
 import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate } from '../components/circuitShared';
+import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 
 // ============================================================
 // ICÔNES
@@ -36,7 +37,7 @@ const I={
 // COMPOSANT PRINCIPAL : AC
 // ============================================================
 const PageCircuitAC = () => {
-  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux, userProfile } = useAppContext();
   
   const [subTabAC, setSubTabAC] = useState('NOUVEAU');
   const [subTabSuiviAC, setSubTabSuiviAC] = useState('DIFFERES');
@@ -407,7 +408,14 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
             statut: statutCalculé
           });
 
-          return { resteFinal, estSolde };
+          return { resteFinal, estSolde, statutCalculé };
+        });
+
+        enregistrerJournal({
+          action: ACTIONS_JOURNAL.CHANGEMENT_STATUT,
+          opId, opNumero: op.numero,
+          details: `AC : paiement de ${formatMontant(m)} FCFA — statut ${resteFinal === 0 ? 'PAYE' : 'PAYE_PARTIEL'}`,
+          utilisateur: nomUtilisateurJournal(userProfile),
         });
 
         if (resteFinal < 0) {
@@ -478,6 +486,12 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
           }
           batch.update(doc(db, 'ops', modalPaiement.id), upd);
           await batch.commit();
+          enregistrerJournal({
+            action: ACTIONS_JOURNAL.CHANGEMENT_STATUT,
+            opId: modalPaiement.id, opNumero: modalPaiement.numero,
+            details: `AC : ${upd.statut} — ${motifRetourAC.trim()}`,
+            utilisateur: nomUtilisateurJournal(userProfile),
+          });
           notify("success", "Succès", "Mise à jour effectuée."); setModalPaiement(null); setMotifRetourAC('');
         }catch(e){notify("error", "Erreur", e.message);}
         setSaving(false);

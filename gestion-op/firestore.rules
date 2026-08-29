@@ -107,5 +107,16 @@ service cloud.firestore {
     allow read: if isConnected();
     allow write: if isOperateur();
    }
+
+    // ============================================================
+    //  COLLECTION : journal (historique des actions sur les OP)
+    //  → Seul un ADMIN peut consulter le journal
+    //  → ADMIN et OPERATEUR peuvent y ajouter une entrée (jamais la modifier/supprimer)
+    // ============================================================
+    match /journal/{docId} {
+      allow read: if isAdmin();
+      allow create: if isOperateur();
+      allow update, delete: if false;
+    }
   }
 }

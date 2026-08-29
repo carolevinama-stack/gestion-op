@@ -8,6 +8,7 @@ import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../
 import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate } from '../components/circuitShared';
+import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 
 // ============================================================
 // ICÔNES
@@ -35,7 +36,7 @@ const I={
 // COMPOSANT PRINCIPAL : CF
 // ============================================================
 const PageCircuitCF = () => {
-  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux, userProfile } = useAppContext();
   
   const [subTabCF, setSubTabCF] = useState('NOUVEAU');
   const [subTabSuiviCF, setSubTabSuiviCF] = useState('DIFFERES');
@@ -365,11 +366,12 @@ const PageCircuitCF = () => {
         setSaving(true);
         try{
           const batch = writeBatch(db);
+          const entreesJournal = [];
           for(const opId of selectedOps) {
             const op = ops.find(o => o.id === opId);
             let upd = { updatedAt: new Date().toISOString() };
             if(resultatCF === 'VISE' && op.type === 'ANNULATION') {
-               upd.statut = 'ANNULE'; upd.dateVisaCF = d; upd.dateArchivage = d; 
+               upd.statut = 'ANNULE'; upd.dateVisaCF = d; upd.dateArchivage = d;
             } else if(resultatCF === 'VISE'){
                upd.statut = 'VISE_CF'; upd.dateVisaCF = d;
             } else if(resultatCF === 'DIFFERE'){
@@ -388,8 +390,12 @@ const PageCircuitCF = () => {
                batch.set(cloneRef, cloneData);
             }
             batch.update(doc(db, 'ops', opId), upd);
+            entreesJournal.push({ opId, opNumero: op.numero, details: `CF : ${upd.statut}${motifRetour.trim() ? ' — ' + motifRetour.trim() : ''}` });
           }
           await batch.commit();
+          entreesJournal.forEach(({ opId, opNumero, details }) => enregistrerJournal({
+            action: ACTIONS_JOURNAL.CHANGEMENT_STATUT, opId, opNumero, details, utilisateur: nomUtilisateurJournal(userProfile),
+          }));
           notify("success", "Succès", "Mise à jour effectuée avec succès.");
           setSelectedOps([]); setMotifRetour(''); setModalRetourCF(false);
         }catch(e){notify("error", "Erreur", e.message);}

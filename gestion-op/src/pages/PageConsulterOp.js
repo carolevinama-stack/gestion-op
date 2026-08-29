@@ -11,6 +11,7 @@ import {
   filtrerOpProvisoiresPourAnnulation,
   filtrerOpProvisoiresPourDefinitif,
 } from '../utils/opCalculs';
+import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { buildOpPrintHtml } from '../utils/opPrint';
 import { db } from '../firebase';
@@ -153,7 +154,7 @@ const statutConfig = {
 const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A', ANNULATION: '#C43E3E' };
 
 const PageConsulterOp = () => {
-  const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions } = useAppContext();
+  const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions, userProfile } = useAppContext();
   const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
   const [showAnterieur, setShowAnterieur] = useState(false);
   const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
@@ -489,7 +490,15 @@ const PageConsulterOp = () => {
       };
       await updateDoc(doc(db, 'ops', selectedOp.id), updates);
       const updatedOp = { ...selectedOp, ...updates };
-      
+
+      enregistrerJournal({
+        action: ACTIONS_JOURNAL.MODIFICATION,
+        opId: selectedOp.id,
+        opNumero: selectedOp.numero,
+        details: `OP modifié — montant ${formatMontant(newMontant)} FCFA`,
+        utilisateur: nomUtilisateurJournal(userProfile),
+      });
+
       setSelectedOp(updatedOp);
       setIsEditMode(false);
       showToast('success', 'OP modifié avec succès', selectedOp.numero);
@@ -524,6 +533,15 @@ const PageConsulterOp = () => {
         };
         await updateDoc(doc(db, 'ops', selectedOp.id), updates);
         setOps(ops.map(o => o.id === selectedOp.id ? { ...o, ...updates } : o));
+
+        enregistrerJournal({
+          action: ACTIONS_JOURNAL.SUPPRESSION,
+          opId: selectedOp.id,
+          opNumero: selectedOp.numero,
+          details: `OP mis à la corbeille — ${formatMontant(selectedOp.montant)} FCFA`,
+          utilisateur: nomUtilisateurJournal(userProfile),
+        });
+
         showToast('success', 'OP mis à la corbeille', selectedOp.numero);
         setSelectedOp(null);
         setSearchText('');
@@ -561,6 +579,15 @@ const PageConsulterOp = () => {
     try {
       await updateDoc(doc(db, 'ops', selectedOp.id), { numero: newNum, updatedAt: new Date().toISOString() });
       setOps(prev => prev.map(o => o.id === selectedOp.id ? { ...o, numero: newNum } : o));
+
+      enregistrerJournal({
+        action: ACTIONS_JOURNAL.MODIFICATION,
+        opId: selectedOp.id,
+        opNumero: newNum,
+        details: `Numéro corrigé manuellement : ${selectedOp.numero} → ${newNum}`,
+        utilisateur: nomUtilisateurJournal(userProfile),
+      });
+
       setSelectedOp(prev => ({ ...prev, numero: newNum }));
       setEditNumero(null);
       showToast('success', 'Numéro modifié', newNum);

@@ -21,6 +21,7 @@ import PageArchives from './pages/PageArchives';
 import PageListeOP from './pages/PageListeOP';
 import PageRapport from './pages/PageRapport';
 import PageAdmin from './pages/PageAdmin';
+import PageJournal from './pages/PageJournal';
 
 // ==================== COMPOSANT DE CHARGEMENT UNIQUE ====================
 // On crée un composant réutilisable pour garantir que le design est strictement le même
@@ -136,6 +137,7 @@ function AppLayout() {
         {currentPage === 'archives' && <PageArchives />}
         {currentPage === 'suivi' && <PageRapport />}
         {currentPage === 'admin' && <PageAdmin />}
+        {currentPage === 'journal' && <PageJournal />}
       </main>
     </div>
   );

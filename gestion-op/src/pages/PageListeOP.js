@@ -4,6 +4,7 @@ import { db } from '../firebase'; // Importation de la base de données
 import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
+import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 
 // Palette de couleurs
 const P = {
@@ -40,7 +41,7 @@ const ModalAlert = ({ data, onClose }) => {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet } = useAppContext();
+  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   const [showAnterieur, setShowAnterieur] = useState(false);
@@ -180,7 +181,15 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
         motifSuppression: null,
         supprimePar: null
       });
-      
+
+      enregistrerJournal({
+        action: ACTIONS_JOURNAL.RESTAURATION,
+        opId: op.id,
+        opNumero: op.numero,
+        details: `OP restauré depuis la corbeille — ${formatMontant(op.montant)} FCFA`,
+        utilisateur: nomUtilisateurJournal(userProfile),
+      });
+
       notify('success', 'Restauré', `L'OP ${op.numero} a été restauré avec succès.`);
     } catch (err) {
       console.error(err);

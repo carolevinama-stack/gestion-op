@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, exportToCSV, formatNumeroOp } from '../utils/formatters';
+import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -76,7 +77,7 @@ const formatDate = (ds) => {
 // COMPOSANT PRINCIPAL : ARCHIVES
 // ============================================================
 const PageArchives = () => {
-  const { projet, sources, exercices, beneficiaires, ops } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, userProfile } = useAppContext();
   
   const [subTabArch, setSubTabArch] = useState('A_ARCHIVER');
   const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
@@ -161,6 +162,12 @@ const PageArchives = () => {
           batch.update(doc(db, 'ops', opId), {statut: 'ARCHIVE', boiteArchivage: boiteArchivage.trim(), dateArchivage: new Date().toISOString().split('T')[0], updatedAt: new Date().toISOString()});
         });
         await batch.commit();
+        selectedOps.forEach(opId => enregistrerJournal({
+          action: ACTIONS_JOURNAL.CHANGEMENT_STATUT,
+          opId, opNumero: ops.find(o => o.id === opId)?.numero,
+          details: `Classé aux archives — boîte "${boiteArchivage.trim()}"`,
+          utilisateur: nomUtilisateurJournal(userProfile),
+        }));
         notify("success", "Terminé", `${selectedOps.length} OP ont été archivés avec succès.`);
         setSelectedOps([]); setBoiteArchivage(''); setModalArchive(false);
       }catch(e){notify("error", "Erreur", e.message);}

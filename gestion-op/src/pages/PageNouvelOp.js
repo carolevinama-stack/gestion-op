@@ -13,6 +13,7 @@ import {
   filtrerOpProvisoiresPourAnnulation,
   filtrerOpProvisoiresPourDefinitif,
 } from '../utils/opCalculs';
+import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import { db } from '../firebase';
 import { collection, doc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
@@ -453,6 +454,14 @@ const PageNouvelOp = () => {
       // En la désactivant, on laisse AppContext.js faire la mise à jour tout seul, sans conflit.
 
       // setOps([...ops, { id: newOpRef.id, ...opData }]);
+
+      enregistrerJournal({
+        action: ACTIONS_JOURNAL.CREATION,
+        opId: newOpRef.id,
+        opNumero: opData.numero,
+        details: `OP ${opData.type} créé — ${formatMontant(opData.montant)} FCFA — ${opData.objet}`,
+        utilisateur: nomUtilisateurJournal(userProfile),
+      });
 
       setModal({ type: 'success', title: 'OP créé avec succès', message: `L'ordre de paiement N° ${opData.numero} a été enregistré.` });
       handleClear();
