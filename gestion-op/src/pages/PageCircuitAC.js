@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
@@ -37,7 +37,7 @@ const I={
 // COMPOSANT PRINCIPAL : AC
 // ============================================================
 const PageCircuitAC = () => {
-  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux, userProfile } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux, userProfile, chargerExerciceBordereaux } = useAppContext();
   
   const [subTabAC, setSubTabAC] = useState('NOUVEAU');
   const [subTabSuiviAC, setSubTabSuiviAC] = useState('DIFFERES');
@@ -92,6 +92,7 @@ const PageCircuitAC = () => {
   const opsRejetesAC = useMemo(() => opsForSource.filter(op => op.statut === 'REJETE_AC' && op.type !== 'REJET' && op.exerciceId === exerciceActif?.id).sort((a,b) => (b.dateRejet||'').localeCompare(a.dateRejet||'')), [opsForSource, exerciceActif]);
   
   const currentExerciceIdBT = showAnterieurBT ? selectedExerciceBT : exerciceActif?.id;
+  useEffect(() => { if (showAnterieurBT && selectedExerciceBT) chargerExerciceBordereaux(selectedExerciceBT); }, [showAnterieurBT, selectedExerciceBT, chargerExerciceBordereaux]);
   const bordereauAC = useMemo(() => bordereaux.filter(bt => bt.type === 'AC' && bt.statut !== 'SUPPRIME' && bt.exerciceId === currentExerciceIdBT && bt.sourceId === activeSourceBT), [bordereaux, activeSourceBT, currentExerciceIdBT]);
 
   // === HELPERS ===

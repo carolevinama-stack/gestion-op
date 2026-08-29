@@ -267,7 +267,7 @@ const TabInfos = () => {
 // ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, bordereaux, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
+  const { projet, sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
@@ -328,7 +328,11 @@ const TabMaintenance = () => {
       addSheet('Sources', sources.map(s => ({ 'Sigle': s.sigle || '', 'Nom': s.nom || '' })));
       addSheet('Exercices', exercices.map(e => ({ 'Année': e.annee || '', 'Actif': e.actif ? 'Oui' : 'Non' })));
       addSheet('Lignes budgétaires', lignesBudgetaires.map(l => ({ 'Code': l.code || '', 'Libellé': l.libelle || '' })));
-      addSheet('Bordereaux', bordereaux.map(b => ({
+      // Récupéré frais en base (pas depuis le contexte) : celui-ci ne garde que
+      // l'exercice actif en mémoire pour limiter la charge, alors qu'une sauvegarde
+      // doit couvrir tous les exercices.
+      const bordereauxSnap = await getDocs(collection(db, 'bordereaux'));
+      addSheet('Bordereaux', bordereauxSnap.docs.map(d => d.data()).map(b => ({
         'N° Bordereau': b.numero, 'Type': b.type, 'Statut': b.statut,
         'Nb OP': b.nbOps || (b.opsIds || []).length, 'Montant total': Number(b.totalMontant || 0),
         'Date création': formatDate(b.dateCreation) || '', 'Date transmission': formatDate(b.dateTransmission) || '',

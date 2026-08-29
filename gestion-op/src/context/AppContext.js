@@ -99,7 +99,32 @@ export function AppProvider({ user, children }) {
       console.error('Erreur chargement OP historique:', e);
     }
   }, []);
-  const [bordereaux, setBordereaux] = useState([]);
+  // Même principe que pour `ops` : les bordereaux se limitent à l'exercice actif,
+  // le reste se charge à la demande via chargerExerciceBordereaux. Contrairement aux
+  // OP, un bordereau n'a pas de statut "clos" à part entière (juste EN_COURS/ENVOYE),
+  // donc il n'y a pas besoin de branche "encore en cours" ici.
+  const [bordereauxLive, setBordereauxLive] = useState([]);
+  const [bordereauxHistorique, setBordereauxHistorique] = useState([]);
+  const exercicesChargeesBTRef = useRef(new Set());
+  const setBordereaux = setBordereauxLive;
+  const bordereaux = useMemo(() => {
+    if (bordereauxHistorique.length === 0) return bordereauxLive;
+    const ids = new Set(bordereauxLive.map(b => b.id));
+    const extra = bordereauxHistorique.filter(b => !ids.has(b.id));
+    return extra.length ? [...bordereauxLive, ...extra] : bordereauxLive;
+  }, [bordereauxLive, bordereauxHistorique]);
+
+  const chargerExerciceBordereaux = useCallback(async (exerciceId) => {
+    if (!exerciceId || exercicesChargeesBTRef.current.has(exerciceId)) return;
+    exercicesChargeesBTRef.current.add(exerciceId);
+    try {
+      const snap = await getDocs(query(collection(db, 'bordereaux'), where('exerciceId', '==', exerciceId)));
+      setBordereauxHistorique(prev => [...prev, ...snap.docs.map(d => ({ id: d.id, ...d.data() }))]);
+    } catch (e) {
+      exercicesChargeesBTRef.current.delete(exerciceId);
+      console.error('Erreur chargement bordereaux historique:', e);
+    }
+  }, []);
   
   // Loading
   const [loading, setLoading] = useState(true);
@@ -215,17 +240,21 @@ export function AppProvider({ user, children }) {
           window.alert("Impossible de recevoir les mises à jour des ordres de paiement en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
         });
 
-        // Écouteur Bordereaux
-        const btQuery = query(collection(db, 'bordereaux'), orderBy('createdAt', 'desc'));
-        unsubBordereaux = onSnapshot(btQuery, (snapshot) => {
+        // Écouteur Bordereaux — se limite à l'exercice actif (même logique que les OP),
+        // le reste est chargé à la demande par chargerExerciceBordereaux. Le tri se fait
+        // côté client (et non via orderBy) pour éviter d'exiger un index composite.
+        const btQuery = activeExerciceId
+          ? query(collection(db, 'bordereaux'), where('exerciceId', '==', activeExerciceId))
+          : query(collection(db, 'bordereaux'));
+        unsubBordereaux = onSnapshot(btQuery, (snapshot) => {
           console.log(`AppContext: Mise à jour reçue pour Bordereaux (${snapshot.size})`);
-          setBordereaux(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, (error) => {
-          console.error('Erreur écoute temps réel Bordereaux:', error);
-          window.alert("Impossible de recevoir les mises à jour des bordereaux en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
-        });
+          setBordereauxLive(snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+        }, (error) => {
+          console.error('Erreur écoute temps réel Bordereaux:', error);
+          window.alert("Impossible de recevoir les mises à jour des bordereaux en temps réel (session expirée ou permissions insuffisantes). Veuillez recharger la page.");
+        });
 
-      } catch (error) {
+        } catch (error) {
         console.error('Erreur chargement données:', error);
       }
       // --- FIN DE LA FONCTION ASYNCHRONE ---
@@ -269,6 +298,7 @@ export function AppProvider({ user, children }) {
     budgets, setBudgets,
     ops, setOps,
     chargerExerciceOps,
+    chargerExerciceBordereaux,
     bordereaux, setBordereaux,
     // Navigation
     currentPage, setCurrentPage,
@@ -296,6 +326,7 @@ export function AppProvider({ user, children }) {
     budgets, setBudgets,
     ops, setOps,
     chargerExerciceOps,
+    chargerExerciceBordereaux,
     bordereaux, setBordereaux,
     currentPage, setCurrentPage,
     historiqueParams, setHistoriqueParams,
