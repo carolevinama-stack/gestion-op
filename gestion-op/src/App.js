@@ -128,33 +128,57 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// Écran de refus d'accès : compte désactivé, compte sans profil, ou profil illisible.
+// L'authentification Firebase peut être valide sans pour autant donner droit à
+// l'application — c'est ici que la distinction est faite pour l'utilisateur.
+const AccesRefuse = ({ titre, message, onLogout }) => (
+  <div style={{
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    height: '100vh', width: '100vw', background: '#F7F5F2', padding: 24, textAlign: 'center'
+  }}>
+    <div style={{ fontSize: 18, fontWeight: 700, color: '#C43E3E', marginBottom: 12 }}>{titre}</div>
+    <div style={{ fontSize: 14, color: '#666', marginBottom: 24, maxWidth: 420, lineHeight: 1.5 }}>{message}</div>
+    <button
+      onClick={onLogout}
+      style={{ padding: '12px 28px', background: '#2E9940', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+    >
+      Se déconnecter
+    </button>
+  </div>
+);
+
 function AppLayout() {
-  const { currentPage, loading, userProfile, profileLoading, handleLogout } = useAppContext();
+  const { currentPage, loading, userProfile, profileLoading, accesRefuse, handleLogout } = useAppContext();
 
   if (profileLoading) return <LoaderPIF label="Vérification du compte..." />;
 
-  // Compte désactivé (ex : personne ayant quitté le projet) : l'authentification
-  // Firebase reste valide, c'est ici que l'accès à l'application est refusé.
+  if (accesRefuse === 'AUCUN_PROFIL') {
+    return (
+      <AccesRefuse
+        titre="Compte non autorisé"
+        message="Ce compte de connexion existe, mais aucun accès à l'application ne lui a été attribué. Un administrateur doit créer votre profil depuis la page Administration."
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (accesRefuse === 'ERREUR') {
+    return (
+      <AccesRefuse
+        titre="Profil inaccessible"
+        message="Impossible de lire votre profil utilisateur. Vérifiez votre connexion Internet et réessayez ; si le problème persiste, contactez un administrateur."
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   if (userProfile?.actif === false) {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', width: '100vw', background: '#F7F5F2', padding: 24, textAlign: 'center'
-      }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#C43E3E', marginBottom: 12 }}>
-          Compte désactivé
-        </div>
-        <div style={{ fontSize: 14, color: '#666', marginBottom: 24, maxWidth: 420 }}>
-          Votre accès à l'application a été désactivé par un administrateur.
-          Contactez-le si vous pensez qu'il s'agit d'une erreur.
-        </div>
-        <button
-          onClick={handleLogout}
-          style={{ padding: '12px 28px', background: '#2E9940', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
-        >
-          Se déconnecter
-        </button>
-      </div>
+      <AccesRefuse
+        titre="Compte désactivé"
+        message="Votre accès à l'application a été désactivé par un administrateur. Contactez-le si vous pensez qu'il s'agit d'une erreur."
+        onLogout={handleLogout}
+      />
     );
   }
 

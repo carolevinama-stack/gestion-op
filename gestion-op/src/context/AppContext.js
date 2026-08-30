@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { db, auth } from '../firebase';
 import {
-  collection, doc, getDocs, getDoc, setDoc, query, orderBy, onSnapshot, where, or
+  collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, where, or
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
@@ -33,6 +33,8 @@ export function AppProvider({ user, children }) {
   // User profile (role, nom...)
   const [userProfile, setUserProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  // null | 'AUCUN_PROFIL' (compte sans profil) | 'ERREUR' (profil illisible)
+  const [accesRefuse, setAccesRefuse] = useState(null);
   // Navigation - avec persistance localStorage
   const [currentPage, setCurrentPageState] = useState(() => {
     const saved = localStorage.getItem('gestion-op-currentPage');
@@ -149,31 +151,23 @@ export function AppProvider({ user, children }) {
     
     const loadProfile = async () => {
       try {
-        const profileDoc = await getDoc(doc(db, 'users', user.uid));
-        if (profileDoc.exists()) {
-          setUserProfile(profileDoc.data());
-        } else {
-          // Aucun profil pour cet utilisateur authentifié : accès minimal par défaut.
-          // Seul un ADMIN peut élever ce rôle depuis la page Administration.
-          const newProfile = {
-            uid: user.uid,
-            email: user.email,
-            nom: user.email.split('@')[0],
-            role: 'CONSULTATION',
-            actif: true,
-            mustChangePassword: false,
-            createdAt: new Date().toISOString(),
-            createdBy: 'system'
-          };
-          await setDoc(doc(db, 'users', user.uid), newProfile);
-          setUserProfile(newProfile);
-          window.alert("Votre compte n'a pas encore de rôle attribué. Vous avez un accès en consultation seule — contactez un administrateur pour obtenir les droits nécessaires.");
-        }
-      } catch (error) {
-        console.error('Erreur chargement profil:', error);
-        // Profil par défaut en cas d'erreur réseau (mode consultation)
-        setUserProfile({ uid: user.uid, email: user.email, nom: user.email, role: 'CONSULTATION', actif: true });
-      }
+        const profileDoc = await getDoc(doc(db, 'users', user.uid));
+        if (profileDoc.exists()) {
+          setUserProfile(profileDoc.data());
+        } else {
+          // Compte authentifié mais sans profil : l'inscription Firebase étant
+          // ouverte, n'importe qui peut créer un compte de connexion. On ne crée
+          // SURTOUT pas de profil ici — seul un administrateur en crée un depuis
+          // la page Administration. Sans profil, les règles Firestore refusent
+          // déjà tout accès aux données ; on l'annonce clairement à l'écran.
+          setUserProfile(null);
+          setAccesRefuse('AUCUN_PROFIL');
+        }
+      } catch (error) {
+        console.error('Erreur chargement profil:', error);
+        setUserProfile(null);
+        setAccesRefuse('ERREUR');
+      }
       setProfileLoading(false);
     };
     
@@ -311,6 +305,7 @@ export function AppProvider({ user, children }) {
     userProfile, setUserProfile,
     userRole, permissions, canAccessPage,
     profileLoading,
+    accesRefuse,
     // Connectivité
     isOnline,
     // Computed
@@ -337,6 +332,7 @@ export function AppProvider({ user, children }) {
     userProfile, setUserProfile,
     userRole, permissions, canAccessPage,
     profileLoading,
+    accesRefuse,
     isOnline,
     exerciceActif,
     loading,
