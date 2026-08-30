@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { doc, updateDoc, addDoc, collection, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
+import { estAAnnuler, aUnDefinitifActif, trouverDefinitifActif } from '../utils/opCalculs';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -166,13 +167,7 @@ export default function PageRapport() {
   }, [ops, filtreEx]);
 
   // === FONCTION COMMUNE POUR VÉRIFIER LES RÉGULARISATIONS ===
-  const hasValidReg = useCallback((opProvId) => {
-    return ops.some(o => 
-      o.type === 'DEFINITIF' && 
-      (o.opProvisoireId === opProvId || (o.opProvisoireIds || []).includes(opProvId)) &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-  }, [ops]);
+  const hasValidReg = useCallback((opProvId) => aUnDefinitifActif(ops, opProvId), [ops]);
 
   // === DONNÉES PAR ONGLET ===
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
@@ -212,16 +207,9 @@ export default function PageRapport() {
   }), [mainOps, ops, dateRef]);
 
   // Filtre pour "À annuler" — mêmes règles que la catégorie "À annuler" du Tableau de bord
-  const opsAAnnuler = useMemo(() => mainOps.filter(op => {
-    if (op.type !== 'PROVISOIRE') return false;
-    if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
-    const hasAnnulation = ops.some(o =>
-      o.type === 'ANNULATION' &&
-      o.opProvisoireId === op.id &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
-    return !hasAnnulation;
-  }).map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
+  const opsAAnnuler = useMemo(() => mainOps
+    .filter(op => estAAnnuler(op, ops))
+    .map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
 
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
@@ -456,7 +444,7 @@ export default function PageRapport() {
       
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       const d5 = appendTotal(opsAReg.map(op => {
-        const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut));
+        const def = trouverDefinitifActif(ops, op.id);
         return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': sanitizeForExport(getDefaultObs(op)) };
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
 
@@ -689,7 +677,7 @@ export default function PageRapport() {
             <tbody>
               {pageData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
               {pageData.map(op => { 
-                const def = ops.find(o => o.type === 'DEFINITIF' && (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)); 
+                const def = trouverDefinitifActif(ops, op.id); 
                 return (
                   <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent', cursor: 'pointer' }} onClick={(e) => { if(e.target.tagName !== 'INPUT') { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
                     <td style={td}><Chk id={op.id} /></td>

@@ -105,6 +105,36 @@ const STATUTS_PROVISOIRE_INDISPONIBLE = ['REJETE_CF', 'REJETE_AC', 'ANNULE', 'TR
 // rattachement.
 const STATUTS_RATTACHEMENT_INACTIF = ['SUPPRIME', 'REJETE_CF', 'REJETE_AC'];
 
+// Statuts dans lesquels un OP Provisoire n'a plus à être annulé : soit il est déjà réglé,
+// soit il est sorti du circuit. Sert à la catégorie "À annuler" (Tableau de bord et Rapport).
+const STATUTS_PROVISOIRE_HORS_ANNULATION = ['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'];
+
+// Existe-t-il un OP Annulation encore actif rattaché à ce Provisoire ?
+// Un rattachement rejeté ou supprimé ne compte pas : le Provisoire reste à annuler.
+export const aUneAnnulationActive = (ops, opProvisoireId) => ops.some(o =>
+  o.type === 'ANNULATION' &&
+  o.opProvisoireId === opProvisoireId &&
+  !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut)
+);
+
+// L'OP Définitif encore actif rattaché à ce Provisoire, s'il existe (null sinon).
+// Un Définitif peut régulariser un seul Provisoire (opProvisoireId) ou plusieurs (opProvisoireIds).
+export const trouverDefinitifActif = (ops, opProvisoireId) => ops.find(o =>
+  o.type === 'DEFINITIF' &&
+  (o.opProvisoireId === opProvisoireId || (o.opProvisoireIds || []).includes(opProvisoireId)) &&
+  !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut)
+) || null;
+
+export const aUnDefinitifActif = (ops, opProvisoireId) => trouverDefinitifActif(ops, opProvisoireId) !== null;
+
+// Cet OP doit-il figurer dans la catégorie "À annuler" ?
+// Définition unique, partagée par le Tableau de bord et le Rapport, pour que les
+// deux pages ne puissent plus afficher des listes différentes.
+export const estAAnnuler = (op, ops) =>
+  op.type === 'PROVISOIRE' &&
+  !STATUTS_PROVISOIRE_HORS_ANNULATION.includes(op.statut) &&
+  !aUneAnnulationActive(ops, op.id);
+
 // OP Provisoires disponibles pour être annulés par un nouvel OP Annulation.
 export const filtrerOpProvisoiresPourAnnulation = (ops, { beneficiaireId, sourceId }) => {
   if (!beneficiaireId) return [];
@@ -113,7 +143,7 @@ export const filtrerOpProvisoiresPourAnnulation = (ops, { beneficiaireId, source
     op.beneficiaireId === beneficiaireId &&
     op.sourceId === sourceId &&
     !STATUTS_PROVISOIRE_INDISPONIBLE.includes(op.statut) &&
-    !ops.some(o => o.opProvisoireId === op.id && o.type === 'ANNULATION' && !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut))
+    !aUneAnnulationActive(ops, op.id)
   );
 };
 
@@ -125,6 +155,6 @@ export const filtrerOpProvisoiresPourDefinitif = (ops, { beneficiaireId, sourceI
     (autresBeneficiaires || op.beneficiaireId === beneficiaireId) &&
     op.sourceId === sourceId &&
     !STATUTS_PROVISOIRE_INDISPONIBLE.includes(op.statut) &&
-    !ops.some(o => (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) && o.type === 'DEFINITIF' && !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut))
+    !aUnDefinitifActif(ops, op.id)
   );
 };

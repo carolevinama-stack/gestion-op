@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, formatNumeroOp } from '../utils/formatters';
+import { estAAnnuler, aUnDefinitifActif } from '../utils/opCalculs';
 
 // ============================================================
 // ICÔNES SVG
@@ -108,18 +109,7 @@ const PageDashboard = () => {
       .map(op => ({ ...op, _jours: joursDepuis(op.dateTransmissionCF || op.dateCreation) }));
 
     const annuler = opsForAlerts
-      .filter(op => {
-        if (op.type !== 'PROVISOIRE') return false;
-        if (['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'].includes(op.statut)) return false;
-        
-        // S'il a un OP Annulation rattaché, il disparait de la case "À annuler"
-        const hasAnnulation = allOpsExercice.some(o => 
-          o.type === 'ANNULATION' && 
-          o.opProvisoireId === op.id &&
-          !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-        );
-        return !hasAnnulation;
-      })
+      .filter(op => estAAnnuler(op, allOpsExercice))
       .map(op => ({ ...op, _jours: joursDepuis(op.dateCreation) }));
 
     const regulariser = opsForAlerts
@@ -134,11 +124,7 @@ const PageDashboard = () => {
     
     // 3. VÉRIFICATION DU RATTACHEMENT : Existe-t-il un OP DEFINITIF ?
     // L'OPD ne doit pas être rejeté ni supprimé.
-    const hasDefinitif = allOpsExercice.some(o => 
-      o.type === 'DEFINITIF' && 
-      (o.opProvisoireId === op.id || (o.opProvisoireIds || []).includes(op.id)) &&
-      !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(o.statut)
-    );
+    const hasDefinitif = aUnDefinitifActif(allOpsExercice, op.id);
 
     // On l'affiche s'il n'est PAS encore rattaché à un définitif validé (false).
     return !hasDefinitif;

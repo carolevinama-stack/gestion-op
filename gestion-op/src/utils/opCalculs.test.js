@@ -12,6 +12,10 @@ import {
   calculerMontantTVASiRecuperable,
   filtrerOpProvisoiresPourAnnulation,
   filtrerOpProvisoiresPourDefinitif,
+  aUneAnnulationActive,
+  aUnDefinitifActif,
+  trouverDefinitifActif,
+  estAAnnuler,
 } from './opCalculs';
 
 const opsFixture = [
@@ -247,5 +251,98 @@ describe('filtrerOpProvisoiresPourDefinitif', () => {
     const ops = [{ id: 'p1', type: 'PROVISOIRE', beneficiaireId: 'AUTRE', sourceId: 'S1', statut: 'EN_COURS' }];
     expect(filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: 'B1', sourceId: 'S1', autresBeneficiaires: false })).toHaveLength(0);
     expect(filtrerOpProvisoiresPourDefinitif(ops, { beneficiaireId: 'B1', sourceId: 'S1', autresBeneficiaires: true })).toHaveLength(1);
+  });
+});
+
+// ==================== LOGIQUE PARTAGÉE TABLEAU DE BORD / RAPPORT ====================
+
+describe('aUneAnnulationActive', () => {
+  const prov = { id: 'P1', type: 'PROVISOIRE', statut: 'VISE_CF' };
+
+  it("est faux quand aucune annulation n'est rattachée", () => {
+    expect(aUneAnnulationActive([prov], 'P1')).toBe(false);
+  });
+
+  it('est vrai quand une annulation en cours est rattachée', () => {
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'EN_COURS' }];
+    expect(aUneAnnulationActive(ops, 'P1')).toBe(true);
+  });
+
+  it('est faux quand la seule annulation rattachée a été rejetée', () => {
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'REJETE_CF' }];
+    expect(aUneAnnulationActive(ops, 'P1')).toBe(false);
+  });
+
+  it('est faux quand la seule annulation rattachée a été supprimée', () => {
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'SUPPRIME' }];
+    expect(aUneAnnulationActive(ops, 'P1')).toBe(false);
+  });
+
+  it("ignore une annulation rattachée à un autre provisoire", () => {
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P2', statut: 'EN_COURS' }];
+    expect(aUneAnnulationActive(ops, 'P1')).toBe(false);
+  });
+});
+
+describe('trouverDefinitifActif / aUnDefinitifActif', () => {
+  const prov = { id: 'P1', type: 'PROVISOIRE', statut: 'PAYE' };
+
+  it('trouve un définitif rattaché par opProvisoireId', () => {
+    const def = { id: 'D1', type: 'DEFINITIF', opProvisoireId: 'P1', statut: 'EN_COURS', numero: 12 };
+    expect(trouverDefinitifActif([prov, def], 'P1')).toBe(def);
+    expect(aUnDefinitifActif([prov, def], 'P1')).toBe(true);
+  });
+
+  it('trouve un définitif rattaché par opProvisoireIds (régularisation groupée)', () => {
+    const def = { id: 'D1', type: 'DEFINITIF', opProvisoireIds: ['P0', 'P1'], statut: 'VISE_CF' };
+    expect(trouverDefinitifActif([prov, def], 'P1')).toBe(def);
+  });
+
+  it('renvoie null quand le définitif rattaché a été rejeté', () => {
+    const def = { id: 'D1', type: 'DEFINITIF', opProvisoireId: 'P1', statut: 'REJETE_AC' };
+    expect(trouverDefinitifActif([prov, def], 'P1')).toBeNull();
+    expect(aUnDefinitifActif([prov, def], 'P1')).toBe(false);
+  });
+
+  it('renvoie null quand il n\'y a aucun définitif', () => {
+    expect(trouverDefinitifActif([prov], 'P1')).toBeNull();
+  });
+});
+
+describe('estAAnnuler', () => {
+  const prov = { id: 'P1', type: 'PROVISOIRE', statut: 'VISE_CF' };
+
+  it('retient un provisoire en cours sans annulation rattachée', () => {
+    expect(estAAnnuler(prov, [prov])).toBe(true);
+  });
+
+  it("écarte un OP qui n'est pas un provisoire", () => {
+    const direct = { id: 'X1', type: 'DIRECT', statut: 'VISE_CF' };
+    expect(estAAnnuler(direct, [direct])).toBe(false);
+  });
+
+  it.each(['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'])(
+    'écarte un provisoire au statut %s',
+    (statut) => {
+      const op = { ...prov, statut };
+      expect(estAAnnuler(op, [op])).toBe(false);
+    }
+  );
+
+  it('écarte un provisoire déjà rattaché à une annulation active', () => {
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'TRANSMIS_CF' }];
+    expect(estAAnnuler(prov, ops)).toBe(false);
+  });
+
+  it('retient à nouveau un provisoire dont l\'annulation a été rejetée', () => {
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'REJETE_CF' }];
+    expect(estAAnnuler(prov, ops)).toBe(true);
+  });
+
+  it('donne le même résultat que la liste utilisée par le Rapport et le Tableau de bord', () => {
+    // Même jeu d'OP, listes de recherche différentes (exercice courant vs tous les exercices) :
+    // la règle, elle, doit rester identique.
+    const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'SUPPRIME' }];
+    expect(estAAnnuler(prov, ops)).toBe(estAAnnuler(prov, [prov]));
   });
 });
