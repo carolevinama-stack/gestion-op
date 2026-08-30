@@ -52,22 +52,22 @@ export function AppProvider({ user, children }) {
   const [consultOpData, setConsultOpData] = useState(null);
 
   // Wrappers pour sauvegarder dans localStorage
-  const setCurrentPage = (page) => {
-    setCurrentPageState(page);
-    localStorage.setItem('gestion-op-currentPage', page);
-  };
-  const setHistoriqueParams = (params) => {
-    setHistoriqueParamsState(params);
-    localStorage.setItem('gestion-op-historiqueParams', JSON.stringify(params));
-  };
-  const setActiveBudgetSource = (sourceId) => {
-    setActiveBudgetSourceState(sourceId);
-    if (sourceId) {
-      localStorage.setItem('gestion-op-activeBudgetSource', sourceId);
-    } else {
-      localStorage.removeItem('gestion-op-activeBudgetSource');
-    }
-  };
+  const setCurrentPage = useCallback((page) => {
+    setCurrentPageState(page);
+    localStorage.setItem('gestion-op-currentPage', page);
+  }, []);
+  const setHistoriqueParams = useCallback((params) => {
+    setHistoriqueParamsState(params);
+    localStorage.setItem('gestion-op-historiqueParams', JSON.stringify(params));
+  }, []);
+  const setActiveBudgetSource = useCallback((sourceId) => {
+    setActiveBudgetSourceState(sourceId);
+    if (sourceId) {
+      localStorage.setItem('gestion-op-activeBudgetSource', sourceId);
+    } else {
+      localStorage.removeItem('gestion-op-activeBudgetSource');
+    }
+  }, []);
 
   // Data state
   const [projet, setProjet] = useState(null);
@@ -178,7 +178,7 @@ export function AppProvider({ user, children }) {
   const mapRole = (r) => ['SAISIE', 'CF', 'AC'].includes(r) ? 'OPERATEUR' : r;
   const userRole = mapRole(userProfile?.role) || 'CONSULTATION';
   const permissions = ROLE_PERMISSIONS[userRole] || ROLE_PERMISSIONS.CONSULTATION;
-  const canAccessPage = (page) => permissions.pages.includes(page);
+  const canAccessPage = useCallback((page) => permissions.pages.includes(page), [permissions]);
 
   // ==================== LOAD DATA ====================
   useEffect(() => {
@@ -270,17 +270,17 @@ export function AppProvider({ user, children }) {
   const exerciceActif = exercices.find(e => e.actif);
 
   // Logout
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      localStorage.removeItem('gestion-op-currentPage');
-      localStorage.removeItem('gestion-op-historiqueParams');
-      localStorage.removeItem('gestion-op-activeBudgetSource');
-      setCurrentPageState('dashboard');
-    } catch (error) {
-      console.error('Erreur de déconnexion:', error);
-    }
-  };
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('gestion-op-currentPage');
+      localStorage.removeItem('gestion-op-historiqueParams');
+      localStorage.removeItem('gestion-op-activeBudgetSource');
+      setCurrentPageState('dashboard');
+    } catch (error) {
+      console.error('Erreur de déconnexion:', error);
+    }
+  }, []);
 
   const value = useMemo(() => ({
     // Data

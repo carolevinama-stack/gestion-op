@@ -1,27 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { styles } from './utils/styles';
 
-// Pages
+// Chargés d'emblée : nécessaires dès le premier affichage.
 import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
 import PageDashboard from './pages/PageDashboard';
-import PageParametres from './pages/PageParametres';
-import PageBeneficiaires from './pages/PageBeneficiaires';
-import PageBudget from './pages/PageBudget';
-import PageHistoriqueBudget from './pages/PageHistoriqueBudget';
-import PageLignesBudgetaires from './pages/PageLignesBudgetaires';
-import PageNouvelOp from './pages/PageNouvelOp';
-import PageConsulterOp from './pages/PageConsulterOp';
-import PageCircuitCF from './pages/PageCircuitCF';
-import PageCircuitAC from './pages/PageCircuitAC';
-import PageArchives from './pages/PageArchives';
-import PageListeOP from './pages/PageListeOP';
-import PageRapport from './pages/PageRapport';
-import PageAdmin from './pages/PageAdmin';
-import PageJournal from './pages/PageJournal';
+
+// Chargées à la demande, au premier passage sur la page. Évite d'imposer à chacun
+// le téléchargement de pages qu'il n'ouvrira peut-être jamais (Administration,
+// Journal, Paramètres…). Le Tableau de bord reste chargé d'emblée : c'est la page
+// d'accueil, la retarder ferait patienter tout le monde à chaque connexion.
+const PageParametres = lazy(() => import('./pages/PageParametres'));
+const PageBeneficiaires = lazy(() => import('./pages/PageBeneficiaires'));
+const PageBudget = lazy(() => import('./pages/PageBudget'));
+const PageHistoriqueBudget = lazy(() => import('./pages/PageHistoriqueBudget'));
+const PageLignesBudgetaires = lazy(() => import('./pages/PageLignesBudgetaires'));
+const PageNouvelOp = lazy(() => import('./pages/PageNouvelOp'));
+const PageConsulterOp = lazy(() => import('./pages/PageConsulterOp'));
+const PageCircuitCF = lazy(() => import('./pages/PageCircuitCF'));
+const PageCircuitAC = lazy(() => import('./pages/PageCircuitAC'));
+const PageArchives = lazy(() => import('./pages/PageArchives'));
+const PageListeOP = lazy(() => import('./pages/PageListeOP'));
+const PageRapport = lazy(() => import('./pages/PageRapport'));
+const PageAdmin = lazy(() => import('./pages/PageAdmin'));
+const PageJournal = lazy(() => import('./pages/PageJournal'));
 
 // ==================== COMPOSANT DE CHARGEMENT UNIQUE ====================
 // On crée un composant réutilisable pour garantir que le design est strictement le même
@@ -55,6 +60,22 @@ const LoaderPIF = ({ label }) => (
       {label}
     </div>
     <style>{`@keyframes pifPulse { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.4); } }`}</style>
+  </div>
+);
+
+// Attente lors du premier passage sur une page chargée à la demande. Volontairement
+// discret et cantonné à la zone de contenu : le menu reste visible et utilisable,
+// contrairement au chargeur plein écran des démarrages.
+const PageLoader = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+    <div style={{ display: 'flex', gap: 8 }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          width: 9, height: 9, borderRadius: '50%', background: '#2E9940',
+          opacity: 0.3, animation: `pifPulse 1.2s ease infinite ${i * 0.2}s`
+        }} />
+      ))}
+    </div>
   </div>
 );
 
@@ -174,6 +195,7 @@ function AppLayout() {
       `}</style>
       <Sidebar />
       <main style={{ ...styles.main, flex: 1 }}>
+        <Suspense fallback={<PageLoader />}>
         {currentPage === 'dashboard' && <PageDashboard />}
         {currentPage === 'parametres' && <PageParametres />}
         {currentPage === 'beneficiaires' && <PageBeneficiaires />}
@@ -189,6 +211,7 @@ function AppLayout() {
         {currentPage === 'suivi' && <PageRapport />}
         {currentPage === 'admin' && <PageAdmin />}
         {currentPage === 'journal' && <PageJournal />}
+        </Suspense>
       </main>
     </div>
   );

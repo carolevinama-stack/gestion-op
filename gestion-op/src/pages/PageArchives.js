@@ -113,6 +113,11 @@ const PageArchives = () => {
   const opsAArchiver = useMemo(() => opsForSource
     .filter(op => op.statut === 'PAYE' || op.statut === 'ANNULE')
     .sort((a,b) => getNumOp(b.numero) - getNumOp(a.numero)), [opsForSource]);
+  // Listes filtrées calculées une seule fois par affichage. Auparavant le filtrage
+  // complet était refait à chaque endroit du rendu qui s'en sert — case à cocher
+  // générale, compteur, condition d'affichage, boucle des lignes — donc cinq fois,
+  // et à chaque frappe dans le champ de recherche.
+  const aArchiverFiltres = filterOps(opsAArchiver, searchArch);
 
   const currentExerciceIdArch = showAnterieurArch ? selectedExerciceArch : exerciceActif?.id;
   useEffect(() => { if (showAnterieurArch && selectedExerciceArch) chargerExerciceOps(selectedExerciceArch); }, [showAnterieurArch, selectedExerciceArch, chargerExerciceOps]);
@@ -269,9 +274,9 @@ const PageArchives = () => {
         <h3 style={{margin:'0 0 6px',color:P.olive,fontSize:15}}>OP prêts pour le classement</h3>
         <p style={{fontSize:12,color:P.textMuted,marginBottom:12}}>Les OP soldés et les annulations validées s'affichent ici.</p>
         <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
-        {filterOps(opsAArchiver,searchArch).length===0?<Empty text="Aucun OP en attente de classement"/>:
+        {aArchiverFiltres.length===0?<Empty text="Aucun OP en attente de classement"/>:
         <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
-          <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsAArchiver,searchArch).length&&filterOps(opsAArchiver,searchArch).length>0} onChange={()=>toggleAll(filterOps(opsAArchiver,searchArch))}/></th>
+          <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===aArchiverFiltres.length&&aArchiverFiltres.length>0} onChange={()=>toggleAll(aArchiverFiltres)}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
           <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
@@ -281,7 +286,7 @@ const PageArchives = () => {
           <th style={{...thS,width:90}}>DATE</th>
           <th style={{...thS,width:50}}>ACTIONS</th>
         </tr></thead><tbody>
-          {filterOps(opsAArchiver,searchArch).map(op=>{const ch=selectedOps.includes(op.id);
+          {aArchiverFiltres.map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
