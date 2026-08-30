@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LOGO_PIF2 } from '../utils/logos';
 
 const PRIMARY = '#1B6B2E';
 const PRIMARY_DARK = '#155A25';
@@ -167,7 +166,7 @@ const Sidebar = () => {
 
       <div style={{ padding: collapsed ? '18px 0' : '18px 20px', display: 'flex', alignItems: 'center', gap: 12, justifyContent: collapsed ? 'center' : 'flex-start', minHeight: 70 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-          <img src={LOGO_PIF2} alt="PIF2" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+          <img src={`${process.env.PUBLIC_URL}/logo-pif2.jpg`} alt="PIF2" style={{ width: 40, height: 40, objectFit: 'contain' }} />
         </div>
         {!collapsed && (
           <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>

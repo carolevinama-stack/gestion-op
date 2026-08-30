@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, where, getCountFromServer } from 'firebase/firestore';
@@ -69,11 +69,16 @@ const PageAdmin = () => {
 
   useEffect(() => { loadUsers(); }, []);
 
-  // Afficher un message temporaire
+  // Afficher un message temporaire. La minuterie est conservée puis annulée au
+  // démontage (ou au message suivant) : sans cela, quitter la page dans les quatre
+  // secondes déclenchait une mise à jour sur un composant qui n'existe plus.
+  const messageTimer = useRef(null);
   const showMessage = (text, type = 'success') => {
     setMessage({ text, type });
-    setTimeout(() => setMessage(null), 4000);
+    if (messageTimer.current) clearTimeout(messageTimer.current);
+    messageTimer.current = setTimeout(() => setMessage(null), 4000);
   };
+  useEffect(() => () => { if (messageTimer.current) clearTimeout(messageTimer.current); }, []);
 
   // Générer un mot de passe temporaire
   const generateTempPassword = () => {

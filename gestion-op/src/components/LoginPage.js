@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { LOGO_PIF2 } from '../utils/logos';
 
 const EyeOpen = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -63,7 +62,7 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
         <div style={{ position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         <div style={{ position: 'absolute', bottom: -50, left: -50, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
         {/* Logo direct sans cadre */}
-        <img src={LOGO_PIF2} alt="PIF2" style={{ width: 220, display: 'block', position: 'relative', zIndex: 1 }} />
+        <img src={`${process.env.PUBLIC_URL}/logo-pif2.jpg`} alt="PIF2" style={{ width: 220, display: 'block', position: 'relative', zIndex: 1 }} />
         <div style={{ color: '#fff', fontSize: 28, fontWeight: 700, marginTop: 28, textAlign: 'center', position: 'relative', zIndex: 1 }}>Bienvenue</div>
         <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 16, marginTop: 10, textAlign: 'center', position: 'relative', zIndex: 1, lineHeight: 1.7 }}>
           Projet d'Investissement Forestier<br />Côte d'Ivoire
