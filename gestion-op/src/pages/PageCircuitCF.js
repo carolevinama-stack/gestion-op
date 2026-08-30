@@ -110,6 +110,12 @@ const PageCircuitCF = () => {
 
   const filterBordereaux = (btList) => btList.filter(bt => { if(!searchBT) return true; const t = searchBT.toLowerCase(); if((bt.numero||'').toLowerCase().includes(t)) return true; return bt.opsIds?.some(opId => { const op = ops.find(o => o.id === opId); return (op?.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t); }); });
   const filterOps = (list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); };
+  // Listes filtrées calculées une seule fois par affichage. Auparavant le filtrage
+  // complet était refait à chaque endroit du rendu qui s'en sert — case à cocher
+  // générale, compteur, condition d'affichage, boucle des lignes — donc cinq fois,
+  // et à chaque frappe dans le champ de recherche.
+  const eligiblesCFFiltres = filterOps(opsEligiblesCF, searchBT);
+  const transmisCFFiltres = filterOps(opsTransmisCF, searchBT);
   const toggleOp = (opId) => setSelectedOps(p => p.includes(opId) ? p.filter(id => id !== opId) : [...p, opId]);
   const toggleAll = (list) => { if(selectedOps.length === list.length && list.length > 0) setSelectedOps([]); else setSelectedOps(list.map(o => o.id)); };
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
@@ -640,9 +646,9 @@ const handlePrintBordereau = (bt) => {
       {subTabCF==='NOUVEAU' && <div style={crd}>
         <h3 style={{margin:'0 0 16px',color:P.greenDark,fontSize:15}}>Sélectionner les OP pour un bordereau au CF</h3>
         <input type="text" placeholder="Rechercher OP..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
-        {filterOps(opsEligiblesCF,searchBT).length===0?<Empty text="Aucun OP éligible"/>:
+        {eligiblesCFFiltres.length===0?<Empty text="Aucun OP éligible"/>:
         <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
-          <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsEligiblesCF,searchBT).length&&filterOps(opsEligiblesCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsEligiblesCF,searchBT))}/></th>
+          <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===eligiblesCFFiltres.length&&eligiblesCFFiltres.length>0} onChange={()=>toggleAll(eligiblesCFFiltres)}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
           <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
@@ -651,7 +657,7 @@ const handlePrintBordereau = (bt) => {
           <th style={{...thS,width:100,textAlign:'right'}}>MONTANT</th>
           <th style={{...thS,width:80}}>STATUT</th>
         </tr></thead><tbody>
-          {filterOps(opsEligiblesCF,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
+          {eligiblesCFFiltres.map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}</td>
@@ -676,9 +682,9 @@ const handlePrintBordereau = (bt) => {
         <h3 style={{margin:'0 0 6px',color:P.gold,fontSize:15}}>OP transmis au CF ({opsTransmisCF.length})</h3>
         <p style={{fontSize:12,color:P.textMuted,marginBottom:16}}>Sélectionnez puis cliquez Retour CF.</p>
         <input type="text" placeholder="Rechercher..." value={searchBT} onChange={e=>setSearchBT(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
-        {filterOps(opsTransmisCF,searchBT).length===0?<Empty text="Aucun OP"/>:
+        {transmisCFFiltres.length===0?<Empty text="Aucun OP"/>:
         <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
-          <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===filterOps(opsTransmisCF,searchBT).length&&filterOps(opsTransmisCF,searchBT).length>0} onChange={()=>toggleAll(filterOps(opsTransmisCF,searchBT))}/></th>
+          <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===transmisCFFiltres.length&&transmisCFFiltres.length>0} onChange={()=>toggleAll(transmisCFFiltres)}/></th>
           <th style={{...thS,width:110}}>N° OP</th>
           <th style={{...thS,width:70}}>TYPE</th>
           <th style={{...thS,width:130}}>BÉNÉFICIAIRE</th>
@@ -687,7 +693,7 @@ const handlePrintBordereau = (bt) => {
           <th style={{...thS,width:100}}>N° BT</th>
           <th style={{...thS,width:90}}>TRANSMIS</th>
         </tr></thead><tbody>
-          {filterOps(opsTransmisCF,searchBT).map(op=>{const ch=selectedOps.includes(op.id);
+          {transmisCFFiltres.map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?`${P.gold}10`:'transparent'}}>
               <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}</td>
