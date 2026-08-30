@@ -78,7 +78,7 @@ const formatDate = (ds) => {
 // COMPOSANT PRINCIPAL : ARCHIVES
 // ============================================================
 const PageArchives = () => {
-  const { projet, sources, exercices, beneficiaires, ops, userProfile, chargerExerciceOps } = useAppContext();
+  const { sources, exercices, beneficiaires, ops, userProfile, chargerExerciceOps } = useAppContext();
   
   const [subTabArch, setSubTabArch] = useState('A_ARCHIVER');
   const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
@@ -149,17 +149,6 @@ const PageArchives = () => {
     exportToCSV(csv, `Dossiers_Classes_${activeSourceBT || 'source'}.csv`);
   };
 
-  const checkPwd = (callback) => {
-    if (!projet?.motDePasseAdmin) {
-      notify("error", "Mot de passe non configuré", "Un administrateur doit configurer le mot de passe administrateur dans les Paramètres avant de pouvoir effectuer cette action.");
-      return;
-    }
-    ask("Sécurité", "Veuillez saisir le mot de passe administrateur :", (pwd) => {
-      if(pwd === projet.motDePasseAdmin) callback();
-      else notify("error", "Erreur", "Mot de passe incorrect");
-    }, true);
-  };
-
   const toggleOp = (opId) => setSelectedOps(p => p.includes(opId) ? p.filter(id => id !== opId) : [...p, opId]);
   const toggleAll = (list) => { if(selectedOps.length === list.length && list.length > 0) setSelectedOps([]); else setSelectedOps(list.map(o => o.id)); };
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
@@ -188,56 +177,50 @@ const PageArchives = () => {
   };
 
   const handleRetropedalage = async (opId) => {
-    checkPwd(() => {
-      ask("Rétropédalage", "Sortir cet OP des archives et le renvoyer à l'étape précédente ?", async () => {
-        setSaving(true);
-        try{
-          const op = ops.find(o => o.id === opId);
-          let nextStatut = 'TRANSMIS_AC'; 
-          if(op.statut === 'ANNULE') {
-             nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
-          } else {
-             const paiem = op.paiements || [];
-             const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
-             nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
-          }
-          await updateDoc(doc(db, 'ops', opId), { statut: nextStatut, dateArchivage: null, boiteArchivage: null, updatedAt: new Date().toISOString() });
-          notify("success", "Rétropédalage", "L'OP a été sorti des archives.");
-        }catch(e){notify("error", "Erreur", e.message);}
-        setSaving(false);
-      });
+    ask("Rétropédalage", "Sortir cet OP des archives et le renvoyer à l'étape précédente ?", async () => {
+      setSaving(true);
+      try{
+        const op = ops.find(o => o.id === opId);
+        let nextStatut = 'TRANSMIS_AC'; 
+        if(op.statut === 'ANNULE') {
+           nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
+        } else {
+           const paiem = op.paiements || [];
+           const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+           nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
+        }
+        await updateDoc(doc(db, 'ops', opId), { statut: nextStatut, dateArchivage: null, boiteArchivage: null, updatedAt: new Date().toISOString() });
+        notify("success", "Rétropédalage", "L'OP a été sorti des archives.");
+      }catch(e){notify("error", "Erreur", e.message);}
+      setSaving(false);
     });
   };
 
   const handleRetourAvantArchivage = async (opId) => {
-    checkPwd(() => {
-      ask("Retour", "Renvoyer cet OP à l'étape précédente (avant classement) ?", async () => {
-        setSaving(true);
-        try{
-          const op = ops.find(o => o.id === opId);
-          let nextStatut;
-          if(op.statut === 'ANNULE') {
-            nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
-          } else {
-            const paiem = op.paiements || [];
-            const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
-            nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
-          }
-          await updateDoc(doc(db, 'ops', opId), { statut: nextStatut, updatedAt: new Date().toISOString() });
-          notify("success", "Retour effectué", "L'OP a été renvoyé à l'étape précédente.");
-        }catch(e){notify("error", "Erreur", e.message);}
-        setSaving(false);
-      });
+    ask("Retour", "Renvoyer cet OP à l'étape précédente (avant classement) ?", async () => {
+      setSaving(true);
+      try{
+        const op = ops.find(o => o.id === opId);
+        let nextStatut;
+        if(op.statut === 'ANNULE') {
+          nextStatut = op.bordereauAC ? 'TRANSMIS_AC' : 'TRANSMIS_CF';
+        } else {
+          const paiem = op.paiements || [];
+          const tot = paiem.reduce((s, p) => s + (p.montant || 0), 0);
+          nextStatut = tot > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC';
+        }
+        await updateDoc(doc(db, 'ops', opId), { statut: nextStatut, updatedAt: new Date().toISOString() });
+        notify("success", "Retour effectué", "L'OP a été renvoyé à l'étape précédente.");
+      }catch(e){notify("error", "Erreur", e.message);}
+      setSaving(false);
     });
   };
 
   const handleModifierBoite = async (opId) => {
-    checkPwd(() => {
-      ask("Modifier boîte", "Nouvelle référence de boîte :", async (val) => {
-        if(!val) return;
-        try{await updateDoc(doc(db, 'ops', opId), {boiteArchivage: val.trim(), updatedAt: new Date().toISOString()}); notify("success", "OK", "Référence de la boîte modifiée.");}catch(e){notify("error", "Erreur", e.message);}
-      }, false, true, "Référence boîte");
-    });
+    ask("Modifier boîte", "Nouvelle référence de boîte :", async (val) => {
+      if(!val) return;
+      try{await updateDoc(doc(db, 'ops', opId), {boiteArchivage: val.trim(), updatedAt: new Date().toISOString()}); notify("success", "OK", "Référence de la boîte modifiée.");}catch(e){notify("error", "Erreur", e.message);}
+    }, false, true, "Référence boîte");
   };
 
   const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchArch(''); setFiltreBoite(''); setPageArchives(1); };

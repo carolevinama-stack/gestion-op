@@ -41,7 +41,7 @@ const ModalAlert = ({ data, onClose }) => {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile, chargerExerciceOps } = useAppContext();
+  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, userProfile, chargerExerciceOps } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   const [showAnterieur, setShowAnterieur] = useState(false);
@@ -61,8 +61,6 @@ const PageListeOP = () => {
   const [corbeillePage, setCorbeillePage] = useState(1);
   const [corbeilleSource, setCorbeilleSource] = useState('ALL');
   const [opARestaurer, setOpARestaurer] = useState(null);
-  const [pwdRestaurer, setPwdRestaurer] = useState('');
-  const [pwdRestaurerErr, setPwdRestaurerErr] = useState('');
   const [alertData, setAlertData] = useState(null);
   const notify = (type, title, message) => setAlertData({ type, title, message });
   const CORBEILLE_PAGE_SIZE = 50;
@@ -198,25 +196,11 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
     }
   };
 
-  const demanderRestauration = (op) => {
-    setOpARestaurer(op);
-    setPwdRestaurer('');
-    setPwdRestaurerErr('');
-  };
+  const demanderRestauration = (op) => setOpARestaurer(op);
 
   const confirmerRestauration = () => {
-    if (!projet?.motDePasseAdmin) {
-      setPwdRestaurerErr('Mot de passe non configuré. Contactez un administrateur.');
-      return;
-    }
-    if (pwdRestaurer !== projet.motDePasseAdmin) {
-      setPwdRestaurerErr('Mot de passe incorrect');
-      return;
-    }
     const op = opARestaurer;
     setOpARestaurer(null);
-    setPwdRestaurer('');
-    setPwdRestaurerErr('');
     handleRestaurerOP(op);
   };
 
@@ -627,26 +611,16 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
         </div>
       )}
 
-      {/* MODALE CONFIRMATION MOT DE PASSE POUR RESTAURATION */}
+      {/* MODALE DE CONFIRMATION POUR LA RESTAURATION */}
       {opARestaurer && (
         <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center'}}>
           <div style={{background:'#fff', borderRadius:16, width:420, boxShadow:'0 20px 60px rgba(0,0,0,.2)', overflow:'hidden'}}>
             <div style={{padding:'16px 20px', background:P.gold, color:'#fff'}}><b>CONFIRMER LA RESTAURATION</b></div>
             <div style={{padding:20}}>
-              <p style={{fontSize:13, color:P.text, marginBottom:16}}>Confirmez le mot de passe administrateur pour restaurer l'OP <b>{opARestaurer.numero}</b>.</p>
-              <input
-                type="password"
-                autoFocus
-                placeholder="Mot de passe administrateur"
-                value={pwdRestaurer}
-                onChange={e => { setPwdRestaurer(e.target.value); setPwdRestaurerErr(''); }}
-                onKeyDown={e => e.key === 'Enter' && confirmerRestauration()}
-                style={{...styles.input, marginBottom:0}}
-              />
-              {pwdRestaurerErr && <div style={{color:P.red, fontSize:12, marginTop:8}}>{pwdRestaurerErr}</div>}
+              <p style={{fontSize:13, color:P.text, marginBottom:0}}>Restaurer l'OP <b>{opARestaurer.numero}</b> depuis la corbeille ? Son montant sera de nouveau engagé sur le budget.</p>
             </div>
             <div style={{padding:'16px 20px', borderTop:`1px solid ${P.border}`, display:'flex', justifyContent:'flex-end', gap:10}}>
-              <button onClick={() => { setOpARestaurer(null); setPwdRestaurer(''); setPwdRestaurerErr(''); }} style={{padding:'8px 16px', background:'#f5f5f5', border:`1px solid ${P.border}`, borderRadius:8, cursor:'pointer'}}>Annuler</button>
+              <button onClick={() => setOpARestaurer(null)} style={{padding:'8px 16px', background:'#f5f5f5', border:`1px solid ${P.border}`, borderRadius:8, cursor:'pointer'}}>Annuler</button>
               <button onClick={confirmerRestauration} style={{padding:'8px 16px', background:P.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Confirmer</button>
             </div>
           </div>

@@ -78,21 +78,19 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
-  const { projet, sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams, chargerExerciceOps } = useAppContext();
+  const { sources, exerciceActif, exercices, budgets, setBudgets, ops, lignesBudgetaires, activeBudgetSource, setActiveBudgetSource, setCurrentPage, setHistoriqueParams, chargerExerciceOps } = useAppContext();
   const activeSource = activeBudgetSource || sources[0]?.id || null;
   const setActiveSource = (sourceId) => setActiveBudgetSource(sourceId);
 
   const [showAnterieur, setShowAnterieur] = useState(false);
   const [selectedExercice, setSelectedExercice] = useState(exerciceActif?.id || null);
   const [showModal, setShowModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [pwdPurpose, setPwdPurpose] = useState('correction');
+  const [confirmCorrection, setConfirmCorrection] = useState(false);
   const [confirmDeleteData, setConfirmDeleteData] = useState(null);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [selectedLigne, setSelectedLigne] = useState('');
   const [budgetLignes, setBudgetLignes] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [password, setPassword] = useState('');
   const [motifRevision, setMotifRevision] = useState('');
   const [nomRevision, setNomRevision] = useState('');
   const [dateNotification, setDateNotification] = useState('');
@@ -142,23 +140,11 @@ const PageBudget = () => {
   };
 
   const openCreateModal = () => { setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
-  const openCorrectionModal = () => {
-    if (!projet?.motDePasseAdmin) {
-      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
-      return;
-    }
-    setPwdPurpose('correction');
-    setPassword(''); setShowPasswordModal(true);
-  };
+  const openCorrectionModal = () => setConfirmCorrection(true);
 
-  const verifyPasswordAndEdit = () => {
-    if (password !== projet?.motDePasseAdmin) { showToast('error', 'Mot de passe incorrect'); return; }
-    setShowPasswordModal(false);
-    if (pwdPurpose === 'delete') {
-      setConfirmDeleteData({ title: 'Supprimer le budget', message: `Supprimer définitivement "${getVersionLabel(currentBudget)}" ?` });
-    } else {
-      setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
-    }
+  const startCorrection = () => {
+    setConfirmCorrection(false);
+    setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
   };
 
   const openRevisionModal = () => { setMotifRevision(''); setNomRevision(`Budget Révisé N°${(latestVersion?.version || 1)}`); setDateNotification(new Date().toISOString().split('T')[0]); setShowRevisionModal(true); };
@@ -290,9 +276,7 @@ const PageBudget = () => {
     if (!currentBudget) return;
     const totaux = getTotaux(currentBudget);
     if (totaux.engagement > 0) { showToast('error', 'Suppression impossible', `Ce budget a ${formatMontant(totaux.engagement)} FCFA d'engagements. Supprimez d'abord les OP liés.`); return; }
-    if (!projet?.motDePasseAdmin) { showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.'); return; }
-    setPwdPurpose('delete');
-    setPassword(''); setShowPasswordModal(true);
+    setConfirmDeleteData({ title: 'Supprimer le budget', message: `Supprimer définitivement "${getVersionLabel(currentBudget)}" ?` });
   };
 
   const executeDeleteBudget = async () => {
@@ -602,22 +586,16 @@ const PageBudget = () => {
         </div>
       )}
 
-      {/* ==================== MODAL MOT DE PASSE ==================== */}
-      {showPasswordModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}>
-          <div style={{ background: 'white', borderRadius: 16, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 28px', background: P.orange, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>{Icon.lock('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>{pwdPurpose === 'delete' ? 'Suppression du budget' : 'Correction du budget'}</span></div>
-            <div style={{ padding: '24px 28px' }}>
-              <p style={{ marginBottom: 16, color: P.textSec, fontSize: 13, lineHeight: 1.5 }}>Cette action nécessite un mot de passe administrateur.</p>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOT DE PASSE</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && verifyPasswordAndEdit()} placeholder="Entrez le mot de passe" style={{ ...inputStyle, background: P.goldLight }} autoFocus />
-            </div>
-            <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
-              <button className="bud-btn" onClick={() => setShowPasswordModal(false)} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-              <button className="bud-btn" onClick={verifyPasswordAndEdit} style={{ background: P.orange, color: 'white', padding: '10px 20px' }}>{Icon.check('white', 14)} Valider</button>
-            </div>
-          </div>
-        </div>
+      {confirmCorrection && (
+        <ConfirmModal
+          title="Corriger le budget"
+          message={`La correction modifie directement "${getVersionLabel(currentBudget)}" sans créer de nouvelle version : l'état précédent ne sera pas conservé. Pour garder une trace, utilisez plutôt une révision. Continuer ?`}
+          confirmLabel="Corriger"
+          confirmColor={P.orange}
+          icon={Icon.edit('white', 18)}
+          onConfirm={startCorrection}
+          onCancel={() => setConfirmCorrection(false)}
+        />
       )}
 
       {confirmDeleteData && (

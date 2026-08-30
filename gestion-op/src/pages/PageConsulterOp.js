@@ -167,9 +167,7 @@ const PageConsulterOp = () => {
   const [editNumero, setEditNumero] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [modal, setModal] = useState(null);
-  const [showPwd, setShowPwd] = useState(false);
   const dropdownRef = useRef(null);
-  const modalInputRef = useRef(null);
 
   const showToast = useCallback((type, title, message = '') => {
     const uid = Date.now() + Math.random();
@@ -179,17 +177,12 @@ const PageConsulterOp = () => {
     setToasts(prev => prev.filter(t => t.uid !== uid));
   }, []);
 
-  const askPassword = useCallback((title) => new Promise((resolve) => {
-    setShowPwd(false);
-    setModal({ type: 'password', title, resolve });
-  }), []);
   const askConfirm = useCallback((title, message) => new Promise((resolve) => {
     setModal({ type: 'confirm', title, message, resolve });
   }), []);
   const closeModal = useCallback((result) => {
     if (modal?.resolve) modal.resolve(result);
     setModal(null);
-    setShowPwd(false);
   }, [modal]);
 
   const [autresBeneficiairesDefinitif, setAutresBeneficiairesDefinitif] = useState(false);
@@ -351,17 +344,7 @@ const PageConsulterOp = () => {
       showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable, payé, annulé ou rejeté. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux ou effectuer un rétropédalage.");
       return;
     }
-    if (!projet?.motDePasseAdmin) {
-      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
-      return;
-    }
-    const pwd = await askPassword('Mot de passe requis pour modifier');
-    if (pwd === null) return;
-    if (pwd === projet.motDePasseAdmin) {
-      setIsEditMode(true);
-    } else {
-      showToast('error', 'Mot de passe incorrect');
-    }
+    setIsEditMode(true);
   };
 
   const handleEnregistrerModif = async () => {
@@ -514,16 +497,6 @@ const PageConsulterOp = () => {
       showToast('error', 'Action bloquée', "Impossible de supprimer un OP déjà transmis à l'Agent Comptable ou payé.");
       return;
     }
-    if (!projet?.motDePasseAdmin) {
-      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
-      return;
-    }
-    const pwd = await askPassword('Mot de passe requis pour supprimer (Corbeille)');
-    if (pwd === null) return;
-    if (pwd !== projet.motDePasseAdmin) {
-      showToast('error', 'Mot de passe incorrect');
-      return;
-    }
     const ok = await askConfirm('Confirmer la mise à la corbeille', `Mettre l'OP ${selectedOp.numero} à la corbeille ? Son budget sera libéré.`);
     if (ok) {
       try {
@@ -559,16 +532,11 @@ const PageConsulterOp = () => {
   };
 
   const handleStartEditNumero = async () => {
-    if (!projet?.motDePasseAdmin) {
-      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
-      return;
-    }
-    const pwd = await askPassword('Mot de passe admin requis');
-    if (pwd === null) return;
-    if (pwd !== projet.motDePasseAdmin) {
-      showToast('error', 'Mot de passe incorrect');
-      return;
-    }
+    const ok = await askConfirm(
+      'Modifier le numéro de cet OP',
+      `Le numéro ${selectedOp.numero} est la référence officielle de cet OP : il figure sur les bordereaux et les documents déjà imprimés. Ne le modifiez qu'en cas d'erreur avérée. Continuer ?`
+    );
+    if (!ok) return;
     setEditNumero(selectedOp.numero || '');
   };
 
@@ -645,36 +613,20 @@ const PageConsulterOp = () => {
           <div style={{ background: P.bgCard, borderRadius: 20, padding: '28px 32px', minWidth: 380, maxWidth: 440, boxShadow: '0 8px 40px rgba(34,51,0,0.15)', animation: 'modalIn 0.25s ease-out' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: modal.type === 'password' ? P.olive + '12' : P.orange + '12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {modal.type === 'password' ? Icons.lock(P.olive) : Icons.warning(P.orange)}
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: P.orange + '12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {Icons.warning(P.orange)}
               </div>
             </div>
             <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 700, color: P.sidebarDark, marginBottom: modal.type === 'confirm' && modal.message ? 8 : 18 }}>{modal.title}</div>
             {modal.type === 'confirm' && modal.message && (
               <div style={{ textAlign: 'center', fontSize: 13, color: P.labelMuted, marginBottom: 20, lineHeight: 1.5 }}>{modal.message}</div>
             )}
-            {modal.type === 'password' && (
-              <div style={{ position: 'relative', marginBottom: 20 }}>
-                <input ref={modalInputRef} type={showPwd ? 'text' : 'password'} autoFocus placeholder="Mot de passe..."
-                  onKeyDown={e => { if (e.key === 'Enter') closeModal(e.target.value); if (e.key === 'Escape') closeModal(null); }}
-                  style={{ width: '100%', padding: '12px 48px 12px 16px', borderRadius: 12, border: '1.5px solid rgba(34,51,0,0.12)', background: P.inputBg, fontSize: 14, outline: 'none', textAlign: 'center', letterSpacing: showPwd ? 0 : 3, color: P.textBlack }} />
-                <button onClick={() => setShowPwd(!showPwd)} type="button" tabIndex={-1}
-                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                  onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>
-                  {showPwd ? Icons.eyeOff(P.labelMuted) : Icons.eye(P.labelMuted)}
-                </button>
-              </div>
-            )}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button onClick={() => closeModal(null)}
                 style={{ flex: 1, padding: '11px 20px', borderRadius: 12, border: '1.5px solid rgba(34,51,0,0.08)', background: P.bgCard, fontSize: 13, fontWeight: 600, color: P.labelMuted, cursor: 'pointer' }}>
                 Annuler
               </button>
-              <button onClick={() => {
-                if (modal.type === 'password') closeModal(modalInputRef.current?.value || '');
-                else closeModal(true);
-              }}
+              <button onClick={() => closeModal(true)}
                 style={{ flex: 1, padding: '11px 20px', borderRadius: 12, border: 'none', background: modal.type === 'confirm' ? P.orange : P.olive, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 {modal.type === 'confirm' ? 'Confirmer' : 'Valider'}
               </button>

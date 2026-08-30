@@ -267,24 +267,13 @@ const TabInfos = () => {
 // ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
+  const { sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
 
   const notify = (type, title, message) => setAlertData({ type, title, message });
   const ask = (title, message, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message, onConfirm, showPwd });
-
-  const checkPwd = (cb) => {
-    if (!projet?.motDePasseAdmin) {
-      notify("error", "Mot de passe non configuré", "Un administrateur doit configurer le mot de passe administrateur dans l'onglet Infos avant de pouvoir effectuer cette action.");
-      return;
-    }
-    ask("Sécurité requise", "Saisissez le mot de passe administrateur :", (pwd) => {
-      if (pwd === projet.motDePasseAdmin) cb();
-      else notify("error", "Erreur", "Mot de passe incorrect.");
-    }, true);
-  };
 
   // Sauvegarde manuelle : exporte toutes les collections de la base dans un classeur
   // Excel (un onglet par collection), à conserver comme sauvegarde. Ce n'est pas une
@@ -357,7 +346,7 @@ const TabMaintenance = () => {
   };
 
   const handleRecalerCompteurs = () => {
-    checkPwd(async () => {
+    ask("Recaler les compteurs", "Cette action réaligne les compteurs de numérotation sur le dernier numéro d'OP réellement utilisé, pour chaque source et chaque exercice. À n'utiliser qu'en cas d'anomalie de numérotation. Continuer ?", async () => {
       setSaving(true);
       try {
         const batch = writeBatch(db);

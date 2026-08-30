@@ -70,37 +70,14 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 );
 
 // ==================== PASSWORD MODAL ====================
-const PasswordModal = ({ onConfirm, onCancel }) => {
-  const [pwd, setPwd] = useState('');
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10002 }}>
-      <div style={{ background: 'white', borderRadius: 16, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-        <div style={{ padding: '20px 28px', background: P.orange, display: 'flex', alignItems: 'center', gap: 10, borderRadius: '16px 16px 0 0' }}>
-          {Icon.lock('white', 18)}<span style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>Mot de passe requis</span>
-        </div>
-        <div style={{ padding: '24px 28px' }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, marginBottom: 6, color: P.textSec }}>MOT DE PASSE ADMIN</label>
-          <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === 'Enter' && onConfirm(pwd)}
-            placeholder="Entrez le mot de passe" autoFocus
-            style={{ padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${P.border}`, fontSize: 14, width: '100%', boxSizing: 'border-box', background: P.goldLight }} />
-        </div>
-        <div style={{ padding: '16px 28px 24px', display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: `1px solid ${P.border}` }}>
-          <button className="hist-btn" onClick={onCancel} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
-          <button className="hist-btn" onClick={() => onConfirm(pwd)} style={{ background: P.orange, color: 'white', padding: '10px 20px' }}>Valider</button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ==================== PAGE ====================
 const PageHistoriqueBudget = () => {
-  const { projet, historiqueParams, sources, exercices, budgets, setBudgets, setCurrentPage, permissions } = useAppContext();
+  const { historiqueParams, sources, exercices, budgets, setBudgets, setCurrentPage, permissions } = useAppContext();
   const { sourceId, exerciceId } = historiqueParams;
   const [expandedVersion, setExpandedVersion] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [confirmState, setConfirmState] = useState(null); // { budget }
-  const [pwdState, setPwdState] = useState(null); // { budget }
 
   const currentSourceObj = sources.find(s => s.id === sourceId);
   const currentExerciceObj = exercices.find(e => e.id === exerciceId);
@@ -128,18 +105,7 @@ const PageHistoriqueBudget = () => {
   };
 
   // Delete flow: password → confirm → delete
-  const startDelete = (budget) => {
-    if (!projet?.motDePasseAdmin) {
-      showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
-      return;
-    }
-    setPwdState({ budget });
-  };
-  const onPwdConfirm = (pwd) => {
-    if (pwd !== projet?.motDePasseAdmin) { showToast('error', 'Mot de passe incorrect'); setPwdState(null); return; }
-    setPwdState(null);
-    setConfirmState({ budget: pwdState.budget });
-  };
+  const startDelete = (budget) => setConfirmState({ budget });
   const onDeleteConfirm = async () => {
     const budget = confirmState.budget;
     setConfirmState(null);
@@ -208,7 +174,6 @@ const PageHistoriqueBudget = () => {
       </div>
 
       {/* Password modal */}
-      {pwdState && <PasswordModal onCancel={() => setPwdState(null)} onConfirm={onPwdConfirm} />}
       {/* Confirm modal */}
       {confirmState && (
         <ConfirmModal title="Supprimer cette version" message={`Supprimer définitivement "${getVersionLabel(confirmState.budget)}" ? Cette action est irréversible.`}

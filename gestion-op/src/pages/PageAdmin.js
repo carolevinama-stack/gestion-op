@@ -5,7 +5,6 @@ import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy,
 import { initializeApp, getApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { styles } from '../utils/styles';
-import PasswordModal from '../components/PasswordModal';
 
 // ==================== CONFIGURATION DES RÔLES ====================
 const ROLES = {
@@ -31,11 +30,10 @@ const ConfirmModal = ({ data, onCancel, onConfirm }) => {
 };
 
 const PageAdmin = () => {
-  const { user, userProfile, projet } = useAppContext();
+  const { user, userProfile } = useAppContext();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   // Utilisateur dont la suppression est en attente de confirmation par mot de passe
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [checkingLinks, setCheckingLinks] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
@@ -237,11 +235,6 @@ const PageAdmin = () => {
     if (userDoc.uid === user.uid) {
       showMessage('Vous ne pouvez pas supprimer votre propre compte', 'error'); return;
     }
-    if (!projet?.motDePasseAdmin) {
-      showMessage("Mot de passe administrateur non configuré. Renseignez-le dans Paramètres avant de pouvoir supprimer un compte.", 'error');
-      return;
-    }
-
     setCheckingLinks(true);
     let nbOps = 0;
     try {
@@ -261,12 +254,16 @@ const PageAdmin = () => {
       return;
     }
 
-    setDeleteTarget(userDoc);
+    const confirme = await askConfirm(
+      'Supprimer un utilisateur',
+      `Supprimer définitivement le compte de ${userDoc.nom} (${userDoc.email}) ?\n\nAction irréversible. Le profil sera supprimé de l'application ; le compte de connexion devra être retiré séparément dans la console Firebase.`,
+      true
+    );
+    if (!confirme) return;
+    await executeDeleteUser(userDoc);
   };
 
-  const executeDeleteUser = async () => {
-    const userDoc = deleteTarget;
-    setDeleteTarget(null);
+  const executeDeleteUser = async (userDoc) => {
     if (!userDoc) return;
     try {
       await deleteDoc(doc(db, 'users', userDoc.id));
@@ -468,16 +465,6 @@ const PageAdmin = () => {
 
       <ConfirmModal data={confirmData} onCancel={() => closeConfirm(false)} onConfirm={() => closeConfirm(true)} />
 
-      <PasswordModal
-        show={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={executeDeleteUser}
-        title="Supprimer un utilisateur"
-        description={deleteTarget ? `Supprimer définitivement le compte de ${deleteTarget.nom} (${deleteTarget.email}) ?` : ''}
-        warning="Action irréversible. Le profil sera supprimé de l'application ; le compte de connexion devra être retiré séparément dans la console Firebase."
-        confirmText="Supprimer définitivement"
-        confirmColor="#C43E3E"
-      />
 
       {/* ==================== MODAL CRÉATION ==================== */}
       {showCreateModal && (

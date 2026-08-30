@@ -105,17 +105,6 @@ const PageCircuitAC = () => {
     return bt.opsIds.some(id => { const op = ops.find(o => o.id === id); return op && isOpLockedForAC(op); });
   };
 
-  const checkPwd = (callback) => {
-    if (!projet?.motDePasseAdmin) {
-      notify("error", "Mot de passe non configuré", "Un administrateur doit configurer le mot de passe administrateur dans les Paramètres avant de pouvoir effectuer cette action.");
-      return;
-    }
-    ask("Sécurité", "Veuillez saisir le mot de passe administrateur :", (pwd) => {
-      if(pwd === projet.motDePasseAdmin) callback();
-      else notify("error", "Erreur", "Mot de passe incorrect");
-    }, true);
-  };
-
   const filterBordereaux = (btList) => btList.filter(bt => { if(!searchBT) return true; const t = searchBT.toLowerCase(); if((bt.numero||'').toLowerCase().includes(t)) return true; return bt.opsIds?.some(opId => { const op = ops.find(o => o.id === opId); return (op?.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t); }); });
   const filterOps = (list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); };
   // Listes filtrées calculées une seule fois par affichage. Auparavant le filtrage
@@ -210,30 +199,28 @@ const PageCircuitAC = () => {
 
   const handleRenvoiCFMulti = async () => {
     if(selectedOps.length === 0){notify("error", "Erreur", "Sélectionnez au moins un OP."); return;}
-    checkPwd(() => {
-      ask("Renvoyer au CF", `Annuler le visa CF et renvoyer ${selectedOps.length} OP au Contrôleur Financier ?`, async () => {
-        setSaving(true);
-        try {
-          const batch = writeBatch(db);
-          selectedOps.forEach(opId => {
-            batch.update(doc(db, 'ops', opId), {
-              statut: 'TRANSMIS_CF',
-              dateVisaCF: null,
-              bordereauAC: null,
-              updatedAt: new Date().toISOString()
-            });
+    ask("Renvoyer au CF", `Annuler le visa CF et renvoyer ${selectedOps.length} OP au Contrôleur Financier ?`, async () => {
+      setSaving(true);
+      try {
+        const batch = writeBatch(db);
+        selectedOps.forEach(opId => {
+          batch.update(doc(db, 'ops', opId), {
+            statut: 'TRANSMIS_CF',
+            dateVisaCF: null,
+            bordereauAC: null,
+            updatedAt: new Date().toISOString()
           });
-          await batch.commit();
-          
-          setOps(p => p.map(o => selectedOps.includes(o.id) ? { ...o, statut: 'TRANSMIS_CF', dateVisaCF: null, bordereauAC: null } : o));
-          
-          notify("success", "Annulé", "Les OP ont été renvoyés au CF.");
-          setSelectedOps([]);
-        } catch(e) {
-          notify("error", "Erreur", e.message);
-        }
-        setSaving(false);
-      });
+        });
+        await batch.commit();
+        
+        setOps(p => p.map(o => selectedOps.includes(o.id) ? { ...o, statut: 'TRANSMIS_CF', dateVisaCF: null, bordereauAC: null } : o));
+        
+        notify("success", "Annulé", "Les OP ont été renvoyés au CF.");
+        setSelectedOps([]);
+      } catch(e) {
+        notify("error", "Erreur", e.message);
+      }
+      setSaving(false);
     });
   };
 
@@ -262,24 +249,22 @@ const PageCircuitAC = () => {
 
   const handleAnnulerTransmission = async (bt) => {
     if(isBordereauLocked(bt)){notify("error", "Bloqué", "Impossible d'annuler : des OP ont déjà été traités."); return;}
-    checkPwd(async () => {
-      ask("Confirmation", `Annuler la transmission de ${bt.numero} ?`, async () => {
-        setSaving(true);
-        try{
-          const batch = writeBatch(db);
-          batch.update(doc(db, 'bordereaux', bt.id), {dateTransmission: null, statut: 'EN_COURS', updatedAt: new Date().toISOString()});
-          bt.opsIds.forEach(opId => {
-            const op = ops.find(o => o.id === opId);
-            if(op && op.statut === 'TRANSMIS_AC') {
-               batch.update(doc(db, 'ops', opId), {statut: 'VISE_CF', dateTransmissionAC: null, updatedAt: new Date().toISOString()});
-            }
-          });
-          await batch.commit();
-          notify("success", "Annulé", "Transmission annulée.");
-          setModalEditBT(prev => prev ? {...prev, dateTransmission: null, statut: 'EN_COURS'} : null);
-        }catch(e){notify("error", "Erreur", e.message);}
-        setSaving(false);
-      });
+    ask("Confirmation", `Annuler la transmission de ${bt.numero} ?`, async () => {
+      setSaving(true);
+      try{
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'bordereaux', bt.id), {dateTransmission: null, statut: 'EN_COURS', updatedAt: new Date().toISOString()});
+        bt.opsIds.forEach(opId => {
+          const op = ops.find(o => o.id === opId);
+          if(op && op.statut === 'TRANSMIS_AC') {
+             batch.update(doc(db, 'ops', opId), {statut: 'VISE_CF', dateTransmissionAC: null, updatedAt: new Date().toISOString()});
+          }
+        });
+        await batch.commit();
+        notify("success", "Annulé", "Transmission annulée.");
+        setModalEditBT(prev => prev ? {...prev, dateTransmission: null, statut: 'EN_COURS'} : null);
+      }catch(e){notify("error", "Erreur", e.message);}
+      setSaving(false);
     });
   };
 
@@ -288,31 +273,27 @@ const PageCircuitAC = () => {
   const handleSaveBtNumero = async (bt) => {
     const nn = editBtNumero.trim(); if(!nn){notify("error", "Erreur", "Numéro vide."); return;}
     if(nn === bt.numero) return;
-    checkPwd(async () => {
-      if(bordereaux.find(b => b.numero === nn && b.id !== bt.id && b.type === 'AC')){notify("error", "Doublon", "Ce numéro existe déjà."); return;}
-      try{
-        await updateDoc(doc(db,'bordereaux',bt.id),{numero: nn, updatedAt: new Date().toISOString()});
-        for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{bordereauAC: nn, updatedAt: new Date().toISOString()});
-        setBordereaux(p => p.map(b => b.id === bt.id ? {...b, numero: nn} : b));
-        setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? {...o, bordereauAC: nn} : o));
-        setModalEditBT(p => p ? {...p, numero: nn} : null);
-        notify("success", "Modifié", "Numéro mis à jour.");
-      }catch(e){notify("error", "Erreur", e.message);}
-    });
+    if(bordereaux.find(b => b.numero === nn && b.id !== bt.id && b.type === 'AC')){notify("error", "Doublon", "Ce numéro existe déjà."); return;}
+    try{
+      await updateDoc(doc(db,'bordereaux',bt.id),{numero: nn, updatedAt: new Date().toISOString()});
+      for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{bordereauAC: nn, updatedAt: new Date().toISOString()});
+      setBordereaux(p => p.map(b => b.id === bt.id ? {...b, numero: nn} : b));
+      setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? {...o, bordereauAC: nn} : o));
+      setModalEditBT(p => p ? {...p, numero: nn} : null);
+      notify("success", "Modifié", "Numéro mis à jour.");
+    }catch(e){notify("error", "Erreur", e.message);}
   };
 
   const handleSaveBtDate = async (bt) => {
     if(!editBtDate){notify("error", "Erreur", "Date requise."); return;}
     if(minDateLimit && editBtDate < minDateLimit) { notify("error", "Erreur", "La date ne peut pas être antérieure à l'année de l'exercice en cours."); return; }
     if(editBtDate === bt.dateTransmission) return;
-    checkPwd(async () => {
-      try{
-        await updateDoc(doc(db,'bordereaux',bt.id),{dateTransmission: editBtDate, updatedAt: new Date().toISOString()});
-        for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{dateTransmissionAC: editBtDate, updatedAt: new Date().toISOString()});
-        setModalEditBT(p => p ? {...p, dateTransmission: editBtDate} : null);
-        notify("success", "Modifié", "Date de transmission mise à jour.");
-      }catch(e){notify("error", "Erreur", e.message);}
-    });
+    try{
+      await updateDoc(doc(db,'bordereaux',bt.id),{dateTransmission: editBtDate, updatedAt: new Date().toISOString()});
+      for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{dateTransmissionAC: editBtDate, updatedAt: new Date().toISOString()});
+      setModalEditBT(p => p ? {...p, dateTransmission: editBtDate} : null);
+      notify("success", "Modifié", "Date de transmission mise à jour.");
+    }catch(e){notify("error", "Erreur", e.message);}
   };
 
   const handleAddOpToBT = async (bt, opId) => {
@@ -342,35 +323,33 @@ const PageCircuitAC = () => {
 
   const handleAnnulerBordereau = async (bt) => {
     if(isBordereauLocked(bt)){notify("error", "Bloqué", "Des OP de ce bordereau sont verrouillés."); return;}
-    checkPwd(() => {
-      ask("Annuler le bordereau", `Voulez-vous vraiment annuler le bordereau ${bt.numero} ?\nLes OP retourneront dans la file d'attente (Nouveau BT).`, async () => {
-        setSaving(true);
-        try {
-          const batch = writeBatch(db);
-          batch.delete(doc(db, 'bordereaux', bt.id));
-          
-          bt.opsIds.forEach(opId => {
-            batch.update(doc(db, 'ops', opId), {
-              bordereauAC: null, 
-              statut: 'VISE_CF', 
-              dateTransmissionAC: null, 
-              updatedAt: new Date().toISOString()
-            });
+    ask("Annuler le bordereau", `Voulez-vous vraiment annuler le bordereau ${bt.numero} ?\nLes OP retourneront dans la file d'attente (Nouveau BT).`, async () => {
+      setSaving(true);
+      try {
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'bordereaux', bt.id));
+        
+        bt.opsIds.forEach(opId => {
+          batch.update(doc(db, 'ops', opId), {
+            bordereauAC: null, 
+            statut: 'VISE_CF', 
+            dateTransmissionAC: null, 
+            updatedAt: new Date().toISOString()
           });
-          
-          await batch.commit();
-          
-          setBordereaux(p => p.filter(b => b.id !== bt.id));
-          setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? { ...o, bordereauAC: null, statut: 'VISE_CF', dateTransmissionAC: null } : o));
-          
-          notify("success", "Annulé", "Le bordereau a été supprimé et les OP libérés.");
-          if(expandedBT === bt.id) setExpandedBT(null); 
-          setModalEditBT(null);
-        } catch(e) {
-          notify("error", "Erreur", e.message);
-        }
-        setSaving(false);
-      });
+        });
+        
+        await batch.commit();
+        
+        setBordereaux(p => p.filter(b => b.id !== bt.id));
+        setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? { ...o, bordereauAC: null, statut: 'VISE_CF', dateTransmissionAC: null } : o));
+        
+        notify("success", "Annulé", "Le bordereau a été supprimé et les OP libérés.");
+        if(expandedBT === bt.id) setExpandedBT(null); 
+        setModalEditBT(null);
+      } catch(e) {
+        notify("error", "Erreur", e.message);
+      }
+      setSaving(false);
     });
   };
 
@@ -455,17 +434,15 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
   const handleAnnulerPaiement = async (opId) => {
     const op = ops.find(o => o.id === opId); const p = op?.paiements || []; if(p.length === 0) return;
     const der = p[p.length-1];
-    checkPwd(() => {
-      ask("Annulation", `Annuler le dernier paiement de ${formatMontant(der.montant)} F ?`, async () => {
-        setSaving(true);
-        try{
-          const nP = p.slice(0,-1); const tot = nP.reduce((s,x) => s + (x.montant||0), 0);
-          const upd = {paiements: nP, totalPaye: tot, statut: nP.length > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC', updatedAt: new Date().toISOString()};
-          if(nP.length === 0) upd.datePaiement = null;
-          await updateDoc(doc(db,'ops',opId), upd); notify("success", "Annulé", "Paiement annulé.");
-        }catch(e){notify("error", "Erreur", e.message);}
-        setSaving(false);
-      });
+    ask("Annulation", `Annuler le dernier paiement de ${formatMontant(der.montant)} F ?`, async () => {
+      setSaving(true);
+      try{
+        const nP = p.slice(0,-1); const tot = nP.reduce((s,x) => s + (x.montant||0), 0);
+        const upd = {paiements: nP, totalPaye: tot, statut: nP.length > 0 ? 'PAYE_PARTIEL' : 'TRANSMIS_AC', updatedAt: new Date().toISOString()};
+        if(nP.length === 0) upd.datePaiement = null;
+        await updateDoc(doc(db,'ops',opId), upd); notify("success", "Annulé", "Paiement annulé.");
+      }catch(e){notify("error", "Erreur", e.message);}
+      setSaving(false);
     });
   };
 
@@ -509,28 +486,26 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
         setSaving(false);
       });
     };
-    if(resultatAC === 'REJETE') checkPwd(exec); else exec();
+    exec();
   };
 
   const handleAnnulerRetour = async (opId, statut) => {
-    checkPwd(() => {
-      ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
-        setSaving(true);
-        try{
-          await updateDoc(doc(db,'ops',opId),{
-            statut: 'TRANSMIS_AC', 
-            dateDiffere: null, 
-            motifDiffere: null, 
-            dateRejet: null, 
-            motifRejet: null, 
-            updatedAt: new Date().toISOString()
-          }); 
-          notify("success", "Annulé", "Retour arrière effectué.");
-        }catch(e){
-          notify("error", "Erreur", e.message);
-        }
-        setSaving(false);
-      });
+    ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
+      setSaving(true);
+      try{
+        await updateDoc(doc(db,'ops',opId),{
+          statut: 'TRANSMIS_AC', 
+          dateDiffere: null, 
+          motifDiffere: null, 
+          dateRejet: null, 
+          motifRejet: null, 
+          updatedAt: new Date().toISOString()
+        }); 
+        notify("success", "Annulé", "Retour arrière effectué.");
+      }catch(e){
+        notify("error", "Erreur", e.message);
+      }
+      setSaving(false);
     });
   };
 
@@ -922,12 +897,10 @@ onClick={async () => {
                <div style={{fontSize:15,fontWeight:600}}>{getBen(op)}</div>
                {op.statut === 'TRANSMIS_AC' && paiem.length === 0 && (
                   <IBtn icon={I.undo(P.gold,16)} title="Annuler la transmission AC" bg={`${P.gold}15`} disabled={saving} onClick={() => {
-                    checkPwd(async () => {
-                      ask("Annulation", "Annuler la transmission AC et renvoyer au CF ?", async () => {
-                        setSaving(true);
-                        try{await updateDoc(doc(db,'ops',op.id),{statut:'VISE_CF',dateTransmissionAC:null,bordereauAC:null,updatedAt:new Date().toISOString()});notify("success", "Annulée", "Transmission annulée.");setModalPaiement(null);}catch(e){notify("error", "Erreur", e.message);}
-                        setSaving(false);
-                      });
+                    ask("Annulation", "Annuler la transmission AC et renvoyer au CF ?", async () => {
+                      setSaving(true);
+                      try{await updateDoc(doc(db,'ops',op.id),{statut:'VISE_CF',dateTransmissionAC:null,bordereauAC:null,updatedAt:new Date().toISOString()});notify("success", "Annulée", "Transmission annulée.");setModalPaiement(null);}catch(e){notify("error", "Erreur", e.message);}
+                      setSaving(false);
                     });
                   }} />
                )}
