@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import * as XLSX from 'xlsx';
 
 // ==================== PALETTE ====================
 const P = {
@@ -182,8 +181,12 @@ const PageBeneficiaires = () => {
     if (['xlsx', 'xls'].includes(ext)) {
       // Excel
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         try {
+          // Chargée à la demande (et non en tête de fichier) : la librairie Excel pèse
+          // à elle seule une bonne part du poids de l'application, or seul l'import de
+          // bénéficiaires s'en sert ici. Même approche que dans les autres pages.
+          const XLSX = await import('xlsx');
           const wb = XLSX.read(event.target.result, { type: 'array' });
           const ws = wb.Sheets[wb.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
