@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, where, getCountFromServer } from 'firebase/firestore';
 import { initializeApp, getApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { styles } from '../utils/styles';
+import PasswordModal from '../components/PasswordModal';
 
 // ==================== CONFIGURATION DES RÔLES ====================
 const ROLES = {
@@ -30,9 +31,12 @@ const ConfirmModal = ({ data, onCancel, onConfirm }) => {
 };
 
 const PageAdmin = () => {
-  const { user, userProfile } = useAppContext();
+  const { user, userProfile, projet } = useAppContext();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Utilisateur dont la suppression est en attente de confirmation par mot de passe
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [checkingLinks, setCheckingLinks] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -211,17 +215,54 @@ const PageAdmin = () => {
   };
 
   // ==================== SUPPRIMER UTILISATEUR ====================
+  // Compte les opérations rattachées à un utilisateur. La lecture se fait directement
+  // en base (et non depuis le contexte, qui ne garde en mémoire que l'exercice actif) :
+  // un OP archivé d'une année passée doit lui aussi bloquer la suppression.
+  const compterOperationsLiees = async (userDoc) => {
+    const identites = [userDoc.nom, userDoc.email].filter(Boolean);
+    if (identites.length === 0) return 0;
+    const [crees, supprimes] = await Promise.all([
+      getCountFromServer(query(collection(db, 'ops'), where('creePar', 'in', identites))),
+      getCountFromServer(query(collection(db, 'ops'), where('supprimePar', 'in', identites))),
+    ]);
+    return crees.data().count + supprimes.data().count;
+  };
+
   const handleDeleteUser = async (userDoc) => {
     if (userDoc.uid === user.uid) {
       showMessage('Vous ne pouvez pas supprimer votre propre compte', 'error'); return;
     }
-    const confirm = await askConfirm(
-      "Supprimer l'utilisateur",
-      `Supprimer définitivement le compte de ${userDoc.nom} (${userDoc.email}) ?\n\nCette action est irréversible. Le profil sera supprimé mais le compte Firebase Auth restera (il pourra être nettoyé dans la console Firebase).`,
-      true
-    );
-    if (!confirm) return;
+    if (!projet?.motDePasseAdmin) {
+      showMessage("Mot de passe administrateur non configuré. Renseignez-le dans Paramètres avant de pouvoir supprimer un compte.", 'error');
+      return;
+    }
 
+    setCheckingLinks(true);
+    let nbOps = 0;
+    try {
+      nbOps = await compterOperationsLiees(userDoc);
+    } catch (error) {
+      setCheckingLinks(false);
+      showMessage("Impossible de vérifier les opérations liées : " + error.message, 'error');
+      return;
+    }
+    setCheckingLinks(false);
+
+    if (nbOps > 0) {
+      showMessage(
+        `Suppression impossible : ${userDoc.nom} est rattaché à ${nbOps} opération(s). Désactivez plutôt son compte pour lui retirer l'accès tout en conservant l'historique.`,
+        'error'
+      );
+      return;
+    }
+
+    setDeleteTarget(userDoc);
+  };
+
+  const executeDeleteUser = async () => {
+    const userDoc = deleteTarget;
+    setDeleteTarget(null);
+    if (!userDoc) return;
     try {
       await deleteDoc(doc(db, 'users', userDoc.id));
       setUsers(users.filter(u => u.id !== userDoc.id));
@@ -379,20 +420,28 @@ const PageAdmin = () => {
                         >
                           MDP
                         </button>
-                        <button 
-                          onClick={() => handleToggleActive(u)}
-                          style={{ padding: '5px 10px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', fontSize: 11 }}
-                          title={u.actif === false ? 'Réactiver' : 'Désactiver'}
-                        >
-                          {u.actif === false ? '●' : '●'}
-                        </button>
                         {!isCurrentUser && (
-                          <button 
-                            onClick={() => handleDeleteUser(u)}
-                            style={{ padding: '5px 10px', border: '1px solid #ffcdd2', borderRadius: 6, background: '#fff5f5', cursor: 'pointer', fontSize: 11, color: '#C43E3E' }}
-                            title="Supprimer"
+                          <button
+                            onClick={() => handleToggleActive(u)}
+                            style={{
+                              padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                              border: `1px solid ${u.actif === false ? '#a5d6a7' : '#ffe0b2'}`,
+                              background: u.actif === false ? '#e8f5e9' : '#fff8e1',
+                              color: u.actif === false ? '#2e7d32' : '#C5961F'
+                            }}
+                            title={u.actif === false ? 'Réactiver ce compte' : "Désactiver ce compte (retire l'accès sans supprimer l'historique)"}
                           >
-                            Suppr
+                            {u.actif === false ? 'Réactiver' : 'Désactiver'}
+                          </button>
+                        )}
+                        {!isCurrentUser && (
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            disabled={checkingLinks}
+                            style={{ padding: '5px 10px', border: '1px solid #ffcdd2', borderRadius: 6, background: '#fff5f5', cursor: checkingLinks ? 'wait' : 'pointer', fontSize: 11, color: '#C43E3E', opacity: checkingLinks ? 0.6 : 1 }}
+                            title="Supprimer définitivement"
+                          >
+                            {checkingLinks ? '...' : 'Suppr'}
                           </button>
                         )}
                       </div>
@@ -413,6 +462,17 @@ const PageAdmin = () => {
       )}
 
       <ConfirmModal data={confirmData} onCancel={() => closeConfirm(false)} onConfirm={() => closeConfirm(true)} />
+
+      <PasswordModal
+        show={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={executeDeleteUser}
+        title="Supprimer un utilisateur"
+        description={deleteTarget ? `Supprimer définitivement le compte de ${deleteTarget.nom} (${deleteTarget.email}) ?` : ''}
+        warning="Action irréversible. Le profil sera supprimé de l'application ; le compte de connexion devra être retiré séparément dans la console Firebase."
+        confirmText="Supprimer définitivement"
+        confirmColor="#C43E3E"
+      />
 
       {/* ==================== MODAL CRÉATION ==================== */}
       {showCreateModal && (

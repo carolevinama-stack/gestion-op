@@ -108,7 +108,34 @@ class ErrorBoundary extends React.Component {
 }
 
 function AppLayout() {
-  const { currentPage, loading } = useAppContext();
+  const { currentPage, loading, userProfile, profileLoading, handleLogout } = useAppContext();
+
+  if (profileLoading) return <LoaderPIF label="Vérification du compte..." />;
+
+  // Compte désactivé (ex : personne ayant quitté le projet) : l'authentification
+  // Firebase reste valide, c'est ici que l'accès à l'application est refusé.
+  if (userProfile?.actif === false) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', width: '100vw', background: '#F7F5F2', padding: 24, textAlign: 'center'
+      }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#C43E3E', marginBottom: 12 }}>
+          Compte désactivé
+        </div>
+        <div style={{ fontSize: 14, color: '#666', marginBottom: 24, maxWidth: 420 }}>
+          Votre accès à l'application a été désactivé par un administrateur.
+          Contactez-le si vous pensez qu'il s'agit d'une erreur.
+        </div>
+        <button
+          onClick={handleLogout}
+          style={{ padding: '12px 28px', background: '#2E9940', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+        >
+          Se déconnecter
+        </button>
+      </div>
+    );
+  }
 
   // Second chargement (données) : strictement identique au premier
   if (loading) return <LoaderPIF label="Chargement des données..." />;
