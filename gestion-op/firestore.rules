@@ -3,39 +3,65 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ============================================================
-    //  FONCTION : récupérer le rôle de l'utilisateur connecté
+    //  FONCTIONS D'ACCÈS
+    //
+    //  Principe : être authentifié ne suffit PAS. L'inscription Firebase
+    //  étant ouverte (et la clé publique visible dans le code envoyé au
+    //  navigateur), n'importe qui peut créer un compte de connexion.
+    //  L'accès aux données exige donc un profil créé par un administrateur
+    //  ET encore actif.
     // ============================================================
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function profil() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isAdmin() {
-      return request.auth != null && getUserRole() == 'ADMIN';
-    }
-
-    function isOperateur() {
-      return request.auth != null && getUserRole() in ['ADMIN', 'OPERATEUR', 'SAISIE', 'CF', 'AC'];
+    function aUnProfil() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function isConnected() {
-      return request.auth != null;
+      return aUnProfil() && profil().actif != false;
+    }
+
+    function getUserRole() {
+      return profil().role;
+    }
+
+    function isAdmin() {
+      return isConnected() && getUserRole() == 'ADMIN';
+    }
+
+    function isOperateur() {
+      return isConnected() && getUserRole() in ['ADMIN', 'OPERATEUR', 'SAISIE', 'CF', 'AC'];
     }
 
     // ============================================================
     //  COLLECTION : users (gestion des comptes)
-    //  → Seul un ADMIN peut créer/modifier/supprimer des comptes
-    //  → Chaque utilisateur peut lire SON propre profil
+    //  → Chacun lit son propre profil, l'ADMIN lit tout l'annuaire
+    //  → Seul un ADMIN crée un profil : plus personne ne peut se
+    //    fabriquer un rôle en contournant l'application
     // ============================================================
     match /users/{userId} {
-  allow read: if isConnected();
-  allow create: if isConnected() && request.auth.uid == userId;
-  allow update: if isAdmin() || (request.auth.uid == userId && request.resource.data.role == resource.data.role);
-  allow delete: if isAdmin();
-}
+      // Volontairement basé sur request.auth et non isConnected() : lire son
+      // propre profil est l'étape qui permet justement de l'évaluer.
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+
+      allow create: if isAdmin();
+
+      // Un utilisateur peut corriger son propre profil, mais ne peut changer
+      // ni son rôle ni son statut actif (sinon il se réactiverait lui-même).
+      allow update: if isAdmin()
+        || (request.auth.uid == userId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.actif == resource.data.actif);
+
+      allow delete: if isAdmin();
+    }
 
     // ============================================================
     //  COLLECTION : parametres (configuration du projet)
-    //  → Tout connecté peut lire
+    //  → Tout utilisateur autorisé peut lire (entêtes d'impression, sigle…)
     //  → Seul un ADMIN peut modifier
     // ============================================================
     match /parametres/{docId} {
@@ -46,8 +72,6 @@ service cloud.firestore {
     // ============================================================
     //  COLLECTIONS : sources, exercices, lignesBudgetaires
     //  (configuration budgétaire)
-    //  → Tout connecté peut lire
-    //  → ADMIN et OPERATEUR peuvent modifier
     // ============================================================
     match /sources/{docId} {
       allow read: if isConnected();
@@ -66,8 +90,6 @@ service cloud.firestore {
 
     // ============================================================
     //  COLLECTION : beneficiaires
-    //  → Tout connecté peut lire
-    //  → ADMIN et OPERATEUR peuvent modifier
     // ============================================================
     match /beneficiaires/{docId} {
       allow read: if isConnected();
@@ -76,8 +98,6 @@ service cloud.firestore {
 
     // ============================================================
     //  COLLECTION : budgets
-    //  → Tout connecté peut lire
-    //  → ADMIN et OPERATEUR peuvent modifier
     // ============================================================
     match /budgets/{docId} {
       allow read: if isConnected();
@@ -86,27 +106,30 @@ service cloud.firestore {
 
     // ============================================================
     //  COLLECTION : ops (ordres de paiement)
-    //  → Tout connecté peut lire
-    //  → ADMIN et OPERATEUR peuvent créer/modifier/supprimer
+    //  → La suppression définitive est interdite : l'application n'efface
+    //    jamais un OP, elle le passe au statut SUPPRIME (corbeille).
+    //    Interdire delete empêche de contourner la corbeille et le journal.
     // ============================================================
     match /ops/{docId} {
       allow read: if isConnected();
-      allow write: if isOperateur();
+      allow create, update: if isOperateur();
+      allow delete: if false;
     }
 
     // ============================================================
     //  COLLECTION : bordereaux
-    //  → Tout connecté peut lire
-    //  → ADMIN et OPERATEUR peuvent modifier
+    //  (la suppression reste autorisée : elle est utilisée par les
+    //   circuits CF et AC pour annuler un bordereau non transmis)
     // ============================================================
     match /bordereaux/{docId} {
       allow read: if isConnected();
       allow write: if isOperateur();
     }
+
     match /compteurs/{docId} {
-    allow read: if isConnected();
-    allow write: if isOperateur();
-   }
+      allow read: if isConnected();
+      allow write: if isOperateur();
+    }
 
     // ============================================================
     //  COLLECTION : journal (historique des actions sur les OP)
