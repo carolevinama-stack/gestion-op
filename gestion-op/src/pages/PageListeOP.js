@@ -41,7 +41,7 @@ const ModalAlert = ({ data, onClose }) => {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, exercices, beneficiaires, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile, chargerExerciceOps } = useAppContext();
+  const { sources, exerciceActif, exercices, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile, chargerExerciceOps } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   const [showAnterieur, setShowAnterieur] = useState(false);
@@ -159,7 +159,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       if (filters.dateFin && (op.dateCreation || '') > filters.dateFin) return false;
       return true;
     }).reverse();
-  }, [ops, activeSource, activeTab, filters, currentExerciceId, budgets, beneficiaires]);
+  }, [ops, activeSource, activeTab, filters, currentExerciceId, budgets]);
 
   const totalMontantAffichage = useMemo(() => {
     return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);

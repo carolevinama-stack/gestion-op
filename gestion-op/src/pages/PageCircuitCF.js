@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, writeBatch, increment, getDocs } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 //                                                             ^^^^^^^^^
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../utils/formatters';
@@ -36,7 +36,7 @@ const I={
 // COMPOSANT PRINCIPAL : CF
 // ============================================================
 const PageCircuitCF = () => {
-  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, setBordereaux, userProfile, chargerExerciceBordereaux } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, userProfile, chargerExerciceBordereaux } = useAppContext();
   
   const [subTabCF, setSubTabCF] = useState('NOUVEAU');
   const [subTabSuiviCF, setSubTabSuiviCF] = useState('DIFFERES');

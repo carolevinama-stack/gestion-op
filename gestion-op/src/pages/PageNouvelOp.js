@@ -147,7 +147,7 @@ const ConfirmModal = ({ data, onCancel, onConfirm }) => {
 const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D4722A', ANNULATION: '#C43E3E' };
 
 const PageNouvelOp = () => {
-  const { sources, beneficiaires, budgets, ops, setOps, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
+  const { sources, beneficiaires, budgets, ops, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
   
   const defaultForm = { type: '', beneficiaireId: '', ribIndex: 0, modeReglement: 'VIREMENT', objet: '', piecesJustificatives: '', montant: '', ligneBudgetaire: '', montantTVA: '', tvaRecuperable: null, opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '' };
 
@@ -214,6 +214,10 @@ const PageNouvelOp = () => {
       });
       if (setConsultOpData) setConsultOpData(null);
     }
+    // Volontairement déclenché par le seul consultOpData : cet effet doit
+    // s'exécuter à l'arrivée d'un OP à charger, pas à chaque recréation des
+    // fonctions qu'il appelle — ce qui rechargerait le formulaire en cours de saisie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consultOpData]);
   
   const getBeneficiaireRibs = (ben) => {

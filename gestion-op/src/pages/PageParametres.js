@@ -134,7 +134,9 @@ const TabInfos = () => {
 
   const [formProj, setFormProj] = useState({ pays: "", devise: "", ministere: "", nomProjet: "", sigle: "", codeImputation: "", nbCaracteresLigne: 4, coordonnateur: "", titreCoordonnateur: "", nbExemplairesCF: 4, nbExemplairesAC: 2, motDePasseAdmin: "" });
   const [savingProj, setSavingProj] = useState(false);
-  const [savedProj, setSavedProj] = useState(false);
+  // Indicateur « enregistré » : le déclenchement existe, la valeur n'est pas encore
+  // affichée nulle part. Conservé tel quel — seul le nom inutilisé est retiré.
+  const [, setSavedProj] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showSrcModal, setShowSrcModal] = useState(false);
@@ -350,7 +352,6 @@ const TabMaintenance = () => {
       setSaving(true);
       try {
         const batch = writeBatch(db);
-        let countFixed = 0;
         for (const ex of exercices) {
           for (const src of sources) {
             const opsExistants = ops.filter(o => o.sourceId === src.id && o.exerciceId === ex.id && o.statut !== 'SUPPRIME');
@@ -361,7 +362,6 @@ const TabMaintenance = () => {
             });
             const counterRef = doc(db, 'compteurs', `op_${src.id}_${ex.id}`);
             batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
-            countFixed++;
           }
         }
         await batch.commit();

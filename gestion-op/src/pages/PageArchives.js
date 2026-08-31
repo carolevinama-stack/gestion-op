@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -101,8 +101,11 @@ const PageArchives = () => {
     setAlertData({ type: 'confirm', title, message, onConfirm, showPwd, showInput, inputLabel });
   };
 
-  const getBen = (op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A';
-  const filterOps = (list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); };
+  // getBen consulte la liste des bénéficiaires : la recherche par nom en dépend donc,
+  // et les listes filtrées doivent être recalculées quand cette liste arrive ou change.
+  // Sans cela, une recherche par nom pouvait ne rien trouver alors que le dossier existe.
+  const getBen = useCallback((op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A', [beneficiaires]);
+  const filterOps = useCallback((list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); }, [getBen]);
 
   const exerciceActif = exercices.find(e => e.actif);
   // Pas de filtre par exercice ici : un OP payé/annulé en attente de classement doit
@@ -135,7 +138,7 @@ const PageArchives = () => {
     let list = opsArchives;
     if (filtreBoite) { const t = filtreBoite.toLowerCase(); list = list.filter(op => (op.boiteArchivage || '').toLowerCase().includes(t)); }
     return filterOps(list, searchArch);
-  }, [opsArchives, filtreBoite, searchArch]);
+  }, [opsArchives, filtreBoite, searchArch, filterOps]);
 
   const totalPagesArchives = Math.max(1, Math.ceil(opsArchivesFiltres.length / ARCHIVES_PAGE_SIZE));
   const opsArchivesPage = opsArchivesFiltres.slice((pageArchives - 1) * ARCHIVES_PAGE_SIZE, pageArchives * ARCHIVES_PAGE_SIZE);

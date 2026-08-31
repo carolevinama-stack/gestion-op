@@ -206,6 +206,10 @@ const PageConsulterOp = () => {
       loadOp(consultOpData);
       if (setConsultOpData) setConsultOpData(null);
     }
+    // Volontairement déclenché par le seul consultOpData : cet effet doit
+    // s'exécuter à l'arrivée d'un OP à charger, pas à chaque recréation des
+    // fonctions qu'il appelle — ce qui rechargerait le formulaire en cours de saisie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consultOpData]);
 
   useEffect(() => {
