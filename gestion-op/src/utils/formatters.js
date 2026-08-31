@@ -22,6 +22,20 @@ export const formatMontant = (n) => new Intl.NumberFormat('fr-FR').format(n || 0
 // symbole degré ne soit pas collé aux chiffres dans les polices monospace.
 export const formatNumeroOp = (numero) => String(numero ?? '').replace(/^N°(?!\s)/, 'N° ');
 
+// Certains bénéficiaires n'ont pas de référence bancaire : leur RIB est enregistré
+// comme une suite d'espaces. Affiché tel quel dans une liste déroulante, il donne une
+// ligne vide — le navigateur écrase les espaces — impossible à distinguer et à choisir.
+// D'où ce libellé explicite. La donnée enregistrée, elle, n'est jamais modifiée.
+export const SANS_RIB = '— Sans RIB —';
+
+export const libelleRib = (rib) => {
+  if (!rib) return SANS_RIB;
+  const numero = String((typeof rib === 'object' ? rib.numero : rib) ?? '').trim();
+  const banque = String((typeof rib === 'object' ? rib.banque : '') ?? '').trim();
+  if (!numero) return banque ? `${banque} — ${SANS_RIB}` : SANS_RIB;
+  return banque ? `${banque} - ${numero}` : numero;
+};
+
 export const formatDate = (date) => {
   if (!date) return '';
   const d = date.toDate ? date.toDate() : new Date(date);

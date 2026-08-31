@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { formatMontant } from '../utils/formatters';
+import { formatMontant, libelleRib } from '../utils/formatters';
 import {
   calculerEngagementsAnterieurs,
   calculerEngagementActuel,
@@ -674,11 +674,11 @@ const PageNouvelOp = () => {
                       ) : beneficiaireRibs.length === 1 ? (
                         <div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'monospace', background: '#E8F5E9', border: '1.5px solid #c8e6c9' }}>
                           {beneficiaireRibs[0].banque && <span style={{ background: '#E8F5E9', color: '#2E9940', padding: '4px 10px', borderRadius: 6, fontWeight: 600, fontSize: 12 }}>{beneficiaireRibs[0].banque}</span>}
-                          <span style={{ fontSize: 13, color: '#000000' }}>{beneficiaireRibs[0].numero}</span>
+                          <span style={{ fontSize: 13, color: '#000000' }}>{libelleRib({ numero: beneficiaireRibs[0].numero })}</span>
                         </div>
                       ) : (
                         <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...fieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 13 }}>
-                          {beneficiaireRibs.map((rib, index) => <option key={index} value={index}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
+                          {beneficiaireRibs.map((rib, index) => <option key={index} value={index}>{libelleRib(rib)}</option>)}
                         </select>
                       )}
                     </div>

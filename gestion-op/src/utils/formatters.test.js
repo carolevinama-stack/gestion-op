@@ -5,6 +5,8 @@ import {
   formatNumeroOp,
   formatDate,
   montantEnLettres,
+  libelleRib,
+  SANS_RIB,
 } from './formatters';
 
 describe('escapeHtml', () => {
@@ -107,5 +109,38 @@ describe('montantEnLettres', () => {
     [-1500, 'moins mille cinq cents'],
   ])('convertit %i en "%s"', (n, expected) => {
     expect(montantEnLettres(n)).toBe(expected);
+  });
+});
+
+describe('libelleRib', () => {
+  it('affiche banque et numéro quand les deux sont renseignés', () => {
+    expect(libelleRib({ banque: 'SGBCI', numero: 'CI001' })).toBe('SGBCI - CI001');
+  });
+
+  it('affiche le seul numéro quand la banque est absente', () => {
+    expect(libelleRib({ banque: '', numero: 'CI001' })).toBe('CI001');
+  });
+
+  it('annonce « Sans RIB » quand le numéro n\'est fait que d\'espaces', () => {
+    expect(libelleRib({ banque: '', numero: '   ' })).toBe(SANS_RIB);
+  });
+
+  it('annonce « Sans RIB » quand le numéro est vide ou absent', () => {
+    expect(libelleRib({ banque: '', numero: '' })).toBe(SANS_RIB);
+    expect(libelleRib({})).toBe(SANS_RIB);
+    expect(libelleRib(null)).toBe(SANS_RIB);
+  });
+
+  it('conserve la banque même sans numéro', () => {
+    expect(libelleRib({ banque: 'SGBCI', numero: '  ' })).toBe(`SGBCI — ${SANS_RIB}`);
+  });
+
+  it('accepte aussi un RIB au format texte (ancien format)', () => {
+    expect(libelleRib('CI001')).toBe('CI001');
+    expect(libelleRib('   ')).toBe(SANS_RIB);
+  });
+
+  it('nettoie les espaces autour d\'un numéro réel sans le dénaturer', () => {
+    expect(libelleRib({ banque: ' SGBCI ', numero: ' CI001 ' })).toBe('SGBCI - CI001');
   });
 });

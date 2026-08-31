@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { styles } from '../utils/styles';
-import { formatMontant, escapeHtml, formatNumeroOp } from '../utils/formatters';
+import { formatMontant, escapeHtml, formatNumeroOp, libelleRib } from '../utils/formatters';
 import {
   calculerDisponible,
   montantDoitEtrePositif,
@@ -937,7 +937,7 @@ const PageConsulterOp = () => {
                             {isEditMode ? (
                               beneficiaireRibs.length > 0 ? (
                                 <select value={form.ribIndex} onChange={(e) => setForm({ ...form, ribIndex: parseInt(e.target.value) })} style={{ ...editFieldStyle, cursor: 'pointer', fontFamily: 'monospace', fontSize: 12, width: '100%' }}>
-                                  {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{rib.banque ? `${rib.banque} - ` : ''}{rib.numero}</option>)}
+                                  {beneficiaireRibs.map((rib, i) => <option key={i} value={i}>{libelleRib(rib)}</option>)}
                                 </select>
                               ) : (
                                 <div style={{ ...fieldStyle, background: P.bgSection, color: P.labelMuted, fontSize: 12 }}>Aucun RIB associé au bénéficiaire</div>
@@ -947,7 +947,7 @@ const PageConsulterOp = () => {
                                 {selectedRib ? (
                                   <>
                                     {(typeof selectedRib === 'object' && selectedRib.banque) && <span style={{ background: accent + '15', color: accent, padding: '3px 10px', borderRadius: 6, fontWeight: 600, fontSize: 11 }}>{selectedRib.banque}</span>}
-                                    <span style={{ fontSize: 12 }}>{typeof selectedRib === 'object' ? selectedRib.numero : selectedRib}</span>
+                                    <span style={{ fontSize: 12 }}>{libelleRib(typeof selectedRib === 'object' ? { numero: selectedRib.numero } : selectedRib)}</span>
                                   </    >
                                 ) : (
                                   <span style={{ fontSize: 12, color: P.labelMuted }}>Aucun RIB disponible</span>
