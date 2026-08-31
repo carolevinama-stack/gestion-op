@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { libelleRib } from '../utils/formatters';
 
 // ==================== PALETTE ====================
 const P = {
@@ -145,6 +146,21 @@ const PageBeneficiaires = () => {
     }
     const updatedRibs = [...(form.ribs || []), { banque: newRib.banque.trim(), numero: newRib.numero.trim() }];
     setForm({ ...form, ribs: updatedRibs });
+    setNewRib({ banque: '', numero: '' });
+  };
+
+  // Certains bénéficiaires n'ont pas de compte bancaire. Jusqu'ici, les opérateurs
+  // tentaient de saisir des espaces — ce que le contrôle ci-dessus refusait, laissant
+  // le bénéficiaire sans aucune référence et donc inutilisable dans un OP par virement.
+  // On enregistre désormais une référence explicitement vide, affichée « — Sans RIB — ».
+  const aDejaSansRib = (ribs) => (ribs || []).some(r => !String(r.numero || '').trim());
+
+  const ajouterSansRib = () => {
+    if (aDejaSansRib(form.ribs)) {
+      showToast('error', 'Déjà présent', "Ce bénéficiaire a déjà une référence « Sans RIB ».");
+      return;
+    }
+    setForm({ ...form, ribs: [...(form.ribs || []), { banque: '', numero: '' }] });
     setNewRib({ banque: '', numero: '' });
   };
 
@@ -407,7 +423,7 @@ const PageBeneficiaires = () => {
                                   {rib.banque}
                                 </span>
                               )}
-                              <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 13, color: P.text }}>{rib.numero}</code>
+                              <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 13, color: String(rib.numero || '').trim() ? P.text : P.textMuted }}>{libelleRib({ numero: rib.numero })}</code>
                             </div>
                           ))}
                         </div>
@@ -529,6 +545,15 @@ const PageBeneficiaires = () => {
                     {Icon.plus('white', 14)}
                   </button>
                 </div>
+
+                {/* Bénéficiaire sans compte bancaire : on l'enregistre explicitement
+                    plutôt que de laisser contourner le contrôle par des espaces. */}
+                {!aDejaSansRib(form.ribs) && (
+                  <button type="button" onClick={ajouterSansRib} className="ben-btn"
+                    style={{ marginTop: 12, background: 'transparent', color: P.textSec, border: `1px dashed ${P.border}`, padding: '8px 14px', fontSize: 11.5, fontWeight: 600 }}>
+                    Ce bénéficiaire n'a pas de RIB
+                  </button>
+                )}
               </div>
             </div>
 
