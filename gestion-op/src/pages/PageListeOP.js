@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase'; // Importation de la base de données
+import { db } from '../firebase';
+import Autocomplete from '../components/Autocomplete'; // Importation de la base de données
 import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
@@ -41,7 +42,7 @@ const ModalAlert = ({ data, onClose }) => {
 };
 
 const PageListeOP = () => {
-  const { sources, exerciceActif, exercices, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile, chargerExerciceOps } = useAppContext();
+  const { sources, beneficiaires, exerciceActif, exercices, budgets, ops, setCurrentPage, setConsultOpData, permissions, projet, userProfile, chargerExerciceOps } = useAppContext();
   const [activeSource, setActiveSource] = useState('ALL');
   const [activeTab, setActiveTab] = useState('TOUS');
   const [showAnterieur, setShowAnterieur] = useState(false);
@@ -53,8 +54,8 @@ const PageListeOP = () => {
   // des critères précis, ce que la recherche globale — qui cherche dans le numéro, le
   // bénéficiaire et l'objet à la fois — ne peut pas faire.
   const FILTRES_VIDES = {
-    types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [],
-    numero: '', beneficiaire: '', objet: '', montantMin: '', montantMax: '', refPaiement: ''
+    types: [], ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [],
+    numero: '', beneficiaireId: '', objet: '', montantMin: '', montantMax: '', refPaiement: ''
   };
   const [filters, setFilters] = useState(FILTRES_VIDES);
   const [showFiltresDetailles, setShowFiltresDetailles] = useState(false);
@@ -156,12 +157,14 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
     });
 
     return withCalculations.filter(op => {
-      if (filters.search) {
-        const s = filters.search.toLowerCase();
-        if (!`${op.numero} ${getBenNom(op)} ${op.objet || ''}`.toLowerCase().includes(s)) return false;
-      }
       if (filters.numero && !String(op.numero || '').toLowerCase().includes(filters.numero.toLowerCase())) return false;
-      if (filters.beneficiaire && !getBenNom(op).toLowerCase().includes(filters.beneficiaire.toLowerCase())) return false;
+      if (filters.beneficiaireId) {
+        // On compare d'abord l'identifiant. Le repli sur le nom couvre les OP importés
+        // ou ceux dont le bénéficiaire a été recréé : le nom reste figé sur l'OP.
+        const benSel = beneficiaires.find(b => b.id === filters.beneficiaireId);
+        const memeNom = benSel && getBenNom(op).toLowerCase() === String(benSel.nom || '').toLowerCase();
+        if (op.beneficiaireId !== filters.beneficiaireId && !memeNom) return false;
+      }
       if (filters.objet && !String(op.objet || '').toLowerCase().includes(filters.objet.toLowerCase())) return false;
       if (filters.refPaiement && !String(op.refs || '').toLowerCase().includes(filters.refPaiement.toLowerCase())) return false;
       if (filters.montantMin !== '' || filters.montantMax !== '') {
@@ -179,7 +182,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       if (filters.dateFin && (op.dateCreation || '') > filters.dateFin) return false;
       return true;
     }).reverse();
-  }, [ops, activeSource, activeTab, filters, currentExerciceId, budgets]);
+  }, [ops, activeSource, activeTab, filters, currentExerciceId, budgets, beneficiaires]);
 
   // Le filtre montant porte sur le chiffre que l'onglet affiche : le montant de l'OP
   // dans « Tous », le montant réellement décaissé dans « OP payés ».
@@ -187,7 +190,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
   // Compté pour l'afficher sur le bouton : un filtre actif dans un panneau replié
   // resterait sinon invisible, et la liste paraîtrait vide sans raison.
-  const nbFiltresDetailles = ['numero', 'beneficiaire', 'objet', 'montantMin', 'montantMax', 'refPaiement']
+  const nbFiltresDetailles = ['montantMin', 'montantMax', 'refPaiement']
     .filter(k => String(filters[k] ?? '').trim() !== '').length;
 
   const totalMontantAffichage = useMemo(() => {
@@ -364,9 +367,29 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
       <div style={{ ...styles.card, background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, marginBottom: 20 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, minWidth: '180px' }}>
-            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Recherche globale</label>
-            <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="N°, bénéficiaire..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} />
+          <div style={{ width: '120px' }}>
+            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>N° OP</label>
+            <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="0042" value={filters.numero} onChange={e => setFilters({...filters, numero: e.target.value})} />
+          </div>
+
+          {/* Liste déroulante avec saisie : on parcourt les bénéficiaires ou on tape
+              les premières lettres. Même composant que dans Nouvel OP, pour que le
+              geste soit le même d'une page à l'autre. */}
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Bénéficiaire</label>
+            <Autocomplete
+              options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
+              value={filters.beneficiaireId ? { value: filters.beneficiaireId, label: beneficiaires.find(b => b.id === filters.beneficiaireId)?.nom || '' } : null}
+              onChange={(option) => setFilters({...filters, beneficiaireId: option?.value || ''})}
+              placeholder="Tous les bénéficiaires"
+              noOptionsMessage="Aucun bénéficiaire"
+              accentColor={P.greenDark}
+            />
+          </div>
+
+          <div style={{ flex: 1, minWidth: '160px' }}>
+            <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Objet</label>
+            <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Mot de l'objet" value={filters.objet} onChange={e => setFilters({...filters, objet: e.target.value})} />
           </div>
 
           <div style={{ width: '130px', position: 'relative' }} ref={typeRef}>
@@ -436,28 +459,16 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
           {showFiltresDetailles && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end', marginTop: 14 }}>
-              <div style={{ width: '130px' }}>
-                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>N° OP</label>
-                <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="0042" value={filters.numero} onChange={e => setFilters({...filters, numero: e.target.value})} />
-              </div>
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Bénéficiaire</label>
-                <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Nom du bénéficiaire" value={filters.beneficiaire} onChange={e => setFilters({...filters, beneficiaire: e.target.value})} />
-              </div>
-              <div style={{ flex: 1, minWidth: '160px' }}>
-                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Objet</label>
-                <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Mot de l'objet" value={filters.objet} onChange={e => setFilters({...filters, objet: e.target.value})} />
-              </div>
-              <div style={{ width: '135px' }}>
+              <div style={{ width: '150px' }}>
                 <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>{libelleMontant} min</label>
                 <input type="number" style={{...styles.input, marginBottom: 0}} placeholder="0" value={filters.montantMin} onChange={e => setFilters({...filters, montantMin: e.target.value})} />
               </div>
-              <div style={{ width: '135px' }}>
+              <div style={{ width: '150px' }}>
                 <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>{libelleMontant} max</label>
                 <input type="number" style={{...styles.input, marginBottom: 0}} placeholder="Illimité" value={filters.montantMax} onChange={e => setFilters({...filters, montantMax: e.target.value})} />
               </div>
               {activeTab === 'PAYES' && (
-                <div style={{ flex: 1, minWidth: '160px' }}>
+                <div style={{ flex: 1, minWidth: '180px' }}>
                   <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Réf. paiement</label>
                   <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Référence du virement" value={filters.refPaiement} onChange={e => setFilters({...filters, refPaiement: e.target.value})} />
                 </div>
