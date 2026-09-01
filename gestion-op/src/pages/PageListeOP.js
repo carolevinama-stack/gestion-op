@@ -49,7 +49,15 @@ const PageListeOP = () => {
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
   useEffect(() => { if (showAnterieur && selectedExercice) chargerExerciceOps(selectedExercice); }, [showAnterieur, selectedExercice, chargerExerciceOps]);
   
-  const [filters, setFilters] = useState({ types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [] });
+  // Les six premiers critères sont ceux d'origine. Les suivants permettent de croiser
+  // des critères précis, ce que la recherche globale — qui cherche dans le numéro, le
+  // bénéficiaire et l'objet à la fois — ne peut pas faire.
+  const FILTRES_VIDES = {
+    types: [], search: '', ligneBudgetaire: '', dateDebut: '', dateFin: '', statuts: [],
+    numero: '', beneficiaire: '', objet: '', montantMin: '', montantMax: '', refPaiement: ''
+  };
+  const [filters, setFilters] = useState(FILTRES_VIDES);
+  const [showFiltresDetailles, setShowFiltresDetailles] = useState(false);
   const [showStatutFilter, setShowStatutFilter] = useState(false);
   const [showTypeFilter, setShowTypeFilter] = useState(false);
   const filterRef = useRef(null);
@@ -152,6 +160,18 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
         const s = filters.search.toLowerCase();
         if (!`${op.numero} ${getBenNom(op)} ${op.objet || ''}`.toLowerCase().includes(s)) return false;
       }
+      if (filters.numero && !String(op.numero || '').toLowerCase().includes(filters.numero.toLowerCase())) return false;
+      if (filters.beneficiaire && !getBenNom(op).toLowerCase().includes(filters.beneficiaire.toLowerCase())) return false;
+      if (filters.objet && !String(op.objet || '').toLowerCase().includes(filters.objet.toLowerCase())) return false;
+      if (filters.refPaiement && !String(op.refs || '').toLowerCase().includes(filters.refPaiement.toLowerCase())) return false;
+      if (filters.montantMin !== '' || filters.montantMax !== '') {
+        // Le montant filtré suit l'onglet : dans « OP payés », c'est le montant réellement
+        // décaissé qui est affiché, donc c'est lui qu'on filtre. On raisonne en valeur
+        // absolue pour que les annulations, enregistrées en négatif, restent trouvables.
+        const mt = Math.abs(Number(activeTab === 'PAYES' ? op.totalPaye : op.montant) || 0);
+        if (filters.montantMin !== '' && mt < Number(filters.montantMin)) return false;
+        if (filters.montantMax !== '' && mt > Number(filters.montantMax)) return false;
+      }
       if (filters.types.length > 0 && !filters.types.includes(op.type)) return false;
       if (filters.statuts.length > 0 && !filters.statuts.includes(op.statut)) return false;
       if (filters.ligneBudgetaire && !op.ligneBudgetaire?.toLowerCase().includes(filters.ligneBudgetaire.toLowerCase())) return false;
@@ -160,6 +180,15 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       return true;
     }).reverse();
   }, [ops, activeSource, activeTab, filters, currentExerciceId, budgets]);
+
+  // Le filtre montant porte sur le chiffre que l'onglet affiche : le montant de l'OP
+  // dans « Tous », le montant réellement décaissé dans « OP payés ».
+  const libelleMontant = activeTab === 'PAYES' ? 'Montant payé' : 'Montant OP';
+
+  // Compté pour l'afficher sur le bouton : un filtre actif dans un panneau replié
+  // resterait sinon invisible, et la liste paraîtrait vide sans raison.
+  const nbFiltresDetailles = ['numero', 'beneficiaire', 'objet', 'montantMin', 'montantMax', 'refPaiement']
+    .filter(k => String(filters[k] ?? '').trim() !== '').length;
 
   const totalMontantAffichage = useMemo(() => {
     return displayOps.reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
@@ -392,7 +421,49 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               </div>
             )}
           </div>
-          <button style={{height:38, padding:'0 12px', background:'#f5f5f5', border:'1px solid #ddd', borderRadius:8}} onClick={() => setFilters({search:'', types:[], ligneBudgetaire:'', dateDebut:'', dateFin:'', statuts:[]})}>Effacer</button>
+          <button style={{height:38, padding:'0 12px', background:'#f5f5f5', border:'1px solid #ddd', borderRadius:8}} onClick={() => setFilters(FILTRES_VIDES)}>Effacer</button>
+        </div>
+
+        {/* Filtres détaillés : repliés par défaut pour que la page reste telle qu'elle
+            était pour ceux qui n'en ont pas besoin. Le compteur sur le bouton évite
+            qu'un filtre actif reste invisible une fois le panneau refermé. */}
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${P.border}` }}>
+          <button type="button" onClick={() => setShowFiltresDetailles(!showFiltresDetailles)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 32, padding: '0 12px', background: nbFiltresDetailles > 0 ? P.greenLight : '#f5f5f5', color: nbFiltresDetailles > 0 ? P.greenDark : P.textSec, border: `1px solid ${nbFiltresDetailles > 0 ? P.greenDark : '#ddd'}`, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            {showFiltresDetailles ? '▾' : '▸'} Filtres détaillés
+            {nbFiltresDetailles > 0 && <span style={{ background: P.greenDark, color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11 }}>{nbFiltresDetailles}</span>}
+          </button>
+
+          {showFiltresDetailles && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'flex-end', marginTop: 14 }}>
+              <div style={{ width: '130px' }}>
+                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>N° OP</label>
+                <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="0042" value={filters.numero} onChange={e => setFilters({...filters, numero: e.target.value})} />
+              </div>
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Bénéficiaire</label>
+                <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Nom du bénéficiaire" value={filters.beneficiaire} onChange={e => setFilters({...filters, beneficiaire: e.target.value})} />
+              </div>
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Objet</label>
+                <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Mot de l'objet" value={filters.objet} onChange={e => setFilters({...filters, objet: e.target.value})} />
+              </div>
+              <div style={{ width: '135px' }}>
+                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>{libelleMontant} min</label>
+                <input type="number" style={{...styles.input, marginBottom: 0}} placeholder="0" value={filters.montantMin} onChange={e => setFilters({...filters, montantMin: e.target.value})} />
+              </div>
+              <div style={{ width: '135px' }}>
+                <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>{libelleMontant} max</label>
+                <input type="number" style={{...styles.input, marginBottom: 0}} placeholder="Illimité" value={filters.montantMax} onChange={e => setFilters({...filters, montantMax: e.target.value})} />
+              </div>
+              {activeTab === 'PAYES' && (
+                <div style={{ flex: 1, minWidth: '160px' }}>
+                  <label style={{...styles.label, fontSize: 11, color: P.textSec, fontWeight: 700}}>Réf. paiement</label>
+                  <input type="text" style={{...styles.input, marginBottom: 0}} placeholder="Référence du virement" value={filters.refPaiement} onChange={e => setFilters({...filters, refPaiement: e.target.value})} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
