@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
+import Autocomplete from '../components/Autocomplete';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { estAAnnuler, aUnDefinitifActif, trouverDefinitifActif } from '../utils/opCalculs';
 
@@ -136,7 +137,11 @@ export default function PageRapport() {
   const [activeTab, setActiveTab] = useState('compta');
   const [dateRef, setDateRef] = useState(new Date().toISOString().split('T')[0]);
   const [filtreEx, setFiltreEx] = useState('tous');
-  const [searchTerm, setSearchTerm] = useState('');
+  // Critères séparés plutôt qu'une recherche unique : on peut ainsi les croiser.
+  // Repliés par défaut, la page reste telle qu'elle était pour qui n'en a pas besoin.
+  const FILTRES_VIDES = { numero: '', beneficiaireId: '', objet: '', type: '', dateDebut: '', dateFin: '', montantMin: '', montantMax: '' };
+  const [filtres, setFiltres] = useState(FILTRES_VIDES);
+  const [showFiltres, setShowFiltres] = useState(false);
   const [triChamp, setTriChamp] = useState('date');
   const [triSens, setTriSens] = useState('asc');
   const [page, setPage] = useState(1);
@@ -213,26 +218,46 @@ export default function PageRapport() {
   const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg }[activeTab] || []);
 
   // === RECHERCHE GLOBALE & TRI CHRONOLOGIQUE ===
+  const lblF = { display: 'block', fontSize: 11, fontWeight: 700, color: P.textSec, marginBottom: 4 };
+
+  // Affiché sur le bouton : un filtre actif dans une ligne repliée resterait invisible,
+  // et le rapport paraîtrait vide sans raison.
+  const nbFiltres = Object.keys(FILTRES_VIDES).filter(k => String(filtres[k] ?? '').trim() !== '').length;
+
   const rawData = getData();
   const displayData = useMemo(() => {
     let data = rawData;
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      data = data.filter(op => {
-        const num = (op.numero || '').toLowerCase();
-        const ben = (getBen(op) || '').toLowerCase();
-        const obj = (op.objet || '').toLowerCase();
-        const mt = String(op.montant || '');
-        return num.includes(lowerSearch) || ben.includes(lowerSearch) || obj.includes(lowerSearch) || mt.includes(lowerSearch);
-      });
-    }
+    const f = filtres;
+    data = data.filter(op => {
+      if (f.numero && !String(op.numero || '').toLowerCase().includes(f.numero.toLowerCase())) return false;
+      if (f.objet && !String(op.objet || '').toLowerCase().includes(f.objet.toLowerCase())) return false;
+      if (f.type && op.type !== f.type) return false;
+      if (f.beneficiaireId) {
+        // Identifiant d'abord, repli sur le nom figé sur l'OP pour les OP importés.
+        const benSel = beneficiaires.find(b => b.id === f.beneficiaireId);
+        const memeNom = benSel && (getBen(op) || '').toLowerCase() === String(benSel.nom || '').toLowerCase();
+        if (op.beneficiaireId !== f.beneficiaireId && !memeNom) return false;
+      }
+      if (f.dateDebut || f.dateFin) {
+        const d = op.dateCreation || '';
+        if (f.dateDebut && d < f.dateDebut) return false;
+        if (f.dateFin && d > f.dateFin) return false;
+      }
+      if (f.montantMin !== '' || f.montantMax !== '') {
+        // Valeur absolue : les annulations sont enregistrées en négatif.
+        const mt = Math.abs(Number(op.montant) || 0);
+        if (f.montantMin !== '' && mt < Number(f.montantMin)) return false;
+        if (f.montantMax !== '' && mt > Number(f.montantMax)) return false;
+      }
+      return true;
+    });
     return [...data].sort((a, b) => {
       const diff = triChamp === 'numero'
         ? getNumOp(a.numero) - getNumOp(b.numero)
         : (a.dateCreation || '').localeCompare(b.dateCreation || '');
       return triSens === 'asc' ? diff : -diff;
     });
-  }, [rawData, searchTerm, getBen, triChamp, triSens]);
+  }, [rawData, filtres, beneficiaires, getBen, triChamp, triSens]);
 
   const totalPagesRapport = Math.max(1, Math.ceil(displayData.length / RAPPORT_PAGE_SIZE));
   const pageRapport = Math.min(page, totalPagesRapport);
@@ -255,7 +280,7 @@ export default function PageRapport() {
   // === ACTIONS ===
   const toggleSel = (id) => setSel(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const toggleAll = () => setSel(sel.length === pageData.length && pageData.length > 0 ? [] : pageData.map(o => o.id));
-  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); setSearchTerm(''); setPage(1); };
+  const changeTab = (t) => { setActiveTab(t); setSel([]); setObsText(''); setEditId(null); setFiltres(FILTRES_VIDES); setPage(1); };
 
   const saveObs = async () => {
     if (sel.length === 0) return;
@@ -475,10 +500,13 @@ export default function PageRapport() {
             })}
           </div>
 
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', left: 12, top: 10 }}>{I.search(P.textMuted, 14)}</div>
-            <input type="text" placeholder="N°, Objet, Montant..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 220, fontSize: 12, borderRadius: 8, paddingLeft: 34, border: `1px solid ${P.border}` }} />
-          </div>
+          <button type="button" onClick={() => setShowFiltres(!showFiltres)}
+            title="Filtrer par n°, bénéficiaire, objet, type, date ou montant"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 14px', background: nbFiltres > 0 ? P.greenLight : '#fff', color: nbFiltres > 0 ? P.greenDark : P.textSec, border: `1px solid ${nbFiltres > 0 ? P.greenDark : P.border}`, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            {I.search(nbFiltres > 0 ? P.greenDark : P.textMuted, 14)}
+            {showFiltres ? 'Masquer les filtres' : 'Filtres'}
+            {nbFiltres > 0 && <span style={{ background: P.greenDark, color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11 }}>{nbFiltres}</span>}
+          </button>
 
 
           <button onClick={handleExport} title="Exporter le rapport actuel en Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.greenDark}44` }}>
@@ -486,6 +514,55 @@ export default function PageRapport() {
           </button>
         </div>
       </div>
+
+      {showFiltres && (
+        <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ width: 120 }}>
+            <label style={lblF}>N° OP</label>
+            <input type="text" placeholder="0042" value={filtres.numero} onChange={e => { setFiltres({ ...filtres, numero: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 120 }} />
+          </div>
+          <div style={{ minWidth: 200, flex: 1 }}>
+            <label style={lblF}>Bénéficiaire</label>
+            <Autocomplete
+              options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
+              value={filtres.beneficiaireId ? { value: filtres.beneficiaireId, label: beneficiaires.find(b => b.id === filtres.beneficiaireId)?.nom || '' } : null}
+              onChange={(o) => { setFiltres({ ...filtres, beneficiaireId: o?.value || '' }); setPage(1); }}
+              placeholder="Tous les bénéficiaires"
+              noOptionsMessage="Aucun bénéficiaire"
+              accentColor={P.greenDark}
+            />
+          </div>
+          <div style={{ minWidth: 160, flex: 1 }}>
+            <label style={lblF}>Objet</label>
+            <input type="text" placeholder="Mot de l'objet" value={filtres.objet} onChange={e => { setFiltres({ ...filtres, objet: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: '100%' }} />
+          </div>
+          <div style={{ width: 150 }}>
+            <label style={lblF}>Type d'OP</label>
+            <select value={filtres.type} onChange={e => { setFiltres({ ...filtres, type: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 150, cursor: 'pointer' }}>
+              <option value="">Tous les types</option>
+              {['DIRECT', 'PROVISOIRE', 'DEFINITIF', 'ANNULATION', 'REJET'].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={{ width: 145 }}>
+            <label style={lblF}>Créé du</label>
+            <input type="date" value={filtres.dateDebut} onChange={e => { setFiltres({ ...filtres, dateDebut: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 145 }} />
+          </div>
+          <div style={{ width: 145 }}>
+            <label style={lblF}>au</label>
+            <input type="date" value={filtres.dateFin} onChange={e => { setFiltres({ ...filtres, dateFin: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 145 }} />
+          </div>
+          <div style={{ width: 140 }}>
+            <label style={lblF}>Montant min</label>
+            <input type="number" placeholder="0" value={filtres.montantMin} onChange={e => { setFiltres({ ...filtres, montantMin: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 140 }} />
+          </div>
+          <div style={{ width: 140 }}>
+            <label style={lblF}>Montant max</label>
+            <input type="number" placeholder="Illimité" value={filtres.montantMax} onChange={e => { setFiltres({ ...filtres, montantMax: e.target.value }); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 140 }} />
+          </div>
+          <button onClick={() => { setFiltres(FILTRES_VIDES); setPage(1); }}
+            style={{ height: 38, padding: '0 14px', background: '#f5f5f5', border: `1px solid ${P.border}`, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: P.textSec }}>Effacer</button>
+        </div>
+      )}
 
       {sel.length > 0 && (
         <div style={{ background: P.goldLight, borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', border: `1px solid ${activeTab === 'extratraite' ? P.green : P.goldBorder}` }}>
