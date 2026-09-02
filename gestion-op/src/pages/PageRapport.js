@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { doc, updateDoc, addDoc, collection, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { estAAnnuler, aUnDefinitifActif, trouverDefinitifActif } from '../utils/opCalculs';
@@ -145,10 +145,8 @@ export default function PageRapport() {
   const [savingObs, setSavingObs] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editText, setEditText] = useState('');
-  const [importing, setImporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
   const notify = (type, title, message) => setAlertData({ type, title, message });
-  const ask = (title, message, onConfirm) => setAlertData({ type: 'confirm', title, message, onConfirm });
 
   const getBen = useCallback((op) => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || op.beneficiaireNom || '—', [beneficiaires]);
   const getSrc = useCallback((op) => sources.find(s => s.id === op.sourceId)?.sigle || op.sourceSigle || '—', [sources]);
@@ -160,11 +158,6 @@ export default function PageRapport() {
     return r;
   }, [ops, filtreEx]);
 
-  const opsExtraTraites = useMemo(() => {
-    let r = ops.filter(op => op.importAnterieur && op.statut === 'TRAITE');
-    if (filtreEx !== 'tous') r = r.filter(op => op.exerciceId === filtreEx);
-    return r;
-  }, [ops, filtreEx]);
 
   // === FONCTION COMMUNE POUR VÉRIFIER LES RÉGULARISATIONS ===
   const hasValidReg = useCallback((opProvId) => aUnDefinitifActif(ops, opProvId), [ops]);
@@ -217,7 +210,7 @@ export default function PageRapport() {
     return !hasValidReg(op.id);
   }).map(op => ({ ...op, delaiJ: joursCalendaires(op.datePaiement || op.dateCreation, dateRef) })), [mainOps, hasValidReg, dateRef]);
 
-  const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg, extratraite: opsExtraTraites }[activeTab] || []);
+  const getData = () => ({ compta: opsCompta, nonvise: opsNonVisesCF, nonsolde: opsNonSoldes, annuler: opsAAnnuler, regulariser: opsAReg }[activeTab] || []);
 
   // === RECHERCHE GLOBALE & TRI CHRONOLOGIQUE ===
   const rawData = getData();
@@ -257,7 +250,6 @@ export default function PageRapport() {
     { id: 'nonsolde', label: 'Non soldés', icon: I.money, count: opsNonSoldes.length, color: P.orange },
     { id: 'annuler', label: 'À annuler', icon: I.ban, count: opsAAnnuler.length, color: P.red },
     { id: 'regulariser', label: 'À régulariser', icon: I.clipboard, count: opsAReg.length, color: P.textSec },
-    { id: 'extratraite', label: 'Importés Traités', icon: I.checkCircle, count: opsExtraTraites.length, color: P.greenDark },
   ];
 
   // === ACTIONS ===
@@ -289,99 +281,10 @@ export default function PageRapport() {
     } catch (e) { notify('error', 'Erreur', e.message); }
   };
 
-  const handleTraite = () => {
-    const extras = sel.filter(id => ops.find(o => o.id === id)?.importAnterieur);
-    if (extras.length === 0) { notify('error', 'Sélection requise', 'Sélectionnez au moins un OP importé.'); return; }
-    ask('Marquer comme traité', `Marquer ${extras.length} OP importés comme "Traité" ?\nIls seront déplacés dans l'onglet "Importés Traités".`, async () => {
-      try {
-        const batch = writeBatch(db);
-        for (const id of extras) {
-          batch.update(doc(db, 'ops', id), { statut: 'TRAITE', updatedAt: new Date().toISOString() });
-        }
-        await batch.commit();
-        setSel([]);
-        notify('success', 'Terminé', `${extras.length} OP marqué(s) comme traité(s).`);
-      } catch (e) { notify('error', 'Erreur', e.message); }
-    });
-  };
 
-  const handleUnTraite = () => {
-    if (sel.length === 0) return;
-    ask('Remettre en circuit', `Remettre ${sel.length} OP dans les rapports en cours ?`, async () => {
-      try {
-        const batch = writeBatch(db);
-        for (const id of sel) {
-          const op = ops.find(o => o.id === id);
-          const prev = op?.datePaiement ? 'PAYE' : op?.dateTransmissionAC ? 'TRANSMIS_AC' : op?.dateVisaCF ? 'VISE_CF' : op?.dateTransmissionCF ? 'TRANSMIS_CF' : 'EN_COURS';
-          batch.update(doc(db, 'ops', id), { statut: prev, updatedAt: new Date().toISOString() });
-        }
-        await batch.commit();
-        setSel([]);
-        notify('success', 'Terminé', 'OP remis dans les rapports.');
-      } catch (e) { notify('error', 'Erreur', e.message); }
-    });
-  };
 
   // === IMPORT / EXPORT EXCEL ===
-  const handleDownloadTemplate = async () => {
-    try {
-      const XLSX = await import('xlsx');
-      const tpl = [{ 'N° OP': 'IDA-2023-0045', 'Type': 'PROVISOIRE', 'Bénéficiaire': 'SARL EXEMPLE', 'Objet': 'Fourniture matériel', 'Montant': 5000000, 'Montant payé': 5000000, 'Source': 'IDA', 'Exercice': 2023, 'Ligne budgétaire': '2.1.1', 'Date création': '2023-05-15', 'Date transmission CF': '2023-06-01', 'Date visa CF': '2023-06-05', 'Date transmission AC': '2023-06-10', 'Date paiement': '2023-07-01', 'Statut': 'PAYE', 'N° OP provisoire rattaché': '', 'Observation': '' }];
-      const ws = XLSX.utils.json_to_sheet(tpl);
-      ws['!cols'] = Object.keys(tpl[0]).map(k => ({ wch: Math.max(k.length + 2, 18) }));
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Canevas');
-      XLSX.writeFile(wb, 'Canevas_Import_OP_Anterieurs.xlsx');
-    } catch (e) { notify('error', 'Erreur', e.message); }
-  };
 
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setImporting(true);
-    try {
-      const XLSX = await import('xlsx');
-      const data = await file.arrayBuffer();
-      const wb = XLSX.read(data); const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws);
-      if (rows.length === 0) { notify('error', 'Fichier vide', 'Le fichier sélectionné ne contient aucune donnée.'); setImporting(false); return; }
-      let imp = 0, skip = 0;
-      const fmtDate = (v) => { if (!v) return null; if (typeof v === 'number') { const d = new Date((v - 25569) * 86400000); return d.toISOString().split('T')[0]; } return String(v).trim(); };
-
-      for (const row of rows) {
-        const numero = String(row['N° OP'] || '').trim();
-        if (!numero || ops.find(op => op.numero === numero)) { skip++; continue; }
-        const benNom = String(row['Bénéficiaire'] || '').trim();
-        let benId = null;
-        if (benNom) {
-          const exist = beneficiaires.find(b => b.nom?.toLowerCase() === benNom.toLowerCase());
-          benId = exist ? exist.id : (await addDoc(collection(db, 'beneficiaires'), { nom: benNom, createdAt: new Date().toISOString() })).id;
-        }
-        const srcSigle = String(row['Source'] || '').trim();
-        const sourceId = sources.find(s => s.sigle?.toLowerCase() === srcSigle.toLowerCase())?.id || null;
-        const exerciceId = exercices.find(ex => ex.annee === parseInt(row['Exercice']))?.id || null;
-
-        await addDoc(collection(db, 'ops'), {
-          numero, type: String(row['Type'] || 'PROVISOIRE').trim().toUpperCase(),
-          sourceId, exerciceId, beneficiaireId: benId, beneficiaireNom: benNom, sourceSigle: srcSigle,
-          objet: String(row['Objet'] || '').trim(), montant: parseFloat(row['Montant']) || 0,
-          montantPaye: row['Montant payé'] !== undefined && row['Montant payé'] !== '' ? parseFloat(row['Montant payé']) : null,
-          ligneBudgetaire: String(row['Ligne budgétaire'] || '').trim(),
-          dateCreation: fmtDate(row['Date création']), dateTransmissionCF: fmtDate(row['Date transmission CF']),
-          dateVisaCF: fmtDate(row['Date visa CF']), dateTransmissionAC: fmtDate(row['Date transmission AC']),
-          datePaiement: fmtDate(row['Date paiement']),
-          statut: String(row['Statut'] || 'TRANSMIS_AC').trim().toUpperCase(),
-          opProvisoireNumero: String(row['N° OP provisoire rattaché'] || '').trim() || null,
-          opProvisoireId: ops.find(o => o.numero === String(row['N° OP provisoire rattaché'] || '').trim())?.id || null,
-          observation: String(row['Observation'] || '').trim() || null,
-          importAnterieur: true, modeReglement: 'VIREMENT',
-          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-        });
-        imp++;
-      }
-      notify('success', 'Import terminé', `${imp} OP importé(s), ${skip} ignoré(s).`);
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err) { notify('error', 'Erreur', err.message); }
-    setImporting(false); e.target.value = '';
-  };
 
   // === FONCTION DE RÉCUPÉRATION DU MOTIF (CORRECTION BÉTON)
   const getDefaultObs = (op) => {
@@ -448,8 +351,6 @@ export default function PageRapport() {
         return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': sanitizeForExport(getDefaultObs(op)) };
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
 
-      const d6 = appendTotal(opsExtraTraites.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsExtraTraites.reduce((s, o) => s + Number(o.montant || 0), 0), opsExtraTraites.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
-
       const wb = XLSX.utils.book_new();
       const fDate = dateRef.split('-').reverse().join('/'); 
       
@@ -470,7 +371,6 @@ export default function PageRapport() {
       addSheet(d3, 'Non soldés', `OP en attente chez l'Agent comptable au ${fDate}`);
       addSheet(d4, 'À annuler', `OP en attente a annuler au ${fDate}`);
       addSheet(d5, 'À régulariser', `OP a regulariser au ${fDate}`);
-      addSheet(d6, 'Importés Traités', `OP importés et traités au ${fDate}`);
 
       const fileNameDate = dateRef.split('-').reverse().join('-');
       XLSX.writeFile(wb, `OP EN TRAITEMENT AU ${fileNameDate}.xlsx`);
@@ -580,16 +480,6 @@ export default function PageRapport() {
             <input type="text" placeholder="N°, Objet, Montant..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} style={{ ...styles.input, marginBottom: 0, width: 220, fontSize: 12, borderRadius: 8, paddingLeft: 34, border: `1px solid ${P.border}` }} />
           </div>
 
-          <button onClick={handleDownloadTemplate} title="Télécharger le canevas d'importation Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: '#FAFAF8', color: P.textSec, border: `1px solid ${P.border}`, borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
-            {I.download(P.textSec, 16)}
-          </button>
-          
-          {permissions.canCreate && (
-          <label title="Importer des OP antérieurs (Excel)" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.orange, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.orange}44`, opacity: importing ? 0.6 : 1 }}>
-            {importing ? I.loader('#fff', 16) : I.upload('#fff', 16)}
-            <input type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: 'none' }} disabled={importing} />
-          </label>
-          )}
 
           <button onClick={handleExport} title="Exporter le rapport actuel en Excel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 8, cursor: 'pointer', width: 36, height: 36, boxShadow: `0 2px 8px ${P.greenDark}44` }}>
             {I.fileText('#fff', 16)}
@@ -598,24 +488,14 @@ export default function PageRapport() {
       </div>
 
       {sel.length > 0 && (
-        <div style={{ background: `${activeTab === 'extratraite' ? P.greenLight : P.goldLight}`, borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', border: `1px solid ${activeTab === 'extratraite' ? P.green : P.goldBorder}` }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: activeTab === 'extratraite' ? P.greenDark : P.gold }}>{sel.length} OP sélectionné(s)</span>
+        <div style={{ background: P.goldLight, borderRadius: 10, padding: '12px 18px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', border: `1px solid ${activeTab === 'extratraite' ? P.green : P.goldBorder}` }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: P.gold }}>{sel.length} OP sélectionné(s)</span>
           {permissions.canEdit && (
           <>
           <input value={obsText} onChange={e => setObsText(e.target.value)} placeholder="Saisir une observation pour la sélection..." style={{ ...styles.input, marginBottom: 0, flex: 1, minWidth: 250, fontSize: 12, borderRadius: 8 }} onKeyDown={e => { if (e.key === 'Enter') saveObs(); }} />
           <button onClick={saveObs} disabled={savingObs} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.greenDark, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: savingObs ? 0.6 : 1 }}>
             {savingObs ? I.loader() : I.save()} Enregistrer l'observation
           </button>
-          {activeTab !== 'extratraite' && sel.some(id => ops.find(o => o.id === id)?.importAnterieur) && (
-            <button onClick={handleTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.olive, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {I.checkCircle('#fff', 14)} Marquer comme Traité
-            </button>
-          )}
-          {activeTab === 'extratraite' && (
-            <button onClick={handleUnTraite} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: P.orange, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {I.undo('#fff', 14)} Remettre dans le circuit
-            </button>
-          )}
           </>
           )}
           <button onClick={() => { setSel([]); setObsText(''); }} style={{ padding: '8px 16px', background: 'transparent', color: P.textSec, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}>
@@ -630,7 +510,6 @@ export default function PageRapport() {
         {activeTab === 'nonsolde' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.orange }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}5j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 5).length}</strong></span></>}
         {activeTab === 'annuler' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.red }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}2j ouvrés) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delai > 2).length}</strong></span></>}
         {activeTab === 'regulariser' && <><span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.textSec }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span><span>Dépassés ({'>'}60j calendaires) : <strong style={{ color: P.red, fontSize: 14 }}>{displayData.filter(o => o.delaiJ > 60).length}</strong></span></>}
-        {activeTab === 'extratraite' && <span style={{ color: P.text }}>Montant total affiché : <strong style={{ fontFamily: 'monospace', fontSize: 15, color: P.greenDark }}>{formatMontant(displayData.reduce((s, o) => s + Number(o.montant || 0), 0))} F</strong></span>}
       </div>
 
       <div style={{ background: P.card, borderRadius: 12, overflow: 'auto', border: `1px solid ${P.border}`, height: 'calc(100vh - 210px)' }}>
@@ -694,15 +573,6 @@ export default function PageRapport() {
                   </tr>
                 ); 
               })}
-            </tbody>
-          </table>
-        )}
-        {activeTab === 'extratraite' && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={{ ...th, textAlign: 'right' }}>Mt payé</th><th style={th}>Source</th><th style={th}>Date création</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
-            <tbody>
-              {pageData.length === 0 && <tr><td colSpan={10} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.greenLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={td}>{formatDate(op.dateCreation)}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
