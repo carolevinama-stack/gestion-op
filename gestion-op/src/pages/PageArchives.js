@@ -85,13 +85,14 @@ const PageArchives = () => {
   const [activeSourceBT, setActiveSourceBT] = useState(sources[0]?.id || null);
   const [selectedOps, setSelectedOps] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [searchArch, setSearchArch] = useState('');
   const [filtreBoite, setFiltreBoite] = useState('');
-  // Filtres propres à Dossiers Classés. « À archiver » garde sa recherche simple :
-  // c'est une file d'attente courte, on n'y croise pas de critères.
-  const FILTRES_ARCH_VIDES = { numero: '', beneficiaireId: '', objet: '', montantMin: '', montantMax: '' };
-  const [filtresArch, setFiltresArch] = useState(FILTRES_ARCH_VIDES);
+  // Mêmes critères pour les deux onglets, mais deux états distincts : ce qu'on cherche
+  // dans la file d'attente n'a rien à voir avec ce qu'on cherche dans les archives.
+  const FILTRES_VIDES = { numero: '', beneficiaireId: '', objet: '', type: '', montantMin: '', montantMax: '' };
+  const [filtresArch, setFiltresArch] = useState(FILTRES_VIDES);
   const [showFiltresArch, setShowFiltresArch] = useState(false);
+  const [filtresAArch, setFiltresAArch] = useState(FILTRES_VIDES);
+  const [showFiltresAArch, setShowFiltresAArch] = useState(false);
   const [pageArchives, setPageArchives] = useState(1);
   const ARCHIVES_PAGE_SIZE = 50;
   const [showAnterieurArch, setShowAnterieurArch] = useState(false);
@@ -111,7 +112,6 @@ const PageArchives = () => {
   // et les listes filtrées doivent être recalculées quand cette liste arrive ou change.
   // Sans cela, une recherche par nom pouvait ne rien trouver alors que le dossier existe.
   const getBen = useCallback((op) => op?.beneficiaireNom || beneficiaires.find(b => b.id === op?.beneficiaireId)?.nom || 'N/A', [beneficiaires]);
-  const filterOps = useCallback((list, term) => { if(!term) return list; const t = term.toLowerCase(); return list.filter(op => (op.numero||'').toLowerCase().includes(t) || getBen(op).toLowerCase().includes(t) || (op.objet||'').toLowerCase().includes(t)); }, [getBen]);
 
   const exerciceActif = exercices.find(e => e.actif);
   // Pas de filtre par exercice ici : un OP payé/annulé en attente de classement doit
@@ -126,7 +126,29 @@ const PageArchives = () => {
   // complet était refait à chaque endroit du rendu qui s'en sert — case à cocher
   // générale, compteur, condition d'affichage, boucle des lignes — donc cinq fois,
   // et à chaque frappe dans le champ de recherche.
-  const aArchiverFiltres = filterOps(opsAArchiver, searchArch);
+  // Filtrage commun aux deux onglets : une seule définition, pour qu'ils ne puissent
+  // pas diverger. Le montant raisonne en valeur absolue, les annulations étant
+  // enregistrées en négatif.
+  const appliquerFiltres = useCallback((list, f) => list.filter(op => {
+    if (f.numero && !String(op.numero || '').toLowerCase().includes(f.numero.toLowerCase())) return false;
+    if (f.objet && !String(op.objet || '').toLowerCase().includes(f.objet.toLowerCase())) return false;
+    if (f.type && op.type !== f.type) return false;
+    if (f.beneficiaireId) {
+      // Comparaison par identifiant, avec repli sur le nom figé sur l'OP : les OP
+      // importés ou dont le bénéficiaire a été recréé restent ainsi trouvables.
+      const benSel = beneficiaires.find(b => b.id === f.beneficiaireId);
+      const memeNom = benSel && getBen(op).toLowerCase() === String(benSel.nom || '').toLowerCase();
+      if (op.beneficiaireId !== f.beneficiaireId && !memeNom) return false;
+    }
+    if (f.montantMin !== '' || f.montantMax !== '') {
+      const mt = Math.abs(Number(op.montant) || 0);
+      if (f.montantMin !== '' && mt < Number(f.montantMin)) return false;
+      if (f.montantMax !== '' && mt > Number(f.montantMax)) return false;
+    }
+    return true;
+  }), [beneficiaires, getBen]);
+
+  const aArchiverFiltres = appliquerFiltres(opsAArchiver, filtresAArch);
 
   const currentExerciceIdArch = showAnterieurArch ? selectedExerciceArch : exerciceActif?.id;
   useEffect(() => { if (showAnterieurArch && selectedExerciceArch) chargerExerciceOps(selectedExerciceArch); }, [showAnterieurArch, selectedExerciceArch, chargerExerciceOps]);
@@ -143,28 +165,76 @@ const PageArchives = () => {
   const opsArchivesFiltres = useMemo(() => {
     let list = opsArchives;
     if (filtreBoite) { const t = filtreBoite.toLowerCase(); list = list.filter(op => (op.boiteArchivage || '').toLowerCase().includes(t)); }
-    const f = filtresArch;
-    return list.filter(op => {
-      if (f.numero && !String(op.numero || '').toLowerCase().includes(f.numero.toLowerCase())) return false;
-      if (f.objet && !String(op.objet || '').toLowerCase().includes(f.objet.toLowerCase())) return false;
-      if (f.beneficiaireId) {
-        // Comparaison par identifiant, avec repli sur le nom figé sur l'OP : les OP
-        // importés ou dont le bénéficiaire a été recréé restent ainsi trouvables.
-        const benSel = beneficiaires.find(b => b.id === f.beneficiaireId);
-        const memeNom = benSel && getBen(op).toLowerCase() === String(benSel.nom || '').toLowerCase();
-        if (op.beneficiaireId !== f.beneficiaireId && !memeNom) return false;
-      }
-      if (f.montantMin !== '' || f.montantMax !== '') {
-        // Valeur absolue : les annulations sont enregistrées en négatif.
-        const mt = Math.abs(Number(op.montant) || 0);
-        if (f.montantMin !== '' && mt < Number(f.montantMin)) return false;
-        if (f.montantMax !== '' && mt > Number(f.montantMax)) return false;
-      }
-      return true;
-    });
-  }, [opsArchives, filtreBoite, filtresArch, beneficiaires, getBen]);
+    return appliquerFiltres(list, filtresArch);
+  }, [opsArchives, filtreBoite, filtresArch, appliquerFiltres]);
 
-  const nbFiltresArch = ['montantMin', 'montantMax'].filter(k => String(filtresArch[k] ?? '').trim() !== '').length;
+  const nbDetails = (f) => ['montantMin', 'montantMax'].filter(k => String(f[k] ?? '').trim() !== '').length;
+
+  // Une seule barre de filtres, rendue dans les deux onglets : ils ne peuvent donc
+  // pas se mettre à diverger. `extras` reçoit ce qui est propre à un onglet — la
+  // référence de boîte et l'export, côté Dossiers Classés.
+  // Volontairement une fonction appelée, et non un composant : un composant défini
+  // ici serait recréé à chaque rendu, et les champs perdraient le focus à chaque
+  // caractère saisi.
+  const barreFiltres = ({ f, setF, show, setShow, extras }) => {
+    const maj = (champ, valeur) => { setF({ ...f, [champ]: valeur }); setPageArchives(1); };
+    const n = nbDetails(f);
+    const lbl = { display:'block', fontSize:11, fontWeight:700, color:P.textSec, marginBottom:4 };
+    const champ = { ...styles.input, marginBottom:0, borderRadius:10, border:`1px solid ${P.border}` };
+    return (<>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end',marginBottom:12}}>
+        <div style={{width:130}}>
+          <label style={lbl}>N° OP</label>
+          <input type="text" placeholder="0042" value={f.numero} onChange={e=>maj('numero', e.target.value)} style={{...champ, width:130}} />
+        </div>
+        <div style={{minWidth:220,flex:1}}>
+          <label style={lbl}>BÉNÉFICIAIRE</label>
+          <Autocomplete
+            options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
+            value={f.beneficiaireId ? { value: f.beneficiaireId, label: beneficiaires.find(b => b.id === f.beneficiaireId)?.nom || '' } : null}
+            onChange={(o)=>maj('beneficiaireId', o?.value || '')}
+            placeholder="Tous les bénéficiaires"
+            noOptionsMessage="Aucun bénéficiaire"
+            accentColor={P.oliveDark}
+          />
+        </div>
+        <div style={{minWidth:180,flex:1}}>
+          <label style={lbl}>OBJET</label>
+          <input type="text" placeholder="Mot de l'objet" value={f.objet} onChange={e=>maj('objet', e.target.value)} style={{...champ, width:'100%'}} />
+        </div>
+        <div style={{width:150}}>
+          <label style={lbl}>TYPE D'OP</label>
+          <select value={f.type} onChange={e=>maj('type', e.target.value)} style={{...champ, width:150, cursor:'pointer'}}>
+            <option value="">Tous les types</option>
+            {['DIRECT','PROVISOIRE','DEFINITIF','ANNULATION','REJET'].map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        {extras}
+      </div>
+
+      <div style={{marginBottom:12,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
+        <button type="button" onClick={()=>setShow(!show)}
+          style={{display:'inline-flex',alignItems:'center',gap:8,height:32,padding:'0 12px',background:n>0?P.greenLight:'#f5f5f5',color:n>0?P.oliveDark:P.textSec,border:`1px solid ${n>0?P.oliveDark:P.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
+          {show ? '▾' : '▸'} Filtres détaillés
+          {n>0 && <span style={{background:P.oliveDark,color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:11}}>{n}</span>}
+        </button>
+        {show && (<>
+          <div style={{width:150}}>
+            <label style={lbl}>MONTANT MIN</label>
+            <input type="number" placeholder="0" value={f.montantMin} onChange={e=>maj('montantMin', e.target.value)} style={{...champ, width:150}} />
+          </div>
+          <div style={{width:150}}>
+            <label style={lbl}>MONTANT MAX</label>
+            <input type="number" placeholder="Illimité" value={f.montantMax} onChange={e=>maj('montantMax', e.target.value)} style={{...champ, width:150}} />
+          </div>
+        </>)}
+        <button onClick={()=>{ setF(FILTRES_VIDES); setFiltreBoite(''); setPageArchives(1); }}
+          style={{height:32,padding:'0 12px',background:'#f5f5f5',border:`1px solid ${P.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,color:P.textSec}}>Effacer</button>
+      </div>
+    </>);
+  };
+
+
 
   const totalPagesArchives = Math.max(1, Math.ceil(opsArchivesFiltres.length / ARCHIVES_PAGE_SIZE));
   const opsArchivesPage = opsArchivesFiltres.slice((pageArchives - 1) * ARCHIVES_PAGE_SIZE, pageArchives * ARCHIVES_PAGE_SIZE);
@@ -252,7 +322,7 @@ const PageArchives = () => {
     }, false, true, "Référence boîte");
   };
 
-  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchArch(''); setFiltreBoite(''); setPageArchives(1); };
+  const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setFiltresArch(FILTRES_VIDES); setFiltresAArch(FILTRES_VIDES); setFiltreBoite(''); setPageArchives(1); };
   const thS = {...styles.th, fontSize: 11, fontWeight: 700, color: P.textSec, textTransform: 'uppercase', letterSpacing: .5, background: '#FAFAF8'};
   const crd = {...styles.card, background: P.card, borderRadius: 14, border: `1px solid ${P.border}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)'};
 
@@ -285,7 +355,7 @@ const PageArchives = () => {
       {subTabArch==='A_ARCHIVER' && <div style={crd}>
         <h3 style={{margin:'0 0 6px',color:P.olive,fontSize:15}}>OP prêts pour le classement</h3>
         <p style={{fontSize:12,color:P.textMuted,marginBottom:12}}>Les OP soldés et les annulations validées s'affichent ici.</p>
-        <input type="text" placeholder="Rechercher..." value={searchArch} onChange={e=>setSearchArch(e.target.value)} style={{...styles.input,marginBottom:12,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
+        {barreFiltres({ f: filtresAArch, setF: setFiltresAArch, show: showFiltresAArch, setShow: setShowFiltresAArch })}
         {aArchiverFiltres.length===0?<Empty text="Aucun OP en attente de classement"/>:
         <div style={{maxHeight:'65vh',overflowY:'auto',border:`1px solid ${P.border}`,borderRadius:10}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:36}}><input type="checkbox" checked={selectedOps.length===aArchiverFiltres.length&&aArchiverFiltres.length>0} onChange={()=>toggleAll(aArchiverFiltres)}/></th>
@@ -334,69 +404,26 @@ const PageArchives = () => {
             </select>
           )}
         </div>
-        <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end',marginBottom:12}}>
-          <div style={{width:130}}>
-            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>N° OP</label>
-            <input type="text" placeholder="0042" value={filtresArch.numero} onChange={e=>{setFiltresArch({...filtresArch, numero:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:130,borderRadius:10,border:`1px solid ${P.border}`}} />
-          </div>
-
-          <div style={{minWidth:220,flex:1}}>
-            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>BÉNÉFICIAIRE</label>
-            <Autocomplete
-              options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
-              value={filtresArch.beneficiaireId ? { value: filtresArch.beneficiaireId, label: beneficiaires.find(b => b.id === filtresArch.beneficiaireId)?.nom || '' } : null}
-              onChange={(option)=>{setFiltresArch({...filtresArch, beneficiaireId: option?.value || ''});setPageArchives(1);}}
-              placeholder="Tous les bénéficiaires"
-              noOptionsMessage="Aucun bénéficiaire"
-              accentColor={P.oliveDark}
-            />
-          </div>
-
-          <div style={{minWidth:180,flex:1}}>
-            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>OBJET</label>
-            <input type="text" placeholder="Mot de l'objet" value={filtresArch.objet} onChange={e=>{setFiltresArch({...filtresArch, objet:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,borderRadius:10,border:`1px solid ${P.border}`,width:'100%'}} />
-          </div>
-
-          <div>
-            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>RÉF. BOÎTE</label>
-            <input
-              type="text"
-              list="boites-datalist"
-              placeholder="Toutes les boîtes"
-              value={filtreBoite}
-              onChange={e=>{setFiltreBoite(e.target.value);setPageArchives(1);}}
-              style={{...styles.input,marginBottom:0,width:200,borderRadius:10,border:`1px solid ${P.border}`}}
-            />
-            <datalist id="boites-datalist">
-              {boitesDisponibles.map(b=><option key={b} value={b} />)}
-            </datalist>
-          </div>
-          <button onClick={exportDossiersClasses} disabled={opsArchivesFiltres.length===0} style={{padding:'10px 16px',border:'none',borderRadius:10,background:P.oliveDark,color:'#fff',fontWeight:700,cursor:opsArchivesFiltres.length===0?'not-allowed':'pointer',opacity:opsArchivesFiltres.length===0?0.5:1,fontSize:13,height:38}}>Exporter</button>
-        </div>
-
-        {/* Montant : rarement utilisé, donc replié. Le compteur évite qu'un filtre
-            actif reste invisible une fois le panneau refermé. */}
-        <div style={{marginBottom:12,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
-          <button type="button" onClick={()=>setShowFiltresArch(!showFiltresArch)}
-            style={{display:'inline-flex',alignItems:'center',gap:8,height:32,padding:'0 12px',background:nbFiltresArch>0?P.greenLight:'#f5f5f5',color:nbFiltresArch>0?P.oliveDark:P.textSec,border:`1px solid ${nbFiltresArch>0?P.oliveDark:P.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
-            {showFiltresArch ? '▾' : '▸'} Filtres détaillés
-            {nbFiltresArch>0 && <span style={{background:P.oliveDark,color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:11}}>{nbFiltresArch}</span>}
-          </button>
-
-          {showFiltresArch && (<>
-            <div style={{width:150}}>
-              <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>MONTANT MIN</label>
-              <input type="number" placeholder="0" value={filtresArch.montantMin} onChange={e=>{setFiltresArch({...filtresArch, montantMin:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:150,borderRadius:10,border:`1px solid ${P.border}`}} />
+        {barreFiltres({
+          f: filtresArch, setF: setFiltresArch, show: showFiltresArch, setShow: setShowFiltresArch,
+          extras: (<>
+            <div>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>RÉF. BOÎTE</label>
+              <input
+                type="text"
+                list="boites-datalist"
+                placeholder="Toutes les boîtes"
+                value={filtreBoite}
+                onChange={e=>{setFiltreBoite(e.target.value);setPageArchives(1);}}
+                style={{...styles.input,marginBottom:0,width:200,borderRadius:10,border:`1px solid ${P.border}`}}
+              />
+              <datalist id="boites-datalist">
+                {boitesDisponibles.map(b=><option key={b} value={b} />)}
+              </datalist>
             </div>
-            <div style={{width:150}}>
-              <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>MONTANT MAX</label>
-              <input type="number" placeholder="Illimité" value={filtresArch.montantMax} onChange={e=>{setFiltresArch({...filtresArch, montantMax:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:150,borderRadius:10,border:`1px solid ${P.border}`}} />
-            </div>
-          </>)}
-
-          <button onClick={()=>{setFiltresArch(FILTRES_ARCH_VIDES);setFiltreBoite('');setPageArchives(1);}}
-            style={{height:32,padding:'0 12px',background:'#f5f5f5',border:`1px solid ${P.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,color:P.textSec}}>Effacer</button>
-        </div>
+            <button onClick={exportDossiersClasses} disabled={opsArchivesFiltres.length===0} style={{padding:'10px 16px',border:'none',borderRadius:10,background:P.oliveDark,color:'#fff',fontWeight:700,fontSize:12,cursor:opsArchivesFiltres.length===0?'not-allowed':'pointer',opacity:opsArchivesFiltres.length===0?0.5:1}}>Exporter</button>
+          </>)
+        })}
         {opsArchivesFiltres.length===0?<Empty text="Aucun dossier trouvé dans les archives"/>:<>
         <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
           <th style={{...thS,width:110}}>N° OP</th>
