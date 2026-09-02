@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import Autocomplete from '../components/Autocomplete';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -86,6 +87,11 @@ const PageArchives = () => {
   const [saving, setSaving] = useState(false);
   const [searchArch, setSearchArch] = useState('');
   const [filtreBoite, setFiltreBoite] = useState('');
+  // Filtres propres à Dossiers Classés. « À archiver » garde sa recherche simple :
+  // c'est une file d'attente courte, on n'y croise pas de critères.
+  const FILTRES_ARCH_VIDES = { numero: '', beneficiaireId: '', objet: '', montantMin: '', montantMax: '' };
+  const [filtresArch, setFiltresArch] = useState(FILTRES_ARCH_VIDES);
+  const [showFiltresArch, setShowFiltresArch] = useState(false);
   const [pageArchives, setPageArchives] = useState(1);
   const ARCHIVES_PAGE_SIZE = 50;
   const [showAnterieurArch, setShowAnterieurArch] = useState(false);
@@ -137,8 +143,28 @@ const PageArchives = () => {
   const opsArchivesFiltres = useMemo(() => {
     let list = opsArchives;
     if (filtreBoite) { const t = filtreBoite.toLowerCase(); list = list.filter(op => (op.boiteArchivage || '').toLowerCase().includes(t)); }
-    return filterOps(list, searchArch);
-  }, [opsArchives, filtreBoite, searchArch, filterOps]);
+    const f = filtresArch;
+    return list.filter(op => {
+      if (f.numero && !String(op.numero || '').toLowerCase().includes(f.numero.toLowerCase())) return false;
+      if (f.objet && !String(op.objet || '').toLowerCase().includes(f.objet.toLowerCase())) return false;
+      if (f.beneficiaireId) {
+        // Comparaison par identifiant, avec repli sur le nom figé sur l'OP : les OP
+        // importés ou dont le bénéficiaire a été recréé restent ainsi trouvables.
+        const benSel = beneficiaires.find(b => b.id === f.beneficiaireId);
+        const memeNom = benSel && getBen(op).toLowerCase() === String(benSel.nom || '').toLowerCase();
+        if (op.beneficiaireId !== f.beneficiaireId && !memeNom) return false;
+      }
+      if (f.montantMin !== '' || f.montantMax !== '') {
+        // Valeur absolue : les annulations sont enregistrées en négatif.
+        const mt = Math.abs(Number(op.montant) || 0);
+        if (f.montantMin !== '' && mt < Number(f.montantMin)) return false;
+        if (f.montantMax !== '' && mt > Number(f.montantMax)) return false;
+      }
+      return true;
+    });
+  }, [opsArchives, filtreBoite, filtresArch, beneficiaires, getBen]);
+
+  const nbFiltresArch = ['montantMin', 'montantMax'].filter(k => String(filtresArch[k] ?? '').trim() !== '').length;
 
   const totalPagesArchives = Math.max(1, Math.ceil(opsArchivesFiltres.length / ARCHIVES_PAGE_SIZE));
   const opsArchivesPage = opsArchivesFiltres.slice((pageArchives - 1) * ARCHIVES_PAGE_SIZE, pageArchives * ARCHIVES_PAGE_SIZE);
@@ -309,7 +335,28 @@ const PageArchives = () => {
           )}
         </div>
         <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end',marginBottom:12}}>
-          <input type="text" placeholder="Rechercher par N° de boîte, OP, Bénéficiaire..." value={searchArch} onChange={e=>{setSearchArch(e.target.value);setPageArchives(1);}} style={{...styles.input,marginBottom:0,maxWidth:400,borderRadius:10,border:`1px solid ${P.border}`}}/>
+          <div style={{width:130}}>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>N° OP</label>
+            <input type="text" placeholder="0042" value={filtresArch.numero} onChange={e=>{setFiltresArch({...filtresArch, numero:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:130,borderRadius:10,border:`1px solid ${P.border}`}} />
+          </div>
+
+          <div style={{minWidth:220,flex:1}}>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>BÉNÉFICIAIRE</label>
+            <Autocomplete
+              options={beneficiaires.map(b => ({ value: b.id, label: b.nom, searchFields: [b.nom, b.ncc || ''] }))}
+              value={filtresArch.beneficiaireId ? { value: filtresArch.beneficiaireId, label: beneficiaires.find(b => b.id === filtresArch.beneficiaireId)?.nom || '' } : null}
+              onChange={(option)=>{setFiltresArch({...filtresArch, beneficiaireId: option?.value || ''});setPageArchives(1);}}
+              placeholder="Tous les bénéficiaires"
+              noOptionsMessage="Aucun bénéficiaire"
+              accentColor={P.oliveDark}
+            />
+          </div>
+
+          <div style={{minWidth:180,flex:1}}>
+            <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>OBJET</label>
+            <input type="text" placeholder="Mot de l'objet" value={filtresArch.objet} onChange={e=>{setFiltresArch({...filtresArch, objet:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,borderRadius:10,border:`1px solid ${P.border}`,width:'100%'}} />
+          </div>
+
           <div>
             <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>RÉF. BOÎTE</label>
             <input
@@ -325,6 +372,30 @@ const PageArchives = () => {
             </datalist>
           </div>
           <button onClick={exportDossiersClasses} disabled={opsArchivesFiltres.length===0} style={{padding:'10px 16px',border:'none',borderRadius:10,background:P.oliveDark,color:'#fff',fontWeight:700,cursor:opsArchivesFiltres.length===0?'not-allowed':'pointer',opacity:opsArchivesFiltres.length===0?0.5:1,fontSize:13,height:38}}>Exporter</button>
+        </div>
+
+        {/* Montant : rarement utilisé, donc replié. Le compteur évite qu'un filtre
+            actif reste invisible une fois le panneau refermé. */}
+        <div style={{marginBottom:12,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
+          <button type="button" onClick={()=>setShowFiltresArch(!showFiltresArch)}
+            style={{display:'inline-flex',alignItems:'center',gap:8,height:32,padding:'0 12px',background:nbFiltresArch>0?P.greenLight:'#f5f5f5',color:nbFiltresArch>0?P.oliveDark:P.textSec,border:`1px solid ${nbFiltresArch>0?P.oliveDark:P.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>
+            {showFiltresArch ? '▾' : '▸'} Filtres détaillés
+            {nbFiltresArch>0 && <span style={{background:P.oliveDark,color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:11}}>{nbFiltresArch}</span>}
+          </button>
+
+          {showFiltresArch && (<>
+            <div style={{width:150}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>MONTANT MIN</label>
+              <input type="number" placeholder="0" value={filtresArch.montantMin} onChange={e=>{setFiltresArch({...filtresArch, montantMin:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:150,borderRadius:10,border:`1px solid ${P.border}`}} />
+            </div>
+            <div style={{width:150}}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:P.textSec,marginBottom:4}}>MONTANT MAX</label>
+              <input type="number" placeholder="Illimité" value={filtresArch.montantMax} onChange={e=>{setFiltresArch({...filtresArch, montantMax:e.target.value});setPageArchives(1);}} style={{...styles.input,marginBottom:0,width:150,borderRadius:10,border:`1px solid ${P.border}`}} />
+            </div>
+          </>)}
+
+          <button onClick={()=>{setFiltresArch(FILTRES_ARCH_VIDES);setFiltreBoite('');setPageArchives(1);}}
+            style={{height:32,padding:'0 12px',background:'#f5f5f5',border:`1px solid ${P.border}`,borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,color:P.textSec}}>Effacer</button>
         </div>
         {opsArchivesFiltres.length===0?<Empty text="Aucun dossier trouvé dans les archives"/>:<>
         <div style={{maxHeight:'65vh',overflowY:'auto'}}><table style={styles.table}><thead style={{position:'sticky',top:0,zIndex:1}}><tr>
