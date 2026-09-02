@@ -9,6 +9,7 @@ import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate } from '../components/circuitShared';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
+import Pagination from '../components/Pagination';
 
 // ============================================================
 // ICÔNES
@@ -27,8 +28,6 @@ const I={
   minusCircle:(c=P.red,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   plusCircle:(c=P.green,s=16)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   refresh:(c=P.textSec,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>,
-  chevronLeft:(c=P.textSec,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
-  chevronRight:(c=P.textSec,s=14)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
 };
 
 
@@ -516,13 +515,7 @@ const handlePrintBordereau = (bt) => {
             );
           })}
         </div>
-        {totalPagesBT > 1 && (
-          <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:12,marginTop:14}}>
-            <button onClick={()=>setPageBT(p=>Math.max(1,p-1))} disabled={pageBT<=1} title="Page précédente" style={{width:32,height:32,padding:0,borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',cursor:pageBT<=1?'not-allowed':'pointer',opacity:pageBT<=1?0.4:1}}>{I.chevronLeft()}</button>
-            <span style={{fontSize:12,color:P.textSec,fontWeight:600}}>Page {pageBT} / {totalPagesBT}</span>
-            <button onClick={()=>setPageBT(p=>Math.min(totalPagesBT,p+1))} disabled={pageBT>=totalPagesBT} title="Page suivante" style={{width:32,height:32,padding:0,borderRadius:6,border:`1px solid ${P.border}`,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',cursor:pageBT>=totalPagesBT?'not-allowed':'pointer',opacity:pageBT>=totalPagesBT?0.4:1}}>{I.chevronRight()}</button>
-          </div>
-        )}
+        <Pagination page={pageBT} totalPages={totalPagesBT} onChange={setPageBT} />
         </>}
       </div>
     );

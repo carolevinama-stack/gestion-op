@@ -6,6 +6,7 @@ import { styles } from '../utils/styles';
 import Autocomplete from '../components/Autocomplete';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { estAAnnuler, aUnDefinitifActif, trouverDefinitifActif } from '../utils/opCalculs';
+import Pagination from '../components/Pagination';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -655,13 +656,7 @@ export default function PageRapport() {
         )}
       </div>
 
-      {totalPagesRapport > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 14 }}>
-          <button disabled={pageRapport === 1} onClick={() => setPage(p => p - 1)} style={{ ...styles.buttonIcon, opacity: pageRapport === 1 ? 0.4 : 1 }}>◀</button>
-          <span style={{ fontSize: 13, color: P.textSec }}>Page {pageRapport} / {totalPagesRapport} ({displayData.length} OP)</span>
-          <button disabled={pageRapport === totalPagesRapport} onClick={() => setPage(p => p + 1)} style={{ ...styles.buttonIcon, opacity: pageRapport === totalPagesRapport ? 0.4 : 1 }}>▶</button>
-        </div>
-      )}
+      <Pagination page={pageRapport} totalPages={totalPagesRapport} onChange={setPage} suffixe={`(${displayData.length} OP)`} accentColor={P.greenDark} />
     </div>
   );
 }

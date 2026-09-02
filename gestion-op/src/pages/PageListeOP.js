@@ -6,6 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils d
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
+import Pagination from '../components/Pagination';
 
 // Palette de couleurs
 const P = {
@@ -23,8 +24,6 @@ const I = {
   info: (c=P.orange, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
   restore: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>,
   search: (c=P.textMuted, s=15) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  chevronLeft: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
-  chevronRight: (c=P.textSec, s=14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
 };
 
 const ModalAlert = ({ data, onClose }) => {
@@ -545,13 +544,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
           </tfoot>
         </table>
       </div>
-      {totalPagesOP > 1 && (
-        <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16}}>
-          <button onClick={() => setPageOP(p => Math.max(1, p - 1))} disabled={pageOP <= 1} title="Page précédente" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: pageOP <= 1 ? 'not-allowed' : 'pointer', opacity: pageOP <= 1 ? 0.4 : 1}}>{I.chevronLeft()}</button>
-          <span style={{fontSize:12, color:P.textSec, fontWeight:600}}>Page {pageOP} / {totalPagesOP}</span>
-          <button onClick={() => setPageOP(p => Math.min(totalPagesOP, p + 1))} disabled={pageOP >= totalPagesOP} title="Page suivante" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: pageOP >= totalPagesOP ? 'not-allowed' : 'pointer', opacity: pageOP >= totalPagesOP ? 0.4 : 1}}>{I.chevronRight()}</button>
-        </div>
-      )}
+      <Pagination page={pageOP} totalPages={totalPagesOP} onChange={setPageOP} accentColor={P.greenDark} />
 
       {/* MODALE D'APERÇU DÉTAILLÉ */}
       {livePreviewOp && (
@@ -698,11 +691,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                 </tbody>
               </table>
               {corbeilleTotalPages > 1 && (
-                <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16}}>
-                  <button onClick={() => setCorbeillePage(p => Math.max(1, p - 1))} disabled={corbeillePage <= 1} title="Page précédente" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: corbeillePage <= 1 ? 'not-allowed' : 'pointer', opacity: corbeillePage <= 1 ? 0.4 : 1}}>{I.chevronLeft()}</button>
-                  <span style={{fontSize:12, color:P.textSec, fontWeight:600}}>Page {corbeillePage} / {corbeilleTotalPages}</span>
-                  <button onClick={() => setCorbeillePage(p => Math.min(corbeilleTotalPages, p + 1))} disabled={corbeillePage >= corbeilleTotalPages} title="Page suivante" style={{width:32, height:32, padding:0, borderRadius:6, border:`1px solid ${P.border}`, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor: corbeillePage >= corbeilleTotalPages ? 'not-allowed' : 'pointer', opacity: corbeillePage >= corbeilleTotalPages ? 0.4 : 1}}>{I.chevronRight()}</button>
-                </div>
+                <Pagination page={corbeillePage} totalPages={corbeilleTotalPages} onChange={setCorbeillePage} accentColor={P.greenDark} />
               )}
             </div>
           </div>

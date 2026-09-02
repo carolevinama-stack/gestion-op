@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { ACTIONS_JOURNAL, nomUtilisateurJournal } from '../utils/journal';
+import Pagination from '../components/Pagination';
 
 const PAGE_SIZE = 50;
 const MAX_ENTREES = 1000; // plafond de lecture, pour limiter le coût Firestore sur un journal qui grossit continuellement
@@ -183,12 +184,13 @@ const PageJournal = () => {
         </div>
       )}
 
-      {aRecherche && totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 16 }}>
-          <button disabled={pageAffichee === 0} onClick={() => setPage(p => p - 1)} style={{ ...styles.buttonIcon, opacity: pageAffichee === 0 ? 0.4 : 1 }}>◀</button>
-          <span style={{ fontSize: 13, color: '#666' }}>Page {pageAffichee + 1} / {totalPages} ({entreesFiltrees.length} entrées)</span>
-          <button disabled={pageAffichee >= totalPages - 1} onClick={() => setPage(p => p + 1)} style={{ ...styles.buttonIcon, opacity: pageAffichee >= totalPages - 1 ? 0.4 : 1 }}>▶</button>
-        </div>
+      {aRecherche && (
+        <Pagination
+          page={pageAffichee + 1}
+          totalPages={totalPages}
+          onChange={(n) => setPage(n - 1)}   /* le Journal compte ses pages à partir de zéro */
+          suffixe={`(${entreesFiltrees.length} entrées)`}
+        />
       )}
 
       {aRecherche && entrees.length >= MAX_ENTREES && (
