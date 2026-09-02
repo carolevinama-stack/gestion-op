@@ -4,13 +4,23 @@ import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, formatNumeroOp, libelleRib } from '../utils/formatters';
 import {
   calculerDisponible,
-  montantDoitEtrePositif,
   calculerDotationConsultation,
   calculerEngagementsAnterieursAvantOp,
   calculerMontantTVASiRecuperable,
   filtrerOpProvisoiresPourAnnulation,
   filtrerOpProvisoiresPourDefinitif,
 } from '../utils/opCalculs';
+import {
+  ribsDuBeneficiaire,
+  indexRibDeLOp,
+  validerModificationOp,
+  montantAEnregistrer,
+  demandeConfirmationMontantNegatif,
+  beneficiairesRattachesDifferents,
+  opsImpactesParChangementMontant,
+  champsRattachement,
+  dotationFigeeApresModif,
+} from '../utils/opModification';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { buildOpPrintHtml } from '../utils/opPrint';
@@ -256,11 +266,10 @@ const PageConsulterOp = () => {
     setShowDropdown(false);
     if (op.sourceId) setActiveSource(op.sourceId);
     const ben = beneficiaires.find(b => b.id === op.beneficiaireId);
-    const ribs = ben?.ribs || (ben?.rib ? [{ banque: '', numero: ben.rib }] : []);
-    const ribIndex = ribs.findIndex(r => r.numero === (typeof op.rib === 'object' ? op.rib?.numero : op.rib)) || 0;
+    const ribs = ribsDuBeneficiaire(ben);
     setForm({
       type: op.type || 'PROVISOIRE', beneficiaireId: op.beneficiaireId || '',
-      ribIndex: ribIndex >= 0 ? ribIndex : 0, modeReglement: op.modeReglement || 'VIREMENT',
+      ribIndex: indexRibDeLOp(ribs, op.rib), modeReglement: op.modeReglement || 'VIREMENT',
       objet: op.objet || '', piecesJustificatives: op.piecesJustificatives || '',
       montant: String(op.montant || ''), ligneBudgetaire: op.ligneBudgetaire || '',
       montantTVA: String(op.montantTVA || ''), tvaRecuperable: op.tvaRecuperable || false,
@@ -272,13 +281,7 @@ const PageConsulterOp = () => {
   const currentSourceObj = sources.find(s => s.id === activeSource);
   const accent = currentSourceObj?.couleur || P.olive;
   const selectedBeneficiaire = beneficiaires.find(b => b.id === form.beneficiaireId);
-  const getBeneficiaireRibs = (ben) => {
-    if (!ben) return [];
-    if (ben.ribs && ben.ribs.length > 0) return ben.ribs;
-    if (ben.rib) return [{ banque: '', numero: ben.rib }];
-    return [];
-  };
-  const beneficiaireRibs = getBeneficiaireRibs(selectedBeneficiaire);
+  const beneficiaireRibs = ribsDuBeneficiaire(selectedBeneficiaire);
   const selectedRib = beneficiaireRibs[form.ribIndex] || beneficiaireRibs[0] || null;
 
   const currentBudget = budgets
@@ -362,105 +365,38 @@ const PageConsulterOp = () => {
     try {
       if (!selectedOp?.id) return;
 
-      if (!form.beneficiaireId) {
-        showToast('error', 'Champ obligatoire', 'Veuillez sélectionner un bénéficiaire');
-        return;
-      }
-      if (form.modeReglement === 'VIREMENT' && !selectedRib) {
-        showToast('error', 'RIB manquant', 'Veuillez renseigner un RIB pour le bénéficiaire');
-        return;
-      }
-      if (!form.ligneBudgetaire) {
-        showToast('error', 'Champ obligatoire', 'Veuillez sélectionner une ligne budgétaire');
-        return;
-      }
-      if (!form.objet.trim()) {
-        showToast('error', 'Champ obligatoire', "Veuillez saisir l'objet de la dépense");
-        return;
-      }
-      if (!form.piecesJustificatives.trim()) {
-        showToast('error', 'Champ obligatoire', 'Veuillez renseigner les pièces justificatives');
+      // Les règles de refus sont dans utils/opModification.js, vérifiées par
+      // des tests automatiques. Ici on ne fait que présenter le refus.
+      const refus = validerModificationOp(form, { selectedRib, disponible: getDisponible() });
+      if (refus) {
+        showToast('error', refus.titre, refus.message ?? `Disponible : ${formatMontant(getDisponible())} FCFA`);
         return;
       }
 
-      let finalMontant = parseFloat(form.montant);
-      if (isNaN(finalMontant) || finalMontant === 0) {
-        showToast('error', 'Champ obligatoire', 'Veuillez saisir un montant valide');
-        return;
-      }
-      if (montantDoitEtrePositif(form.type) && finalMontant < 0) {
-        showToast('error', 'Montant invalide', "Le montant d'un OP Provisoire doit être positif.");
-        return;
-      }
-      if (['DIRECT', 'DEFINITIF'].includes(form.type) && finalMontant < 0) {
-        const okNeg = await askConfirm('Montant négatif', `Le montant saisi est négatif (${formatMontant(finalMontant)} FCFA). Voulez-vous vraiment enregistrer cet OP ${form.type === 'DIRECT' ? 'Direct' : 'Définitif'} avec un montant négatif ?`);
+      // Les trois situations qui demandent un « êtes-vous sûr » : elles ne
+      // peuvent pas vivre dans le module, elles attendent une réponse humaine.
+      if (demandeConfirmationMontantNegatif(form.type, form.montant)) {
+        const montantSaisi = parseFloat(form.montant);
+        const okNeg = await askConfirm('Montant négatif', `Le montant saisi est négatif (${formatMontant(montantSaisi)} FCFA). Voulez-vous vraiment enregistrer cet OP ${form.type === 'DIRECT' ? 'Direct' : 'Définitif'} avec un montant négatif ?`);
         if (!okNeg) return;
       }
-      if (form.type === 'ANNULATION') {
-        finalMontant = -Math.abs(finalMontant);
+
+      const autresBens = beneficiairesRattachesDifferents(form, ops, beneficiaires);
+      if (autresBens.length > 0) {
+        const ok = await askConfirm('Bénéficiaire différent', `Cet OP Définitif sera rattaché à (au moins) un OP Provisoire du bénéficiaire "${autresBens.join('", "')}", différent du bénéficiaire de cet OP. Continuer ?`);
+        if (!ok) return;
       }
 
-      if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === null) {
-        showToast('error', 'Champ obligatoire', 'Veuillez indiquer si la TVA est récupérable (OUI / NON)');
-        return;
-      }
-      if (['DIRECT', 'DEFINITIF'].includes(form.type) && form.tvaRecuperable === true && (!form.montantTVA || parseFloat(form.montantTVA) === 0)) {
-        showToast('error', 'Champ obligatoire', 'TVA récupérable : veuillez saisir le montant de la TVA');
-        return;
-      }
-
-      if (form.type === 'ANNULATION' && !form.opProvisoireId && !form.opProvisoireManuel.trim()) {
-        showToast('error', 'Champ obligatoire', "Veuillez sélectionner ou saisir le N° d'OP Provisoire à annuler");
-        return;
-      }
-      if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length === 0 && !form.opProvisoireManuel.trim()) {
-        showToast('error', 'Champ obligatoire', "Veuillez sélectionner ou saisir le(s) N° d'OP Provisoire à régulariser");
-        return;
-      }
-      if (form.type === 'DEFINITIF' && (form.opProvisoireIds || []).length > 0) {
-        const autresBens = [...new Set(
-          (form.opProvisoireIds || [])
-            .map(id => ops.find(o => o.id === id))
-            .filter(op => op && op.beneficiaireId !== form.beneficiaireId)
-            .map(op => beneficiaires.find(b => b.id === op.beneficiaireId)?.nom || 'N/A')
-        )];
-        if (autresBens.length > 0) {
-          const ok = await askConfirm('Bénéficiaire différent', `Cet OP Définitif sera rattaché à (au moins) un OP Provisoire du bénéficiaire "${autresBens.join('", "')}", différent du bénéficiaire de cet OP. Continuer ?`);
-          if (!ok) return;
-        }
-      }
-
-      if (form.type !== 'ANNULATION' && getDisponible() < 0) {
-        showToast('error', 'Budget insuffisant', `Disponible : ${formatMontant(getDisponible())} FCFA`);
-        return;
+      const newMontant = montantAEnregistrer(form.type, form.montant);
+      if (newMontant !== selectedOp.montant && opsImpactesParChangementMontant(ops, selectedOp).length > 0) {
+        const ok = await askConfirm('Impact montant', 'Modification impactera les cumuls suivants.');
+        if (!ok) return;
       }
 
       const newBen = beneficiaires.find(b => b.id === form.beneficiaireId);
       const newBudgetLigne = currentBudget?.lignes?.find(l => l.code === form.ligneBudgetaire);
-
-      const benRibs = newBen?.ribs || (newBen?.rib ? [{ banque: '', numero: newBen.rib }] : []);
-      const ribSel = benRibs[form.ribIndex || 0];
-      const newMontant = finalMontant;
-      if (newMontant !== selectedOp.montant) {
-        const opsSuivants = ops.filter(o => o.sourceId === selectedOp.sourceId && o.exerciceId === selectedOp.exerciceId && o.ligneBudgetaire === selectedOp.ligneBudgetaire && (o.createdAt || '') > (selectedOp.createdAt || '') && o.id !== selectedOp.id && o.statut !== 'SUPPRIME');
-        if (opsSuivants.length > 0) {
-          const ok = await askConfirm('Impact montant', 'Modification impactera les cumuls suivants.');
-          if (!ok) return;
-        }
-      }
-      let opProvFields = {};
-      if (form.type === 'ANNULATION') {
-        opProvFields.opProvisoireId = form.opProvisoireId || null;
-        opProvFields.opProvisoireNumero = form.opProvisoireId ? form.opProvisoireNumero : form.opProvisoireManuel.trim() || null;
-        opProvFields.opProvisoireIds = null;
-      } else if (form.type === 'DEFINITIF') {
-        const ids = form.opProvisoireIds || [];
-        opProvFields.opProvisoireId = ids[0] || form.opProvisoireId || null;
-        opProvFields.opProvisoireIds = ids.length > 0 ? ids : null;
-      } else {
-        opProvFields.opProvisoireId = null;
-        opProvFields.opProvisoireIds = null;
-      }
+      const ribSel = ribsDuBeneficiaire(newBen)[form.ribIndex || 0];
+      const opProvFields = champsRattachement(form);
 
       const updates = {
         type: form.type, 
@@ -472,12 +408,13 @@ const PageConsulterOp = () => {
         objet: form.objet, piecesJustificatives: form.piecesJustificatives,
         montant: newMontant, ligneBudgetaire: form.ligneBudgetaire,
         libelleLigne: newBudgetLigne?.libelle || selectedOp.libelleLigne || '',
-        dotationFigee: form.ligneBudgetaire !== selectedOp.ligneBudgetaire 
-          ? (budgets
-              .filter(b => b.sourceId === activeSource && b.exerciceId === currentExerciceId)
-              .sort((a, b) => (b.version || 1) - (a.version || 1))[0]
-              ?.lignes?.find(l => l.code === form.ligneBudgetaire)?.dotation ?? 0)
-          : (selectedOp.dotationFigee ?? 0),
+        // currentBudget est déjà le budget courant trié par version : le bloc
+        // qui refaisait ce filtre ici en ligne donnait exactement le même.
+        dotationFigee: dotationFigeeApresModif({
+          ligneChangee: form.ligneBudgetaire !== selectedOp.ligneBudgetaire,
+          dotationNouvelleLigne: newBudgetLigne?.dotation,
+          dotationFigeeActuelle: selectedOp.dotationFigee,
+        }),
         tvaRecuperable: form.tvaRecuperable || false,
         montantTVA: calculerMontantTVASiRecuperable(form.tvaRecuperable, newMontant, form.montantTVA),
         ...opProvFields,
