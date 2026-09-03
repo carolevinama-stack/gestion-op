@@ -109,52 +109,99 @@ const STATUTS_RATTACHEMENT_INACTIF = ['SUPPRIME', 'REJETE_CF', 'REJETE_AC'];
 // soit il est sorti du circuit. Sert à la catégorie "À annuler" (Tableau de bord et Rapport).
 const STATUTS_PROVISOIRE_HORS_ANNULATION = ['PAYE', 'PAYE_PARTIEL', 'REJETE_CF', 'REJETE_AC', 'ARCHIVE', 'ANNULE'];
 
+// Un rattachement (Annulation ou Définitif) ne compte que s'il est encore actif :
+// rejeté ou supprimé, il libère de nouveau le Provisoire.
+const estAnnulationActive = (o) =>
+  o.type === 'ANNULATION' && !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut);
+
+const estDefinitifActif = (o) =>
+  o.type === 'DEFINITIF' && !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut);
+
+// Les Provisoires que vise un Définitif : un seul (opProvisoireId) ou plusieurs
+// (opProvisoireIds), les deux formes coexistent dans les données.
+const provisoiresVisesParDefinitif = (o) => [o.opProvisoireId, ...(o.opProvisoireIds || [])];
+
 // Existe-t-il un OP Annulation encore actif rattaché à ce Provisoire ?
 // Un rattachement rejeté ou supprimé ne compte pas : le Provisoire reste à annuler.
 export const aUneAnnulationActive = (ops, opProvisoireId) => ops.some(o =>
-  o.type === 'ANNULATION' &&
-  o.opProvisoireId === opProvisoireId &&
-  !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut)
+  estAnnulationActive(o) && o.opProvisoireId === opProvisoireId
 );
 
 // L'OP Définitif encore actif rattaché à ce Provisoire, s'il existe (null sinon).
 // Un Définitif peut régulariser un seul Provisoire (opProvisoireId) ou plusieurs (opProvisoireIds).
 export const trouverDefinitifActif = (ops, opProvisoireId) => ops.find(o =>
-  o.type === 'DEFINITIF' &&
-  (o.opProvisoireId === opProvisoireId || (o.opProvisoireIds || []).includes(opProvisoireId)) &&
-  !STATUTS_RATTACHEMENT_INACTIF.includes(o.statut)
+  estDefinitifActif(o) && provisoiresVisesParDefinitif(o).includes(opProvisoireId)
 ) || null;
 
 export const aUnDefinitifActif = (ops, opProvisoireId) => trouverDefinitifActif(ops, opProvisoireId) !== null;
 
+// ==================== INDEX DES RATTACHEMENTS ====================
+// Les fonctions ci-dessus parcourent toute la liste des OP à chaque appel. Tant
+// qu'on interroge un seul Provisoire, c'est le plus direct. Mais dès qu'on les
+// appelle DANS une boucle sur tous les Provisoires — ce que font le Rapport et
+// les listes de rattachement — le coût devient le carré du nombre d'OP : quatre
+// fois plus de données, vingt-trois fois plus de calcul.
+//
+// L'index se construit en un seul passage, puis chaque question se répond
+// instantanément. Les règles restent celles des fonctions ci-dessus : les mêmes
+// prédicats sont utilisés des deux côtés, ils ne peuvent pas diverger.
+export const indexerRattachements = (ops) => {
+  const annulations = new Set();
+  const definitifs = new Map();
+  for (const o of ops || []) {
+    if (estAnnulationActive(o)) {
+      annulations.add(o.opProvisoireId);
+    } else if (estDefinitifActif(o)) {
+      // « Le premier gagne », pour rendre exactement ce que trouverDefinitifActif
+      // renvoyait avec son find() sur la liste dans l'ordre.
+      for (const id of provisoiresVisesParDefinitif(o)) {
+        if (!definitifs.has(id)) definitifs.set(id, o);
+      }
+    }
+  }
+  return { annulations, definitifs };
+};
+
+export const aUneAnnulationActiveIndexee = (index, opProvisoireId) => index.annulations.has(opProvisoireId);
+
+export const trouverDefinitifActifIndexe = (index, opProvisoireId) => index.definitifs.get(opProvisoireId) || null;
+
+export const aUnDefinitifActifIndexe = (index, opProvisoireId) => index.definitifs.has(opProvisoireId);
+
 // Cet OP doit-il figurer dans la catégorie "À annuler" ?
 // Définition unique, partagée par le Tableau de bord et le Rapport, pour que les
 // deux pages ne puissent plus afficher des listes différentes.
-export const estAAnnuler = (op, ops) =>
+export const estAAnnuler = (op, ops) => estAAnnulerIndexe(op, indexerRattachements(ops));
+
+// Même règle, mais sur un index déjà construit : c'est cette forme qu'utilisent
+// les pages qui posent la question pour tous les Provisoires d'un coup.
+export const estAAnnulerIndexe = (op, index) =>
   op.type === 'PROVISOIRE' &&
   !STATUTS_PROVISOIRE_HORS_ANNULATION.includes(op.statut) &&
-  !aUneAnnulationActive(ops, op.id);
+  !aUneAnnulationActiveIndexee(index, op.id);
 
 // OP Provisoires disponibles pour être annulés par un nouvel OP Annulation.
 export const filtrerOpProvisoiresPourAnnulation = (ops, { beneficiaireId, sourceId }) => {
   if (!beneficiaireId) return [];
+  const index = indexerRattachements(ops);
   return ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     op.beneficiaireId === beneficiaireId &&
     op.sourceId === sourceId &&
     !STATUTS_PROVISOIRE_INDISPONIBLE.includes(op.statut) &&
-    !aUneAnnulationActive(ops, op.id)
+    !aUneAnnulationActiveIndexee(index, op.id)
   );
 };
 
 // OP Provisoires disponibles pour être régularisés par un nouvel OP Définitif.
 export const filtrerOpProvisoiresPourDefinitif = (ops, { beneficiaireId, sourceId, autresBeneficiaires }) => {
   if (!beneficiaireId) return [];
+  const index = indexerRattachements(ops);
   return ops.filter(op =>
     op.type === 'PROVISOIRE' &&
     (autresBeneficiaires || op.beneficiaireId === beneficiaireId) &&
     op.sourceId === sourceId &&
     !STATUTS_PROVISOIRE_INDISPONIBLE.includes(op.statut) &&
-    !aUnDefinitifActif(ops, op.id)
+    !aUnDefinitifActifIndexe(index, op.id)
   );
 };

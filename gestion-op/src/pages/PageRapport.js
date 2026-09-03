@@ -5,7 +5,7 @@ import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import Autocomplete from '../components/Autocomplete';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
-import { estAAnnuler, aUnDefinitifActif, trouverDefinitifActif } from '../utils/opCalculs';
+import { estAAnnulerIndexe, aUnDefinitifActifIndexe, trouverDefinitifActifIndexe, indexerRattachements } from '../utils/opCalculs';
 import Pagination from '../components/Pagination';
 
 // ============================================================
@@ -165,8 +165,17 @@ export default function PageRapport() {
   }, [ops, filtreEx]);
 
 
+  // Les rattachements sont indexés une seule fois par changement de la liste des
+  // OP. Sans cet index, chaque question posée sur un Provisoire relisait toute la
+  // liste : le coût grandissait comme le carré du nombre d'OP.
+  const indexRattachements = useMemo(() => indexerRattachements(ops), [ops]);
+
+  // Même raison pour la recherche d'un OP par son identifiant, faite dans une
+  // boucle plus bas.
+  const opsParId = useMemo(() => new Map(ops.map(o => [o.id, o])), [ops]);
+
   // === FONCTION COMMUNE POUR VÉRIFIER LES RÉGULARISATIONS ===
-  const hasValidReg = useCallback((opProvId) => aUnDefinitifActif(ops, opProvId), [ops]);
+  const hasValidReg = useCallback((opProvId) => aUnDefinitifActifIndexe(indexRattachements, opProvId), [indexRattachements]);
 
   // === DONNÉES PAR ONGLET ===
   const opsCompta = useMemo(() => mainOps.filter(op => ['EN_COURS', 'VISE_CF', 'DIFFERE_CF', 'DIFFERE_AC'].includes(op.statut)), [mainOps]);
@@ -187,7 +196,7 @@ export default function PageRapport() {
     
     // Cas Spécifique 1 : DEFINITIF rattaché à un PROVISOIRE payé
     if (op.type === 'DEFINITIF' && op.opProvisoireId) { 
-      prov = ops.find(o => o.id === op.opProvisoireId); 
+      prov = opsParId.get(op.opProvisoireId) || null; 
       if (prov) {
         // Solde = (Mt payé sur le Provisoire) - (Mt du Definitif actuel)
         const montantPayeProvisoire = Number(prov.montantPaye || prov.totalPaye || 0);
@@ -203,12 +212,12 @@ export default function PageRapport() {
     }
     
     return { ...op, delai, prov, solde }; 
-  }), [mainOps, ops, dateRef]);
+  }), [mainOps, opsParId, dateRef]);
 
   // Filtre pour "À annuler" — mêmes règles que la catégorie "À annuler" du Tableau de bord
   const opsAAnnuler = useMemo(() => mainOps
-    .filter(op => estAAnnuler(op, ops))
-    .map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, ops, dateRef]);
+    .filter(op => estAAnnulerIndexe(op, indexRattachements))
+    .map(op => ({ ...op, delai: joursOuvres(op.dateVisaCF, dateRef) })), [mainOps, indexRattachements, dateRef]);
 
   const opsAReg = useMemo(() => mainOps.filter(op => {
     if (op.type !== 'PROVISOIRE') return false;
@@ -373,7 +382,7 @@ export default function PageRapport() {
       
       const d4 = appendTotal(opsAAnnuler.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date visa CF': formatDate(op.dateVisaCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 2), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsAAnnuler.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       const d5 = appendTotal(opsAReg.map(op => {
-        const def = trouverDefinitifActif(ops, op.id);
+        const def = trouverDefinitifActifIndexe(indexRattachements, op.id);
         return { 'N° OP provisoire': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Montant payé': Number(op.montantPaye || op.montant || 0), 'Date de référence': formatDate(op.datePaiement || op.dateCreation), 'Délai (jours)': op.delaiJ ?? '', 'Statut délai': dl(op.delaiJ, 60), 'N° OP définitif': def?.numero || '', 'Observation': sanitizeForExport(getDefaultObs(op)) };
       }), opsAReg.reduce((s, o) => s + Number(o.montant || 0), 0), opsAReg.reduce((s, o) => s + Number(o.montantPaye || o.montant || 0), 0));
 
@@ -634,7 +643,7 @@ export default function PageRapport() {
             <tbody>
               {pageData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
               {pageData.map(op => { 
-                const def = trouverDefinitifActif(ops, op.id); 
+                const def = trouverDefinitifActifIndexe(indexRattachements, op.id); 
                 return (
                   <tr key={op.id} style={{ background: sel.includes(op.id) ? '#f0f0f0' : 'transparent', cursor: 'pointer' }} onClick={(e) => { if(e.target.tagName !== 'INPUT') { setConsultOpData(op); setCurrentPage('consulterOp'); } }}>
                     <td style={td}><Chk id={op.id} /></td>

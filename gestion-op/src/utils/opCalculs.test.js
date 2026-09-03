@@ -16,6 +16,11 @@ import {
   aUnDefinitifActif,
   trouverDefinitifActif,
   estAAnnuler,
+  indexerRattachements,
+  aUneAnnulationActiveIndexee,
+  aUnDefinitifActifIndexe,
+  trouverDefinitifActifIndexe,
+  estAAnnulerIndexe,
 } from './opCalculs';
 
 const opsFixture = [
@@ -344,5 +349,88 @@ describe('estAAnnuler', () => {
     // la règle, elle, doit rester identique.
     const ops = [prov, { id: 'A1', type: 'ANNULATION', opProvisoireId: 'P1', statut: 'SUPPRIME' }];
     expect(estAAnnuler(prov, ops)).toBe(estAAnnuler(prov, [prov]));
+  });
+});
+
+// ==================== INDEX DES RATTACHEMENTS ====================
+// L'index existe pour la vitesse, pas pour changer les règles. Ces tests
+// vérifient l'équivalence : sur les mêmes données, la version indexée doit
+// répondre exactement comme la version qui relit toute la liste. Si un jour
+// quelqu'un modifie une règle d'un seul côté, ces tests tombent.
+describe('indexerRattachements — équivalence avec la lecture complète', () => {
+  const jeuComplet = [
+    { id: 'P1', type: 'PROVISOIRE', statut: 'EN_COURS' },
+    { id: 'P2', type: 'PROVISOIRE', statut: 'PAYE' },
+    { id: 'P3', type: 'PROVISOIRE', statut: 'EN_COURS' },
+    { id: 'P4', type: 'PROVISOIRE', statut: 'EN_COURS' },
+    { id: 'P5', type: 'PROVISOIRE', statut: 'ARCHIVE' },
+    // annulation active sur P1, inactives sur P3 et P4
+    { id: 'A1', type: 'ANNULATION', statut: 'EN_COURS', opProvisoireId: 'P1' },
+    { id: 'A2', type: 'ANNULATION', statut: 'SUPPRIME', opProvisoireId: 'P3' },
+    { id: 'A3', type: 'ANNULATION', statut: 'REJETE_CF', opProvisoireId: 'P4' },
+    // définitif actif couvrant P2 et P3, définitif rejeté sur P4
+    { id: 'D1', type: 'DEFINITIF', statut: 'EN_COURS', opProvisoireIds: ['P2', 'P3'] },
+    { id: 'D2', type: 'DEFINITIF', statut: 'REJETE_AC', opProvisoireId: 'P4' },
+    // définitif à l'ancien format, un seul provisoire visé
+    { id: 'D3', type: 'DEFINITIF', statut: 'VISE_CF', opProvisoireId: 'P5' },
+  ];
+
+  const tousLesIds = jeuComplet.map(o => o.id);
+
+  test('aUneAnnulationActive : même réponse pour chaque OP du jeu', () => {
+    const index = indexerRattachements(jeuComplet);
+    for (const id of tousLesIds) {
+      expect(aUneAnnulationActiveIndexee(index, id)).toBe(aUneAnnulationActive(jeuComplet, id));
+    }
+  });
+
+  test('aUnDefinitifActif : même réponse pour chaque OP du jeu', () => {
+    const index = indexerRattachements(jeuComplet);
+    for (const id of tousLesIds) {
+      expect(aUnDefinitifActifIndexe(index, id)).toBe(aUnDefinitifActif(jeuComplet, id));
+    }
+  });
+
+  test('trouverDefinitifActif : le même OP est renvoyé, pas seulement le même oui/non', () => {
+    const index = indexerRattachements(jeuComplet);
+    for (const id of tousLesIds) {
+      expect(trouverDefinitifActifIndexe(index, id)).toBe(trouverDefinitifActif(jeuComplet, id));
+    }
+  });
+
+  test('estAAnnuler : même verdict pour chaque OP du jeu', () => {
+    const index = indexerRattachements(jeuComplet);
+    for (const op of jeuComplet) {
+      expect(estAAnnulerIndexe(op, index)).toBe(estAAnnuler(op, jeuComplet));
+    }
+  });
+
+  test('un définitif couvrant plusieurs provisoires est retrouvé pour chacun d\'eux', () => {
+    const index = indexerRattachements(jeuComplet);
+    expect(trouverDefinitifActifIndexe(index, 'P2').id).toBe('D1');
+    expect(trouverDefinitifActifIndexe(index, 'P3').id).toBe('D1');
+  });
+
+  test('un rattachement rejeté ou supprimé n\'entre pas dans l\'index', () => {
+    const index = indexerRattachements(jeuComplet);
+    expect(aUneAnnulationActiveIndexee(index, 'P3')).toBe(false);
+    expect(aUnDefinitifActifIndexe(index, 'P4')).toBe(false);
+  });
+
+  test('quand plusieurs définitifs actifs visent le même provisoire, c\'est le premier de la liste', () => {
+    const ops = [
+      { id: 'P1', type: 'PROVISOIRE', statut: 'EN_COURS' },
+      { id: 'Dpremier', type: 'DEFINITIF', statut: 'EN_COURS', opProvisoireId: 'P1' },
+      { id: 'Dsecond', type: 'DEFINITIF', statut: 'EN_COURS', opProvisoireId: 'P1' },
+    ];
+    expect(trouverDefinitifActifIndexe(indexerRattachements(ops), 'P1'))
+      .toBe(trouverDefinitifActif(ops, 'P1'));
+    expect(trouverDefinitifActifIndexe(indexerRattachements(ops), 'P1').id).toBe('Dpremier');
+  });
+
+  test('liste vide ou absente : aucun rattachement, aucune erreur', () => {
+    expect(aUneAnnulationActiveIndexee(indexerRattachements([]), 'P1')).toBe(false);
+    expect(aUnDefinitifActifIndexe(indexerRattachements(undefined), 'P1')).toBe(false);
+    expect(trouverDefinitifActifIndexe(indexerRattachements([]), 'P1')).toBeNull();
   });
 });
