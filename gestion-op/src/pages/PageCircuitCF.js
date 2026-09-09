@@ -394,17 +394,43 @@ const PageCircuitCF = () => {
     exec();
   };
 
+  // Annule une décision du CF : l'OP repart comme s'il n'avait jamais été traité.
+  // C'est fait pour corriger une erreur de saisie, et c'est IRRÉVERSIBLE : la date
+  // et le motif sont effacés, sans passer par l'historique des différés (au
+  // contraire d'une réintroduction, qui elle conserve tout). D'où la confirmation
+  // qui dit exactement ce qui disparaît, et l'entrée au Journal qui garde trace
+  // de qui a effacé quoi.
   const handleAnnulerRetour = async (opId, statut) => {
-    ask("Annulation", "Annuler la décision et revenir en arrière ?", async () => {
-      setSaving(true);
-      try{
-        await updateDoc(doc(db,'ops',opId),{
-          statut: 'TRANSMIS_CF', dateVisaCF: null, dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString()
-        }); 
-        notify("success", "Annulé", "Retour arrière effectué.");
-      }catch(e){ notify("error", "Erreur", e.message); }
-      setSaving(false);
-    });
+    const op = ops.find(o => o.id === opId);
+    const estDiffere = statut === 'DIFFERE_CF';
+    const libelle = estDiffere ? 'différé' : 'rejet';
+    const dateEffacee = formatDate(estDiffere ? op?.dateDiffere : op?.dateRejet);
+    const motifEfface = (estDiffere ? op?.motifDiffere : op?.motifRejet) || '';
+
+    ask(
+      `Annuler le ${libelle}`,
+      `L'OP ${op?.numero || ''} redeviendra « Transmis au CF ».\n\n`
+      + `La date du ${libelle}${dateEffacee ? ` (${dateEffacee})` : ''} et son motif`
+      + `${motifEfface ? ` « ${motifEfface} »` : ''} seront DÉFINITIVEMENT EFFACÉS.\n\n`
+      + `Pour remettre l'OP dans le circuit en conservant cette trace, utilisez plutôt « Réintroduire ».\n\n`
+      + `Confirmer l'effacement ?`,
+      async () => {
+        setSaving(true);
+        try{
+          await updateDoc(doc(db,'ops',opId),{
+            statut: 'TRANSMIS_CF', dateVisaCF: null, dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString()
+          }); 
+          enregistrerJournal({
+            action: ACTIONS_JOURNAL.CHANGEMENT_STATUT,
+            opId, opNumero: op?.numero,
+            details: `CF : ${libelle} annulé et effacé${dateEffacee ? ` — ${libelle} du ${dateEffacee}` : ''}${motifEfface ? ` — motif effacé : ${motifEfface}` : ''}`,
+            utilisateur: nomUtilisateurJournal(userProfile),
+          });
+          notify("success", "Annulé", `Le ${libelle} a été effacé, l'OP est de nouveau transmis au CF.`);
+        }catch(e){ notify("error", "Erreur", e.message); }
+        setSaving(false);
+      }
+    );
   };
 
   const handleReintroduire = async (opIds) => {
@@ -551,7 +577,7 @@ const handlePrintBordereau = (bt) => {
           <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600}}>{formatMontant(op.montant)}</td>
           <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateDiffere)}</td>
           <td style={{...styles.td,fontSize:11}}>{op.motifDiffere||'-'}</td>
-          <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,'DIFFERE_CF')}/></td>
+          <td style={styles.td} onClick={e=>e.stopPropagation()}><IBtn icon={I.undo(P.gold,14)} title="Annuler le différé — efface la date et le motif" bg={`${P.gold}15`} onClick={()=>handleAnnulerRetour(op.id,'DIFFERE_CF')}/></td>
         </tr>;})}</tbody></table></div>
       
       {selectedOps.length > 0 && selectedOps.some(id=>differes.find(o=>o.id===id)) && <div style={{marginTop: 16, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px'}}>
@@ -581,7 +607,7 @@ const handlePrintBordereau = (bt) => {
         <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600,color:P.red}}>{formatMontant(op.montant)}</td>
         <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateRejet)}</td>
         <td style={{...styles.td,fontSize:11}}>{op.motifRejet||'-'}</td>
-        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,'REJETE_CF')}/></td>
+        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler le rejet — efface la date et le motif" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,'REJETE_CF')}/></td>
       </tr>)}</tbody></table></div>}
     </div>}
   </div>;
