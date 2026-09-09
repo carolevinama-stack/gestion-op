@@ -28,6 +28,7 @@ import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore'; 
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
+import HistoriqueDifferes from '../components/HistoriqueDifferes';
 
 // ===================== PALETTE PIF2 =====================
 const P = {
@@ -1002,6 +1003,9 @@ const PageConsulterOp = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Différés passés et en cours : la trace survit à la réintroduction. */}
+                  <HistoriqueDifferes op={selectedOp} />
 
                   {/* Boutons */}
                   {isEditMode ? (

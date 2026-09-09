@@ -8,6 +8,7 @@ import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate, ExBadge } from '../components/circuitShared';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
+import { misesAJourReintroduction } from '../utils/differes';
 import Pagination from '../components/Pagination';
 
 // ============================================================
@@ -525,8 +526,9 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
         const batch = writeBatch(db);
         for(const opId of opIds){
           const op = ops.find(o => o.id === opId);
-          const hist = [...(op?.historiqueDifferes||[]), {dateDiffere: op?.dateDiffere, motifDiffere: op?.motifDiffere, dateReintroduction: d, type: 'AC'}];
-          batch.update(doc(db,'ops',opId), { statut: 'TRANSMIS_AC', dateReintroduction: d, historiqueDifferes: hist, dateDiffere: null, motifDiffere: null, updatedAt: new Date().toISOString() });
+          // Réintroduire, c'est retransmettre : la règle et l'historique sont
+          // dans utils/differes.js, couverts par des tests.
+          batch.update(doc(db,'ops',opId), { ...misesAJourReintroduction(op, { dateReintroduction: d, type: 'AC' }), updatedAt: new Date().toISOString() });
         }
         await batch.commit();
         notify("success", "OK", `${opIds.length} OP réintroduits.`); setSelectedOps([]);
