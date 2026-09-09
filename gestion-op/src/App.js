@@ -148,7 +148,17 @@ const AccesRefuse = ({ titre, message, onLogout }) => (
 );
 
 function AppLayout() {
-  const { currentPage, loading, userProfile, profileLoading, accesRefuse, handleLogout } = useAppContext();
+  const { currentPage, loading, userProfile, profileLoading, accesRefuse, handleLogout, canAccessPage, setCurrentPage } = useAppContext();
+
+  // La dernière page consultée est restaurée depuis le navigateur au démarrage.
+  // Elle n'était pas confrontée aux droits : quelqu'un dont le rôle avait été
+  // réduit revenait sur une page qu'il ne devait plus voir, remplissait un
+  // formulaire, et se faisait refuser seulement à l'enregistrement.
+  useEffect(() => {
+    if (!profileLoading && userProfile && !canAccessPage(currentPage)) {
+      setCurrentPage('dashboard');
+    }
+  }, [profileLoading, userProfile, currentPage, canAccessPage, setCurrentPage]);
 
   if (profileLoading) return <LoaderPIF label="Vérification du compte..." />;
 

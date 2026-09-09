@@ -20,8 +20,15 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    // Le champ actif peut être absent des comptes créés avant son introduction,
+    // ou créés directement dans la console Firebase. Firestore ne traite pas un
+    // champ absent comme « différent de false » : il refuse l'évaluation, et donc
+    // l'accès. Un tel compte était bloqué en écriture tout en s'affichant « Actif »
+    // dans l'écran Utilisateurs, qui lui ne regarde que la valeur exacte false.
+    // get('actif', true) lève l'ambiguïté : absent vaut actif, seul un false
+    // explicite retire l'accès.
     function isConnected() {
-      return aUnProfil() && profil().actif != false;
+      return aUnProfil() && profil().get('actif', true) != false;
     }
 
     function getUserRole() {
