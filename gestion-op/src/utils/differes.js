@@ -65,35 +65,3 @@ export const listerDifferesAvecEnCours = (op) => {
     ...passes,
   ];
 };
-
-// ==================== RATTRAPAGE DE L'EXISTANT ====================
-// Les OP réintroduits avant cette correction portent une date de transmission
-// restée à sa valeur d'origine. On la recale sur la dernière réintroduction
-// enregistrée dans leur historique.
-
-// La dernière réintroduction d'un OP, celle qui fait foi (null s'il n'y en a pas).
-export const derniereReintroduction = (op) => {
-  const avecDate = (op?.historiqueDifferes || []).filter(e => e && e.dateReintroduction);
-  return avecDate.length > 0 ? avecDate[avecDate.length - 1] : null;
-};
-
-// Que faudrait-il corriger sur cet OP ? null si rien.
-// On ne touche que si la date de transmission est ANTÉRIEURE à la
-// réintroduction : c'est la signature exacte du défaut. Une date déjà égale ou
-// postérieure a soit déjà été corrigée, soit été fixée à la main.
-export const correctionTransmissionAttendue = (op) => {
-  const derniere = derniereReintroduction(op);
-  if (!derniere) return null;
-  const type = derniere.type === 'AC' ? 'AC' : 'CF';
-  const champ = champTransmission(type);
-  const actuelle = op?.[champ] ?? null;
-  if (!actuelle || actuelle >= derniere.dateReintroduction) return null;
-  return { champ, type, ancienneDate: actuelle, nouvelleDate: derniere.dateReintroduction };
-};
-
-// Les OP à corriger, avec le détail de ce qui changerait — pour pouvoir
-// l'afficher AVANT d'écrire quoi que ce soit.
-export const opsARattraper = (ops) =>
-  (ops || [])
-    .map(op => ({ op, correction: correctionTransmissionAttendue(op) }))
-    .filter(x => x.correction !== null);

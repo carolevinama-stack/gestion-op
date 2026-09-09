@@ -4,9 +4,6 @@ import {
   listerDifferes,
   nombreDifferes,
   listerDifferesAvecEnCours,
-  derniereReintroduction,
-  correctionTransmissionAttendue,
-  opsARattraper,
 } from './differes';
 
 // Un OP transmis au CF le 1er, différé le 3, qu'on réintroduit le 20.
@@ -135,84 +132,5 @@ describe('listerDifferesAvecEnCours', () => {
   test('sans différé en cours, c\'est exactement l\'historique', () => {
     const op = { historiqueDifferes: [{ dateDiffere: '2026-03-03', dateReintroduction: '2026-03-20', type: 'CF' }] };
     expect(listerDifferesAvecEnCours(op)).toEqual(listerDifferes(op));
-  });
-});
-
-describe('rattrapage des OP réintroduits avant la correction', () => {
-  const opAncien = () => ({
-    id: 'vieux',
-    numero: '0007',
-    statut: 'TRANSMIS_CF',
-    dateTransmissionCF: '2026-03-01',
-    dateReintroduction: '2026-03-20',
-    historiqueDifferes: [{ dateDiffere: '2026-03-03', motifDiffere: 'x', dateReintroduction: '2026-03-20', type: 'CF' }],
-  });
-
-  test('détecte la date de transmission restée en arrière', () => {
-    expect(correctionTransmissionAttendue(opAncien())).toEqual({
-      champ: 'dateTransmissionCF', type: 'CF', ancienneDate: '2026-03-01', nouvelleDate: '2026-03-20',
-    });
-  });
-
-  test('un OP déjà corrigé n\'est pas retouché', () => {
-    const op = { ...opAncien(), dateTransmissionCF: '2026-03-20' };
-    expect(correctionTransmissionAttendue(op)).toBeNull();
-  });
-
-  test('une date de transmission postérieure à la réintroduction est laissée telle quelle', () => {
-    const op = { ...opAncien(), dateTransmissionCF: '2026-04-15' };
-    expect(correctionTransmissionAttendue(op)).toBeNull();
-  });
-
-  test('un OP jamais différé n\'est pas concerné', () => {
-    expect(correctionTransmissionAttendue({ dateTransmissionCF: '2026-03-01' })).toBeNull();
-    expect(correctionTransmissionAttendue({})).toBeNull();
-  });
-
-  test('un OP sans date de transmission du tout est laissé tranquille', () => {
-    const op = { ...opAncien(), dateTransmissionCF: null };
-    expect(correctionTransmissionAttendue(op)).toBeNull();
-  });
-
-  test('côté AC, c\'est la date AC qui est visée', () => {
-    const op = {
-      statut: 'TRANSMIS_AC', dateTransmissionCF: '2026-01-01', dateTransmissionAC: '2026-04-01',
-      historiqueDifferes: [{ dateDiffere: '2026-04-05', dateReintroduction: '2026-04-20', type: 'AC' }],
-    };
-    expect(correctionTransmissionAttendue(op).champ).toBe('dateTransmissionAC');
-    expect(correctionTransmissionAttendue(op).nouvelleDate).toBe('2026-04-20');
-  });
-
-  test('avec plusieurs réintroductions, c\'est la dernière qui fait foi', () => {
-    const op = {
-      dateTransmissionCF: '2026-03-01',
-      historiqueDifferes: [
-        { dateDiffere: '2026-03-03', dateReintroduction: '2026-03-20', type: 'CF' },
-        { dateDiffere: '2026-03-25', dateReintroduction: '2026-04-02', type: 'CF' },
-      ],
-    };
-    expect(derniereReintroduction(op).dateReintroduction).toBe('2026-04-02');
-    expect(correctionTransmissionAttendue(op).nouvelleDate).toBe('2026-04-02');
-  });
-
-  test('une entrée d\'historique sans date de réintroduction est ignorée', () => {
-    const op = { dateTransmissionCF: '2026-03-01', historiqueDifferes: [{ dateDiffere: '2026-03-03' }] };
-    expect(derniereReintroduction(op)).toBeNull();
-    expect(correctionTransmissionAttendue(op)).toBeNull();
-  });
-
-  test('opsARattraper ne retient que les OP réellement concernés', () => {
-    const aCorriger = opAncien();
-    const dejaBon = { ...opAncien(), id: 'ok', dateTransmissionCF: '2026-03-20' };
-    const jamaisDiffere = { id: 'neuf', dateTransmissionCF: '2026-05-01' };
-    const r = opsARattraper([aCorriger, dejaBon, jamaisDiffere]);
-    expect(r).toHaveLength(1);
-    expect(r[0].op.id).toBe('vieux');
-    expect(r[0].correction.nouvelleDate).toBe('2026-03-20');
-  });
-
-  test('liste vide ou absente : rien à rattraper, aucune erreur', () => {
-    expect(opsARattraper([])).toEqual([]);
-    expect(opsARattraper(undefined)).toEqual([]);
   });
 });
