@@ -404,9 +404,37 @@ const PageNouvelOp = () => {
         const dotation = getDotation(); // FIGÉ
 
         if (form.type !== 'ANNULATION') {
-          const opsSnap = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
+          // Le budget est revérifié ici depuis Firestore, et non depuis le cache
+          // React : c'est ce qui garantit qu'un OP saisi entre-temps par
+          // quelqu'un d'autre est bien pris en compte.
+          //
+          // La requête ne ramène que les OP de la LIGNE BUDGÉTAIRE concernée.
+          // Elle ramenait auparavant tous les OP de l'exercice à chaque création,
+          // alors que le calcul ci-dessous les filtre de toute façon sur cette
+          // ligne : sur un exercice bien rempli, c'est des centaines de lectures
+          // économisées par OP créé. C'est la première cause du dépassement du
+          // quota du 9 septembre 2026.
+          //
+          // Repli prudent : si cette requête à trois filtres devait exiger un
+          // index que le projet n'a pas, on retombe sur l'ancienne, plus large.
+          // Le résultat du calcul est identique dans les deux cas.
+          let docsPourEngagements;
+          try {
+            const snapLigne = await getDocs(query(
+              collection(db, 'ops'),
+              where('sourceId', '==', activeSource),
+              where('exerciceId', '==', exerciceActif.id),
+              where('ligneBudgetaire', '==', form.ligneBudgetaire)
+            ));
+            docsPourEngagements = snapLigne.docs;
+          } catch (e) {
+            console.warn('Requête par ligne budgétaire indisponible, repli sur l\'exercice complet :', e?.code || e);
+            const snapExercice = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', activeSource), where('exerciceId', '==', exerciceActif.id)));
+            docsPourEngagements = snapExercice.docs;
+          }
+
           const engagementsReels = calculerEngagementsAnterieurs(
-            opsSnap.docs.map(d => d.data()),
+            docsPourEngagements.map(d => d.data()),
             { sourceId: activeSource, exerciceId: exerciceActif.id, ligneBudgetaire: form.ligneBudgetaire }
           );
 

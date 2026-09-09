@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, getDocs, query, where } from 'firebase/firestore';
 //                                                             ^^^^^^^^^
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../utils/formatters';
@@ -36,7 +36,7 @@ const I={
 // COMPOSANT PRINCIPAL : CF
 // ============================================================
 const PageCircuitCF = () => {
-  const { projet, sources, exercices, beneficiaires, ops, setOps, bordereaux, userProfile, chargerExerciceBordereaux } = useAppContext();
+  const { projet, sources, exercices, beneficiaires, ops, bordereaux, userProfile, chargerExerciceBordereaux } = useAppContext();
   
   const [subTabCF, setSubTabCF] = useState('NOUVEAU');
   const [subTabSuiviCF, setSubTabSuiviCF] = useState('DIFFERES');
@@ -242,15 +242,22 @@ const PageCircuitCF = () => {
     setSaving(true);
     
     try {
-      // 2. FORCE LE RAFRAÎCHISSEMENT : On refait une requête unique à Firestore
-      // pour obtenir la version la plus récente de TOUS les OPs.
-      const snapshot = await getDocs(collection(db, 'ops'));
-      
-      // On crée la liste des OPs frais
+      // 2. FORCE LE RAFRAÎCHISSEMENT : on relit les OP depuis Firestore pour
+      // avoir leur version la plus à jour dans la modale.
+      //
+      // La requête se limite à la source du bordereau. Elle lisait auparavant la
+      // collection ops ENTIÈRE, archives de tous les exercices comprises, à
+      // chaque ouverture d'un bordereau — une des causes du dépassement du quota
+      // de lectures du 9 septembre 2026. La modale ne montre que les OP de ce
+      // bordereau, qui appartiennent tous à cette source : rien n'est perdu.
+      // Un seul filtre d'égalité, donc aucun index composite à créer.
+      const snapshot = await getDocs(query(collection(db, 'ops'), where('sourceId', '==', bt.sourceId)));
+
       const freshOpsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // Met à jour le contexte global (pour le reste de l'application)
-      if (setOps) setOps(freshOpsList);
+
+      // Le setOps global qui se trouvait ici a été retiré : il écrasait la liste
+      // maintenue par l'écouteur temps réel avec un contenu d'une autre portée,
+      // avant que l'écouteur ne la remette de toute façon au snapshot suivant.
 
       // 3. MODIFICATION ICI : On stocke les données fraîches DIRECTEMENT dans l'objet de la modale.
       // Au lieu de passer juste 'bt', on passe '{ ...bt, freshOps: freshOpsList }'.

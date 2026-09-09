@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -14,16 +14,24 @@ const firebaseConfig = {
 // Initialiser Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialiser Firestore
-const db = getFirestore(app);
-
-// Activer la persistance hors ligne
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === 'failed-precondition') {
-    console.log('Persistance impossible: plusieurs onglets ouverts');
-  } else if (err.code === 'unimplemented') {
-    console.log('Persistance non supportée par ce navigateur');
-  }
+// ==================== MÉMOIRE LOCALE ====================
+// La mémoire locale évite de relire toute la base à chaque ouverture de page :
+// les écouteurs temps réel repartent de ce qui est déjà stocké dans le
+// navigateur et ne demandent au serveur que ce qui a changé depuis.
+//
+// Elle était activée par enableIndexedDbPersistence, qui ne fonctionne que sur
+// UN SEUL onglet : dès qu'une deuxième page de l'application était ouverte, la
+// mémoire se désactivait pour tout le monde et chaque rechargement relisait
+// l'intégralité des OP. C'est ce qui a fait dépasser le quota gratuit de
+// 50 000 lectures par jour le 9 septembre 2026, bloquant les saisies.
+//
+// persistentMultipleTabManager partage la même mémoire entre tous les onglets :
+// plus de désactivation, et une seule copie des données pour tous.
+//
+// Le cache doit être déclaré à l'initialisation : il ne peut plus être activé
+// après un getFirestore(), d'où initializeFirestore ici.
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
 // Initialiser Auth
