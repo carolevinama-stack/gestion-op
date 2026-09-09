@@ -7,6 +7,7 @@ import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import Pagination from '../components/Pagination';
+import HistoriqueDifferes from '../components/HistoriqueDifferes';
 
 // Palette de couleurs
 const P = {
@@ -588,12 +589,14 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                  ))}
               </div>
 
-              {(livePreviewOp.motifRejet || livePreviewOp.motifDiffere) && (
+              {livePreviewOp.motifRejet && (
                  <div style={{background:P.redLight, border:`1px solid ${P.red}44`, borderRadius:10, padding:12, marginBottom:20}}>
-                    <div style={{fontSize:11, color:P.red, fontWeight:800, marginBottom:4}}>MOTIF DE BLOCAGE</div>
-                    <div style={{fontSize:12, color:P.red, fontStyle:'italic'}}>{livePreviewOp.motifRejet || livePreviewOp.motifDiffere}</div>
+                    <div style={{fontSize:11, color:P.red, fontWeight:800, marginBottom:4}}>MOTIF DE REJET</div>
+                    <div style={{fontSize:12, color:P.red, fontStyle:'italic'}}>{livePreviewOp.motifRejet}</div>
                  </div>
               )}
+
+              <HistoriqueDifferes op={livePreviewOp} compact />
 
               {(() => {
                   const pTab = livePreviewOp.paiements || [];

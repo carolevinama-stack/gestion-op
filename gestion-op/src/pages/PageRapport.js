@@ -7,6 +7,8 @@ import Autocomplete from '../components/Autocomplete';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { estAAnnuler, aUnDefinitifActif, trouverDefinitifActif } from '../utils/opCalculs';
 import Pagination from '../components/Pagination';
+import { BadgeDifferes } from '../components/HistoriqueDifferes';
+import { nombreDifferes } from '../utils/differes';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -351,7 +353,7 @@ export default function PageRapport() {
       };
 
       const d1 = appendTotal(opsCompta.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'Date création': formatDate(op.dateCreation), 'Statut': op.statut, 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsCompta.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
-      const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
+      const d2 = appendTotal(opsNonVisesCF.map(op => ({ 'N° OP': op.numero, 'Type': op.type || '', 'Bénéficiaire': sanitizeForExport(getBen(op)), 'Objet': sanitizeForExport(op.objet || ''), 'Montant': Number(op.montant || 0), 'Source': getSrc(op), 'N° Bordereau CF': op.bordereauCF || '', 'Date transmission CF': formatDate(op.dateTransmissionCF), 'Différés': nombreDifferes(op), 'Délai (j ouvrés)': op.delai ?? '', 'Statut délai': dl(op.delai, 5), 'Observation': sanitizeForExport(getDefaultObs(op)) })), opsNonVisesCF.reduce((s, o) => s + Number(o.montant || 0), 0), 0);
       
       // Excel Export pour "Non soldés" incluant DIRECT, PROVISOIRE, DEFINITIF
       // Note: J'utilise 'o' comme nom de variable pour les callbacks afin d'éviter les erreurs 'no-undef' reportées par ESLint
@@ -364,6 +366,7 @@ export default function PageRapport() {
         'Montant payé': Number(o.montantPaye || o.totalPaye || 0), // CORRECTION ICI : op -> o
         'N° Bordereau AC': o.bordereauAC || '',
         'Date transmission AC': formatDate(o.dateTransmissionAC),
+        'Différés': nombreDifferes(o),
         'Délai (j ouvrés)': o.delai ?? '',
         'Statut délai': dl(o.delai, 5),
         'OP prov. rattaché': o.prov ? o.prov.numero : '',
@@ -605,7 +608,7 @@ export default function PageRapport() {
             <thead><tr><th style={{ ...th, width: 30 }}><ChkAll data={pageData} /></th><th style={th}>N° OP</th><th style={th}>Type</th><th style={th}>Bénéficiaire</th><th style={th}>Objet</th><th style={{ ...th, textAlign: 'right' }}>Montant</th><th style={th}>Source</th><th style={th}>N° Bordereau</th><th style={th}>Date transm. CF</th><th style={th}>Délai</th><th style={{ ...th, minWidth: 160 }}>Observation</th></tr></thead>
             <tbody>
               {pageData.length === 0 && <tr><td colSpan={11} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
-              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.goldLight : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={td}>{getSrc(op)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauCF || '—'}</td><td style={td}>{formatDate(op.dateTransmissionCF)}<BadgeDifferes op={op} /></td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}
@@ -615,7 +618,7 @@ export default function PageRapport() {
             <tbody>
               {pageData.length === 0 && <tr><td colSpan={13} style={{ ...td, textAlign: 'center', color: P.textMuted, padding: 30 }}>Aucun résultat trouvé</td></tr>}
               {/* Rendu du tableau incluant DIRECT */}
-              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || 0)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}</td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.prov ? formatNumeroOp(op.prov.numero) : '—'}</td><td style={tdR}>{op.solde !== null && op.solde !== undefined ? <span style={{ color: op.solde > 0 ? P.red : op.solde < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{formatMontant(op.solde)}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
+              {pageData.map(op => <tr key={op.id} style={{ background: sel.includes(op.id) ? P.orange + '15' : 'transparent' }}><td style={td}><Chk id={op.id} /></td><td style={tdM}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td><td style={td}><TypeBadge type={op.type} /></td><td style={td}>{getBen(op)}</td><td style={tdE} title={op.objet}>{op.objet || '—'}</td><td style={tdR}>{formatMontant(op.montant)}</td><td style={tdR}>{formatMontant(op.montantPaye || 0)}</td><td style={{...td, fontFamily: 'monospace', fontSize: 10}}>{op.bordereauAC || '—'}</td><td style={td}>{formatDate(op.dateTransmissionAC)}<BadgeDifferes op={op} /></td><td style={td}><DelaiBadge jours={op.delai} seuilOrange={3} seuilRouge={5} /></td><td style={{ ...td, fontSize: 10, fontFamily: 'monospace', color: P.textSec }}>{op.prov ? formatNumeroOp(op.prov.numero) : '—'}</td><td style={tdR}>{op.solde !== null && op.solde !== undefined ? <span style={{ color: op.solde > 0 ? P.red : op.solde < 0 ? P.orange : P.greenDark, fontWeight: 700 }}>{formatMontant(op.solde)}</span> : '—'}</td><td style={td}><ObsCell op={op} /></td></tr>)}
             </tbody>
           </table>
         )}

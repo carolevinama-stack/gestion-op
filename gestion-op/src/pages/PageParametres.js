@@ -5,6 +5,7 @@ import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBa
 import { styles } from '../utils/styles';
 import { formatDate } from '../utils/formatters';
 import PageAdmin from './PageAdmin';
+import { opsARattraper } from '../utils/differes';
 
 // ============================================================
 // PALETTE & ICÔNES
@@ -275,6 +276,52 @@ const TabMaintenance = () => {
   const [alertData, setAlertData] = useState(null);
 
   const notify = (type, title, message) => setAlertData({ type, title, message });
+
+  // ===== Rattrapage des OP réintroduits avant la correction des différés =====
+  // Ces OP ont gardé leur date de transmission d'origine, si bien que leur délai
+  // continue d'être compté depuis la première transmission au lieu de repartir de
+  // la réintroduction. On lit toute la collection (et pas seulement les OP
+  // chargés à l'écran) pour n'en oublier aucun, on montre ce qui changerait, et
+  // on n'écrit qu'après confirmation.
+  const [analyse, setAnalyse] = useState(null);
+  const [analysing, setAnalysing] = useState(false);
+
+  const handleAnalyserDifferes = async () => {
+    setAnalysing(true);
+    try {
+      const snap = await getDocs(collection(db, 'ops'));
+      const tous = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setAnalyse({ total: tous.length, aCorriger: opsARattraper(tous) });
+    } catch (e) {
+      notify('error', 'Erreur', e.message);
+    }
+    setAnalysing(false);
+  };
+
+  const handleAppliquerDifferes = () => {
+    if (!analyse || analyse.aCorriger.length === 0) return;
+    ask('Confirmation', `Corriger la date de transmission de ${analyse.aCorriger.length} OP ? Cette écriture est définitive — assurez-vous d'avoir fait une sauvegarde.`, async () => {
+      setSaving(true);
+      try {
+        // Firestore limite un lot à 500 écritures : on découpe.
+        for (let i = 0; i < analyse.aCorriger.length; i += 400) {
+          const lot = writeBatch(db);
+          for (const { op, correction } of analyse.aCorriger.slice(i, i + 400)) {
+            lot.update(doc(db, 'ops', op.id), {
+              [correction.champ]: correction.nouvelleDate,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          await lot.commit();
+        }
+        notify('success', 'Terminé', `${analyse.aCorriger.length} OP corrigés.`);
+        setAnalyse(null);
+      } catch (e) {
+        notify('error', 'Erreur', e.message);
+      }
+      setSaving(false);
+    });
+  };
   const ask = (title, message, onConfirm, showPwd = false) => setAlertData({ type: 'confirm', title, message, onConfirm, showPwd });
 
   // Sauvegarde manuelle : exporte toutes les collections de la base dans un classeur
@@ -396,9 +443,73 @@ const TabMaintenance = () => {
           <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Remettre à jour les compteurs selon les OP existants.</p>
         </div>
       </div>
+
+      {/* ===== Rattrapage des différés ===== */}
+      <div style={{ marginTop: 32, padding: 24, border: `1px solid ${P.border}`, borderRadius: 16, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: P.gold }}>Dates de transmission des OP réintroduits</h3>
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: P.textSec, lineHeight: 1.6, maxWidth: 640 }}>
+          Jusqu'à la correction de septembre 2026, réintroduire un OP différé ne mettait pas à jour sa date
+          de transmission : son délai continuait d'être compté depuis la première transmission. Cette
+          opération recale ces dates sur la réintroduction enregistrée. Elle n'ajoute ni ne supprime aucun OP,
+          et ne touche que ceux dont la date est restée en arrière.
+        </p>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button onClick={handleAnalyserDifferes} disabled={analysing || saving}
+            style={{ padding: '10px 20px', borderRadius: 8, border: `1px solid ${P.gold}`, background: P.goldLight, color: P.gold, fontWeight: 700, fontSize: 13, cursor: analysing ? 'wait' : 'pointer' }}>
+            {analysing ? 'Analyse en cours…' : 'Analyser (sans rien modifier)'}
+          </button>
+
+          {analyse && analyse.aCorriger.length > 0 && (
+            <button onClick={handleAppliquerDifferes} disabled={saving}
+              style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: P.gold, color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'wait' : 'pointer' }}>
+              Appliquer la correction ({analyse.aCorriger.length})
+            </button>
+          )}
+        </div>
+
+        {analyse && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 13, color: P.text, fontWeight: 700, marginBottom: 10 }}>
+              {analyse.total} OP examinés — {analyse.aCorriger.length === 0
+                ? 'aucun à corriger.'
+                : `${analyse.aCorriger.length} à corriger :`}
+            </div>
+
+            {analyse.aCorriger.length > 0 && (
+              <div style={{ maxHeight: 320, overflow: 'auto', border: `1px solid ${P.border}`, borderRadius: 10 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: P.bg, position: 'sticky', top: 0 }}>
+                      <th style={thR}>N° OP</th>
+                      <th style={thR}>Circuit</th>
+                      <th style={thR}>Date actuelle</th>
+                      <th style={thR}>Nouvelle date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analyse.aCorriger.map(({ op, correction }) => (
+                      <tr key={op.id} style={{ borderTop: `1px solid ${P.border}` }}>
+                        <td style={{ ...tdR, fontFamily: 'monospace', fontWeight: 700 }}>{op.numero || op.id}</td>
+                        <td style={tdR}>{correction.type === 'AC' ? 'Agent Comptable' : 'Contrôleur Financier'}</td>
+                        <td style={{ ...tdR, color: P.textSec, textDecoration: 'line-through' }}>{formatDate(correction.ancienneDate)}</td>
+                        <td style={{ ...tdR, color: P.greenDark, fontWeight: 700 }}>{formatDate(correction.nouvelleDate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {saving && <div style={{ marginTop: 24, textAlign: 'center', color: P.gold, fontWeight: 700 }}>Synchronisation en cours...</div>}
     </div>
   );
 };
+
+const thR = { padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: '#7A7A7A', whiteSpace: 'nowrap' };
+const tdR = { padding: '7px 12px', textAlign: 'left' };
 
 export default PageParametres;
