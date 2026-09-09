@@ -434,3 +434,53 @@ describe('indexerRattachements — équivalence avec la lecture complète', () =
     expect(trouverDefinitifActifIndexe(indexerRattachements([]), 'P1')).toBeNull();
   });
 });
+
+// ==================== PRÉ-FILTRAGE PAR LIGNE BUDGÉTAIRE ====================
+// Nouvel OP ne relit plus tous les OP de l'exercice pour revérifier le budget,
+// mais seulement ceux de la ligne budgétaire concernée. Ces tests vérifient que
+// le montant calculé est le même dans les deux cas — autrement dit que la règle
+// métier n'a pas bougé, seule la quantité de données lues a changé.
+describe('calculerEngagementsAnterieurs — pré-filtrer par ligne ne change pas le montant', () => {
+  const contexte = { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1' };
+
+  const jeu = [
+    { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: 100 },
+    { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'PAYE', montant: 250 },
+    { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'REJETE_CF', montant: 9999 },
+    { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'SUPPRIME', montant: 9999 },
+    { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: -40 },
+    // Ceux-ci ne doivent peser dans aucun des deux calculs :
+    { sourceId: 'S1', exerciceId: 'E1', ligneBudgetaire: 'L2', statut: 'EN_COURS', montant: 500 },
+    { sourceId: 'S2', exerciceId: 'E1', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: 700 },
+    { sourceId: 'S1', exerciceId: 'E2', ligneBudgetaire: 'L1', statut: 'EN_COURS', montant: 900 },
+    { sourceId: 'S1', exerciceId: 'E1', statut: 'EN_COURS', montant: 300 }, // sans ligne
+  ];
+
+  // Ce que ramène désormais la requête : la source, l'exercice ET la ligne.
+  const commeLaRequeteRestreinte = jeu.filter(op =>
+    op.sourceId === contexte.sourceId &&
+    op.exerciceId === contexte.exerciceId &&
+    op.ligneBudgetaire === contexte.ligneBudgetaire
+  );
+
+  test('même montant en lisant tout l\'exercice ou seulement la ligne', () => {
+    expect(calculerEngagementsAnterieurs(commeLaRequeteRestreinte, contexte))
+      .toBe(calculerEngagementsAnterieurs(jeu, contexte));
+  });
+
+  test('et ce montant est bien celui attendu (rejetés et supprimés exclus)', () => {
+    expect(calculerEngagementsAnterieurs(jeu, contexte)).toBe(310);
+  });
+
+  test('la requête restreinte lit beaucoup moins de documents', () => {
+    expect(commeLaRequeteRestreinte.length).toBeLessThan(jeu.length);
+  });
+
+  test('aucun OP sur la ligne : zéro des deux côtés', () => {
+    const autreLigne = { ...contexte, ligneBudgetaire: 'L9' };
+    const restreint = jeu.filter(op => op.ligneBudgetaire === 'L9');
+    expect(calculerEngagementsAnterieurs(restreint, autreLigne))
+      .toBe(calculerEngagementsAnterieurs(jeu, autreLigne));
+    expect(calculerEngagementsAnterieurs(jeu, autreLigne)).toBe(0);
+  });
+});
