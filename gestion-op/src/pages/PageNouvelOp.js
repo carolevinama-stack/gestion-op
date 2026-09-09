@@ -14,6 +14,7 @@ import {
   filtrerOpProvisoiresPourDefinitif,
 } from '../utils/opCalculs';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
+import { messageErreur } from '../utils/erreursFirebase';
 import { db } from '../firebase';
 import { collection, doc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
 import MontantInput from '../components/MontantInput';
@@ -79,7 +80,7 @@ const ModalMessage = ({ data, onClose }) => {
           {data.title}
         </h3>
         
-        <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14, lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
           {data.message}
         </p>
 
@@ -121,7 +122,7 @@ const ConfirmModal = ({ data, onCancel, onConfirm }) => {
         <h3 style={{ margin: '0 0 10px 0', color: '#1a1a1a', fontSize: 18, fontWeight: 700 }}>
           {data.title}
         </h3>
-        <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14, lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 24px 0', color: '#666', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
           {data.message}
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -475,7 +476,11 @@ const PageNouvelOp = () => {
         const disponibleReel = error.message.split(':')[1];
         setModal({ type: 'error', title: 'Budget insuffisant', message: `Le budget a changé pendant votre saisie. Disponible réel : ${disponibleReel} FCFA.` });
       } else {
-        setModal({ type: 'error', title: 'Erreur système', message: 'Erreur lors de la création de l\'OP. Veuillez réessayer.' });
+        // Le code d'erreur renvoyé par Firebase est repris tel quel dans le
+        // message : sans lui, un refus de droits et une coupure réseau se
+        // ressemblaient, et il fallait la console du navigateur pour trancher.
+        const { titre, message } = messageErreur(error);
+        setModal({ type: 'error', title: titre, message });
       }
     }
     setSaving(false);
