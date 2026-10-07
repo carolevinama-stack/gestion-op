@@ -369,7 +369,7 @@ const PageArchives = () => {
         </tr></thead><tbody>
           {aArchiverFiltres.map(op=>{const ch=selectedOps.includes(op.id);
             return <tr key={op.id} onClick={()=>toggleOp(op.id)} style={{cursor:'pointer',background:ch?P.greenLight:'transparent'}}>
-              <td style={styles.td}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
+              <td style={styles.td} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={ch} onChange={()=>toggleOp(op.id)}/></td>
               <td style={{...styles.td,fontFamily:'monospace',fontSize:10,fontWeight:600}}>{formatNumeroOp(op.numero)}<ExBadge exerciceId={op.exerciceId} exercices={exercices} exerciceActif={exerciceActif} /></td>
               <td style={{...styles.td,fontSize:10,fontWeight:600}}>{op.type}</td>
               <td style={{...styles.td,fontSize:11,maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={getBen(op)}>{getBen(op)}</td>
