@@ -328,7 +328,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={styles.title}>Liste des Ordres de Paiement</h1>
         <div style={{display:'flex', gap:10}}>
-          <button onClick={() => { setModalSuppression(true); setCorbeilleSearch(''); setCorbeillePage(1); setCorbeilleSource('ALL'); }} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
+          <button title="Corbeille (OP supprimés)" onClick={() => { setModalSuppression(true); setCorbeilleSearch(''); setCorbeillePage(1); setCorbeilleSource('ALL'); }} style={{padding:'8px 12px',background:P.redLight,border:`1px solid ${P.red}33`,borderRadius:8,cursor:'pointer'}}>{I.trash(P.red, 18)}</button>
           <button onClick={() => setCurrentPage('nouvelOp')} style={styles.button}>+ Nouvel OP</button>
         </div>
       </div>
@@ -362,7 +362,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
             <button key={s.id} onClick={() => setActiveSource(s.id)} style={{padding:'8px 20px',borderRadius:10,border:activeSource===s.id?`2px solid ${s.couleur}`:'2px solid transparent',background:activeSource===s.id?s.couleur:'#EDEAE5',color:activeSource===s.id?'#fff':P.textSec,fontWeight:700,cursor:'pointer',fontSize:13}}>{s.sigle}</button>
           ))}
         </div>
-        <button onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 10, cursor: 'pointer', width: 40, height: 40 }}>{I.download('#fff', 18)}</button>
+        <button title="Exporter tous les OP de l'exercice en Excel" onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', padding: '8px', background: P.greenDark, border: 'none', borderRadius: 10, cursor: 'pointer', width: 40, height: 40 }}>{I.download('#fff', 18)}</button>
       </div>
 
       <div style={{ ...styles.card, background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, marginBottom: 20 }}>
@@ -529,7 +529,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                   </>
                 )}
                 <td style={styles.td}>
-                  <button onClick={(e) => { e.stopPropagation(); setPreviewOpId(op.id); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+                  <button title={`Suivi détaillé de l'OP ${op.numero}`} onClick={(e) => { e.stopPropagation(); setPreviewOpId(op.id); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
                     {I.info()}
                   </button>
                 </td>
@@ -723,17 +723,6 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               <button onClick={() => { setOpARestaurer(null); setPwdRestaurer(''); setPwdRestaurerErr(''); }} style={{padding:'8px 16px', background:'#f5f5f5', border:`1px solid ${P.border}`, borderRadius:8, cursor:'pointer'}}>Annuler</button>
               <button onClick={confirmerRestauration} style={{padding:'8px 16px', background:P.green, color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:700}}>Confirmer</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {livePreviewOp && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:'#fff', borderRadius:16, width:450, padding:20}}>
-            <h3>{livePreviewOp.numero}</h3>
-            <p><b>Bénéficiaire:</b> {getBenNom(livePreviewOp)}</p>
-            <p><b>Montant:</b> {formatMontant(livePreviewOp.montant)} F</p>
-            <button onClick={() => setPreviewOpId(null)} style={{width:'100%', padding:10, background:P.orange, color:'#fff', border:'none', borderRadius:8}}>Fermer</button>
           </div>
         </div>
       )}
