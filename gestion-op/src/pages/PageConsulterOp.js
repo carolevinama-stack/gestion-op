@@ -355,8 +355,13 @@ const PageConsulterOp = () => {
   );
 
   const handleModifier = async () => {
+    // Garde-fou unique : le bouton appelle toujours cette fonction, verrouillé ou
+    // non. Le refus était auparavant écrit deux fois — ici et dans le onClick du
+    // bouton — avec deux titres et deux couleurs différents, et seule la version
+    // du bouton était atteinte. Le message conservé est donc celui que les
+    // utilisateurs voyaient déjà.
     if (isLockedForEdit) {
-      showToast('error', 'Action bloquée', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable, payé, annulé ou rejeté. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux ou effectuer un rétropédalage.");
+      showToast('warning', 'Action impossible', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable, payé, annulé ou rejeté. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux ou effectuer un rétropédalage.");
       return;
     }
     setIsEditMode(true);
@@ -1028,13 +1033,7 @@ const PageConsulterOp = () => {
                         {permissions.canEdit && (
                         <button
                           title={isLockedForEdit ? "Verrouillé : OP déjà visé, payé, annulé ou rejeté" : "Modifier"}
-                          onClick={() => {
-                            if (isLockedForEdit) {
-                              showToast('warning', 'Action impossible', "L'OP a déjà été visé par le CF, transmis à l'Agent Comptable, payé, annulé ou rejeté. La modification directe est verrouillée. Veuillez annuler l'étape dans la gestion des bordereaux ou effectuer un rétropédalage.");
-                            } else {
-                              handleModifier();
-                            }
-                          }}
+                          onClick={handleModifier}
                           style={{
                             width: 42, height: 42, borderRadius: '50%', border: 'none',
                             background: isLockedForEdit ? P.bgSection : P.gold,
