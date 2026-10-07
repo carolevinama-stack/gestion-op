@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import { formatMontant, libelleRib } from '../utils/formatters';
 import {
   calculerEngagementsAnterieurs,
@@ -752,7 +753,7 @@ const PageNouvelOp = () => {
                 <div style={{ minWidth: 0 }}>
                   <label style={labelStyle}>LIGNE BUDG. *</label>
                   <Autocomplete
-                    options={(currentBudget?.lignes || []).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))}
+                    options={trierLignesParCode(currentBudget?.lignes).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))}
                     value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null}
                     onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })}
                     placeholder="Code..."

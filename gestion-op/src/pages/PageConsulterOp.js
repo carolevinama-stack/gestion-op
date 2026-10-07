@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, formatNumeroOp, libelleRib } from '../utils/formatters';
 import {
@@ -934,7 +935,7 @@ const PageConsulterOp = () => {
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <label style={labelStyle}>LIGNE BUDG.</label>
-                          {isEditMode ? <Autocomplete options={(currentBudget?.lignes || []).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))} value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null} onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })} placeholder="Code..." accentColor={accent} />
+                          {isEditMode ? <Autocomplete options={trierLignesParCode(currentBudget?.lignes).map(l => ({ value: l.code, label: l.code, searchFields: [l.code, l.libelle] }))} value={form.ligneBudgetaire ? { value: form.ligneBudgetaire, label: form.ligneBudgetaire } : null} onChange={(option) => setForm({ ...form, ligneBudgetaire: option?.value || '' })} placeholder="Code..." accentColor={accent} />
                           : <div style={{ ...fieldStyle, fontFamily: 'monospace', fontWeight: 600, fontSize: 13 }}>{form.ligneBudgetaire || ''}</div>}
                         </div>
                         <div>

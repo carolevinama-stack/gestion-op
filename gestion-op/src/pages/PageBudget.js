@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -192,7 +193,9 @@ const PageBudget = () => {
     const ligne = lignesBudgetaires.find(l => l.code === selectedLigne);
     if (!ligne) return;
     if (budgetLignes.find(l => l.code === ligne.code)) { showToast('warning', 'Doublon', 'Cette ligne existe déjà'); return; }
-    setBudgetLignes([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }]); setSelectedLigne('');
+    // Rangée à sa place, pas posée à la fin : le budget est ainsi enregistré
+    // dans l'ordre, et tout ce qui le relit en profite.
+    setBudgetLignes(trierLignesParCode([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }])); setSelectedLigne('');
   };
 
   const removeLigne = (code) => {
@@ -281,7 +284,7 @@ const PageBudget = () => {
         return;
       }
 
-      setImportData(parsed);
+      setImportData(trierLignesParCode(parsed));
       setImportErrors(errors);
       setShowImportModal(true);
     } catch (e) {
@@ -342,7 +345,7 @@ const PageBudget = () => {
   };
 
   const totaux = getTotaux(currentBudget);
-  const lignesDisponibles = lignesBudgetaires.filter(l => !budgetLignes.find(bl => bl.code === l.code));
+  const lignesDisponibles = trierLignesParCode(lignesBudgetaires.filter(l => !budgetLignes.find(bl => bl.code === l.code)));
 
   const getVersionLabel = (budget) => {
     if (!budget) return '';
@@ -354,7 +357,7 @@ const PageBudget = () => {
     if (!currentBudget?.lignes?.length) return;
     const now = new Date().toLocaleDateString('fr-FR');
     let csv = `SUIVI BUDGETAIRE - ${sanitizeForExport(currentSourceObj?.nom || '')}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${sanitizeForExport(getVersionLabel(currentBudget))}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
-    currentBudget.lignes.forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
+    trierLignesParCode(currentBudget.lignes).forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
     csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
   };
@@ -508,7 +511,7 @@ const PageBudget = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentBudget.lignes.map(ligne => {
+                    {trierLignesParCode(currentBudget.lignes).map(ligne => {
                       const engagement = getEngagementLigne(ligne.code);
                       const disponible = (ligne.dotation || 0) - engagement;
                       const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : 0;
@@ -596,7 +599,7 @@ const PageBudget = () => {
                         <tr><th style={{ ...thStyle, width: 100 }}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, width: 180 }}>Dotation (FCFA)</th><th style={{ ...thStyle, width: 120, textAlign: 'right' }}>Engagé</th><th style={{ ...thStyle, width: 50 }}></th></tr>
                       </thead>
                       <tbody>
-                        {budgetLignes.map(ligne => {
+                        {trierLignesParCode(budgetLignes).map(ligne => {
                           const engagement = getEngagementLigne(ligne.code);
                           return (
                             <tr key={ligne.code} style={{ background: 'white' }}>

@@ -42,9 +42,10 @@ const LIGNES = [
 const BUDGET = {
   id: 'bu1', sourceId: 'S1', exerciceId: 'E1', version: 1, nomVersion: 'Budget Primitif',
   dateNotification: '2026-01-15',
+  // Enregistrées en désordre exprès : l'écran doit les reclasser lui-même.
   lignes: [
-    { code: '6011', libelle: 'Fournitures de bureau', dotation: 10000000 },
     { code: '6021', libelle: 'Carburant', dotation: 4000000 },
+    { code: '6011', libelle: 'Fournitures de bureau', dotation: 10000000 },
   ],
 };
 
@@ -348,5 +349,51 @@ describe('Budget — l\'import Excel', () => {
     await importer([['Code', 'Dotation'], ['6011', 12000000], ['6031', 2000000]]);
     await userEvent.click(await screen.findByText(/Confirmer l'import/));
     expect(await screen.findByText(/LIGNES DU BUDGET \(2\)/)).toBeInTheDocument();
+  });
+});
+
+describe('Budget — l\'ordre des lignes', () => {
+  // Plusieurs tableaux coexistent dès qu'une fenêtre est ouverte : celui de la
+  // page, puis celui de la fenêtre. On lit donc les codes d'un tableau précis.
+  const codesDuTableau = (position) => {
+    const tableaux = screen.getAllByRole('table');
+    const tableau = position < 0 ? tableaux[tableaux.length + position] : tableaux[position];
+    return within(tableau).getAllByRole('row')
+      .map(l => within(l).queryAllByRole('cell')[0]?.textContent.trim())
+      .filter(c => /^\d/.test(c || ''));
+  };
+  const codesPage = () => codesDuTableau(0);
+  const codesFenetre = () => codesDuTableau(-1);
+
+  // Les lignes sont enregistrées dans l'ordre où on les a ajoutées, pas dans
+  // celui des codes. L'écran doit les présenter triées, quelle que soit leur
+  // place en base.
+  test('les lignes sont affichées dans l\'ordre des codes, pas dans celui de la base', () => {
+    render(<PageBudget />);
+    expect(codesPage()).toEqual(['6011', '6021']);
+  });
+
+  test('une ligne ajoutée se range à sa place, pas à la fin', async () => {
+    // 6031 s'ajouterait en dernier, ce qui est aussi sa place : on insère donc
+    // une ligne qui doit venir AVANT les deux autres.
+    mockContexte.lignesBudgetaires = [...LIGNES, { id: 'lb0', code: '6001', libelle: 'Loyers' }];
+    render(<PageBudget />);
+    await ouvrirCorrection();
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(await screen.findByText('6001 - Loyers'));
+    await userEvent.click(bouton(/Ajouter$/));
+    expect(await screen.findByText(/LIGNES DU BUDGET \(3\)/)).toBeInTheDocument();
+    expect(codesFenetre()).toEqual(['6001', '6011', '6021']);
+    mockContexte.lignesBudgetaires = LIGNES;
+  });
+
+  test('un import en désordre est présenté trié', async () => {
+    render(<PageBudget />);
+    mockFeuilleImportee = [['Code', 'Dotation'], ['6031', 2000000], ['6011', 10000000], ['6021', 4000000]];
+    const fichier = new File(['x'], 'budget.xlsx', { type: 'application/vnd.ms-excel' });
+    fichier.arrayBuffer = async () => new ArrayBuffer(8);
+    await userEvent.upload(screen.getByLabelText("Importer un budget depuis Excel"), fichier);
+    await screen.findByText('Import Excel — Aperçu');
+    expect(codesFenetre()).toEqual(['6011', '6021', '6031']);
   });
 });
