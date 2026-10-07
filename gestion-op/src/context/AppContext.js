@@ -4,6 +4,7 @@ import {
   collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, where, or
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 
 // Statuts "non clos" : un OP dans un de ces statuts est encore quelque part dans un
 // circuit de validation et doit rester chargé en permanence, quel que soit l'exercice.
@@ -207,7 +208,8 @@ export function AppProvider({ user, children }) {
         if (projetDoc.exists()) setProjet(projetDoc.data());
         setSources(sourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setExercices(exercicesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setLignesBudgetaires(lignesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // Triée dès le chargement : c'est la liste que tous les écrans utilisent.
+        setLignesBudgetaires(trierLignesParCode(lignesSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
         setBeneficiaires(benSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 

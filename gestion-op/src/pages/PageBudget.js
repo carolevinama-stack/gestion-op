@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -75,6 +76,30 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
     </div>
   </div>
 );
+
+// Un montant venu d'Excel arrive sous bien des formes : un nombre, "1 000 000",
+// "1 000 000,50", parfois "1.000.000". Supprimer tous les caractères non
+// numériques, comme on le faisait, collait la partie décimale aux unités :
+// 1 000 000,50 devenait 100 000 050, cent fois trop. On distingue donc le
+// séparateur décimal des séparateurs de milliers avant d'arrondir.
+const lireMontantImporte = (brut) => {
+  if (typeof brut === 'number') return Math.round(brut);
+  const texte = String(brut ?? '').trim();
+  if (!texte) return 0;
+  const negatif = texte.startsWith('-');
+  // Espaces (insécables comprises) et apostrophes ne séparent que les milliers.
+  let n = texte.replace(/[\s\u00a0\u202f']/g, '').replace(/[^\d.,]/g, '');
+  if (n.includes(',')) {
+    // Virgule présente : elle est décimale, les points sont des milliers.
+    n = n.replace(/\./g, '').replace(',', '.');
+  } else if ((n.match(/\./g) || []).length > 1) {
+    // Plusieurs points : ce sont des séparateurs de milliers.
+    n = n.replace(/\./g, '');
+  }
+  const nombre = parseFloat(n);
+  if (isNaN(nombre)) return 0;
+  return Math.round(negatif ? -nombre : nombre);
+};
 
 // ==================== PAGE BUDGET ====================
 const PageBudget = () => {
@@ -168,7 +193,9 @@ const PageBudget = () => {
     const ligne = lignesBudgetaires.find(l => l.code === selectedLigne);
     if (!ligne) return;
     if (budgetLignes.find(l => l.code === ligne.code)) { showToast('warning', 'Doublon', 'Cette ligne existe déjà'); return; }
-    setBudgetLignes([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }]); setSelectedLigne('');
+    // Rangée à sa place, pas posée à la fin : le budget est ainsi enregistré
+    // dans l'ordre, et tout ce qui le relit en profite.
+    setBudgetLignes(trierLignesParCode([...budgetLignes, { code: ligne.code, libelle: ligne.libelle, dotation: 0 }])); setSelectedLigne('');
   };
 
   const removeLigne = (code) => {
@@ -219,7 +246,7 @@ const PageBudget = () => {
           l.code.replace(/\./g, '') === rawCode.replace(/\./g, '')
         );
 
-        const dotation = parseInt(String(rawDot).replace(/[^\d-]/g, '')) || 0;
+        const dotation = lireMontantImporte(rawDot);
 
         if (!lb) {
           errors.push(`Ligne ${i + 1} : code "${rawCode}" introuvable dans les lignes budgétaires`);
@@ -238,7 +265,26 @@ const PageBudget = () => {
         return;
       }
 
-      setImportData(parsed);
+      // L'import remplace TOUTES les lignes du budget. Retirer à la main une
+      // ligne qui porte des engagements est refusé (voir removeLigne) : un
+      // fichier qui l'oublie ne doit pas pouvoir contourner ce garde-fou, sans
+      // quoi ses engagements sortiraient du suivi sans prévenir personne — et
+      // le disponible affiché serait surévalué d'autant.
+      const lignesEngageesAbsentes = (currentBudget?.lignes || [])
+        .filter(l => !parsed.find(p => p.code === l.code))
+        .map(l => ({ ...l, engagement: getEngagementLigne(l.code) }))
+        .filter(l => l.engagement > 0);
+
+      if (lignesEngageesAbsentes.length > 0) {
+        const detail = lignesEngageesAbsentes
+          .map(l => `${l.code} (${formatMontant(l.engagement)} FCFA engagés)`)
+          .join('\n');
+        showToast('error', 'Import impossible',
+          `${lignesEngageesAbsentes.length > 1 ? 'Ces lignes portent' : 'Cette ligne porte'} des engagements et ${lignesEngageesAbsentes.length > 1 ? 'sont absentes' : 'est absente'} du fichier :\n${detail}\n\nAjoutez-${lignesEngageesAbsentes.length > 1 ? 'les' : 'la'} au fichier, ou supprimez d'abord les OP concernés.`);
+        return;
+      }
+
+      setImportData(trierLignesParCode(parsed));
       setImportErrors(errors);
       setShowImportModal(true);
     } catch (e) {
@@ -299,7 +345,7 @@ const PageBudget = () => {
   };
 
   const totaux = getTotaux(currentBudget);
-  const lignesDisponibles = lignesBudgetaires.filter(l => !budgetLignes.find(bl => bl.code === l.code));
+  const lignesDisponibles = trierLignesParCode(lignesBudgetaires.filter(l => !budgetLignes.find(bl => bl.code === l.code)));
 
   const getVersionLabel = (budget) => {
     if (!budget) return '';
@@ -311,7 +357,7 @@ const PageBudget = () => {
     if (!currentBudget?.lignes?.length) return;
     const now = new Date().toLocaleDateString('fr-FR');
     let csv = `SUIVI BUDGETAIRE - ${sanitizeForExport(currentSourceObj?.nom || '')}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${sanitizeForExport(getVersionLabel(currentBudget))}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
-    currentBudget.lignes.forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
+    trierLignesParCode(currentBudget.lignes).forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
     csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
   };
@@ -390,13 +436,13 @@ const PageBudget = () => {
                   {!currentBudget ? (
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="bud-btn" onClick={openCreateModal} style={{ background: accent, color: 'white', padding: '10px 18px' }}>{Icon.plus('white', 14)} Créer le budget initial</button>
-                      <label className="bud-btn" style={{ background: P.blueLight || '#E3F2FD', color: P.blue || '#1976D2', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{Icon.upload(P.blue || '#1976D2', 14)} Importer Excel<input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value = ''; }} /></label>
+                      <label className="bud-btn" style={{ background: P.blueLight || '#E3F2FD', color: P.blue || '#1976D2', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{Icon.upload(P.blue || '#1976D2', 14)} Importer Excel<input type="file" accept=".xlsx,.xls" aria-label="Importer un budget depuis Excel" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value = ''; }} /></label>
                     </div>
                   ) : (
                     <>
                       <button className="bud-btn" onClick={openCorrectionModal} style={{ background: P.orangeLight, color: P.orange }}>{Icon.lock(P.orange, 14)} Correction</button>
                       <button className="bud-btn" onClick={openRevisionModal} style={{ background: accent, color: 'white' }}>{Icon.filePlus('white', 14)} Nouvelle révision</button>
-                      <label className="bud-btn" style={{ background: P.blueLight || '#E3F2FD', color: P.blue || '#1976D2', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{Icon.upload(P.blue || '#1976D2', 14)} Importer<input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value = ''; }} /></label>
+                      <label className="bud-btn" style={{ background: P.blueLight || '#E3F2FD', color: P.blue || '#1976D2', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{Icon.upload(P.blue || '#1976D2', 14)} Importer<input type="file" accept=".xlsx,.xls" aria-label="Importer un budget depuis Excel" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImportFile(e.target.files[0]); e.target.value = ''; }} /></label>
                       <button className="bud-btn" onClick={handleDeleteBudget} style={{ background: P.redLight, color: P.red }}>{Icon.trash(P.red, 14)} Supprimer</button>
                     </>
                   )}
@@ -465,7 +511,7 @@ const PageBudget = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentBudget.lignes.map(ligne => {
+                    {trierLignesParCode(currentBudget.lignes).map(ligne => {
                       const engagement = getEngagementLigne(ligne.code);
                       const disponible = (ligne.dotation || 0) - engagement;
                       const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : 0;
@@ -486,8 +532,12 @@ const PageBudget = () => {
                   <tfoot>
                     <tr style={{ background: '#FAFAF8' }}>
                       <td colSpan={2} style={{ ...tdStyle, fontWeight: 800, fontSize: 12 }}>TOTAL</td>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 800, textAlign: 'right', paddingRight: 16 }}>{formatMontant(budgetLignes.reduce((s, l) => s + (l.dotation || 0), 0))}</td>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace', color: P.gold, textAlign: 'right', fontWeight: 700 }}>{formatMontant(budgetLignes.reduce((s, l) => s + getEngagementLigne(l.code), 0))}</td>
+                      {/* Les quatre cellules viennent de totaux, donc du budget affiché.
+                          Dotation et Engagements se calculaient auparavant sur budgetLignes,
+                          la copie de travail de la modale : fenêtre fermée, elle est vide, et
+                          cette ligne affichait 0 et 0 à côté d'un disponible juste. */}
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 800, textAlign: 'right', paddingRight: 16 }}>{formatMontant(totaux.dotation)}</td>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', color: P.gold, textAlign: 'right', fontWeight: 700 }}>{formatMontant(totaux.engagement)}</td>
                       <td style={{ ...tdStyle, fontFamily: 'monospace', color: totaux.disponible >= 0 ? P.green : P.red, textAlign: 'right', fontWeight: 800 }}>{formatMontant(totaux.disponible)}</td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ background: P.blueLight, color: P.blue, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>{totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : 0}%</span></td>
                     </tr>
@@ -549,7 +599,7 @@ const PageBudget = () => {
                         <tr><th style={{ ...thStyle, width: 100 }}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, width: 180 }}>Dotation (FCFA)</th><th style={{ ...thStyle, width: 120, textAlign: 'right' }}>Engagé</th><th style={{ ...thStyle, width: 50 }}></th></tr>
                       </thead>
                       <tbody>
-                        {budgetLignes.map(ligne => {
+                        {trierLignesParCode(budgetLignes).map(ligne => {
                           const engagement = getEngagementLigne(ligne.code);
                           return (
                             <tr key={ligne.code} style={{ background: 'white' }}>

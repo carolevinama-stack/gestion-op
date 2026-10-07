@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
@@ -93,7 +94,7 @@ const PageLignesBudgetaires = () => {
   const removeToast = useCallback((uid) => setToasts(prev => prev.filter(t => t.uid !== uid)), []);
 
   // Filtered list
-  const filtered = lignesBudgetaires.filter(l => {
+  const filtered = trierLignesParCode(lignesBudgetaires).filter(l => {
     if (!searchTerm.trim()) return true;
     const s = searchTerm.toLowerCase();
     return l.code?.toLowerCase().includes(s) || l.libelle?.toLowerCase().includes(s);
@@ -114,7 +115,7 @@ const PageLignesBudgetaires = () => {
         const updated = { code: form.code.trim(), libelle: form.libelle.trim() };
         await updateDoc(doc(db, 'lignesBudgetaires', editingLigne.id), updated);
 
-        setLignesBudgetaires(lignesBudgetaires.map(l => l.id === editingLigne.id ? { ...l, ...updated } : l).sort((a, b) => a.code.localeCompare(b.code)));
+        setLignesBudgetaires(trierLignesParCode(lignesBudgetaires.map(l => l.id === editingLigne.id ? { ...l, ...updated } : l)));
         setShowFormModal(false);
         showToast('success', 'Ligne modifiée');
       } catch (error) { showToast('error', 'Erreur', error.message); }
@@ -124,7 +125,7 @@ const PageLignesBudgetaires = () => {
       try {
         const data = { code: form.code.trim(), libelle: form.libelle.trim() };
         const docRef = await addDoc(collection(db, 'lignesBudgetaires'), data);
-        setLignesBudgetaires([...lignesBudgetaires, { id: docRef.id, ...data }].sort((a, b) => a.code.localeCompare(b.code)));
+        setLignesBudgetaires(trierLignesParCode([...lignesBudgetaires, { id: docRef.id, ...data }]));
         setShowFormModal(false);
         showToast('success', 'Ligne ajoutée');
       } catch (error) { showToast('error', 'Erreur', error.message); }
@@ -201,7 +202,7 @@ const PageLignesBudgetaires = () => {
         const docRef = await addDoc(collection(db, 'lignesBudgetaires'), ligne);
         newLignes.push({ id: docRef.id, ...ligne });
       }
-      setLignesBudgetaires([...lignesBudgetaires, ...newLignes].sort((a, b) => a.code.localeCompare(b.code)));
+      setLignesBudgetaires(trierLignesParCode([...lignesBudgetaires, ...newLignes]));
       setShowImportModal(false); setImportData([]);
       showToast('success', `${newLignes.length} ligne(s) importée(s)`);
     } catch (error) { showToast('error', 'Erreur', "Erreur lors de l'importation"); }

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
@@ -132,7 +133,7 @@ const PageHistoriqueBudget = () => {
       const prev = (prevBudget.lignes || []).find(l => l.code === code);
       variations.push({ code, libelle: curr?.libelle || prev?.libelle || '', dotation: curr?.dotation || 0, dotationPrecedente: prev?.dotation || 0, variation: (curr?.dotation || 0) - (prev?.dotation || 0) });
     });
-    return variations.sort((a, b) => a.code.localeCompare(b.code));
+    return trierLignesParCode(variations);
   };
 
   const exportHistorique = () => {
@@ -284,7 +285,7 @@ const PageHistoriqueBudget = () => {
                                 </thead>
                                 <tbody>
                                   {index === 0 ? (
-                                    (budget.lignes || []).sort((a, b) => a.code.localeCompare(b.code)).map(ligne => (
+                                    trierLignesParCode(budget.lignes).map(ligne => (
                                       <tr key={ligne.code}>
                                         <td style={tdStyle}><code style={{ background: accent, color: 'white', padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700 }}>{ligne.code}</code></td>
                                         <td style={{ ...tdStyle, fontSize: 12 }}>{ligne.libelle}</td>
