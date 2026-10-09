@@ -15,13 +15,18 @@ const STATUTS_NON_CLOS = ['EN_COURS', 'TRANSMIS_CF', 'VISE_CF', 'DIFFERE_CF', 'R
 const AppContext = createContext(null);
 
 // ==================== PERMISSIONS PAR RÔLE ====================
+// Toute page rendue par App.js doit figurer ici pour au moins un rôle : App.js
+// renvoie au tableau de bord toute page non autorisée. 'lignes' y manquait, et
+// comme on n'y accède que par l'engrenage du Budget — elle n'est pas au menu —
+// la page est devenue inatteignable pour tout le monde dès l'ajout de ce
+// garde-fou. permissions.test.js le vérifie maintenant à chaque exécution.
 const ROLE_PERMISSIONS = {
   ADMIN: {
-    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'circuitCF', 'circuitAC', 'archives', 'suivi', 'budget', 'beneficiaires', 'parametres', 'admin', 'historique', 'journal'],
+    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'circuitCF', 'circuitAC', 'archives', 'suivi', 'budget', 'lignes', 'beneficiaires', 'parametres', 'admin', 'historique', 'journal'],
     canCreate: true, canEdit: true, canDelete: true, canVisa: true, canPay: true, canArchive: true, canManageUsers: true
   },
   OPERATEUR: {
-    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'circuitCF', 'circuitAC', 'archives', 'suivi', 'budget', 'beneficiaires', 'historique'],
+    pages: ['dashboard', 'nouvelOp', 'consulterOp', 'ops', 'bordereaux', 'circuitCF', 'circuitAC', 'archives', 'suivi', 'budget', 'lignes', 'beneficiaires', 'historique'],
     canCreate: true, canEdit: true, canDelete: true, canVisa: true, canPay: true, canArchive: true, canManageUsers: false
   },
   CONSULTATION: {
