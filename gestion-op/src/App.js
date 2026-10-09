@@ -7,6 +7,7 @@ import { styles } from './utils/styles';
 // Chargés d'emblée : nécessaires dès le premier affichage.
 import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
+import BandeauDemo from './components/BandeauDemo';
 import PageDashboard from './pages/PageDashboard';
 
 // Chargées à la demande, au premier passage sur la page. Évite d'imposer à chacun
@@ -205,6 +206,7 @@ function AppLayout() {
       `}</style>
       <Sidebar />
       <main style={{ ...styles.main, flex: 1 }}>
+        <BandeauDemo />
         <Suspense fallback={<PageLoader />}>
         {currentPage === 'dashboard' && <PageDashboard />}
         {currentPage === 'parametres' && <PageParametres />}
