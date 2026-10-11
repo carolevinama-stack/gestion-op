@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
+import Pagination from '../components/Pagination';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
@@ -24,6 +25,11 @@ const Icon = {
   trash: (c = P.red, s = 14) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
   check: (c = 'white', s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   x: (c = 'white', s = 18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  // Icône d'attente : le cercle ouvert tourne tant que l'import écrit en base.
+  // Une ligne à la fois part vers Firestore, et sur une nomenclature un peu
+  // longue l'opération dure quelques secondes — sans repère, on croit que rien
+  // ne se passe et on reclique.
+  loader: (c = 'white', s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" className="lb-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>,
   upload: (c = P.blue, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
   search: (c = P.textMuted, s = 16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   list: (c = P.green, s = 18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
@@ -86,6 +92,7 @@ const PageLignesBudgetaires = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState([]);
   const [importing, setImporting] = useState(false);
+  const [page, setPage] = useState(1);
 
   const showToast = useCallback((type, title, message = '') => {
     const uid = Date.now() + Math.random();
@@ -94,11 +101,21 @@ const PageLignesBudgetaires = () => {
   const removeToast = useCallback((uid) => setToasts(prev => prev.filter(t => t.uid !== uid)), []);
 
   // Filtered list
+  // Une nomenclature complète peut compter plusieurs centaines de lignes : on
+  // les présente par pages, comme partout ailleurs dans l'application.
+  const LIGNES_PAR_PAGE = 50;
+
   const filtered = trierLignesParCode(lignesBudgetaires).filter(l => {
     if (!searchTerm.trim()) return true;
     const s = searchTerm.toLowerCase();
     return l.code?.toLowerCase().includes(s) || l.libelle?.toLowerCase().includes(s);
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / LIGNES_PAR_PAGE));
+  // La page est ramenée dans les bornes plutôt que remise à 1 : supprimer la
+  // dernière ligne d'une page ne doit pas afficher une page vide.
+  const pageCourante = Math.min(page, totalPages);
+  const lignesPage = filtered.slice((pageCourante - 1) * LIGNES_PAR_PAGE, pageCourante * LIGNES_PAR_PAGE);
 
   // ===== CRUD =====
   const openAdd = () => { setEditingLigne(null); setForm({ code: '', libelle: '' }); setShowFormModal(true); };
@@ -223,6 +240,8 @@ const PageLignesBudgetaires = () => {
         .lb-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .lb-row { transition: background 0.15s; }
         .lb-row:hover { background: ${P.greenLight} !important; }
+        @keyframes lbSpin { to { transform: rotate(360deg); } }
+        .lb-spin { animation: lbSpin 0.8s linear infinite; transform-origin: 50% 50%; }
       `}</style>
 
       {/* Toasts */}
@@ -273,7 +292,7 @@ const PageLignesBudgetaires = () => {
       {lignesBudgetaires.length > 0 && (
         <div style={{ marginBottom: 16, position: 'relative' }}>
           <div style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>{Icon.search(P.textMuted, 16)}</div>
-          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Rechercher par code ou libellé..."
+          <input value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setPage(1); }} placeholder="Rechercher par code ou libellé..."
             style={{ ...inputStyle, paddingLeft: 40, background: P.card }} />
         </div>
       )}
@@ -300,7 +319,7 @@ const PageLignesBudgetaires = () => {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: P.textMuted }}>Aucun résultat pour "{searchTerm}"</td></tr>
-                ) : filtered.map(ligne => {
+                ) : lignesPage.map(ligne => {
                   const isUsed = budgets.some(b => b.lignes?.some(l => l.code === ligne.code));
                   return (
                     <tr key={ligne.id} className="lb-row">
@@ -336,6 +355,12 @@ const PageLignesBudgetaires = () => {
             </table>
           </div>
         )}
+        <Pagination
+          page={pageCourante}
+          totalPages={totalPages}
+          onChange={setPage}
+          suffixe={`(${filtered.length} ligne${filtered.length > 1 ? 's' : ''})`}
+        />
       </div>
 
       {/* ==================== MODAL AJOUT / MODIFICATION ==================== */}
@@ -438,7 +463,8 @@ const PageLignesBudgetaires = () => {
               <button className="lb-btn" onClick={() => { setShowImportModal(false); setImportData([]); }} style={{ background: 'white', color: P.textSec, border: `1.5px solid ${P.border}`, padding: '10px 20px' }}>Annuler</button>
               <button className="lb-btn" onClick={handleImport} disabled={importing || importData.length === 0}
                 style={{ background: P.blue, color: 'white', padding: '10px 20px', opacity: importing || importData.length === 0 ? 0.5 : 1 }}>
-                {Icon.check('white', 14)} {importing ? 'Importation...' : `Importer ${importData.length} ligne(s)`}
+                {importing ? Icon.loader('white', 14) : Icon.check('white', 14)}
+                {importing ? `Importation… (${importData.length} ligne(s))` : `Importer ${importData.length} ligne(s)`}
               </button>
             </div>
           </div>
