@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import Pagination from '../components/Pagination';
+import { raisonBlocageSuppression } from '../utils/versionsBudget';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -327,8 +328,12 @@ const PageBudget = () => {
 
   const handleDeleteBudget = () => {
     if (!currentBudget) return;
-    const totaux = getTotaux(currentBudget);
-    if (totaux.engagement > 0) { showToast('error', 'Suppression impossible', `Ce budget a ${formatMontant(totaux.engagement)} FCFA d'engagements. Supprimez d'abord les OP liés.`); return; }
+    // Une version sous laquelle des OP ont été créés ne se supprime pas : la
+    // version précédente redeviendrait courante, avec d'autres dotations, alors
+    // que ces OP gardent celle qu'ils ont figée. La règle est dans
+    // utils/versionsBudget.js, partagée avec l'Historique budgétaire.
+    const blocage = raisonBlocageSuppression(ops, budgets, currentBudget);
+    if (blocage) { showToast('error', 'Suppression impossible', blocage); return; }
     setConfirmDeleteData({ title: 'Supprimer le budget', message: `Supprimer définitivement "${getVersionLabel(currentBudget)}" ?` });
   };
 

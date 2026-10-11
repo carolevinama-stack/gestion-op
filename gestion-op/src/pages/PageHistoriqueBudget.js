@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
+import { raisonBlocageSuppression } from '../utils/versionsBudget';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
@@ -74,7 +75,7 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 
 // ==================== PAGE ====================
 const PageHistoriqueBudget = () => {
-  const { historiqueParams, sources, exercices, budgets, setBudgets, setCurrentPage, permissions } = useAppContext();
+  const { historiqueParams, sources, exercices, budgets, setBudgets, setCurrentPage, permissions, ops } = useAppContext();
   const { sourceId, exerciceId } = historiqueParams;
   const [expandedVersion, setExpandedVersion] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -106,7 +107,18 @@ const PageHistoriqueBudget = () => {
   };
 
   // Delete flow: password → confirm → delete
-  const startDelete = (budget) => setConfirmState({ budget });
+  // Une version sous laquelle des OP ont été créés ne se supprime pas : la
+  // supprimer fausserait le suivi budgétaire, puisque ces OP ont figé les
+  // dotations qu'elle portait. Même règle que sur l'écran Budget — elle est
+  // dans utils/versionsBudget.js pour que les deux ne puissent pas diverger.
+  //
+  // Le refus a lieu AVANT la confirmation : on ne demande pas de confirmer une
+  // action qu'on va refuser ensuite.
+  const startDelete = (budget) => {
+    const blocage = raisonBlocageSuppression(ops, budgets, budget);
+    if (blocage) { showToast('error', 'Suppression impossible', blocage); return; }
+    setConfirmState({ budget });
+  };
   const onDeleteConfirm = async () => {
     const budget = confirmState.budget;
     setConfirmState(null);
@@ -260,9 +272,10 @@ const PageHistoriqueBudget = () => {
                       </td>
                       <td style={tdStyle} onClick={e => e.stopPropagation()}>
                         {permissions.canDelete && (
-                        <button className="hist-btn" onClick={() => startDelete(budget)} title="Supprimer"
-                          style={{ background: P.redLight, color: P.red, padding: '6px 8px' }}>
-                          {Icon.trash(P.red, 13)}
+                        <button className="hist-btn" onClick={() => startDelete(budget)}
+                          title={raisonBlocageSuppression(ops, budgets, budget) ? 'Verrouillé : des OP ont été créés sous cette version' : 'Supprimer'}
+                          style={{ background: raisonBlocageSuppression(ops, budgets, budget) ? '#f5f5f5' : P.redLight, color: P.red, padding: '6px 8px' }}>
+                          {Icon.trash(raisonBlocageSuppression(ops, budgets, budget) ? '#bbb' : P.red, 13)}
                         </button>
                         )}
                       </td>

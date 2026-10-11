@@ -41,7 +41,7 @@ const LIGNES = [
 
 const BUDGET = {
   id: 'bu1', sourceId: 'S1', exerciceId: 'E1', version: 1, nomVersion: 'Budget Primitif',
-  dateNotification: '2026-01-15',
+  dateNotification: '2026-01-15', createdAt: '2026-01-15T08:00:00.000Z',
   // Enregistrées en désordre exprès : l'écran doit les reclasser lui-même.
   lignes: [
     { code: '6021', libelle: 'Carburant', dotation: 4000000 },
@@ -516,5 +516,33 @@ describe('Budget — le suivi ne montre que ce qui a servi', () => {
     render(<PageBudget />);
     expect(codesDuTableau(0)).toEqual(['6011']);
     expect(screen.queryByText(/masquée/)).not.toBeInTheDocument();
+  });
+});
+
+describe('Budget — la suppression d\'une version', () => {
+  // Les OP du jeu de test sont créés le 01/03/2026, donc sous le Budget
+  // Primitif du 15/01. La version a servi : elle ne se supprime plus.
+  test('une version sous laquelle des OP ont été créés est refusée', async () => {
+    render(<PageBudget />);
+    await userEvent.click(bouton(/Supprimer/));
+    expect(await toast('Suppression impossible')).toBeInTheDocument();
+    expect(mockDeleteDoc).not.toHaveBeenCalled();
+  });
+
+  test('le refus nomme les OP concernés', async () => {
+    render(<PageBudget />);
+    await userEvent.click(bouton(/Supprimer/));
+    await toast('Suppression impossible');
+    expect(await screen.findByText(/N°0001\/SP/)).toBeInTheDocument();
+  });
+
+  // Une révision créée après tous les OP n'a encore rien porté : supprimable,
+  // même si le budget de l'exercice compte par ailleurs des engagements.
+  test('une révision récente, sous laquelle rien n\'a été créé, reste supprimable', async () => {
+    mockContexte.budgets = [BUDGET, { ...BUDGET, id: 'bu2', version: 2, nomVersion: 'Budget Révisé N°1', createdAt: '2026-06-01T08:00:00.000Z' }];
+    render(<PageBudget />);
+    await userEvent.click(bouton(/Supprimer/));
+    expect(await screen.findByText('Supprimer le budget')).toBeInTheDocument();
+    expect(mockDeleteDoc).not.toHaveBeenCalled();   // la confirmation reste à donner
   });
 });
