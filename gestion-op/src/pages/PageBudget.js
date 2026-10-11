@@ -1,9 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
+import Pagination from '../components/Pagination';
+import { raisonBlocageSuppression } from '../utils/versionsBudget';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -120,6 +122,11 @@ const PageBudget = () => {
   const [nomRevision, setNomRevision] = useState('');
   const [dateNotification, setDateNotification] = useState('');
   const [selectedVersion, setSelectedVersion] = useState(null);
+  // Une nomenclature complète peut compter plusieurs centaines de lignes : les
+  // deux tableaux de l'écran — le suivi et la fenêtre d'édition — se paginent.
+  const LIGNES_PAR_PAGE = 50;
+  const [pageSuivi, setPageSuivi] = useState(1);
+  const [pageEdition, setPageEdition] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState([]);
@@ -151,25 +158,38 @@ const PageBudget = () => {
   // ==========================================================
   // SOMME GLOBALE SANS CRITÈRE DE TYPE (SOMME BÊTE ET MÉCHANTE)
   // Les annulations étant en négatif dans la BD, l'addition les soustrait.
-  // ==========================================================
-  const getEngagementLigne = (ligneCode) => {
-    return ops
-      .filter(op =>
-        op.sourceId === activeSource &&
-        op.exerciceId === currentExerciceId &&
-        op.ligneBudgetaire === ligneCode &&
-        // On exclut juste les brouillons rejetés ou supprimés
-        !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
-      )
-      .reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
-  };
+  // On exclut seulement les brouillons rejetés ou supprimés.
+  //
+  // Tous les engagements sont calculés EN UNE SEULE PASSE sur la liste des OP,
+  // puis rangés par code de ligne. Auparavant chaque ligne relisait toute la
+  // liste pour son propre compte : sur un budget de 120 lignes, l'écran
+  // parcourait les OP près de 300 fois par affichage — le total, le filtrage du
+  // suivi, le tableau, la fenêtre d'édition. Changer de source bloquait alors
+  // l'interface pendant un quart de seconde, ce que le navigateur signale.
+  // Le résultat est identique, au centime près ; seul le chemin change.
+  const engagementsParLigne = useMemo(() => {
+    const parLigne = new Map();
+    for (const op of ops) {
+      if (op.sourceId !== activeSource) continue;
+      if (op.exerciceId !== currentExerciceId) continue;
+      if (op.statut === 'REJETE_CF' || op.statut === 'REJETE_AC' || op.statut === 'SUPPRIME') continue;
+      const code = op.ligneBudgetaire;
+      parLigne.set(code, (parLigne.get(code) || 0) + (Number(op.montant) || 0));
+    }
+    return parLigne;
+  }, [ops, activeSource, currentExerciceId]);
 
-  const openCreateModal = () => { setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
+  const getEngagementLigne = useCallback(
+    (ligneCode) => engagementsParLigne.get(ligneCode) || 0,
+    [engagementsParLigne]
+  );
+
+  const openCreateModal = () => { setPageEdition(1); setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
   const openCorrectionModal = () => setConfirmCorrection(true);
 
   const startCorrection = () => {
     setConfirmCorrection(false);
-    setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
+    setPageEdition(1); setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
   };
 
   const openRevisionModal = () => { setMotifRevision(''); setNomRevision(`Budget Révisé N°${(latestVersion?.version || 1)}`); setDateNotification(new Date().toISOString().split('T')[0]); setShowRevisionModal(true); };
@@ -183,7 +203,7 @@ const PageBudget = () => {
       const docRef = await addDoc(collection(db, 'budgets'), revisionData);
       setBudgets([...budgets, { id: docRef.id, ...revisionData }]);
       setShowRevisionModal(false);
-      setBudgetLignes(revisionData.lignes); setSelectedLigne(''); setSelectedVersion(docRef.id); setShowModal(true);
+      setPageEdition(1); setBudgetLignes(revisionData.lignes); setSelectedLigne(''); setSelectedVersion(docRef.id); setShowModal(true);
     } catch (error) { console.error('Erreur:', error); showToast('error', 'Erreur', 'Erreur lors de la création'); }
     setSaving(false);
   };
@@ -294,6 +314,7 @@ const PageBudget = () => {
   };
 
   const confirmImport = () => {
+    setPageEdition(1);
     setBudgetLignes(importData);
     setShowImportModal(false);
     setImportData([]);
@@ -320,8 +341,12 @@ const PageBudget = () => {
 
   const handleDeleteBudget = () => {
     if (!currentBudget) return;
-    const totaux = getTotaux(currentBudget);
-    if (totaux.engagement > 0) { showToast('error', 'Suppression impossible', `Ce budget a ${formatMontant(totaux.engagement)} FCFA d'engagements. Supprimez d'abord les OP liés.`); return; }
+    // Une version sous laquelle des OP ont été créés ne se supprime pas : la
+    // version précédente redeviendrait courante, avec d'autres dotations, alors
+    // que ces OP gardent celle qu'ils ont figée. La règle est dans
+    // utils/versionsBudget.js, partagée avec l'Historique budgétaire.
+    const blocage = raisonBlocageSuppression(ops, budgets, currentBudget);
+    if (blocage) { showToast('error', 'Suppression impossible', blocage); return; }
     setConfirmDeleteData({ title: 'Supprimer le budget', message: `Supprimer définitivement "${getVersionLabel(currentBudget)}" ?` });
   };
 
@@ -347,6 +372,26 @@ const PageBudget = () => {
   const totaux = getTotaux(currentBudget);
   const lignesDisponibles = trierLignesParCode(lignesBudgetaires.filter(l => !budgetLignes.find(bl => bl.code === l.code)));
 
+  // Découpage en pages des deux tableaux. La page est ramenée dans les bornes
+  // plutôt que remise à 1 : retirer la dernière ligne d'une page ne doit pas
+  // afficher une page vide.
+  // Le suivi ne montre que les lignes qui ont quelque chose à dire : une
+  // dotation, ou des engagements. Une ligne à 0 et 0 n'a jamais servi — elle
+  // n'allonge le tableau sans rien apprendre. Un engagement négatif (une
+  // annulation sans dotation) reste affiché : c'est une anomalie à voir.
+  // La fenêtre d'édition, elle, les montre toutes : c'est là qu'on les dote.
+  const aServi = (l) => (l.dotation || 0) !== 0 || getEngagementLigne(l.code) !== 0;
+  const lignesSuivi = trierLignesParCode(currentBudget?.lignes).filter(aServi);
+  const nbLignesMasquees = (currentBudget?.lignes?.length || 0) - lignesSuivi.length;
+  const totalPagesSuivi = Math.max(1, Math.ceil(lignesSuivi.length / LIGNES_PAR_PAGE));
+  const pageSuiviCourante = Math.min(pageSuivi, totalPagesSuivi);
+  const lignesSuiviPage = lignesSuivi.slice((pageSuiviCourante - 1) * LIGNES_PAR_PAGE, pageSuiviCourante * LIGNES_PAR_PAGE);
+
+  const lignesEdition = trierLignesParCode(budgetLignes);
+  const totalPagesEdition = Math.max(1, Math.ceil(lignesEdition.length / LIGNES_PAR_PAGE));
+  const pageEditionCourante = Math.min(pageEdition, totalPagesEdition);
+  const lignesEditionPage = lignesEdition.slice((pageEditionCourante - 1) * LIGNES_PAR_PAGE, pageEditionCourante * LIGNES_PAR_PAGE);
+
   const getVersionLabel = (budget) => {
     if (!budget) return '';
     if (budget.nomVersion) return budget.nomVersion;
@@ -357,7 +402,7 @@ const PageBudget = () => {
     if (!currentBudget?.lignes?.length) return;
     const now = new Date().toLocaleDateString('fr-FR');
     let csv = `SUIVI BUDGETAIRE - ${sanitizeForExport(currentSourceObj?.nom || '')}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${sanitizeForExport(getVersionLabel(currentBudget))}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
-    trierLignesParCode(currentBudget.lignes).forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
+    trierLignesParCode(currentBudget.lignes).filter(aServi).forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
     csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
   };
@@ -401,7 +446,7 @@ const PageBudget = () => {
         ) : sources.map(source => {
           const isActive = activeSource === source.id;
           return (
-            <div key={source.id} onClick={() => { setActiveSource(source.id); setSelectedVersion(null); }}
+            <div key={source.id} onClick={() => { setActiveSource(source.id); setSelectedVersion(null); setPageSuivi(1); }}
               style={{ padding: '12px 24px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all 0.2s', background: isActive ? source.couleur : 'white', color: isActive ? 'white' : P.text, border: isActive ? `2px solid ${source.couleur}` : `2px solid ${P.border}`, boxShadow: isActive ? `0 4px 12px ${source.couleur}33` : 'none' }}>
               {source.sigle || source.nom}
             </div>
@@ -425,7 +470,7 @@ const PageBudget = () => {
                   Exercices antérieurs
                 </label>
                 {showAnterieur && (
-                  <select value={selectedExercice || ''} onChange={(e) => { setSelectedExercice(e.target.value); setSelectedVersion(null); }}
+                  <select value={selectedExercice || ''} onChange={(e) => { setPageSuivi(1); setSelectedExercice(e.target.value); setSelectedVersion(null); }}
                     style={{ ...inputStyle, width: 'auto', padding: '8px 12px' }}>
                     {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
                   </select>
@@ -485,7 +530,14 @@ const PageBudget = () => {
           {/* Tableau budget */}
           <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>Lignes budgétaires — {currentSourceObj?.nom} ({currentExerciceObj?.annee})</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>Lignes budgétaires — {currentSourceObj?.nom} ({currentExerciceObj?.annee})</div>
+                {nbLignesMasquees > 0 && (
+                  <div style={{ fontSize: 11, color: P.textMuted, marginTop: 2 }}>
+                    {nbLignesMasquees} ligne{nbLignesMasquees > 1 ? 's' : ''} sans dotation ni engagement {nbLignesMasquees > 1 ? 'sont masquées' : 'est masquée'} — {nbLignesMasquees > 1 ? 'elles apparaissent' : 'elle apparaît'} dans la fenêtre de modification
+                  </div>
+                )}
+              </div>
               {currentBudget?.lignes?.length > 0 && (
                 <button className="bud-btn" onClick={exportSuiviBudgetaire} style={{ background: P.blueLight, color: P.blue }}>{Icon.download(P.blue, 14)} Exporter</button>
               )}
@@ -511,7 +563,12 @@ const PageBudget = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {trierLignesParCode(currentBudget.lignes).map(ligne => {
+                    {lignesSuiviPage.length === 0 && (
+                      <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>
+                        Aucune ligne dotée ni engagée pour l'instant. Ouvrez « Correction » pour saisir les dotations.
+                      </td></tr>
+                    )}
+                    {lignesSuiviPage.map(ligne => {
                       const engagement = getEngagementLigne(ligne.code);
                       const disponible = (ligne.dotation || 0) - engagement;
                       const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : 0;
@@ -545,6 +602,13 @@ const PageBudget = () => {
                 </table>
               </div>
             )}
+            <Pagination
+              page={pageSuiviCourante}
+              totalPages={totalPagesSuivi}
+              onChange={setPageSuivi}
+              suffixe={`(${lignesSuivi.length} ligne${lignesSuivi.length > 1 ? 's' : ''})`}
+              accentColor={accent}
+            />
           </div>
         </>
       )}
@@ -599,7 +663,7 @@ const PageBudget = () => {
                         <tr><th style={{ ...thStyle, width: 100 }}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, width: 180 }}>Dotation (FCFA)</th><th style={{ ...thStyle, width: 120, textAlign: 'right' }}>Engagé</th><th style={{ ...thStyle, width: 50 }}></th></tr>
                       </thead>
                       <tbody>
-                        {trierLignesParCode(budgetLignes).map(ligne => {
+                        {lignesEditionPage.map(ligne => {
                           const engagement = getEngagementLigne(ligne.code);
                           return (
                             <tr key={ligne.code} style={{ background: 'white' }}>
@@ -625,6 +689,13 @@ const PageBudget = () => {
                     </table>
                   </div>
                 )}
+                <Pagination
+                  page={pageEditionCourante}
+                  totalPages={totalPagesEdition}
+                  onChange={setPageEdition}
+                  suffixe={`(${budgetLignes.length} ligne${budgetLignes.length > 1 ? 's' : ''})`}
+                  accentColor={accent}
+                />
               </div>
             </div>
 

@@ -41,7 +41,7 @@ const LIGNES = [
 
 const BUDGET = {
   id: 'bu1', sourceId: 'S1', exerciceId: 'E1', version: 1, nomVersion: 'Budget Primitif',
-  dateNotification: '2026-01-15',
+  dateNotification: '2026-01-15', createdAt: '2026-01-15T08:00:00.000Z',
   // Enregistrées en désordre exprès : l'écran doit les reclasser lui-même.
   lignes: [
     { code: '6021', libelle: 'Carburant', dotation: 4000000 },
@@ -395,5 +395,154 @@ describe('Budget — l\'ordre des lignes', () => {
     await userEvent.upload(screen.getByLabelText("Importer un budget depuis Excel"), fichier);
     await screen.findByText('Import Excel — Aperçu');
     expect(codesFenetre()).toEqual(['6011', '6021', '6031']);
+  });
+});
+
+describe('Budget — la pagination des deux tableaux', () => {
+  // 120 lignes : de quoi dépasser la page de 50 et vérifier le découpage.
+  const budgetLong = {
+    ...BUDGET,
+    lignes: Array.from({ length: 120 }, (_, i) => ({
+      code: String(6000 + i), libelle: `Rubrique ${i}`, dotation: 1000000,
+    })),
+  };
+
+  const codesDuTableau = (position) => {
+    const tableaux = screen.getAllByRole('table');
+    const tableau = position < 0 ? tableaux[tableaux.length + position] : tableaux[position];
+    return within(tableau).getAllByRole('row')
+      .map(l => within(l).queryAllByRole('cell')[0]?.textContent.trim())
+      .filter(c => /^\d/.test(c || ''));
+  };
+
+  test('le suivi n\'affiche que 50 lignes à la fois', () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toHaveLength(50);
+    expect(screen.getByText(/Page/)).toHaveTextContent('Page 1 / 3');
+    expect(screen.getByText(/Page/)).toHaveTextContent('120 lignes');
+  });
+
+  test('la page suivante montre les lignes suivantes', async () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)[0]).toBe('6000');
+    await userEvent.click(screen.getByTitle('Page suivante'));
+    expect(codesDuTableau(0)[0]).toBe('6050');
+  });
+
+  test('la dernière page ne montre que le reste', async () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    await userEvent.click(screen.getByTitle('Dernière page'));
+    expect(codesDuTableau(0)).toHaveLength(20);   // 120 − 100
+  });
+
+  test('un budget court n\'affiche aucune pagination', () => {
+    render(<PageBudget />);
+    expect(screen.queryByTitle('Page suivante')).not.toBeInTheDocument();
+  });
+
+  // La fenêtre d'édition a sa propre pagination, et doit s'ouvrir en page 1
+  // même si le suivi était resté sur une page plus loin.
+  test('la fenêtre d\'édition se pagine et s\'ouvre en première page', async () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    await userEvent.click(screen.getByTitle('Dernière page'));
+    await ouvrirCorrection();
+    expect(codesDuTableau(-1)[0]).toBe('6000');
+    expect(codesDuTableau(-1)).toHaveLength(50);
+  });
+});
+
+describe('Budget — le suivi ne montre que ce qui a servi', () => {
+  // Une ligne ajoutée au budget mais jamais dotée reste à 0 : elle n'apprend
+  // rien au suivi. Elle doit rester visible dans la fenêtre de modification,
+  // puisque c'est là qu'on la dote.
+  const budgetAvecVides = {
+    ...BUDGET,
+    lignes: [
+      { code: '6011', libelle: 'Fournitures de bureau', dotation: 10000000 },  // dotée + engagée
+      { code: '6021', libelle: 'Carburant', dotation: 4000000 },               // dotée, pas engagée
+      { code: '6031', libelle: 'Missions', dotation: 0 },                      // ni l'un ni l'autre
+    ],
+  };
+
+  const codesDuTableau = (position) => {
+    const tableaux = screen.getAllByRole('table');
+    const tableau = position < 0 ? tableaux[tableaux.length + position] : tableaux[position];
+    return within(tableau).getAllByRole('row')
+      .map(l => within(l).queryAllByRole('cell')[0]?.textContent.trim())
+      .filter(c => /^\d/.test(c || ''));
+  };
+
+  test('une ligne sans dotation ni engagement est masquée du suivi', () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toEqual(['6011', '6021']);
+  });
+
+  test('une ligne dotée mais pas encore engagée reste affichée', () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toContain('6021');
+  });
+
+  test('le nombre de lignes masquées est annoncé', () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    expect(screen.getByText(/1 ligne sans dotation ni engagement est masquée/)).toBeInTheDocument();
+  });
+
+  // Le masquage ne doit jamais empêcher de doter une ligne : la fenêtre de
+  // modification les montre toutes, y compris celles à zéro.
+  test('la fenêtre de modification les montre toutes', async () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    await ouvrirCorrection();
+    expect(codesDuTableau(-1)).toEqual(['6011', '6021', '6031']);
+  });
+
+  test('un budget entièrement à zéro le dit au lieu d\'un tableau vide', () => {
+    mockContexte.budgets = [{ ...BUDGET, lignes: [{ code: '6031', libelle: 'Missions', dotation: 0 }] }];
+    mockContexte.ops = [];
+    render(<PageBudget />);
+    expect(screen.getByText(/Aucune ligne dotée ni engagée/)).toBeInTheDocument();
+  });
+
+  // Un engagement sans dotation est une anomalie : il doit rester sous les yeux.
+  test('une ligne engagée sans dotation reste visible', () => {
+    mockContexte.budgets = [{ ...BUDGET, lignes: [{ code: '6011', libelle: 'Fournitures', dotation: 0 }] }];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toEqual(['6011']);
+    expect(screen.queryByText(/masquée/)).not.toBeInTheDocument();
+  });
+});
+
+describe('Budget — la suppression d\'une version', () => {
+  // Les OP du jeu de test sont créés le 01/03/2026, donc sous le Budget
+  // Primitif du 15/01. La version a servi : elle ne se supprime plus.
+  test('une version sous laquelle des OP ont été créés est refusée', async () => {
+    render(<PageBudget />);
+    await userEvent.click(bouton(/Supprimer/));
+    expect(await toast('Suppression impossible')).toBeInTheDocument();
+    expect(mockDeleteDoc).not.toHaveBeenCalled();
+  });
+
+  test('le refus nomme les OP concernés', async () => {
+    render(<PageBudget />);
+    await userEvent.click(bouton(/Supprimer/));
+    await toast('Suppression impossible');
+    expect(await screen.findByText(/N°0001\/SP/)).toBeInTheDocument();
+  });
+
+  // Une révision créée après tous les OP n'a encore rien porté : supprimable,
+  // même si le budget de l'exercice compte par ailleurs des engagements.
+  test('une révision récente, sous laquelle rien n\'a été créé, reste supprimable', async () => {
+    mockContexte.budgets = [BUDGET, { ...BUDGET, id: 'bu2', version: 2, nomVersion: 'Budget Révisé N°1', createdAt: '2026-06-01T08:00:00.000Z' }];
+    render(<PageBudget />);
+    await userEvent.click(bouton(/Supprimer/));
+    expect(await screen.findByText('Supprimer le budget')).toBeInTheDocument();
+    expect(mockDeleteDoc).not.toHaveBeenCalled();   // la confirmation reste à donner
   });
 });
