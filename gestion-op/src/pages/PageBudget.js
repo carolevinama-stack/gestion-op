@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
 import { db } from '../firebase';
@@ -158,18 +158,31 @@ const PageBudget = () => {
   // ==========================================================
   // SOMME GLOBALE SANS CRITÈRE DE TYPE (SOMME BÊTE ET MÉCHANTE)
   // Les annulations étant en négatif dans la BD, l'addition les soustrait.
-  // ==========================================================
-  const getEngagementLigne = (ligneCode) => {
-    return ops
-      .filter(op =>
-        op.sourceId === activeSource &&
-        op.exerciceId === currentExerciceId &&
-        op.ligneBudgetaire === ligneCode &&
-        // On exclut juste les brouillons rejetés ou supprimés
-        !['REJETE_CF', 'REJETE_AC', 'SUPPRIME'].includes(op.statut)
-      )
-      .reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
-  };
+  // On exclut seulement les brouillons rejetés ou supprimés.
+  //
+  // Tous les engagements sont calculés EN UNE SEULE PASSE sur la liste des OP,
+  // puis rangés par code de ligne. Auparavant chaque ligne relisait toute la
+  // liste pour son propre compte : sur un budget de 120 lignes, l'écran
+  // parcourait les OP près de 300 fois par affichage — le total, le filtrage du
+  // suivi, le tableau, la fenêtre d'édition. Changer de source bloquait alors
+  // l'interface pendant un quart de seconde, ce que le navigateur signale.
+  // Le résultat est identique, au centime près ; seul le chemin change.
+  const engagementsParLigne = useMemo(() => {
+    const parLigne = new Map();
+    for (const op of ops) {
+      if (op.sourceId !== activeSource) continue;
+      if (op.exerciceId !== currentExerciceId) continue;
+      if (op.statut === 'REJETE_CF' || op.statut === 'REJETE_AC' || op.statut === 'SUPPRIME') continue;
+      const code = op.ligneBudgetaire;
+      parLigne.set(code, (parLigne.get(code) || 0) + (Number(op.montant) || 0));
+    }
+    return parLigne;
+  }, [ops, activeSource, currentExerciceId]);
+
+  const getEngagementLigne = useCallback(
+    (ligneCode) => engagementsParLigne.get(ligneCode) || 0,
+    [engagementsParLigne]
+  );
 
   const openCreateModal = () => { setPageEdition(1); setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
   const openCorrectionModal = () => setConfirmCorrection(true);
