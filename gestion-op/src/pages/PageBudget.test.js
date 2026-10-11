@@ -454,3 +454,67 @@ describe('Budget — la pagination des deux tableaux', () => {
     expect(codesDuTableau(-1)).toHaveLength(50);
   });
 });
+
+describe('Budget — le suivi ne montre que ce qui a servi', () => {
+  // Une ligne ajoutée au budget mais jamais dotée reste à 0 : elle n'apprend
+  // rien au suivi. Elle doit rester visible dans la fenêtre de modification,
+  // puisque c'est là qu'on la dote.
+  const budgetAvecVides = {
+    ...BUDGET,
+    lignes: [
+      { code: '6011', libelle: 'Fournitures de bureau', dotation: 10000000 },  // dotée + engagée
+      { code: '6021', libelle: 'Carburant', dotation: 4000000 },               // dotée, pas engagée
+      { code: '6031', libelle: 'Missions', dotation: 0 },                      // ni l'un ni l'autre
+    ],
+  };
+
+  const codesDuTableau = (position) => {
+    const tableaux = screen.getAllByRole('table');
+    const tableau = position < 0 ? tableaux[tableaux.length + position] : tableaux[position];
+    return within(tableau).getAllByRole('row')
+      .map(l => within(l).queryAllByRole('cell')[0]?.textContent.trim())
+      .filter(c => /^\d/.test(c || ''));
+  };
+
+  test('une ligne sans dotation ni engagement est masquée du suivi', () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toEqual(['6011', '6021']);
+  });
+
+  test('une ligne dotée mais pas encore engagée reste affichée', () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toContain('6021');
+  });
+
+  test('le nombre de lignes masquées est annoncé', () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    expect(screen.getByText(/1 ligne sans dotation ni engagement est masquée/)).toBeInTheDocument();
+  });
+
+  // Le masquage ne doit jamais empêcher de doter une ligne : la fenêtre de
+  // modification les montre toutes, y compris celles à zéro.
+  test('la fenêtre de modification les montre toutes', async () => {
+    mockContexte.budgets = [budgetAvecVides];
+    render(<PageBudget />);
+    await ouvrirCorrection();
+    expect(codesDuTableau(-1)).toEqual(['6011', '6021', '6031']);
+  });
+
+  test('un budget entièrement à zéro le dit au lieu d\'un tableau vide', () => {
+    mockContexte.budgets = [{ ...BUDGET, lignes: [{ code: '6031', libelle: 'Missions', dotation: 0 }] }];
+    mockContexte.ops = [];
+    render(<PageBudget />);
+    expect(screen.getByText(/Aucune ligne dotée ni engagée/)).toBeInTheDocument();
+  });
+
+  // Un engagement sans dotation est une anomalie : il doit rester sous les yeux.
+  test('une ligne engagée sans dotation reste visible', () => {
+    mockContexte.budgets = [{ ...BUDGET, lignes: [{ code: '6011', libelle: 'Fournitures', dotation: 0 }] }];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toEqual(['6011']);
+    expect(screen.queryByText(/masquée/)).not.toBeInTheDocument();
+  });
+});

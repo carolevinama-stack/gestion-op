@@ -357,7 +357,14 @@ const PageBudget = () => {
   // Découpage en pages des deux tableaux. La page est ramenée dans les bornes
   // plutôt que remise à 1 : retirer la dernière ligne d'une page ne doit pas
   // afficher une page vide.
-  const lignesSuivi = trierLignesParCode(currentBudget?.lignes);
+  // Le suivi ne montre que les lignes qui ont quelque chose à dire : une
+  // dotation, ou des engagements. Une ligne à 0 et 0 n'a jamais servi — elle
+  // n'allonge le tableau sans rien apprendre. Un engagement négatif (une
+  // annulation sans dotation) reste affiché : c'est une anomalie à voir.
+  // La fenêtre d'édition, elle, les montre toutes : c'est là qu'on les dote.
+  const aServi = (l) => (l.dotation || 0) !== 0 || getEngagementLigne(l.code) !== 0;
+  const lignesSuivi = trierLignesParCode(currentBudget?.lignes).filter(aServi);
+  const nbLignesMasquees = (currentBudget?.lignes?.length || 0) - lignesSuivi.length;
   const totalPagesSuivi = Math.max(1, Math.ceil(lignesSuivi.length / LIGNES_PAR_PAGE));
   const pageSuiviCourante = Math.min(pageSuivi, totalPagesSuivi);
   const lignesSuiviPage = lignesSuivi.slice((pageSuiviCourante - 1) * LIGNES_PAR_PAGE, pageSuiviCourante * LIGNES_PAR_PAGE);
@@ -377,7 +384,7 @@ const PageBudget = () => {
     if (!currentBudget?.lignes?.length) return;
     const now = new Date().toLocaleDateString('fr-FR');
     let csv = `SUIVI BUDGETAIRE - ${sanitizeForExport(currentSourceObj?.nom || '')}\nExercice: ${currentExerciceObj?.annee || ''}\nVersion: ${sanitizeForExport(getVersionLabel(currentBudget))}\nDate d'export: ${now}\n\nCode;Libellé;Dotation;Engagements;Disponible;Taux (%)\n`;
-    trierLignesParCode(currentBudget.lignes).forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
+    trierLignesParCode(currentBudget.lignes).filter(aServi).forEach(l => { const eng = getEngagementLigne(l.code), disp = (l.dotation || 0) - eng, taux = l.dotation > 0 ? ((eng / l.dotation) * 100).toFixed(1) : '0'; csv += `${l.code};${sanitizeForExport(l.libelle)};${l.dotation || 0};${eng};${disp};${taux}\n`; });
     csv += `\nTOTAL;;${totaux.dotation};${totaux.engagement};${totaux.disponible};${totaux.dotation > 0 ? ((totaux.engagement / totaux.dotation) * 100).toFixed(1) : '0'}\n`;
     exportToCSV(csv, `Suivi_Budget_${currentSourceObj?.sigle || 'Source'}_${currentExerciceObj?.annee || ''}_v${currentBudget.version || 1}.csv`);
   };
@@ -505,7 +512,14 @@ const PageBudget = () => {
           {/* Tableau budget */}
           <div style={{ background: P.card, borderRadius: 12, border: `1px solid ${P.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>Lignes budgétaires — {currentSourceObj?.nom} ({currentExerciceObj?.annee})</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>Lignes budgétaires — {currentSourceObj?.nom} ({currentExerciceObj?.annee})</div>
+                {nbLignesMasquees > 0 && (
+                  <div style={{ fontSize: 11, color: P.textMuted, marginTop: 2 }}>
+                    {nbLignesMasquees} ligne{nbLignesMasquees > 1 ? 's' : ''} sans dotation ni engagement {nbLignesMasquees > 1 ? 'sont masquées' : 'est masquée'} — {nbLignesMasquees > 1 ? 'elles apparaissent' : 'elle apparaît'} dans la fenêtre de modification
+                  </div>
+                )}
+              </div>
               {currentBudget?.lignes?.length > 0 && (
                 <button className="bud-btn" onClick={exportSuiviBudgetaire} style={{ background: P.blueLight, color: P.blue }}>{Icon.download(P.blue, 14)} Exporter</button>
               )}
@@ -531,6 +545,11 @@ const PageBudget = () => {
                     </tr>
                   </thead>
                   <tbody>
+                    {lignesSuiviPage.length === 0 && (
+                      <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: P.textMuted, fontSize: 13 }}>
+                        Aucune ligne dotée ni engagée pour l'instant. Ouvrez « Correction » pour saisir les dotations.
+                      </td></tr>
+                    )}
                     {lignesSuiviPage.map(ligne => {
                       const engagement = getEngagementLigne(ligne.code);
                       const disponible = (ligne.dotation || 0) - engagement;
