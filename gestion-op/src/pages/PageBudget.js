@@ -4,6 +4,7 @@ import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatte
 import { db } from '../firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
+import Pagination from '../components/Pagination';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 
@@ -120,6 +121,11 @@ const PageBudget = () => {
   const [nomRevision, setNomRevision] = useState('');
   const [dateNotification, setDateNotification] = useState('');
   const [selectedVersion, setSelectedVersion] = useState(null);
+  // Une nomenclature complète peut compter plusieurs centaines de lignes : les
+  // deux tableaux de l'écran — le suivi et la fenêtre d'édition — se paginent.
+  const LIGNES_PAR_PAGE = 50;
+  const [pageSuivi, setPageSuivi] = useState(1);
+  const [pageEdition, setPageEdition] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importData, setImportData] = useState([]);
@@ -164,12 +170,12 @@ const PageBudget = () => {
       .reduce((sum, op) => sum + (Number(op.montant) || 0), 0);
   };
 
-  const openCreateModal = () => { setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
+  const openCreateModal = () => { setPageEdition(1); setBudgetLignes([]); setSelectedLigne(''); setNomRevision('Budget Primitif'); setDateNotification(new Date().toISOString().split('T')[0]); setShowModal(true); };
   const openCorrectionModal = () => setConfirmCorrection(true);
 
   const startCorrection = () => {
     setConfirmCorrection(false);
-    setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
+    setPageEdition(1); setBudgetLignes(currentBudget.lignes.map(l => ({ ...l }))); setSelectedLigne(''); setShowModal(true);
   };
 
   const openRevisionModal = () => { setMotifRevision(''); setNomRevision(`Budget Révisé N°${(latestVersion?.version || 1)}`); setDateNotification(new Date().toISOString().split('T')[0]); setShowRevisionModal(true); };
@@ -183,7 +189,7 @@ const PageBudget = () => {
       const docRef = await addDoc(collection(db, 'budgets'), revisionData);
       setBudgets([...budgets, { id: docRef.id, ...revisionData }]);
       setShowRevisionModal(false);
-      setBudgetLignes(revisionData.lignes); setSelectedLigne(''); setSelectedVersion(docRef.id); setShowModal(true);
+      setPageEdition(1); setBudgetLignes(revisionData.lignes); setSelectedLigne(''); setSelectedVersion(docRef.id); setShowModal(true);
     } catch (error) { console.error('Erreur:', error); showToast('error', 'Erreur', 'Erreur lors de la création'); }
     setSaving(false);
   };
@@ -294,6 +300,7 @@ const PageBudget = () => {
   };
 
   const confirmImport = () => {
+    setPageEdition(1);
     setBudgetLignes(importData);
     setShowImportModal(false);
     setImportData([]);
@@ -346,6 +353,19 @@ const PageBudget = () => {
 
   const totaux = getTotaux(currentBudget);
   const lignesDisponibles = trierLignesParCode(lignesBudgetaires.filter(l => !budgetLignes.find(bl => bl.code === l.code)));
+
+  // Découpage en pages des deux tableaux. La page est ramenée dans les bornes
+  // plutôt que remise à 1 : retirer la dernière ligne d'une page ne doit pas
+  // afficher une page vide.
+  const lignesSuivi = trierLignesParCode(currentBudget?.lignes);
+  const totalPagesSuivi = Math.max(1, Math.ceil(lignesSuivi.length / LIGNES_PAR_PAGE));
+  const pageSuiviCourante = Math.min(pageSuivi, totalPagesSuivi);
+  const lignesSuiviPage = lignesSuivi.slice((pageSuiviCourante - 1) * LIGNES_PAR_PAGE, pageSuiviCourante * LIGNES_PAR_PAGE);
+
+  const lignesEdition = trierLignesParCode(budgetLignes);
+  const totalPagesEdition = Math.max(1, Math.ceil(lignesEdition.length / LIGNES_PAR_PAGE));
+  const pageEditionCourante = Math.min(pageEdition, totalPagesEdition);
+  const lignesEditionPage = lignesEdition.slice((pageEditionCourante - 1) * LIGNES_PAR_PAGE, pageEditionCourante * LIGNES_PAR_PAGE);
 
   const getVersionLabel = (budget) => {
     if (!budget) return '';
@@ -401,7 +421,7 @@ const PageBudget = () => {
         ) : sources.map(source => {
           const isActive = activeSource === source.id;
           return (
-            <div key={source.id} onClick={() => { setActiveSource(source.id); setSelectedVersion(null); }}
+            <div key={source.id} onClick={() => { setActiveSource(source.id); setSelectedVersion(null); setPageSuivi(1); }}
               style={{ padding: '12px 24px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'all 0.2s', background: isActive ? source.couleur : 'white', color: isActive ? 'white' : P.text, border: isActive ? `2px solid ${source.couleur}` : `2px solid ${P.border}`, boxShadow: isActive ? `0 4px 12px ${source.couleur}33` : 'none' }}>
               {source.sigle || source.nom}
             </div>
@@ -425,7 +445,7 @@ const PageBudget = () => {
                   Exercices antérieurs
                 </label>
                 {showAnterieur && (
-                  <select value={selectedExercice || ''} onChange={(e) => { setSelectedExercice(e.target.value); setSelectedVersion(null); }}
+                  <select value={selectedExercice || ''} onChange={(e) => { setPageSuivi(1); setSelectedExercice(e.target.value); setSelectedVersion(null); }}
                     style={{ ...inputStyle, width: 'auto', padding: '8px 12px' }}>
                     {exercices.map(ex => <option key={ex.id} value={ex.id}>{ex.annee}{ex.actif ? ' (actif)' : ''}</option>)}
                   </select>
@@ -511,7 +531,7 @@ const PageBudget = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {trierLignesParCode(currentBudget.lignes).map(ligne => {
+                    {lignesSuiviPage.map(ligne => {
                       const engagement = getEngagementLigne(ligne.code);
                       const disponible = (ligne.dotation || 0) - engagement;
                       const taux = ligne.dotation > 0 ? ((engagement / ligne.dotation) * 100).toFixed(1) : 0;
@@ -545,6 +565,13 @@ const PageBudget = () => {
                 </table>
               </div>
             )}
+            <Pagination
+              page={pageSuiviCourante}
+              totalPages={totalPagesSuivi}
+              onChange={setPageSuivi}
+              suffixe={`(${lignesSuivi.length} ligne${lignesSuivi.length > 1 ? 's' : ''})`}
+              accentColor={accent}
+            />
           </div>
         </>
       )}
@@ -599,7 +626,7 @@ const PageBudget = () => {
                         <tr><th style={{ ...thStyle, width: 100 }}>Code</th><th style={thStyle}>Libellé</th><th style={{ ...thStyle, width: 180 }}>Dotation (FCFA)</th><th style={{ ...thStyle, width: 120, textAlign: 'right' }}>Engagé</th><th style={{ ...thStyle, width: 50 }}></th></tr>
                       </thead>
                       <tbody>
-                        {trierLignesParCode(budgetLignes).map(ligne => {
+                        {lignesEditionPage.map(ligne => {
                           const engagement = getEngagementLigne(ligne.code);
                           return (
                             <tr key={ligne.code} style={{ background: 'white' }}>
@@ -625,6 +652,13 @@ const PageBudget = () => {
                     </table>
                   </div>
                 )}
+                <Pagination
+                  page={pageEditionCourante}
+                  totalPages={totalPagesEdition}
+                  onChange={setPageEdition}
+                  suffixe={`(${budgetLignes.length} ligne${budgetLignes.length > 1 ? 's' : ''})`}
+                  accentColor={accent}
+                />
               </div>
             </div>
 

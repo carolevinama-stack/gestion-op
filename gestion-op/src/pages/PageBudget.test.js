@@ -397,3 +397,60 @@ describe('Budget — l\'ordre des lignes', () => {
     expect(codesFenetre()).toEqual(['6011', '6021', '6031']);
   });
 });
+
+describe('Budget — la pagination des deux tableaux', () => {
+  // 120 lignes : de quoi dépasser la page de 50 et vérifier le découpage.
+  const budgetLong = {
+    ...BUDGET,
+    lignes: Array.from({ length: 120 }, (_, i) => ({
+      code: String(6000 + i), libelle: `Rubrique ${i}`, dotation: 1000000,
+    })),
+  };
+
+  const codesDuTableau = (position) => {
+    const tableaux = screen.getAllByRole('table');
+    const tableau = position < 0 ? tableaux[tableaux.length + position] : tableaux[position];
+    return within(tableau).getAllByRole('row')
+      .map(l => within(l).queryAllByRole('cell')[0]?.textContent.trim())
+      .filter(c => /^\d/.test(c || ''));
+  };
+
+  test('le suivi n\'affiche que 50 lignes à la fois', () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)).toHaveLength(50);
+    expect(screen.getByText(/Page/)).toHaveTextContent('Page 1 / 3');
+    expect(screen.getByText(/Page/)).toHaveTextContent('120 lignes');
+  });
+
+  test('la page suivante montre les lignes suivantes', async () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    expect(codesDuTableau(0)[0]).toBe('6000');
+    await userEvent.click(screen.getByTitle('Page suivante'));
+    expect(codesDuTableau(0)[0]).toBe('6050');
+  });
+
+  test('la dernière page ne montre que le reste', async () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    await userEvent.click(screen.getByTitle('Dernière page'));
+    expect(codesDuTableau(0)).toHaveLength(20);   // 120 − 100
+  });
+
+  test('un budget court n\'affiche aucune pagination', () => {
+    render(<PageBudget />);
+    expect(screen.queryByTitle('Page suivante')).not.toBeInTheDocument();
+  });
+
+  // La fenêtre d'édition a sa propre pagination, et doit s'ouvrir en page 1
+  // même si le suivi était resté sur une page plus loin.
+  test('la fenêtre d\'édition se pagine et s\'ouvre en première page', async () => {
+    mockContexte.budgets = [budgetLong];
+    render(<PageBudget />);
+    await userEvent.click(screen.getByTitle('Dernière page'));
+    await ouvrirCorrection();
+    expect(codesDuTableau(-1)[0]).toBe('6000');
+    expect(codesDuTableau(-1)).toHaveLength(50);
+  });
+});
