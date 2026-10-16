@@ -23,12 +23,29 @@ cheval sur deux tables, son annulation complète quand un OP manque, les
 transactions sous 20 écritures simultanées, les six règles d'accès, et le
 temps réel.
 
+### L'application a tourné à l'écran
+
+Au-delà des scripts : le build réel servi par nginx, ouvert dans un vrai
+Chromium, connecté à ce Supabase.
+
+| | |
+|---|---|
+| Connexion (`operateur@demo.local`, puis `admin@demo.local`) | ✅ |
+| Tableau de bord — dotations, engagements, exécution par source | ✅ |
+| Budget — révisions, lignes **triées par code**, filtre du suivi | ✅ |
+| Liste des OP — filtres, autocomplétion, statuts du circuit | ✅ |
+| Bandeau DÉMO | ✅ |
+| Erreurs de console | **aucune**, hormis le `favicon.ico` manquant |
+
 ## Ce qui reste
 
 1. **La création de comptes** si les inscriptions sont fermées dans le
    projet Supabase — voir « Le seul point qui peut exiger un serveur ».
-2. **L'essai par les utilisatrices**, sur écran, avec de vraies saisies.
-   Aucun script ne remplace ça.
+2. **L'essai par les utilisatrices**, avec de vraies saisies et leur œil
+   métier. Aucun script ni aucune capture ne remplace ça.
+3. **Les trois icônes manquantes** (`favicon.ico`, `logo192.png`,
+   `logo512.png`), réclamées par `index.html` et `manifest.json` mais
+   absentes du dépôt — défaut déjà présent en production, sans gravité.
 
 ---
 
