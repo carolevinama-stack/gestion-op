@@ -297,7 +297,21 @@ const TabMaintenance = () => {
         XLSX.utils.book_append_sheet(wb, ws, nom.substring(0, 31));
       };
 
-      addSheet('OP', ops.map(op => ({
+      // Récupérés frais en base, et NON depuis le contexte.
+      //
+      // Le contexte ne garde en mémoire que l'exercice actif, ce qui est
+      // encore dans un circuit de validation, et les OP importés — pour ne
+      // pas relire indéfiniment les archives à chaque ouverture. Une
+      // sauvegarde, elle, doit couvrir TOUT : les OP archivés des exercices
+      // clos en faisaient les frais et manquaient au fichier, sans que rien
+      // ne le signale.
+      //
+      // C'est une lecture complète de la collection, donc une opération
+      // lourde : à lancer de temps en temps, pas en boucle.
+      const opsSnap = await getDocs(collection(db, 'ops'));
+      const tousLesOps = opsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      addSheet('OP', tousLesOps.map(op => ({
         'N° OP': op.numero, 'Type': op.type, 'Statut': op.statut,
         'Source': sources.find(s => s.id === op.sourceId)?.sigle || op.sourceId,
         'Exercice': exercices.find(e => e.id === op.exerciceId)?.annee || op.exerciceId,
@@ -342,7 +356,9 @@ const TabMaintenance = () => {
 
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
       XLSX.writeFile(wb, `Sauvegarde_GestionOP_${dateStr}.xlsx`);
-      notify("success", "Sauvegarde", "Fichier généré avec succès.");
+      // Le nombre d'OP est annoncé : c'est ce qui permet de voir d'un coup
+      // d'œil que la sauvegarde est complète, et non amputée des archives.
+      notify("success", "Sauvegarde", `Fichier généré : ${tousLesOps.length} OP, tous exercices confondus.`);
     } catch (e) {
       notify("error", "Erreur", "Échec de l'exportation : " + e.message);
     }
