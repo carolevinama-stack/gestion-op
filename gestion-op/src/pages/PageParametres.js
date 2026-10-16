@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
-import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Les lots d'écriture de ce
+// fichier ne visent qu'UNE table, donc writeBatch les traite tel quel
+// (l'interprète refuserait un lot à cheval sur deux tables).
+import { db, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from '../db';
 import { styles } from '../utils/styles';
 import { formatDate } from '../utils/formatters';
 import PageAdmin from './PageAdmin';

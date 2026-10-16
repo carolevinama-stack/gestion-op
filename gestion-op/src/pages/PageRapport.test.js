@@ -17,7 +17,9 @@ const mockUpdateDoc = jest.fn(async () => {});
 
 jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
-jest.mock('firebase/firestore', () => ({
+// La page passe par l'interprète ../db : seul le module visé change.
+jest.mock('../db', () => ({
+  db: {},
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau-doc' }),
   updateDoc: (...a) => mockUpdateDoc(...a),
   writeBatch: () => ({ update: mockBatchUpdate, commit: mockCommit }),

@@ -123,16 +123,19 @@ create unique index if not exists users_email_idx on users (email);
 -- ---------- Compteurs de numérotation ----------
 
 -- Firestore utilisait un document compteur par (type, source, exercice).
--- Ici une table, et surtout la fonction attribuer_numero() ci-dessous :
--- c'est elle qui remplace runTransaction et qui garantit qu'aucun numéro
--- ne peut être attribué deux fois, même à deux saisies simultanées.
+--
+-- Cette table suit la MÊME règle que toutes les autres : le document part
+-- entier dans `data`. C'était au départ une table à colonnes réelles, par
+-- goût ; l'interprète aurait alors eu besoin d'une exception pour elle
+-- seule — exactement le genre d'exception qu'on finit par oublier. Une
+-- seule règle pour toute la base.
+--
+-- L'atomicité de la numérotation ne vient pas de la forme de la table mais
+-- du verrou de ligne posé par ON CONFLICT dans attribuer_numero().
 create table if not exists compteurs (
-  id           text primary key,
-  count        int  not null default 0,
-  type         text,
-  source_id    text,
-  exercice_id  text,
-  updated_at   timestamptz not null default now()
+  id    text primary key,
+  data  jsonb not null default '{}'::jsonb,
+  count int generated always as ((data->>'count')::int) stored
 );
 
 -- Ajouté après inventaire des filtres : l'application interroge aussi

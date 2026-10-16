@@ -1,7 +1,10 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
-import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Les lots d'écriture de ce
+// fichier ne visent qu'UNE table, donc writeBatch les traite tel quel
+// (l'interprète refuserait un lot à cheval sur deux tables).
+import { db, doc, updateDoc, writeBatch } from '../db';
 import { styles } from '../utils/styles';
 import Autocomplete from '../components/Autocomplete';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';

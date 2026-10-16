@@ -184,6 +184,24 @@ export const getDoc = async (ref) => {
   return unDoc(data);
 };
 
+// getCountFromServer renvoie un nombre sans rapatrier les documents.
+// PostgREST sait le faire avec head: true : la réponse ne porte que le
+// décompte. Forme de retour identique à Firestore : snap.data().count.
+export const getCountFromServer = async (cible) => {
+  const q = cible.__type === 'query' ? cible : { nom: cible.nom, contraintes: [] };
+  let r = supabase.from(nomTable(q.nom)).select('id', { count: 'exact', head: true });
+  for (const c of q.contraintes || []) {
+    if (c.__c !== 'where') continue;
+    const col = colonne(c.champ);
+    if (c.operateur === '==') r = r.eq(col, c.valeur);
+    else if (c.operateur === 'in') r = r.in(col, c.valeur);
+    else if (c.operateur === '!=') r = r.neq(col, c.valeur);
+  }
+  const { count, error } = await r;
+  if (error) throw erreur(error);
+  return { data: () => ({ count: count || 0 }) };
+};
+
 // ---------- Écritures ----------
 
 export const addDoc = async (collectionRef, valeurs) => {
@@ -195,8 +213,24 @@ export const addDoc = async (collectionRef, valeurs) => {
   return { id };
 };
 
-// setDoc REMPLACE le document, comme chez Firestore.
-export const setDoc = async (ref, valeurs) => {
+// setDoc REMPLACE le document — sauf avec { merge: true }, qui fusionne.
+// La distinction compte : PageParametres recale les compteurs avec
+// { merge: true }, et sans cela le champ `type` du compteur serait effacé.
+export const setDoc = async (ref, valeurs, options) => {
+  if (options && options.merge) {
+    // Fusion, y compris si le document n'existe pas encore : d'où le
+    // upsert d'abord sur un document vide, puis la fusion. En une seule
+    // instruction chacun, donc sans relecture préalable.
+    const { error: e1 } = await supabase
+      .from(nomTable(ref.nom))
+      .upsert({ id: ref.id, data: {} }, { ignoreDuplicates: true });
+    if (e1) throw erreur(e1);
+    const { error: e2 } = await supabase.rpc('maj_document', {
+      p_table: nomTable(ref.nom), p_id: ref.id, p_patch: valeurs,
+    });
+    if (e2) throw erreur(e2);
+    return;
+  }
   const { error } = await supabase
     .from(nomTable(ref.nom))
     .upsert({ id: ref.id, data: valeurs });
@@ -225,7 +259,7 @@ export const deleteDoc = async (ref) => {
 export const writeBatch = () => {
   const operations = [];
   const api = {
-    set:    (ref, valeurs) => { operations.push({ genre: 'set',    ref, valeurs }); return api; },
+    set:    (ref, valeurs, options) => { operations.push({ genre: 'set', ref, valeurs, options }); return api; },
     update: (ref, champs)  => { operations.push({ genre: 'update', ref, champs  }); return api; },
     delete: (ref)          => { operations.push({ genre: 'delete', ref          }); return api; },
 
@@ -249,11 +283,20 @@ export const writeBatch = () => {
 
       // Même table : chaque genre part en une seule instruction, donc
       // chacune est atomique.
-      const aEcrire = operations.filter(o => o.genre === 'set')
+      //
+      // Les set avec { merge: true } sont traités à part : les fondre dans
+      // le upsert groupé remplacerait les documents au lieu de les
+      // compléter. C'est le cas du recalage des compteurs.
+      const aEcrire = operations
+        .filter(o => o.genre === 'set' && !(o.options && o.options.merge))
         .map(o => ({ id: o.ref.id, data: o.valeurs }));
       if (aEcrire.length) {
         const { error } = await supabase.from(table).upsert(aEcrire);
         if (error) throw erreur(error);
+      }
+
+      for (const o of operations.filter(o => o.genre === 'set' && o.options && o.options.merge)) {
+        await setDoc(o.ref, o.valeurs, o.options);
       }
 
       const aSupprimer = operations.filter(o => o.genre === 'delete').map(o => o.ref.id);

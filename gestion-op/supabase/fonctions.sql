@@ -33,12 +33,21 @@ as $$
 declare
   v_count int;
 begin
-  insert into compteurs (id, count, type, source_id, exercice_id, updated_at)
-  values (p_compteur_id, p_init + 1, p_type, p_source, p_exercice, now())
+  insert into compteurs (id, data)
+  values (
+    p_compteur_id,
+    jsonb_build_object(
+      'count', p_init + 1, 'type', p_type,
+      'sourceId', p_source, 'exerciceId', p_exercice,
+      'updatedAt', to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+    )
+  )
   on conflict (id) do update
-    set count      = compteurs.count + 1,
-        updated_at = now()
-  returning count into v_count;
+    set data = compteurs.data || jsonb_build_object(
+          'count', coalesce((compteurs.data->>'count')::int, 0) + 1,
+          'updatedAt', to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+        )
+  returning (data->>'count')::int into v_count;
 
   return v_count;
 end
