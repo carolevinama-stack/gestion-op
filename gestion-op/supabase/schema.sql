@@ -1,0 +1,136 @@
+-- ============================================================
+--  GESTION-OP — Schéma PostgreSQL (essai de migration Supabase)
+-- ============================================================
+--
+--  STRATÉGIE : reprise fidèle, pas refonte.
+--
+--  Firestore stocke des documents. PostgreSQL sait stocker des documents
+--  nativement (type jsonb) ET les indexer. On garde donc la forme exacte
+--  des documents dans une colonne `data`, et on expose en colonnes
+--  réelles — calculées automatiquement — les seuls champs sur lesquels
+--  l'application filtre ou trie.
+--
+--  Conséquence : aucun champ ne peut être perdu dans la migration, même
+--  un champ que personne n'avait inventorié. Et l'application retrouve
+--  ses documents à l'identique, donc la logique métier ne change pas.
+--
+--  Une normalisation complète (une colonne par champ) reste possible
+--  plus tard, sans urgence : ce n'est pas un préalable.
+-- ============================================================
+
+create extension if not exists pgcrypto;
+
+-- ---------- Référentiels ----------
+
+create table if not exists sources (
+  id    text primary key,
+  data  jsonb not null,
+  nom   text generated always as (data->>'nom') stored
+);
+
+create table if not exists exercices (
+  id     text primary key,
+  data   jsonb not null,
+  annee  int  generated always as ((data->>'annee')::int) stored,
+  actif  bool generated always as ((data->>'actif')::bool) stored
+);
+create index if not exists exercices_annee_idx on exercices (annee desc);
+
+create table if not exists lignes_budgetaires (
+  id    text primary key,
+  data  jsonb not null,
+  code  text generated always as (data->>'code') stored
+);
+create unique index if not exists lignes_code_idx on lignes_budgetaires (code);
+
+-- `ribs` est un tableau d'objets {banque, numero} : il reste dans data.
+-- L'ancien format `rib` (texte) y reste aussi, la rétrocompatibilité du
+-- code continue donc de fonctionner telle quelle.
+create table if not exists beneficiaires (
+  id    text primary key,
+  data  jsonb not null,
+  nom   text generated always as (data->>'nom') stored
+);
+create index if not exists beneficiaires_nom_idx on beneficiaires (nom);
+
+-- ---------- Budget ----------
+
+-- `lignes` est le tableau des lignes dotées de la version : il reste dans
+-- data, et garde son ordre — ce qui préserve le tri par code déjà en place.
+create table if not exists budgets (
+  id           text primary key,
+  data         jsonb not null,
+  source_id    text generated always as (data->>'sourceId') stored,
+  exercice_id  text generated always as (data->>'exerciceId') stored,
+  version      int  generated always as ((data->>'version')::int) stored
+);
+create index if not exists budgets_portee_idx on budgets (source_id, exercice_id, version desc);
+
+-- ---------- Ordres de paiement ----------
+
+-- `paiements` (les règlements partiels) reste dans data.
+create table if not exists ops (
+  id                text primary key,
+  data              jsonb not null,
+  numero            text generated always as (data->>'numero') stored,
+  source_id         text generated always as (data->>'sourceId') stored,
+  exercice_id       text generated always as (data->>'exerciceId') stored,
+  statut            text generated always as (data->>'statut') stored,
+  ligne_budgetaire  text generated always as (data->>'ligneBudgetaire') stored,
+  beneficiaire_id   text generated always as (data->>'beneficiaireId') stored,
+  cree_par          text generated always as (data->>'creePar') stored,
+  supprime_par      text generated always as (data->>'supprimePar') stored
+);
+
+-- L'index qui compte : c'est exactement la requête à trois filtres de la
+-- création d'OP (source + exercice + ligne), celle qui relit les
+-- engagements avant d'autoriser une saisie.
+create index if not exists ops_engagements_idx on ops (source_id, exercice_id, ligne_budgetaire);
+create index if not exists ops_statut_idx      on ops (source_id, exercice_id, statut);
+create index if not exists ops_numero_idx      on ops (numero);
+
+create table if not exists bordereaux (
+  id           text primary key,
+  data         jsonb not null,
+  source_id    text generated always as (data->>'sourceId') stored,
+  exercice_id  text generated always as (data->>'exerciceId') stored,
+  numero       text generated always as (data->>'numero') stored
+);
+create index if not exists bordereaux_portee_idx on bordereaux (source_id, exercice_id);
+
+-- ---------- Journal et utilisateurs ----------
+
+create table if not exists journal (
+  id    text primary key,
+  data  jsonb not null,
+  date  text generated always as (data->>'date') stored,
+  op_id text generated always as (data->>'opId') stored
+);
+create index if not exists journal_date_idx on journal (date desc);
+
+-- `id` = l'identifiant du compte (uid Firebase aujourd'hui, uid Supabase
+-- demain). Le document users n'a jamais contenu de mot de passe : ceux-ci
+-- sont gérés par le service d'authentification, pas par la base.
+create table if not exists users (
+  id    text primary key,
+  data  jsonb not null,
+  email text generated always as (data->>'email') stored,
+  role  text generated always as (data->>'role') stored,
+  actif bool generated always as ((data->>'actif')::bool) stored
+);
+create unique index if not exists users_email_idx on users (email);
+
+-- ---------- Compteurs de numérotation ----------
+
+-- Firestore utilisait un document compteur par (type, source, exercice).
+-- Ici une table, et surtout la fonction attribuer_numero() ci-dessous :
+-- c'est elle qui remplace runTransaction et qui garantit qu'aucun numéro
+-- ne peut être attribué deux fois, même à deux saisies simultanées.
+create table if not exists compteurs (
+  id           text primary key,
+  count        int  not null default 0,
+  type         text,
+  source_id    text,
+  exercice_id  text,
+  updated_at   timestamptz not null default now()
+);
