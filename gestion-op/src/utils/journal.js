@@ -4,8 +4,10 @@
 // "best effort" : un échec d'écriture du journal n'empêche jamais l'action métier
 // elle-même de réussir (le journal est une trace, pas une donnée critique).
 
-import { db } from '../firebase';
-import { collection, addDoc } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Seule cette ligne change ;
+// aucun appel ni aucun calcul en dessous n'est modifié.
+import { db, collection, addDoc } from '../db';
 
 export const ACTIONS_JOURNAL = {
   CREATION: 'CREATION',

@@ -25,8 +25,10 @@ import {
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import { buildOpPrintHtml } from '../utils/opPrint';
-import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore'; 
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Seule cette ligne change ;
+// aucun appel ni aucun calcul en dessous n'est modifié.
+import { db, doc, updateDoc } from '../db';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 import HistoriqueDifferes from '../components/HistoriqueDifferes';

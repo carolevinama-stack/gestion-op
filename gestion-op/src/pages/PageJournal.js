@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { db } from '../firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Seule cette ligne change ;
+// aucun appel ni aucun calcul en dessous n'est modifié.
+import { db, collection, query, orderBy, limit, getDocs } from '../db';
 import { styles } from '../utils/styles';
 import { ACTIONS_JOURNAL, nomUtilisateurJournal } from '../utils/journal';
 import Pagination from '../components/Pagination';

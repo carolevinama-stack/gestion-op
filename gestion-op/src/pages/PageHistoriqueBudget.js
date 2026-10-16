@@ -3,8 +3,10 @@ import { useAppContext } from '../context/AppContext';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import { raisonBlocageSuppression } from '../utils/versionsBudget';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
-import { db } from '../firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Seule cette ligne change ;
+// aucun appel ni aucun calcul en dessous n'est modifié.
+import { db, doc, deleteDoc } from '../db';
 
 // ==================== PALETTE ====================
 const P = {

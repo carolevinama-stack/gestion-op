@@ -2,8 +2,10 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import Pagination from '../components/Pagination';
-import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Seule cette ligne change ;
+// aucun appel ni aucun calcul en dessous n'est modifié.
+import { db, collection, doc, addDoc, updateDoc, deleteDoc } from '../db';
 
 // ==================== PALETTE ====================
 const P = {

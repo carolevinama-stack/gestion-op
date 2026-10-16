@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
 import Autocomplete from '../components/Autocomplete'; // Importation de la base de données
-import { doc, updateDoc } from 'firebase/firestore'; // Importation des outils de mise à jour
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase. Seule cette ligne change ;
+// aucun appel ni aucun calcul en dessous n'est modifié.
+import { db, doc, updateDoc } from '../db'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
 import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
