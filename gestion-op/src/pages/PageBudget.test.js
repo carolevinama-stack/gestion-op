@@ -15,7 +15,12 @@ const mockDeleteDoc = jest.fn(async () => {});
 
 jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
-jest.mock('firebase/firestore', () => ({
+// La page passe par l'interprète ../db au lieu de firebase/firestore : seul
+// le module visé par la doublure change. Le corps de la doublure est le même,
+// et AUCUNE des 46 assertions de ce fichier n'est modifiée — c'est précisément
+// ce qui prouve que les calculs n'ont pas bougé.
+jest.mock('../db', () => ({
+  db: {},
   collection: (_db, nom) => ({ nom }),
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau-doc' }),
   addDoc: (...a) => mockAddDoc(...a),

@@ -1,8 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { formatMontant, exportToCSV, sanitizeForExport } from '../utils/formatters';
-import { db } from '../firebase';
-import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore (collection, doc, addDoc, updateDoc, deleteDoc) au-dessus
+// de Supabase. Seule cette ligne change dans la page ; aucun appel en dessous
+// n'est modifié, et aucun calcul ne l'est.
+import { db, collection, doc, addDoc, updateDoc, deleteDoc } from '../db';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
 import Pagination from '../components/Pagination';
 import { raisonBlocageSuppression } from '../utils/versionsBudget';

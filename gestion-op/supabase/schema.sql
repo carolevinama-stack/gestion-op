@@ -134,3 +134,9 @@ create table if not exists compteurs (
   exercice_id  text,
   updated_at   timestamptz not null default now()
 );
+
+-- Ajouté après inventaire des filtres : l'application interroge aussi
+-- importAnterieur (les OP rattachés à un exercice antérieur).
+alter table ops add column if not exists import_anterieur bool
+  generated always as ((data->>'importAnterieur')::bool) stored;
+create index if not exists ops_import_anterieur_idx on ops (import_anterieur) where import_anterieur;

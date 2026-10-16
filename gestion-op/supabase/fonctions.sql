@@ -43,3 +43,71 @@ begin
   return v_count;
 end
 $$;
+
+-- ============================================================
+--  maj_document — remplace updateDoc de Firestore
+-- ============================================================
+--
+--  updateDoc FUSIONNE les champs fournis avec le document existant : il
+--  ne le remplace pas. L'opérateur || de jsonb fait exactement cela, et
+--  en une seule instruction — donc sans relire le document avant, donc
+--  sans risque qu'une modification simultanée soit écrasée.
+--
+--  La liste des tables est fermée : une table non prévue est refusée,
+--  pas devinée.
+-- ============================================================
+
+create or replace function maj_document(
+  p_table  text,
+  p_id     text,
+  p_patch  jsonb
+) returns void
+language plpgsql
+as $$
+begin
+  if p_table not in ('sources','exercices','lignes_budgetaires','beneficiaires',
+                     'budgets','ops','bordereaux','journal','users') then
+    raise exception 'Table non autorisée : %', p_table;
+  end if;
+
+  execute format('update %I set data = data || $2 where id = $1', p_table)
+    using p_id, p_patch;
+end
+$$;
+
+-- ============================================================
+--  transmettre_bordereau — remplace le writeBatch de PageCircuitCF/AC
+-- ============================================================
+--
+--  Ce lot écrit dans DEUX tables à la fois : le bordereau est créé et les
+--  OP qu'il contient changent de statut. Les deux doivent réussir ou
+--  échouer ensemble, sinon on obtient un bordereau transmis dont les OP
+--  n'ont pas bougé — ou l'inverse.
+--
+--  Une fonction PostgreSQL est transactionnelle par nature : tout ce
+--  qu'elle fait est validé d'un bloc, ou annulé d'un bloc.
+-- ============================================================
+
+create or replace function transmettre_bordereau(
+  p_bordereau_id    text,
+  p_bordereau_data  jsonb,
+  p_op_ids          text[],
+  p_patch_ops       jsonb
+) returns void
+language plpgsql
+as $$
+begin
+  insert into bordereaux (id, data)
+  values (p_bordereau_id, p_bordereau_data)
+  on conflict (id) do update set data = excluded.data;
+
+  update ops
+     set data = data || p_patch_ops
+   where id = any(p_op_ids);
+
+  -- Garde-fou : si un OP du bordereau n'existe pas, on annule tout.
+  if (select count(*) from ops where id = any(p_op_ids)) <> array_length(p_op_ids, 1) then
+    raise exception 'Bordereau %: un ou plusieurs OP sont introuvables', p_bordereau_id;
+  end if;
+end
+$$;
