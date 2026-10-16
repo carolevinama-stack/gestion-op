@@ -23,6 +23,10 @@
  *  lus contre nombre de lignes présentes en base. Un clonage qui perd un
  *  document se voit immédiatement.
  *
+ *  --vider : repartir d'une base vide, ce qu'exige une vraie migration.
+ *            Le vidage se fait dans la même transaction que le clonage :
+ *            si celui-ci échoue, les données d'avant sont toujours là.
+ *
  *  Connexion : variable PG_URL, par défaut la base d'essai locale.
  * ============================================================
  */
@@ -45,6 +49,7 @@ const TABLES = {
   bordereaux:         'bordereaux',
   journal:            'journal',
   users:              'users',
+  parametres:         'parametres',
 };
 
 // ------------------------------------------------------------
@@ -98,20 +103,31 @@ const ecrire = async (client, collection, documents) => {
 
 const verifier = async (client, attendus) => {
   console.log('\n  VÉRIFICATION');
-  console.log('  ' + '-'.repeat(52));
-  let toutBon = true;
+  console.log('  ' + '-'.repeat(60));
+  let manquants = 0;
+  let surnumeraires = 0;
   for (const [collection, table] of Object.entries(TABLES)) {
     const { rows } = await client.query(`select count(*)::int as n from ${table}`);
     const enBase = rows[0].n;
     const attendu = attendus[collection] ?? 0;
-    const ok = enBase === attendu;
-    if (!ok) toutBon = false;
+    // Deux écarts de nature très différente, à ne pas confondre :
+    //  - MOINS de lignes qu'attendu : le clonage a perdu des documents. Grave.
+    //  - PLUS de lignes qu'attendu : la table n'était pas vide avant. Sans
+    //    gravité en soi, mais il faut le dire — sur une vraie migration, la
+    //    base de destination doit être vide (voir --vider).
+    let note = '';
+    if (enBase < attendu) { manquants += attendu - enBase; note = `  ⚠ ${attendu - enBase} PERDU(S)`; }
+    else if (enBase > attendu) { surnumeraires += enBase - attendu; note = `  (+${enBase - attendu} déjà présent(s))`; }
     console.log(
-      `  ${ok ? '✓' : '✗'} ${collection.padEnd(20)} lus ${String(attendu).padStart(6)}   en base ${String(enBase).padStart(6)}`
+      `  ${enBase < attendu ? '✗' : enBase > attendu ? '~' : '✓'} ${collection.padEnd(20)}` +
+      ` lus ${String(attendu).padStart(6)}   en base ${String(enBase).padStart(6)}${note}`
     );
   }
-  console.log('  ' + '-'.repeat(52));
-  return toutBon;
+  console.log('  ' + '-'.repeat(60));
+  if (manquants) console.log(`\n  ✗ ${manquants} document(s) PERDU(S) — le clonage est incomplet.`);
+  else if (surnumeraires) console.log(`\n  ~ Clonage complet. ${surnumeraires} ligne(s) préexistante(s) dans la base.`);
+  else console.log('\n  ✓ Clonage complet et vérifié, base exactement conforme.');
+  return manquants === 0;
 };
 
 // ------------------------------------------------------------
@@ -127,7 +143,7 @@ const main = async () => {
   } else {
     const i = args.indexOf('--export');
     if (i === -1 || !args[i + 1]) {
-      console.error('Usage : --fictif   ou   --export <dossier>');
+      console.error('Usage : --fictif   ou   --export <dossier>   [--vider]');
       process.exit(1);
     }
     data = lireExport(args[i + 1]);
@@ -142,6 +158,15 @@ const main = async () => {
     // Un seul bloc transactionnel : si une collection échoue, rien n'est
     // écrit du tout. Pas de base à moitié clonée.
     await client.query('begin');
+
+    // --vider : repartir d'une base vide, ce qu'exige une vraie migration.
+    // Dans la même transaction que le clonage : si celui-ci échoue, les
+    // données d'avant sont toujours là.
+    if (args.includes('--vider')) {
+      const tables = Object.values(TABLES).join(', ');
+      await client.query(`truncate ${tables}`);
+      console.log(`  (tables vidées avant clonage)\n`);
+    }
     for (const collection of Object.keys(TABLES)) {
       const documents = data[collection] || [];
       attendus[collection] = await ecrire(client, collection, documents);
@@ -158,7 +183,7 @@ const main = async () => {
   const ok = await verifier(client, attendus);
   await client.end();
 
-  console.log(ok ? '\n  ✓ Clonage complet et vérifié.\n' : '\n  ✗ Écart détecté.\n');
+  console.log('');
   process.exit(ok ? 0 : 1);
 };
 

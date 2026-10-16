@@ -47,6 +47,7 @@ const TABLE = {
   journal:           'journal',
   users:             'users',
   compteurs:         'compteurs',
+  parametres:        'parametres',
 };
 
 // Champs exposés en colonnes réelles par le schéma : filtrer ou trier sur

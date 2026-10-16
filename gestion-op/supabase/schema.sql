@@ -53,6 +53,15 @@ create table if not exists beneficiaires (
 );
 create index if not exists beneficiaires_nom_idx on beneficiaires (nom);
 
+-- Configuration du projet : sigle, entêtes d'impression, logos.
+-- Un unique document, d'identifiant 'projet'. Accédé par
+-- doc(db, 'parametres', 'projet') et non via collection(), ce qui l'avait
+-- fait manquer au premier inventaire des collections.
+create table if not exists parametres (
+  id    text primary key,
+  data  jsonb not null
+);
+
 -- ---------- Budget ----------
 
 -- `lignes` est le tableau des lignes dotées de la version : il reste dans
@@ -171,3 +180,4 @@ alter table bordereaux         add column if not exists empreinte text generated
 alter table journal            add column if not exists empreinte text generated always as (md5(data::text)) stored;
 alter table users              add column if not exists empreinte text generated always as (md5(data::text)) stored;
 alter table compteurs          add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table parametres         add column if not exists empreinte text generated always as (md5(data::text)) stored;

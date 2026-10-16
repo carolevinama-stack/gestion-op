@@ -75,7 +75,7 @@ language plpgsql
 as $$
 begin
   if p_table not in ('sources','exercices','lignes_budgetaires','beneficiaires',
-                     'budgets','ops','bordereaux','journal','users') then
+                     'budgets','ops','bordereaux','journal','users','compteurs','parametres') then
     raise exception 'Table non autorisée : %', p_table;
   end if;
 
@@ -135,7 +135,7 @@ begin
     v_data  := coalesce(op->'data', '{}'::jsonb);
 
     if v_table not in ('sources','exercices','lignes_budgetaires','beneficiaires',
-                       'budgets','ops','bordereaux','journal','users','compteurs') then
+                       'budgets','ops','bordereaux','journal','users','compteurs','parametres') then
       raise exception 'Table non autorisée : %', v_table;
     end if;
     if v_id is null or v_id = '' then
@@ -215,7 +215,7 @@ begin
     v_attendue := lec->>'empreinte';
 
     if v_table not in ('sources','exercices','lignes_budgetaires','beneficiaires',
-                       'budgets','ops','bordereaux','journal','users','compteurs') then
+                       'budgets','ops','bordereaux','journal','users','compteurs','parametres') then
       raise exception 'Table non autorisée : %', v_table;
     end if;
 

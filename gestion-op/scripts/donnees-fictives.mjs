@@ -220,13 +220,34 @@ export const donneesFictives = () => {
   // ---------- Comptes ----------
   // Aucun mot de passe ici : ils sont gérés par le service
   // d'authentification, jamais par la base.
+  // Les identifiants sont des UUID, comme ceux que produit le service
+  // d'authentification. Valeurs fixes pour que les épreuves de sécurité
+  // puissent s'y référer.
   const users = [
-    { id: 'uid-admin', email: 'admin@demo.local',      nom: 'Administrateur Démo', role: 'ADMIN',      actif: true },
-    { id: 'uid-oper',  email: 'operateur@demo.local',  nom: 'Opérateur Démo',      role: 'OPERATEUR',  actif: true },
-    { id: 'uid-lect',  email: 'lecteur@demo.local',    nom: 'Lecteur Démo',        role: 'LECTEUR',    actif: true },
+    { id: '11111111-1111-4111-8111-111111111111', email: 'admin@demo.local',     nom: 'Administrateur Démo', role: 'ADMIN',        actif: true },
+    { id: '22222222-2222-4222-8222-222222222222', email: 'operateur@demo.local', nom: 'Opérateur Démo',      role: 'OPERATEUR',    actif: true },
+    { id: '33333333-3333-4333-8333-333333333333', email: 'lecteur@demo.local',   nom: 'Lecteur Démo',        role: 'CONSULTATION', actif: true },
+    // Un compte désactivé : il doit être refusé partout, bien qu'il puisse
+    // se connecter. C'est tout l'objet du principe « être authentifié ne
+    // suffit pas ».
+    { id: '44444444-4444-4444-8444-444444444444', email: 'parti@demo.local',     nom: 'Agent Parti',         role: 'OPERATEUR',    actif: false },
+    // Un compte sans champ `actif` : créé avant l'introduction du champ,
+    // ou directement dans la console. Doit valoir ACTIF.
+    { id: '55555555-5555-4555-8555-555555555555', email: 'ancien@demo.local',    nom: 'Ancien Compte',       role: 'OPERATEUR' },
   ];
 
+  // Configuration du projet : un unique document d'identifiant 'projet'.
+  const parametres = [{
+    id: 'projet',
+    nom: 'Projet de Démonstration PIF2',
+    sigle: 'PIF2',
+    entete1: 'MINISTÈRE DE DÉMONSTRATION',
+    entete2: 'PROJET FICTIF D\'APPUI',
+    ville: 'Abidjan',
+  }];
+
   return {
+    parametres,
     sources, exercices,
     lignesBudgetaires: lignes,
     beneficiaires, budgets, ops, bordereaux, journal, users,
