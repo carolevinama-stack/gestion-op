@@ -30,7 +30,9 @@ const jouerTransaction = async (_db, fn) => {
 
 jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
-jest.mock('firebase/firestore', () => ({
+// La page passe par l'interprète ../db : seul le module visé change.
+jest.mock('../db', () => ({
+  db: {},
   collection: (_db, nom) => ({ nom }),
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau-doc' }),
   updateDoc: (...a) => mockUpdateDoc(...a),

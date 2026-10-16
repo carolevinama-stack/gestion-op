@@ -143,3 +143,31 @@ create table if not exists compteurs (
 alter table ops add column if not exists import_anterieur bool
   generated always as ((data->>'importAnterieur')::bool) stored;
 create index if not exists ops_import_anterieur_idx on ops (import_anterieur) where import_anterieur;
+
+-- ============================================================
+--  Empreintes — pour les transactions optimistes
+-- ============================================================
+--
+--  runTransaction de Firestore relit les documents qu'il a lus au moment
+--  de valider : si l'un a changé entre-temps, la transaction recommence.
+--  C'est ce qui empêche deux paiements simultanés de s'écraser.
+--
+--  Pour rendre la même garantie, l'interprète a besoin de savoir si un
+--  document a changé. Cette colonne calculée le dit : elle est recalculée
+--  par PostgreSQL à chaque écriture, et la représentation texte d'un jsonb
+--  est normalisée (clés triées), donc l'empreinte est stable.
+--
+--  Elle n'est jamais écrite ni lue par les pages : seul src/db.js s'en
+--  sert, à l'intérieur d'une transaction.
+-- ============================================================
+
+alter table sources            add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table exercices          add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table lignes_budgetaires add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table beneficiaires      add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table budgets            add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table ops                add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table bordereaux         add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table journal            add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table users              add column if not exists empreinte text generated always as (md5(data::text)) stored;
+alter table compteurs          add column if not exists empreinte text generated always as (md5(data::text)) stored;

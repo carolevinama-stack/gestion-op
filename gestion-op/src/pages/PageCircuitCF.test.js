@@ -20,7 +20,9 @@ jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 // aux tests de dire QUEL OP a été écrit, et pas seulement qu'il y a eu écriture.
 // Déclarées en fonctions simples, et non en jest.fn : Create React App remet les
 // doublures à zéro avant chaque test, ce qui effacerait leur comportement.
-jest.mock('firebase/firestore', () => ({
+// La page passe par l'interprète ../db : seul le module visé change.
+jest.mock('../db', () => ({
+  db: {},
   collection: (_db, nom) => ({ nom }),
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau-doc', cible: a[1]?.nom || a[1] }),
   updateDoc: (...a) => mockUpdateDoc(...a),

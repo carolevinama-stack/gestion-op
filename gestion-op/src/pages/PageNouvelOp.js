@@ -16,8 +16,12 @@ import {
 } from '../utils/opCalculs';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import { messageErreur } from '../utils/erreursFirebase';
-import { db } from '../firebase';
-import { collection, doc, getDocs, getDoc, query, where, runTransaction } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase — y compris writeBatch et
+// runTransaction, qui gardent leurs garanties (lot validé d'un bloc,
+// transaction rejouée si un document lu a changé). Seule cette ligne
+// change ; aucun calcul n'est modifié.
+import { db, collection, doc, getDocs, getDoc, query, where, runTransaction } from '../db';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 

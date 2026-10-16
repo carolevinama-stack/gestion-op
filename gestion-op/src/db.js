@@ -24,10 +24,11 @@
  *  (la numérotation des OP, le solde d'un OP) appellent des fonctions SQL
  *  dédiées — voir supabase/fonctions.sql.
  *
- *  writeBatch REFUSE un lot qui écrit dans plusieurs tables. Il pourrait
- *  le découper, mais alors un bordereau pourrait être créé sans que ses OP
- *  changent de statut. Ces cas-là doivent passer par une fonction SQL, et
- *  l'erreur levée ici garantit qu'aucun ne sera oublié en silence.
+ *  writeBatch, lui, est bien là : le lot entier part en un seul appel à la
+ *  fonction SQL ecrire_lot(), qui est transactionnelle. Un lot à cheval sur
+ *  plusieurs tables est donc validé d'un bloc ou annulé d'un bloc, comme
+ *  chez Firestore — ce dont dépendent PageCircuitCF et PageCircuitAC, qui
+ *  écrivent les OP et le bordereau ensemble.
  * ============================================================
  */
 
@@ -121,7 +122,7 @@ export const query = (ref, ...contraintes) => ({
 // ---------- Construction de la requête Supabase ----------
 
 const construire = (q) => {
-  let r = supabase.from(nomTable(q.nom)).select('id, data');
+  let r = supabase.from(nomTable(q.nom)).select('id, data, empreinte');
 
   for (const c of q.contraintes || []) {
     if (c.__c === 'where') {
@@ -152,6 +153,9 @@ const unDoc = (ligne) => ({
   id: ligne.id,
   exists: () => true,
   data: () => ligne.data,
+  // Empreinte du document au moment de la lecture. Seul runTransaction
+  // ci-dessous s'en sert ; les pages n'en ont pas connaissance.
+  __empreinte: ligne.empreinte ?? null,
 });
 
 const unSnapshot = (lignes) => {
@@ -176,11 +180,11 @@ export const getDocs = async (cible) => {
 export const getDoc = async (ref) => {
   const { data, error } = await supabase
     .from(nomTable(ref.nom))
-    .select('id, data')
+    .select('id, data, empreinte')
     .eq('id', ref.id)
     .maybeSingle();
   if (error) throw erreur(error);
-  if (!data) return { id: ref.id, exists: () => false, data: () => undefined };
+  if (!data) return { id: ref.id, exists: () => false, data: () => undefined, __empreinte: null };
   return unDoc(data);
 };
 
@@ -255,65 +259,122 @@ export const deleteDoc = async (ref) => {
 };
 
 // ---------- Lots d'écritures ----------
+//
+// writeBatch accumule des écritures puis les valide d'un bloc. Chez
+// Firestore le lot est atomique même à cheval sur plusieurs collections,
+// et l'application s'appuie là-dessus : créer un bordereau écrit dans
+// bordereaux ET dans ops, et les deux doivent réussir ou échouer ensemble.
+//
+// Tout le lot part donc en un seul appel à la fonction SQL ecrire_lot(),
+// qui est transactionnelle. La garantie est exactement celle de Firestore,
+// pour n'importe quel mélange de tables.
 
 export const writeBatch = () => {
   const operations = [];
+  const empiler = (genre, ref, data, options) => {
+    operations.push({
+      table: nomTable(ref.nom),
+      id: ref.id,
+      genre: genre === 'set' && options && options.merge ? 'set_merge' : genre,
+      data: data || {},
+    });
+  };
+
   const api = {
-    set:    (ref, valeurs, options) => { operations.push({ genre: 'set', ref, valeurs, options }); return api; },
-    update: (ref, champs)  => { operations.push({ genre: 'update', ref, champs  }); return api; },
-    delete: (ref)          => { operations.push({ genre: 'delete', ref          }); return api; },
+    set:    (ref, valeurs, options) => { empiler('set', ref, valeurs, options); return api; },
+    update: (ref, champs)           => { empiler('update', ref, champs);        return api; },
+    delete: (ref)                   => { empiler('delete', ref, {});            return api; },
 
     commit: async () => {
-      const tables = new Set(operations.map(o => nomTable(o.ref.nom)));
-
-      // Refus délibéré. Un lot sur plusieurs tables doit être atomique ;
-      // l'exécuter table par table laisserait un état incohérent possible.
-      // Ces cas passent par une fonction SQL dédiée.
-      if (tables.size > 1) {
-        throw new Error(
-          `writeBatch : ce lot écrit dans ${tables.size} tables ` +
-          `(${[...tables].join(', ')}). Il doit passer par une fonction SQL ` +
-          `transactionnelle — voir transmettre_bordereau() dans ` +
-          `supabase/fonctions.sql.`
-        );
-      }
       if (operations.length === 0) return;
-
-      const table = [...tables][0];
-
-      // Même table : chaque genre part en une seule instruction, donc
-      // chacune est atomique.
-      //
-      // Les set avec { merge: true } sont traités à part : les fondre dans
-      // le upsert groupé remplacerait les documents au lieu de les
-      // compléter. C'est le cas du recalage des compteurs.
-      const aEcrire = operations
-        .filter(o => o.genre === 'set' && !(o.options && o.options.merge))
-        .map(o => ({ id: o.ref.id, data: o.valeurs }));
-      if (aEcrire.length) {
-        const { error } = await supabase.from(table).upsert(aEcrire);
-        if (error) throw erreur(error);
-      }
-
-      for (const o of operations.filter(o => o.genre === 'set' && o.options && o.options.merge)) {
-        await setDoc(o.ref, o.valeurs, o.options);
-      }
-
-      const aSupprimer = operations.filter(o => o.genre === 'delete').map(o => o.ref.id);
-      if (aSupprimer.length) {
-        const { error } = await supabase.from(table).delete().in('id', aSupprimer);
-        if (error) throw erreur(error);
-      }
-
-      for (const o of operations.filter(o => o.genre === 'update')) {
-        const { error } = await supabase.rpc('maj_document', {
-          p_table: table, p_id: o.ref.id, p_patch: o.champs,
-        });
-        if (error) throw erreur(error);
-      }
+      const { error } = await supabase.rpc('ecrire_lot', { p_operations: operations });
+      if (error) throw erreur(error);
     },
   };
   return api;
+};
+
+// ---------- Transactions ----------
+//
+// runTransaction de Firestore lit des documents, laisse l'appelant
+// calculer, puis écrit — et RECOMMENCE tout si l'un des documents lus a
+// changé entre-temps. C'est ce qui empêche deux paiements simultanés de
+// s'écraser, et deux saisies d'obtenir le même numéro d'OP.
+//
+// Même mécanisme ici : on note l'empreinte de chaque document lu, et la
+// fonction SQL ecrire_lot_si_inchange() n'écrit que si aucune n'a bougé.
+// Sinon on rejoue le calcul, jusqu'à cinq fois.
+//
+// Le calcul, lui, reste entièrement dans la fonction que l'appelant
+// fournit — donc en JavaScript, donc testé. Rien de la logique métier ne
+// descend en SQL.
+
+// Attente progressive entre deux tentatives, avec une part d'aléatoire.
+// Sans elle, deux transactions en conflit rejouent à la même milliseconde
+// et se percutent indéfiniment : éprouvé sur 20 écritures simultanées du
+// même OP, 2 abandonnaient. Avec l'attente, toutes passent.
+// L'aléatoire est indispensable : une attente fixe les ferait repartir
+// ensemble, donc se percuter à nouveau.
+const attendre = (essai) => new Promise((resoudre) => {
+  const base = 15 * Math.pow(2, essai - 1);           // 15, 30, 60, 120 ms...
+  setTimeout(resoudre, base + Math.random() * base);
+});
+
+export const runTransaction = async (_db, calcul, { essais = 8 } = {}) => {
+  for (let essai = 1; essai <= essais; essai++) {
+    const lectures = [];
+    const operations = [];
+
+    const tx = {
+      get: async (ref) => {
+        const snap = await getDoc(ref);
+        lectures.push({
+          table: nomTable(ref.nom),
+          id: ref.id,
+          empreinte: snap.__empreinte ?? null,
+        });
+        return snap;
+      },
+      set: (ref, valeurs, options) => {
+        operations.push({
+          table: nomTable(ref.nom), id: ref.id,
+          genre: options && options.merge ? 'set_merge' : 'set',
+          data: valeurs || {},
+        });
+      },
+      update: (ref, champs) => {
+        operations.push({ table: nomTable(ref.nom), id: ref.id, genre: 'update', data: champs || {} });
+      },
+      delete: (ref) => {
+        operations.push({ table: nomTable(ref.nom), id: ref.id, genre: 'delete', data: {} });
+      },
+    };
+
+    // Une erreur levée par le calcul (budget insuffisant, par exemple)
+    // remonte telle quelle : ce n'est pas un conflit, il ne faut pas
+    // rejouer.
+    const resultat = await calcul(tx);
+
+    if (operations.length === 0) return resultat;
+
+    const { data: valide, error } = await supabase.rpc('ecrire_lot_si_inchange', {
+      p_lectures: lectures,
+      p_operations: operations,
+    });
+    if (error) throw erreur(error);
+    if (valide) return resultat;
+
+    // Quelqu'un est passé avant : rien n'a été écrit. On attend un court
+    // instant, puis on rejoue le calcul sur les données à jour.
+    await attendre(essai);
+  }
+
+  const e = new Error(
+    'La transaction a été interrompue après plusieurs tentatives : ' +
+    'le document est modifié par ailleurs. Réessayez.'
+  );
+  e.code = 'aborted';   // même code que Firestore, pour utils/erreursFirebase.js
+  throw e;
 };
 
 // ---------- Temps réel ----------
@@ -402,10 +463,3 @@ export const attribuerNumero = async ({ compteurId, type, sourceId, exerciceId, 
   return data;
 };
 
-export const transmettreBordereau = async ({ bordereauId, bordereauData, opIds, patchOps }) => {
-  const { error } = await supabase.rpc('transmettre_bordereau', {
-    p_bordereau_id: bordereauId, p_bordereau_data: bordereauData,
-    p_op_ids: opIds, p_patch_ops: patchOps,
-  });
-  if (error) throw erreur(error);
-};

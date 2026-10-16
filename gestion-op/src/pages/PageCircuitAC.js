@@ -1,7 +1,11 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
-import { collection, doc, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
+// Base de données : l'interprète src/db.js expose les mêmes noms que
+// firebase/firestore, au-dessus de Supabase — y compris writeBatch et
+// runTransaction, qui gardent leurs garanties (lot validé d'un bloc,
+// transaction rejouée si un document lu a changé). Seule cette ligne
+// change ; aucun calcul n'est modifié.
+import { db, collection, doc, updateDoc, writeBatch, runTransaction } from '../db';
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../utils/formatters';
 import { buildBordereauPrintHtml } from '../utils/bordereauPrint';

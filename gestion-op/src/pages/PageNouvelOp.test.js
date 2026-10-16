@@ -18,7 +18,9 @@ const mockGetDocs = jest.fn(async () => ({ docs: [] }));
 
 jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
-jest.mock('firebase/firestore', () => ({
+// La page passe par l'interprète ../db : seul le module visé change.
+jest.mock('../db', () => ({
+  db: {},
   collection: jest.fn(() => ({})),
   doc: jest.fn(() => ({ id: 'nouvel-op' })),
   query: jest.fn(() => ({})),
