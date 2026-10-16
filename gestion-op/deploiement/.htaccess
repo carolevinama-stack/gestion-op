@@ -8,9 +8,15 @@
 #  (budget, liste des OP, rapport...) sont affichés par le navigateur,
 #  pas par le serveur.
 #
-#  Sans ce fichier, taper une adresse d'écran directement, ou simplement
-#  recharger la page avec F5, renvoie une erreur 404 : le serveur cherche
-#  un fichier qui n'existe pas.
+#  À SAVOIR, et c'est rassurant : l'application n'utilise AUCUN routeur.
+#  Les écrans changent par l'état interne de React et l'adresse ne quitte
+#  jamais la racine, donc F5 recharge toujours la racine. Ce fichier est
+#  un filet de sécurité (adresse mal tapée, favori périmé), pas une
+#  nécessité — contrairement à ce que je croyais avant de l'éprouver.
+#
+#  VÉRIFIÉ contre un vrai Apache : /budget et /circuitCF servent bien le
+#  même contenu que la racine, le script compilé est mis en cache un an,
+#  index.html ne l'est jamais.
 #
 #  La règle ci-dessous dit au serveur : « si le fichier demandé n'existe
 #  pas, sers index.html ». C'est l'équivalent exact de la section
@@ -46,7 +52,7 @@
 
 <IfModule mod_expires.c>
   ExpiresActive On
-  <FilesMatch "\.(js|css|woff2|png|jpg|svg)$">
+  <FilesMatch "\.(js|css|woff|woff2|ttf|eot|png|jpe?g|gif|svg|ico|webp)$">
     ExpiresDefault "access plus 1 year"
   </FilesMatch>
 </IfModule>
@@ -56,3 +62,23 @@
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>
+
+# ------------------------------------------------------------
+#  SI L'APPLICATION EST DANS UN SOUS-DOSSIER
+# ------------------------------------------------------------
+#  Par exemple https://apps.projet.org/gestion-op/ et non la racine.
+#
+#  1. Ajouter "homepage": "." dans package.json AVANT de compiler, sans
+#     quoi le navigateur cherche les scripts à la racine du domaine et
+#     l'application s'ouvre sur une page blanche, sans message d'erreur.
+#  2. Remplacer la ligne RewriteBase ci-dessus par :
+#
+#         RewriteBase /gestion-op/
+#
+#  3. Et la dernière RewriteRule par :
+#
+#         RewriteRule ^ /gestion-op/index.html [L]
+#
+#  Ce cas a été vérifié : les écrans et le script principal répondent
+#  tous correctement depuis un sous-dossier.
+# ------------------------------------------------------------

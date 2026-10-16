@@ -50,15 +50,32 @@ il est simplement ignoré. Il ne casse rien.
 
 ---
 
-## Pourquoi un fichier de configuration est obligatoire
+## À quoi sert le fichier de configuration
 
 L'application n'a qu'une seule page réelle : `index.html`. Les écrans
 sont affichés par le navigateur, pas par le serveur.
 
-Sans configuration, **appuyer sur F5 renvoie une erreur 404** : le
-serveur cherche un fichier « budget » ou « rapport » qui n'existe pas.
-Les deux fichiers de ce dossier corrigent cela, chacun dans sa langue.
-C'est exactement ce que fait déjà la section `rewrites` de `vercel.json`.
+**Correction de ce que j'avais écrit ici d'abord** : je disais que sans
+configuration, F5 renverrait une erreur 404. C'est faux pour cette
+application — je l'ai vérifié. Elle n'utilise **aucun routeur** : les
+écrans changent par l'état interne de React et l'adresse ne quitte jamais
+la racine. F5 recharge donc toujours la racine, configuration ou non.
+
+Le fichier reste utile comme **filet de sécurité** — adresse mal tapée,
+favori périmé — et pour rester aligné sur la section `rewrites` de
+`vercel.json`. Mais ce n'est pas lui qui empêche l'application de
+tomber en panne.
+
+### Les deux configurations sont éprouvées
+
+Elles ont été testées contre de vrais serveurs, pas seulement écrites :
+
+| | nginx | Apache |
+|---|---|---|
+| `/budget`, `/circuitCF` servent l'application | ✅ | ✅ |
+| Script compilé mis en cache un an | ✅ | ✅ |
+| `index.html` jamais mis en cache | ✅ | ✅ |
+| Dépôt dans un sous-dossier | ✅ | variante documentée |
 
 ---
 
@@ -108,3 +125,33 @@ site est déjà à la racine : elle ne casse donc pas le déploiement actuel.
 **À demander, et c'est une question anodine :** « à quelle adresse exacte
 le site sera-t-il visible ? » Cette seule réponse suffit à savoir s'il
 faut ajouter la ligne.
+
+Le cas du sous-dossier a été vérifié : avec `"homepage": "."` et la
+variante de configuration documentée en bas de `nginx.conf` ou de
+`.htaccess`, tout répond correctement.
+
+Et `"homepage": "."` est sans danger ici précisément parce que
+l'application n'a pas de routeur : l'adresse reste toujours la racine du
+dossier, donc les chemins relatifs ne peuvent pas se perdre.
+
+---
+
+## ⚠️ Un défaut à corriger, indépendant de l'hébergement
+
+`public/index.html` et `public/manifest.json` réclament trois fichiers
+qui **n'existent pas** dans le dépôt :
+
+```
+favicon.ico      logo192.png      logo512.png
+```
+
+Seul `logo-pif2.jpg` est présent.
+
+Conséquences, déjà visibles en production : l'onglet du navigateur
+n'affiche aucune icône, « ajouter à l'écran d'accueil » sur un téléphone
+n'en afficherait pas non plus, et chaque ouverture fait une requête
+inutile pour `/favicon.ico` qui renvoie la page entière.
+
+C'est sans gravité, mais à régler un jour : soit en produisant les trois
+icônes à partir de `logo-pif2.jpg`, soit en retirant les références
+mortes.
