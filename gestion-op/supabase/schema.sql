@@ -181,3 +181,47 @@ alter table journal            add column if not exists empreinte text generated
 alter table users              add column if not exists empreinte text generated always as (md5(data::text)) stored;
 alter table compteurs          add column if not exists empreinte text generated always as (md5(data::text)) stored;
 alter table parametres         add column if not exists empreinte text generated always as (md5(data::text)) stored;
+
+-- ============================================================
+--  TEMPS RÉEL — à activer table par table
+-- ============================================================
+--
+--  ⚠️ CECI N'EST PAS OPTIONNEL, et c'est un piège silencieux.
+--
+--  Chez Supabase, aucune table n'émet d'événement par défaut : la
+--  publication supabase_realtime est VIDE à la création du projet. Sans
+--  les lignes ci-dessous, onSnapshot livre bien la liste au chargement —
+--  donc tout a l'air de fonctionner — mais ne la relivre JAMAIS ensuite.
+--
+--  L'application semblerait correcte jusqu'au jour où deux personnes
+--  travaillent en même temps et ne verraient pas les saisies l'une de
+--  l'autre. Défaut trouvé par l'essai bout en bout, invisible autrement.
+--
+--  Seules les deux tables écoutées par AppContext sont inscrites. Les
+--  inscrire toutes ferait diffuser chaque écriture à tous les
+--  navigateurs connectés, sans que personne l'écoute.
+-- ============================================================
+
+do $$
+declare
+  t text;
+begin
+  -- La publication n'existe que dans un vrai Supabase ; sur un PostgreSQL
+  -- ordinaire (base d'essai locale), il n'y a rien à faire.
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise notice 'Publication supabase_realtime absente : temps réel non applicable ici.';
+    return;
+  end if;
+
+  foreach t in array array['ops', 'bordereaux']
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+      raise notice 'Temps réel activé sur %', t;
+    end if;
+  end loop;
+end
+$$;

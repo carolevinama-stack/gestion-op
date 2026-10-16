@@ -1,7 +1,7 @@
 # Migration Gestion-OP : Firebase → Supabase
 
-État de la branche `essai-supabase`. Tout est fait côté code ; il reste
-une mise au point contre une vraie instance Supabase.
+État de la branche `essai-supabase`. **Éprouvé contre un vrai Supabase :
+24 vérifications bout en bout, toutes au vert.**
 
 ---
 
@@ -11,17 +11,24 @@ une mise au point contre une vraie instance Supabase.
 |---|---|
 | Fichiers migrés | **17 / 17** |
 | Firebase dans le code | **aucune ligne** (dépendance retirée) |
-| Tests | **418 verts**, aucune assertion modifiée |
+| Tests de logique métier | **418 verts**, aucune assertion modifiée |
 | Vérifications de droits | **119**, zéro écart avec `firestore.rules` |
+| **Essai bout en bout, vrai Supabase** | **24 / 24** |
+
+L'essai bout en bout a tourné contre un Supabase complet — PostgreSQL 17,
+PostgREST, authentification, temps réel — avec de vrais comptes et le vrai
+code de l'application, par le réseau. Il a vérifié la connexion,
+l'alternative `or()` du chargement, la fusion de `updateDoc`, un lot à
+cheval sur deux tables, son annulation complète quand un OP manque, les
+transactions sous 20 écritures simultanées, les six règles d'accès, et le
+temps réel.
 
 ## Ce qui reste
 
-1. **Mise au point contre une vraie instance Supabase.** Tout a été
-   éprouvé contre un vrai PostgreSQL, mais l'aller-retour par le réseau
-   (PostgREST, temps réel, authentification) n'a pas pu l'être : le
-   service Docker n'était pas disponible. Compter une journée.
-2. **La création de comptes** si les inscriptions sont fermées dans le
+1. **La création de comptes** si les inscriptions sont fermées dans le
    projet Supabase — voir « Le seul point qui peut exiger un serveur ».
+2. **L'essai par les utilisatrices**, sur écran, avec de vraies saisies.
+   Aucun script ne remplace ça.
 
 ---
 
@@ -40,6 +47,8 @@ une mise au point contre une vraie instance Supabase.
 | `scripts/donnees-fictives.mjs` | base de démonstration |
 | `scripts/essai-concurrence.mjs` | épreuve des transactions |
 | `scripts/essai-securite.mjs` | épreuve des droits |
+| `scripts/essai-bout-en-bout.mjs` | **épreuve contre un vrai Supabase** |
+| `scripts/preparer-supabase-local.mjs` | comptes + données pour l'essai |
 
 ---
 
@@ -85,7 +94,28 @@ supabase/securite.sql      ← ne pas l'oublier
 **Ne jamais appliquer `essai-stub-auth.sql`** : il écraserait la vraie
 fonction `auth.uid()` et casserait toute la sécurité.
 
-### 3. Vérifier les droits
+### 3. ⚠️ Activer le temps réel, table par table
+
+**C'est le piège le plus dangereux de toute la migration.**
+
+Chez Supabase, aucune table n'émet d'événement par défaut : la publication
+`supabase_realtime` est **vide** à la création du projet. Sans activation,
+`onSnapshot` livre bien la liste au chargement — donc **tout a l'air de
+fonctionner** — mais ne la relivre jamais ensuite.
+
+L'application paraîtrait correcte jusqu'au jour où deux personnes
+travaillent en même temps et ne verraient pas les saisies l'une de
+l'autre.
+
+`schema.sql` inscrit `ops` et `bordereaux` (les deux tables écoutées).
+**Après cela, le service Realtime doit redémarrer pour en tenir compte** —
+sur Supabase hébergé, l'activation depuis le tableau de bord le fait
+d'elle-même ; appliquée en SQL, il faut relancer le service ou patienter.
+
+Ce défaut a été trouvé par l'essai bout en bout. Aucun autre test ne
+pouvait le voir.
+
+### 4. Vérifier les droits et le dialogue
 
 Avant toute donnée réelle, remplir avec les données fictives et éprouver :
 
@@ -93,9 +123,14 @@ Avant toute donnée réelle, remplir avec les données fictives et éprouver :
 node scripts/cloner-vers-postgres.mjs --fictif --vider
 node scripts/essai-securite.mjs       # doit afficher 0 fuite, 0 panne
 node scripts/essai-concurrence.mjs    # doit afficher 20/20
+node scripts/essai-bout-en-bout.mjs   # doit afficher 24/24
 ```
 
-### 4. Les variables d'environnement
+Le dernier exerce le vrai code de l'application contre le vrai serveur.
+C'est celui qui compte le plus : il éprouve ce qu'aucune doublure ne peut
+éprouver.
+
+### 5. Les variables d'environnement
 
 | Variable | Où la trouver |
 |---|---|
@@ -110,7 +145,7 @@ données, ce sont les règles de `securite.sql`.**
 navigateur, ni dans une variable `REACT_APP_*`** : elle contourne toutes
 les règles.
 
-### 5. Les comptes
+### 6. Les comptes
 
 Les mots de passe ne se migrent pas : ils sont chez le service
 d'authentification, sous forme non réversible. Chaque personne recevra un
@@ -121,7 +156,7 @@ profil doit être celui du nouveau compte Supabase**, pas l'ancien
 identifiant Firebase. C'est le seul endroit du clonage où les
 identifiants changent, et il faut le traiter à part.
 
-### 6. Les données
+### 7. Les données
 
 ```bash
 # 1. Exporter depuis Firestore vers un dossier de fichiers JSON

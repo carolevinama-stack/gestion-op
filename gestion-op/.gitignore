@@ -16,3 +16,6 @@ Thumbs.db
 
 # Logs
 npm-debug.log*
+
+# Copies .mjs du code applicatif, créées par scripts/essai-bout-en-bout.mjs
+.essai-mjs/
