@@ -21,6 +21,7 @@ import {
   aUnDefinitifActifIndexe,
   trouverDefinitifActifIndexe,
   estAAnnulerIndexe,
+  idCompteurOp,
 } from './opCalculs';
 
 const opsFixture = [
@@ -482,5 +483,53 @@ describe('calculerEngagementsAnterieurs — pré-filtrer par ligne ne change pas
     expect(calculerEngagementsAnterieurs(restreint, autreLigne))
       .toBe(calculerEngagementsAnterieurs(jeu, autreLigne));
     expect(calculerEngagementsAnterieurs(jeu, autreLigne)).toBe(0);
+  });
+});
+
+// ============================================================
+//  L'IDENTIFIANT DU COMPTEUR DE NUMÉROTATION
+// ============================================================
+//
+//  Ces tests existent à cause d'un défaut réel : la création d'OP lisait
+//  le compteur « OP_<source>_<exercice> » tandis que le bouton « Recaler
+//  les compteurs » des Paramètres écrivait « op_<source>_<exercice> ».
+//  Les identifiants de documents étant sensibles à la casse, le recalage
+//  écrivait dans un document que personne ne lisait : il ne réparait
+//  rien, et ne le disait pas.
+//
+//  Le premier test fixe la forme de l'identifiant. Le second vérifie que
+//  les deux pages passent bien par la fonction partagée plutôt que de le
+//  reconstruire chacune de son côté — c'est lui qui empêche le défaut de
+//  revenir.
+// ============================================================
+
+describe("L'identifiant du compteur de numérotation", () => {
+  test('a la forme OP_<source>_<exercice>', () => {
+    expect(idCompteurOp('src1', 'ex2026')).toBe('OP_src1_ex2026');
+  });
+
+  test("respecte la casse majuscule du préfixe", () => {
+    // Un préfixe en minuscules désignerait un autre document : c'était
+    // exactement le défaut.
+    expect(idCompteurOp('s', 'e').startsWith('OP_')).toBe(true);
+  });
+
+  test('deux portées différentes ne partagent jamais un compteur', () => {
+    expect(idCompteurOp('srcA', 'ex2026')).not.toBe(idCompteurOp('srcB', 'ex2026'));
+    expect(idCompteurOp('srcA', 'ex2025')).not.toBe(idCompteurOp('srcA', 'ex2026'));
+  });
+
+  test('les deux pages qui touchent au compteur passent par cette fonction', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const lire = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
+
+    for (const page of ['../pages/PageNouvelOp.js', '../pages/PageParametres.js']) {
+      const code = lire(page);
+      // La page utilise la fonction partagée...
+      expect(code).toContain('idCompteurOp(');
+      // ...et ne reconstruit plus l'identifiant à la main.
+      expect(code).not.toMatch(/['"`]\s*[Oo][Pp]_\$\{/);
+    }
   });
 });

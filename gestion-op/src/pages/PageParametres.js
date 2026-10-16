@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatDate } from '../utils/formatters';
+import { idCompteurOp } from '../utils/opCalculs';
 import PageAdmin from './PageAdmin';
 
 // ============================================================
@@ -361,7 +362,7 @@ const TabMaintenance = () => {
               const match = (o.numero || '').match(/N°(\d+)\//);
               if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
             });
-            const counterRef = doc(db, 'compteurs', `op_${src.id}_${ex.id}`);
+            const counterRef = doc(db, 'compteurs', idCompteurOp(src.id, ex.id));
             batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
           }
         }
