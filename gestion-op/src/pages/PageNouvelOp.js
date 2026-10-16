@@ -13,6 +13,7 @@ import {
   montantDoitEtrePositif,
   filtrerOpProvisoiresPourAnnulation,
   filtrerOpProvisoiresPourDefinitif,
+  idCompteurOp,
 } from '../utils/opCalculs';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import { messageErreur } from '../utils/erreursFirebase';
@@ -385,7 +386,7 @@ const PageNouvelOp = () => {
       const sigleProjet = projet?.sigle || 'PROJET';
       const sigleSource = currentSourceObj?.sigle || 'OP';
       const annee = exerciceActif?.annee || new Date().getFullYear();
-      const compteurId = `OP_${activeSource}_${exerciceActif?.id}`;
+      const compteurId = idCompteurOp(activeSource, exerciceActif?.id);
       const compteurRef = doc(db, 'compteurs', compteurId);
 
       let initCount = 0;

@@ -47,6 +47,19 @@ export const prochainNumero = (ops, { sourceId, exerciceId }) => {
 export const construireNumeroOp = (num, { sigleProjet, sigleSource, annee }) =>
   `N°${String(num).padStart(4, '0')}/${sigleProjet}-${sigleSource}/${annee}`;
 
+// Identifiant du document compteur de numérotation, pour une source et un
+// exercice donnés.
+//
+// Cette fonction existe parce que les deux pages qui touchent au compteur
+// le construisaient chacune de son côté, et ne tombaient pas d'accord :
+// la création d'OP lisait « OP_... » tandis que le bouton « Recaler les
+// compteurs » des Paramètres écrivait « op_... ». Les identifiants étant
+// sensibles à la casse, le recalage écrivait dans un document que personne
+// ne lisait : le bouton ne réparait rien, sans le dire.
+//
+// Un seul endroit désormais, et un test qui le vérifie.
+export const idCompteurOp = (sourceId, exerciceId) => `OP_${sourceId}_${exerciceId}`;
+
 // Applique le signe du montant principal au montant de TVA (les deux doivent avoir le même signe).
 export const calculerMontantTVA = (finalMontant, montantTVA) => {
   if (!montantTVA) return null;
