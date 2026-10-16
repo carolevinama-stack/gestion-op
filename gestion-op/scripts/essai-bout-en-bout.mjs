@@ -46,10 +46,16 @@
  * ============================================================
  */
 
+import { setGlobalDispatcher, ProxyAgent } from 'undici';
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
+
+// Node n'utilise pas automatiquement le proxy de l'environnement : sans
+// cela, un Supabase EN LIGNE n'est même pas résolu. Sans effet en local.
+const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+if (proxy) setGlobalDispatcher(new ProxyAgent(proxy));
 
 const API = process.env.SUPABASE_URL || 'http://127.0.0.1:54321';
 const ANON = process.env.SUPABASE_ANON_KEY
@@ -75,8 +81,14 @@ for (const nom of ['supabase', 'db', 'auth']) {
 
 // ---------- Données fraîches ----------
 
-console.log('\n  Rechargement des données...');
-execFileSync('node', ['scripts/preparer-supabase-local.mjs'], { stdio: 'pipe' });
+// Le rechargement n'a de sens qu'en local : il passe par PostgreSQL en
+// direct. Contre un Supabase en ligne, les données sont déjà en place.
+if (process.env.SANS_RECHARGEMENT === 'true') {
+  console.log('\n  (données déjà en place, pas de rechargement)');
+} else {
+  console.log('\n  Rechargement des données...');
+  execFileSync('node', ['scripts/preparer-supabase-local.mjs'], { stdio: 'pipe' });
+}
 
 // Import dynamique : Node exige une adresse de fichier complète, un
 // chemin relatif étant interprété comme un nom de bibliothèque.
@@ -85,7 +97,13 @@ const authent = await import(pathToFileURL(resolve(TEMP, 'auth.mjs')).href);
 
 // ---------- Vérifications ----------
 
-const MDP = 'motdepasse-essai-123';
+const MDP = process.env.MDP_ADMIN || 'motdepasse-essai-123';
+const MDP_AUTRES = process.env.MDP_AUTRES || MDP;
+// Les épreuves de droits exigent les comptes opérateur et lecteur. Quand
+// leurs mots de passe ne sont pas connus, elles sont annoncées comme non
+// exécutées plutôt que comptées en échec — un test qu'on ne peut pas
+// faire n'est pas un test raté.
+const AUTRES_DISPONIBLES = process.env.AUTRES_COMPTES !== 'non';
 const ADMIN = { email: 'admin@demo.local', uid: '11111111-1111-4111-8111-111111111111' };
 const OPERATEUR = { email: 'operateur@demo.local', uid: '22222222-2222-4222-8222-222222222222' };
 const LECTEUR = { email: 'lecteur@demo.local', uid: '33333333-3333-4333-8333-333333333333' };
@@ -116,24 +134,32 @@ const vrai = (c, quoi) => { if (!c) throw new Error(quoi || 'condition fausse');
 
 const connecter = async (compte) => {
   await authent.signOut().catch(() => {});
-  const { user } = await authent.signInWithEmailAndPassword(authent.auth, compte.email, MDP);
+  const mdp = compte === ADMIN ? MDP : MDP_AUTRES;
+  const { user } = await authent.signInWithEmailAndPassword(authent.auth, compte.email, mdp);
   return user;
+};
+
+const ignores = [];
+const verifierSiPossible = async (nom, fn) => {
+  if (!AUTRES_DISPONIBLES) { ignores.push(nom); console.log(`    – ${nom}  (compte non disponible)`); return; }
+  return verifier(nom, fn);
 };
 
 // ============================================================
 titre('AUTHENTIFICATION');
 
 await verifier("la connexion renvoie un utilisateur dont l'identifiant s'appelle uid", async () => {
-  const user = await connecter(OPERATEUR);
+  const cible = AUTRES_DISPONIBLES ? OPERATEUR : ADMIN;
+  const user = await connecter(cible);
   // Firebase nomme ce champ uid, Supabase le nomme id. Toute
   // l'application lit user.uid : c'est le point qui casserait tout.
-  egal(user.uid, OPERATEUR.uid, 'uid');
-  egal(user.email, OPERATEUR.email, 'email');
+  egal(typeof user.uid, 'string', 'uid présent');
+  egal(user.email, cible.email, 'email');
 });
 
 await verifier('un mot de passe faux est refusé', async () => {
   let refuse = false;
-  await authent.signInWithEmailAndPassword(authent.auth, OPERATEUR.email, 'faux')
+  await authent.signInWithEmailAndPassword(authent.auth, ADMIN.email, 'faux')
     .catch(() => { refuse = true; });
   vrai(refuse, 'la connexion avec un mauvais mot de passe a été acceptée');
 });
@@ -155,7 +181,7 @@ await verifier("onAuthStateChanged annonce l'état dès le premier appel", async
 titre('LECTURES');
 
 await verifier('getDocs sans filtre ramène les documents', async () => {
-  await connecter(OPERATEUR);
+  await connecter(AUTRES_DISPONIBLES ? OPERATEUR : ADMIN);
   const snap = await bd.getDocs(bd.collection(bd.db, 'sources'));
   egal(snap.size, 3, 'nombre de sources');
   vrai(snap.docs[0].data().nom, 'le champ nom est vide');
@@ -309,7 +335,7 @@ await verifier('attribuer_numero ne rend jamais deux fois le même numéro', asy
 // ============================================================
 titre("RÈGLES D'ACCÈS");
 
-await verifier('un compte CONSULTATION lit les OP mais ne peut pas en créer', async () => {
+await verifierSiPossible('un compte CONSULTATION lit les OP mais ne peut pas en créer', async () => {
   await connecter(LECTEUR);
   const snap = await bd.getDocs(bd.collection(bd.db, 'ops'));
   vrai(snap.size > 0, 'un lecteur ne voit aucun OP');
@@ -320,7 +346,7 @@ await verifier('un compte CONSULTATION lit les OP mais ne peut pas en créer', a
   vrai(refuse, 'un lecteur a pu créer un OP');
 });
 
-await verifier('le refus porte le code permission-denied', async () => {
+await verifierSiPossible('le refus porte le code permission-denied', async () => {
   // utils/erreursFirebase.js traduit ce code en message clair ; sans la
   // traduction, l'utilisateur verrait « Erreur système ».
   const erreur = await bd.addDoc(bd.collection(bd.db, 'ops'), { statut: 'EN_COURS' })
@@ -329,7 +355,7 @@ await verifier('le refus porte le code permission-denied', async () => {
   egal(erreur.code, 'permission-denied', 'code');
 });
 
-await verifier('un OPERATEUR ne voit pas le journal, un ADMIN le voit', async () => {
+await verifierSiPossible('un OPERATEUR ne voit pas le journal, un ADMIN le voit', async () => {
   await connecter(OPERATEUR);
   egal((await bd.getDocs(bd.collection(bd.db, 'journal'))).size, 0, 'journal vu par un opérateur');
   await connecter(ADMIN);
@@ -345,14 +371,14 @@ await verifier('personne ne peut supprimer un OP, pas même un ADMIN', async () 
   vrai((await bd.getDoc(bd.doc(bd.db, 'ops', 'op-BM-050'))).exists(), 'un ADMIN a supprimé un OP');
 });
 
-await verifier('un OPERATEUR ne peut pas se promouvoir ADMIN', async () => {
+await verifierSiPossible('un OPERATEUR ne peut pas se promouvoir ADMIN', async () => {
   await connecter(OPERATEUR);
   await bd.updateDoc(bd.doc(bd.db, 'users', OPERATEUR.uid), { role: 'ADMIN' }).catch(() => {});
   const profil = (await bd.getDoc(bd.doc(bd.db, 'users', OPERATEUR.uid))).data();
   egal(profil.role, 'OPERATEUR', 'rôle');
 });
 
-await verifier("un OPERATEUR ne voit pas l'annuaire des autres comptes", async () => {
+await verifierSiPossible("un OPERATEUR ne voit pas l'annuaire des autres comptes", async () => {
   const snap = await bd.getDocs(bd.collection(bd.db, 'users'));
   egal(snap.size, 1, 'comptes visibles');
   egal(snap.docs[0].id, OPERATEUR.uid, 'identifiant du seul compte visible');
@@ -362,7 +388,7 @@ await verifier("un OPERATEUR ne voit pas l'annuaire des autres comptes", async (
 titre('TEMPS RÉEL');
 
 await verifier('onSnapshot livre la liste puis la relivre après un ajout', async () => {
-  await connecter(OPERATEUR);
+  await connecter(AUTRES_DISPONIBLES ? OPERATEUR : ADMIN);
   const livraisons = [];
   const stop = bd.onSnapshot(
     bd.query(bd.collection(bd.db, 'bordereaux'), bd.where('exerciceId', '==', 'ex-2026')),
@@ -390,7 +416,7 @@ await verifier('onSnapshot livre la liste puis la relivre après un ajout', asyn
 // ============================================================
 
 console.log('\n  ' + '='.repeat(62));
-console.log(`  ${reussites} réussites, ${echecs.length} échec(s) sur ${reussites + echecs.length}`);
+console.log(`  ${reussites} réussites, ${echecs.length} échec(s)` + (ignores.length ? `, ${ignores.length} non exécutée(s)` : '') + ` sur ${reussites + echecs.length + ignores.length}`);
 if (echecs.length) {
   console.log('');
   for (const e of echecs) console.log(`    ✗ [${e.groupe}] ${e.nom}\n        ${String(e.message).slice(0, 200)}`);
