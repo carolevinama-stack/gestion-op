@@ -1,0 +1,58 @@
+# ============================================================
+#  Apache / cPanel — à déposer À LA RACINE du site, à côté de index.html
+# ============================================================
+#
+#  POURQUOI CE FICHIER EST INDISPENSABLE
+#
+#  L'application n'a qu'une seule vraie page : index.html. Les écrans
+#  (budget, liste des OP, rapport...) sont affichés par le navigateur,
+#  pas par le serveur.
+#
+#  Sans ce fichier, taper une adresse d'écran directement, ou simplement
+#  recharger la page avec F5, renvoie une erreur 404 : le serveur cherche
+#  un fichier qui n'existe pas.
+#
+#  La règle ci-dessous dit au serveur : « si le fichier demandé n'existe
+#  pas, sers index.html ». C'est l'équivalent exact de la section
+#  "rewrites" du fichier vercel.json.
+# ============================================================
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Les fichiers et dossiers qui existent vraiment sont servis tels quels
+  # (les scripts, les styles, les images).
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Tout le reste est confié à l'application.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# ------------------------------------------------------------
+#  Mise en cache
+# ------------------------------------------------------------
+#  Les fichiers de build portent une empreinte dans leur nom
+#  (main.4f2a1b.js) : un changement produit un nouveau nom. Ils peuvent
+#  donc être gardés longtemps sans risque.
+#
+#  index.html, lui, ne doit JAMAIS être mis en cache : c'est lui qui
+#  désigne les fichiers à charger. Mis en cache, il continuerait de
+#  désigner l'ancienne version après une mise à jour — les collègues
+#  verraient encore l'ancienne application.
+# ------------------------------------------------------------
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  <FilesMatch "\.(js|css|woff2|png|jpg|svg)$">
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
