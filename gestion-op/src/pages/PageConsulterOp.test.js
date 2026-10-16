@@ -12,7 +12,6 @@ import userEvent from '@testing-library/user-event';
 
 const mockUpdateDoc = jest.fn(async () => {});
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 // La page passe par l'interprète ../db : seul le module visé change.
 // Le corps de la doublure et les assertions sont intacts.

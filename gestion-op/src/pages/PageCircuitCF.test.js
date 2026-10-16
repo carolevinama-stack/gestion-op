@@ -14,7 +14,6 @@ const mockCommit = jest.fn(async () => {});
 const mockUpdateDoc = jest.fn(async () => {});
 const mockGetDocs = jest.fn(async () => ({ docs: [] }));
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 // doc() renvoie une référence qui porte l'identifiant visé : c'est ce qui permet
 // aux tests de dire QUEL OP a été écrit, et pas seulement qu'il y a eu écriture.

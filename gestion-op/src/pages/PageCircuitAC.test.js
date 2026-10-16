@@ -28,7 +28,6 @@ const jouerTransaction = async (_db, fn) => {
   });
 };
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 // La page passe par l'interprète ../db : seul le module visé change.
 jest.mock('../db', () => ({

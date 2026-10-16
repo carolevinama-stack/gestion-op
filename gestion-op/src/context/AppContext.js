@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { db, auth } from '../firebase';
+// Base de données et authentification : les interprètes src/db.js et
+// src/auth.js exposent les mêmes noms que firebase, au-dessus de Supabase.
 import {
-  collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, where, or
-} from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+  db, collection, doc, getDocs, getDoc, query, orderBy, onSnapshot, where, or,
+} from '../db';
+import { auth, signOut } from '../auth';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
 
 // Statuts "non clos" : un OP dans un de ces statuts est encore quelque part dans un

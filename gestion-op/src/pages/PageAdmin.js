@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { db } from '../firebase';
-import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, where, getCountFromServer } from 'firebase/firestore';
-import { initializeApp, getApp, deleteApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+// Base de données et authentification : les interprètes src/db.js et
+// src/auth.js exposent les mêmes noms que firebase, au-dessus de Supabase.
+//
+// initializeApp / getApp / deleteApp ont disparu : l'isolation de session
+// nécessaire pour créer un compte sans déconnecter l'administrateur est
+// désormais assurée par src/auth.js. Voir handleCreateUser plus bas.
+import { db, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, where, getCountFromServer } from '../db';
+import { auth, createUserWithEmailAndPassword, sendPasswordResetEmail } from '../auth';
 import { styles } from '../utils/styles';
 
 // ==================== CONFIGURATION DES RÔLES ====================
@@ -97,22 +101,16 @@ const PageAdmin = () => {
 
     setSaving(true);
     try {
-      // Créer une app Firebase secondaire pour ne pas déconnecter l'admin
-      const currentApp = getApp();
-      const config = currentApp.options;
-      
-      let secondaryApp;
-      try {
-        secondaryApp = initializeApp(config, 'secondary_' + Date.now());
-      } catch (e) {
-        secondaryApp = getApp('secondary_' + Date.now());
-      }
-      
-      const secondaryAuth = getAuth(secondaryApp);
-      
-      // Créer l'utilisateur dans Firebase Auth
+      // Créer le compte sans déconnecter l'administrateur.
+      //
+      // Créer un compte connecte normalement ce nouveau compte, et
+      // l'administrateur se retrouverait éjecté au milieu de son travail.
+      // L'application ouvrait pour cela une « application Firebase
+      // secondaire » ; l'équivalent est désormais dans src/auth.js, qui
+      // utilise un second client dont la session n'est mémorisée nulle
+      // part. Le détail ne concerne plus cette page.
       const userCredential = await createUserWithEmailAndPassword(
-        secondaryAuth, createForm.email.trim(), createForm.password
+        auth, createForm.email.trim(), createForm.password
       );
       
       // Créer le profil dans Firestore
@@ -127,13 +125,9 @@ const PageAdmin = () => {
         createdBy: user.uid
       });
 
-      // Nettoyer l'app secondaire
-      try { await deleteApp(secondaryApp); } catch (e) {}
-
       // Envoyer automatiquement un email de réinitialisation
       try {
-        const mainAuth = getAuth();
-        await sendPasswordResetEmail(mainAuth, createForm.email.trim().toLowerCase());
+        await sendPasswordResetEmail(auth, createForm.email.trim().toLowerCase());
         showMessage(`${createForm.nom} créé ! Un email de réinitialisation a été envoyé à ${createForm.email}.`);
       } catch (e) {
         showMessage(`${createForm.nom} créé, mais l'email n'a pas pu être envoyé. Utilisez "Réinitialiser" pour réessayer.`, 'warning');
@@ -208,8 +202,7 @@ const PageAdmin = () => {
     if (!confirm) return;
 
     try {
-      const mainAuth = getAuth();
-      await sendPasswordResetEmail(mainAuth, userDoc.email);
+      await sendPasswordResetEmail(auth, userDoc.email);
       showMessage(`Email de réinitialisation envoyé à ${userDoc.email}`);
     } catch (error) {
       console.error('Erreur réinitialisation:', error);

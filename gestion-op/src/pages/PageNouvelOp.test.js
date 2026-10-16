@@ -16,7 +16,6 @@ const mockRunTransaction = jest.fn();
 const mockGetDoc = jest.fn(async () => ({ exists: () => true, data: () => ({ count: 7 }) }));
 const mockGetDocs = jest.fn(async () => ({ docs: [] }));
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 // La page passe par l'interprète ../db : seul le module visé change.
 jest.mock('../db', () => ({

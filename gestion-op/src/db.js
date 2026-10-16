@@ -110,6 +110,11 @@ export function doc(a, b, c) {
 // ---------- Contraintes de requête ----------
 
 export const where   = (champ, operateur, valeur) => ({ __c: 'where', champ, operateur, valeur });
+
+// or() combine plusieurs conditions en alternative. AppContext s'en sert
+// pour charger « l'exercice actif OU tout ce qui est encore dans un
+// circuit OU les OP importés d'un exercice antérieur ».
+export const or = (...conditions) => ({ __c: 'or', conditions: conditions.filter(Boolean) });
 export const orderBy = (champ, sens = 'asc')      => ({ __c: 'orderBy', champ, sens });
 export const limit   = (n)                        => ({ __c: 'limit', n });
 
@@ -120,6 +125,37 @@ export const query = (ref, ...contraintes) => ({
 });
 
 // ---------- Construction de la requête Supabase ----------
+
+// PostgREST exprime une alternative sous forme de chaîne :
+//   "exercice_id.eq.\"ex-2026\",statut.in.(\"EN_COURS\",\"PAYE\")"
+// Les valeurs sont mises entre guillemets : sans cela, une valeur
+// contenant une virgule ou un point casserait la chaîne entière.
+// Seul le texte est mis entre guillemets. Un booléen ou un nombre cité
+// serait transmis comme du texte et devrait être converti par PostgREST :
+// ça marche souvent, mais ce n'est pas la forme juste, et un jour ça ne
+// marcherait plus.
+const citer = (v) => {
+  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
+  if (v === null || v === undefined) return 'null';
+  return `"${String(v).replace(/"/g, '\\"')}"`;
+};
+
+const OPERATEURS_POSTGREST = {
+  '==': 'eq', '!=': 'neq', '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte',
+};
+
+const versChaine = (c) => {
+  if (c.__c !== 'where') {
+    throw new Error("or() n'accepte que des conditions where()");
+  }
+  const col = colonne(c.champ);
+  if (c.operateur === 'in') {
+    return `${col}.in.(${(c.valeur || []).map(citer).join(',')})`;
+  }
+  const op = OPERATEURS_POSTGREST[c.operateur];
+  if (!op) throw new Error(`Opérateur non pris en charge dans or() : ${c.operateur}`);
+  return `${col}.${op}.${citer(c.valeur)}`;
+};
 
 const construire = (q) => {
   let r = supabase.from(nomTable(q.nom)).select('id, data, empreinte');
@@ -138,6 +174,8 @@ const construire = (q) => {
         case 'not-in': r = r.not(col, 'in', `(${c.valeur.join(',')})`); break;
         default: throw new Error(`Opérateur non pris en charge : ${c.operateur}`);
       }
+    } else if (c.__c === 'or') {
+      r = r.or(c.conditions.map(versChaine).join(','));
     } else if (c.__c === 'orderBy') {
       r = r.order(colonne(c.champ), { ascending: c.sens !== 'desc' });
     } else if (c.__c === 'limit') {
@@ -387,22 +425,31 @@ export const runTransaction = async (_db, calcul, { essais = 8 } = {}) => {
 // Le filtre temps réel de Supabase ne porte que sur une colonne ; les
 // requêtes à plusieurs filtres sont donc réévaluées ici, côté navigateur.
 
+const correspondUne = (document, c) => {
+  // Une alternative : il suffit qu'UNE condition soit remplie. Sans ce
+  // cas, un OP retenu uniquement par son statut non clos serait jugé hors
+  // requête et DISPARAÎTRAIT de l'écran à la première mise à jour.
+  if (c.__c === 'or') {
+    return (c.conditions || []).some((sous) => correspondUne(document, sous));
+  }
+  if (c.__c !== 'where') return true;
+
+  const v = document[c.champ];
+  switch (c.operateur) {
+    case '==': return v === c.valeur;
+    case '!=': return v !== c.valeur;
+    case 'in': return (c.valeur || []).includes(v);
+    case 'not-in': return !(c.valeur || []).includes(v);
+    case '>':  return v >  c.valeur;
+    case '>=': return v >= c.valeur;
+    case '<':  return v <  c.valeur;
+    case '<=': return v <= c.valeur;
+    default:   return true;
+  }
+};
+
 const correspond = (document, contraintes) =>
-  (contraintes || []).every((c) => {
-    if (c.__c !== 'where') return true;
-    const v = document[c.champ];
-    switch (c.operateur) {
-      case '==': return v === c.valeur;
-      case '!=': return v !== c.valeur;
-      case 'in': return (c.valeur || []).includes(v);
-      case 'not-in': return !(c.valeur || []).includes(v);
-      case '>':  return v >  c.valeur;
-      case '>=': return v >= c.valeur;
-      case '<':  return v <  c.valeur;
-      case '<=': return v <= c.valeur;
-      default:   return true;
-    }
-  });
+  (contraintes || []).every((c) => correspondUne(document, c));
 
 export const onSnapshot = (cible, auChangement, surErreur) => {
   const q = cible.__type === 'query' ? cible : { nom: cible.nom, contraintes: [] };
@@ -440,13 +487,50 @@ export const onSnapshot = (cible, auChangement, surErreur) => {
 };
 
 // ---------- Erreurs ----------
-// Le code d'erreur est conservé dans `code`, comme le faisait Firebase :
-// utils/erreursFirebase.js continue de distinguer un refus de droits
-// d'une coupure réseau sans être modifié.
+//
+// utils/erreursFirebase.js transforme un code technique en message lisible,
+// et conserve le code en fin de message — c'est ce qui permet de
+// diagnostiquer à distance sur simple lecture d'une capture d'écran.
+//
+// Il attend les codes de Firestore. PostgreSQL et PostgREST en renvoient
+// d'autres. Sans traduction, tous les messages soignés retomberaient sur
+// « Erreur système » et le diagnostic serait perdu. D'où cette table.
+
+const CODES_BASE = {
+  // Refus par les règles de sécurité (Row Level Security)
+  '42501':    'permission-denied',
+  'PGRST301': 'unauthenticated',     // jeton absent ou expiré
+  '42P01':    'failed-precondition', // table inexistante
+  // Données refusées par la base
+  '23505':    'invalid-argument',    // doublon sur une contrainte d'unicité
+  '23502':    'invalid-argument',    // champ obligatoire absent
+  '23503':    'invalid-argument',    // référence inexistante
+  '22P02':    'invalid-argument',    // valeur mal formée
+  // Charge et délais
+  '57014':    'deadline-exceeded',   // requête annulée (délai dépassé)
+  '53300':    'resource-exhausted',  // trop de connexions simultanées
+  '40001':    'aborted',             // conflit de sérialisation
+  '40P01':    'aborted',             // interblocage
+};
 
 const erreur = (e) => {
   const err = new Error(e.message || 'Erreur de base de données');
-  err.code = e.code;
+  const brut = e.code || '';
+
+  if (CODES_BASE[brut]) {
+    err.code = CODES_BASE[brut];
+  } else if (/row-level security|permission denied/i.test(e.message || '')) {
+    err.code = 'permission-denied';
+  } else if (/fetch|network|Failed to fetch/i.test(e.message || '')) {
+    // Coupure réseau : le message doit dire que l'opération ne peut pas
+    // être mise en attente, comme le faisait Firestore hors ligne.
+    err.code = 'unavailable';
+  } else {
+    err.code = brut || 'unknown';
+  }
+
+  // Le code d'origine reste disponible pour un diagnostic plus fin.
+  err.codeBase = brut;
   err.details = e.details;
   return err;
 };

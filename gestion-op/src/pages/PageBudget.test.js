@@ -13,7 +13,6 @@ const mockAddDoc = jest.fn(async () => ({ id: 'nouveau-budget' }));
 const mockUpdateDoc = jest.fn(async () => {});
 const mockDeleteDoc = jest.fn(async () => {});
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 // La page passe par l'interprète ../db au lieu de firebase/firestore : seul
 // le module visé par la doublure change. Le corps de la doublure est le même,

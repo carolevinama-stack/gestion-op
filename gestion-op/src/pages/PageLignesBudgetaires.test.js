@@ -11,7 +11,6 @@ const mockAddDoc = jest.fn(async () => ({ id: 'nouvelle' }));
 const mockUpdateDoc = jest.fn(async () => {});
 const mockDeleteDoc = jest.fn(async () => {});
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 // La page passe par l'interprète ../db : seul le module visé change.
 // Le corps de la doublure et les assertions sont intacts.

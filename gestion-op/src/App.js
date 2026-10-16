@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { auth } from './firebase';
-import { signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth';
+// Authentification : l'interprète src/auth.js expose les mêmes noms que
+// firebase/auth, au-dessus de Supabase. Seule cette ligne change.
+import { auth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from './auth';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { styles } from './utils/styles';
 
