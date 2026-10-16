@@ -170,6 +170,76 @@ documents **perdus** (grave) des lignes préexistantes.
 
 ---
 
+## Déplacer la base d'un serveur à un autre
+
+**C'est le gain principal de cette migration.** Firestore ne se déplace
+pas : c'est un service, et les données y restent. PostgreSQL se déplace,
+dans les deux sens, autant de fois qu'on veut.
+
+Vérifié pour de vrai : extraction complète puis restauration dans une base
+vierge, et les règles de sécurité réappliquées à l'identique.
+
+| | |
+|---|---:|
+| Extraction (`pg_dump`) | **0,25 s** — fichier de 369 Ko |
+| Restauration | **0,96 s** |
+| Données, règles, comptes, mots de passe | **tous conservés** |
+| Règles de sécurité sur la base déplacée | **119 vérifications, 0 écart** |
+
+### La marche à suivre
+
+```bash
+# 1. Extraire — avec le pg_dump de la MÊME version majeure que le serveur
+pg_dump "$SOURCE" --no-owner -n public -n auth > deplacement.sql
+
+# 2. Restaurer
+psql "$DESTINATION" < deplacement.sql
+
+# 3. Vérifier
+PG_URL="$DESTINATION" node scripts/essai-securite.mjs   # doit afficher 0 / 0
+```
+
+### ⚠️ Trois pièges, tous rencontrés
+
+**1. Ne pas ajouter `--no-privileges`.** Cette option supprime les
+instructions `GRANT`, et la base déplacée refuse alors TOUT à tout le
+monde : 39 opérations légitimes bloquées. Le réconfort, c'est que l'erreur
+ferme au lieu d'ouvrir — on obtient une panne visible, pas une fuite
+silencieuse. Si cela arrive, réappliquer `securite.sql` suffit.
+
+**2. Le `pg_dump` doit avoir la version majeure du serveur.** Un client en
+16 refuse un serveur en 17. Le plus simple est d'utiliser celui du serveur
+lui-même.
+
+**3. Les schémas `storage` et `realtime` ne se déplacent pas, et c'est
+voulu** : ce sont ceux de la plateforme Supabase, recréés sur toute
+nouvelle instance. Seuls `public` (les données) et `auth` (les comptes)
+sont à extraire. L'application n'utilise pas le stockage de fichiers.
+
+### Les mots de passe survivent
+
+Point important, et différent de Firebase : les comptes vivent dans le
+schéma `auth` de la même base PostgreSQL. Les extraire les emporte **avec
+leurs empreintes de mots de passe** — vérifié, 5 comptes sur 5. Personne
+n'a besoin de réinitialiser son mot de passe lors d'un déplacement entre
+deux Supabase.
+
+Cela ne vaut PAS pour la migration initiale depuis Firebase, où les mots
+de passe restent chez Google et doivent être réinitialisés une fois.
+
+### Ce que ça permet concrètement
+
+On n'est pas obligé d'attendre le serveur du projet pour démarrer :
+
+1. **Aujourd'hui** — Supabase hébergé, gratuit, ça fonctionne ;
+2. **Le jour où le projet fournit un serveur** — on extrait, on restaure,
+   on change deux variables d'environnement dans l'application. Une
+   matinée, et on peut l'essayer d'abord sur une copie sans toucher à la
+   production.
+
+Le choix de la région, lui, reste définitif par projet — mais un
+déplacement vers un autre serveur n'en dépend plus.
+
 ## Le seul point qui peut exiger un serveur
 
 `PageAdmin` crée des comptes. Pour ne pas déconnecter l'administrateur en

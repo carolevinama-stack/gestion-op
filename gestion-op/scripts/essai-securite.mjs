@@ -121,7 +121,18 @@ const essayer = async (client, uid, op) => {
   await client.query('begin');
   try {
     await client.query(`set local role authenticated`);
+    // Deux manières de désigner l'utilisateur, posées toutes les deux :
+    //   - essai.uid        pour l'imitation locale d'auth.uid() ;
+    //   - request.jwt.claims  pour la VRAIE fonction auth.uid() de
+    //     Supabase, qui y lit le champ « sub » du jeton de session.
+    // Le script fonctionne ainsi contre un PostgreSQL ordinaire comme
+    // contre un vrai Supabase — y compris une base qui vient d'être
+    // déplacée d'un serveur à un autre.
     await client.query(`select set_config('essai.uid', $1, true)`, [uid || '']);
+    await client.query(
+      `select set_config('request.jwt.claims', $1, true)`,
+      [uid ? JSON.stringify({ sub: uid, role: 'authenticated' }) : '']
+    );
     const r = await client.query(op.sql);
     // Une lecture autorisée mais sans ligne visible compte comme refusée :
     // c'est exactement ce que fait RLS, qui masque les lignes plutôt que
