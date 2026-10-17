@@ -14,6 +14,11 @@
  *        remplit la base avec des données inventées (aucun nom réel,
  *        aucun RIB réel) pour éprouver le schéma et l'application.
  *
+ *    node scripts/cloner-vers-postgres.mjs --fichier Export_Complet_20261017.json
+ *        lit le fichier produit par le bouton « Exporter tout (JSON) »
+ *        de l'application (Paramètres → Maintenance). C'est le chemin
+ *        normal d'une migration : un clic, un fichier, une commande.
+ *
  *    node scripts/cloner-vers-postgres.mjs --export <dossier>
  *        lit <dossier>/ops.json, budgets.json, etc. et les importe.
  *        Chaque fichier contient soit un tableau d'objets possédant un
@@ -75,6 +80,28 @@ const lireExport = (dossier) => {
 };
 
 // ------------------------------------------------------------
+//  Lecture du fichier produit par le bouton « Exporter tout (JSON) »
+// ------------------------------------------------------------
+//
+//  Ce bouton, dans Paramètres → Maintenance, produit UN SEUL fichier
+//  contenant toutes les collections, plus un en-tête _export qui compte
+//  les documents collection par collection.
+//
+//  Cet en-tête est précieux : il a été écrit par l'application au moment
+//  de l'export, donc AVANT tout transport du fichier. Le comparer après
+//  import vérifie la chaîne entière — l'export, le transfert, et le
+//  chargement — et pas seulement la dernière étape.
+
+const lireFichierUnique = (chemin) => {
+  const brut = JSON.parse(readFileSync(chemin, 'utf8'));
+  const data = {};
+  for (const collection of Object.keys(TABLES)) {
+    data[collection] = brut[collection] || [];
+  }
+  return { data, entete: brut._export || null };
+};
+
+// ------------------------------------------------------------
 //  Écriture
 // ------------------------------------------------------------
 
@@ -101,7 +128,7 @@ const ecrire = async (client, collection, documents) => {
 //  Vérification : ce qui est entré est-il bien là ?
 // ------------------------------------------------------------
 
-const verifier = async (client, attendus) => {
+const verifier = async (client, attendus, entete) => {
   console.log('\n  VÉRIFICATION');
   console.log('  ' + '-'.repeat(60));
   let manquants = 0;
@@ -124,6 +151,29 @@ const verifier = async (client, attendus) => {
     );
   }
   console.log('  ' + '-'.repeat(60));
+  // Comparaison avec ce que l'application avait compté AU MOMENT de
+  // l'export : c'est ce qui vérifie la chaîne entière et non la seule
+  // dernière étape.
+  if (entete && entete.collections) {
+    console.log('');
+    // On compte les DOCUMENTS manquants, pas les collections en écart :
+    // annoncer « 1 perdu » quand il en manque trente serait pire que de
+    // ne rien annoncer.
+    let perdusEnChemin = 0;
+    for (const [collection, compte] of Object.entries(entete.collections)) {
+      if (!TABLES[collection]) continue;   // compteurs, non clonés ici
+      const lu = attendus[collection] ?? 0;
+      if (lu !== compte) {
+        perdusEnChemin += Math.abs(compte - lu);
+        console.log(`  ✗ ${collection} : l'application en avait exporté ${compte}, le fichier en contient ${lu}`);
+      }
+    }
+    console.log(perdusEnChemin
+      ? `  ✗ ${perdusEnChemin} document(s) perdu(s) ENTRE l'export et ici — fichier tronqué ou incomplet.`
+      : `  ✓ Conforme à l'export du ${String(entete.date).split('T')[0]} : rien n'a été perdu en chemin.`);
+    manquants += perdusEnChemin;
+  }
+
   if (manquants) console.log(`\n  ✗ ${manquants} document(s) PERDU(S) — le clonage est incomplet.`);
   else if (surnumeraires) console.log(`\n  ~ Clonage complet. ${surnumeraires} ligne(s) préexistante(s) dans la base.`);
   else console.log('\n  ✓ Clonage complet et vérifié, base exactement conforme.');
@@ -136,14 +186,23 @@ const main = async () => {
   const args = process.argv.slice(2);
   let data;
 
+  let entete = null;
+
   if (args.includes('--fictif')) {
     const { donneesFictives } = await import('./donnees-fictives.mjs');
     data = donneesFictives();
     console.log('  Source : données FICTIVES (aucun nom ni RIB réel)\n');
+  } else if (args.includes('--fichier')) {
+    const chemin = args[args.indexOf('--fichier') + 1];
+    if (!chemin) { console.error('Usage : --fichier <Export_Complet_*.json>'); process.exit(1); }
+    ({ data, entete } = lireFichierUnique(chemin));
+    console.log(`  Source : ${chemin}`);
+    if (entete) console.log(`  Export du ${String(entete.date).split('T')[0]}, ${entete.total} documents annoncés\n`);
+    else console.log('  (aucun en-tête de contrôle dans ce fichier)\n');
   } else {
     const i = args.indexOf('--export');
     if (i === -1 || !args[i + 1]) {
-      console.error('Usage : --fictif   ou   --export <dossier>   [--vider]');
+      console.error('Usage : --fictif | --fichier <export.json> | --export <dossier>   [--vider]');
       process.exit(1);
     }
     data = lireExport(args[i + 1]);
@@ -180,7 +239,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  const ok = await verifier(client, attendus);
+  const ok = await verifier(client, attendus, entete);
   await client.end();
 
   console.log('');
