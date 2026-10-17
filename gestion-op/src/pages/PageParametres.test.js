@@ -42,6 +42,13 @@ jest.mock('firebase/firestore', () => ({
       bordereaux: [{ numero: 'BT-001', type: 'CF' }],
       users: [{ nom: 'Testeuse', email: 't@x.y', role: 'ADMIN' }],
       journal: [{ date: '2026-01-01', action: 'CREATION' }],
+      sources: [{ sigle: 'BM', nom: 'Banque Mondiale' }],
+      exercices: [{ annee: 2026, actif: true }, { annee: 2025, actif: false }],
+      lignesBudgetaires: [{ code: '6011', libelle: 'Fournitures' }],
+      beneficiaires: [{ nom: 'ENTREPRISE ALPHA', ribs: [{ banque: 'B', numero: '123' }] }],
+      budgets: [{ sourceId: 'S1', version: 1, lignes: [{ code: '6011', dotation: 1000 }] }],
+      parametres: [{ sigle: 'PIF2' }],
+      compteurs: [{ count: 42 }],
     };
     const lignes = parCollection[ref?.nom] || [];
     return Promise.resolve({ docs: lignes.map((d, i) => ({ id: `d${i}`, data: () => d })) });
@@ -78,26 +85,35 @@ const OPS_DE_LA_BASE = [
   { id: 'op4', numero: 'N°0102', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 6000 },
 ];
 
+// ⚠️ L'objet rendu par useAppContext doit être STABLE d'un rendu à
+// l'autre. En renvoyant un objet neuf à chaque appel, le useEffect de la
+// page qui surveille `projet` se redéclenchait sans fin : boucle infinie
+// et test figé. Ce n'est pas un défaut de l'application — dans le vrai
+// contexte, cet objet vient d'un useState et ne change que lorsqu'il doit
+// changer. Le nom doit commencer par « mock » : Jest hisse les doublures
+// et refuse qu'elles lisent une variable ordinaire.
+const mockContexte = {
+  userProfile: { role: 'ADMIN', nom: 'Testeuse' },
+  projet: { sigle: 'PIF2', nom: 'Projet' },
+  setProjet: () => {},
+  sources: [{ id: 'S1', sigle: 'BM', nom: 'Banque Mondiale' }],
+  setSources: () => {},
+  exercices: [
+    { id: 'E2026', annee: 2026, actif: true },
+    { id: 'E2025', annee: 2025, actif: false },
+  ],
+  setExercices: () => {},
+  ops: [
+    { id: 'op1', numero: 'N°0001', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
+    { id: 'op2', numero: 'N°0002', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
+  ],
+  budgets: [],
+  beneficiaires: [],
+  lignesBudgetaires: [],
+};
+
 jest.mock('../context/AppContext', () => ({
-  useAppContext: () => ({
-    userProfile: { role: 'ADMIN', nom: 'Testeuse' },
-    projet: { sigle: 'PIF2', nom: 'Projet' },
-    setProjet: () => {},
-    sources: [{ id: 'S1', sigle: 'BM', nom: 'Banque Mondiale' }],
-    setSources: () => {},
-    exercices: [
-      { id: 'E2026', annee: 2026, actif: true },
-      { id: 'E2025', annee: 2025, actif: false },
-    ],
-    setExercices: () => {},
-    ops: [
-      { id: 'op1', numero: 'N°0001', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
-      { id: 'op2', numero: 'N°0002', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
-    ],
-    budgets: [],
-    beneficiaires: [],
-    lignesBudgetaires: [],
-  }),
+  useAppContext: () => mockContexte,
 }));
 
 jest.mock('./PageAdmin', () => () => <div>Administration</div>);
@@ -106,7 +122,9 @@ const lancerLaSauvegarde = async () => {
   const utilisateur = userEvent.setup();
   render(<PageParametres />);
   await utilisateur.click(screen.getByText('Maintenance'));
-  await utilisateur.click(screen.getByText(/Sauvegarder la base|Sauvegarde/i));
+  // Texte exact : « Sauvegarde » tout court attrapait aussi la phrase
+  // d'introduction « Gérez vos sauvegardes… ».
+  await utilisateur.click(screen.getByText('Sauvegarder la base'));
   await waitFor(() => expect(mockFichierEcrit).not.toBeNull());
 };
 
@@ -156,3 +174,90 @@ describe('La sauvegarde de la base', () => {
 // Sans ces constantes utilisées, ESLint signalerait du code mort : elles
 // servent de référence lisible dans les assertions ci-dessus.
 export { SOURCES, EXERCICES };
+
+
+// ============================================================
+//  L'EXPORT COMPLET (JSON)
+// ============================================================
+//
+//  Différent de la sauvegarde Excel : celle-ci est lisible par un
+//  humain mais ne garde qu'une sélection de colonnes. L'export JSON
+//  reprend les documents TELS QU'ILS SONT EN BASE, pour qu'une
+//  migration ou une restauration ne perde rien.
+//
+//  Ce qu'il faut vérifier est donc : aucune collection oubliée, les
+//  identifiants conservés, et un en-tête de contrôle qui permette de
+//  constater après import que les comptes correspondent.
+// ============================================================
+
+let mockJSONEcrit = null;
+
+const lancerExportJSON = async () => {
+  const utilisateur = userEvent.setup();
+  render(<PageParametres />);
+  await utilisateur.click(screen.getByText('Maintenance'));
+  await utilisateur.click(screen.getByText('Exporter tout (JSON)'));
+  // L'export passe par une confirmation : elle avertit que le fichier
+  // contient des données personnelles réelles.
+  await utilisateur.click(await screen.findByText('Confirmer'));
+  await waitFor(() => expect(mockJSONEcrit).not.toBeNull(), { timeout: 5000 });
+  return JSON.parse(mockJSONEcrit);
+};
+
+describe("L'export complet au format JSON", () => {
+  beforeEach(() => {
+    mockJSONEcrit = null;
+    // Le téléchargement n'a pas lieu : on retient ce qui lui est confié.
+    global.Blob = function (parties) { mockJSONEcrit = parties.join(''); };
+    global.URL.createObjectURL = () => 'blob:essai';
+    global.URL.revokeObjectURL = () => {};
+  });
+
+  test("n'oublie aucune collection", async () => {
+    const fichier = await lancerExportJSON();
+    for (const collection of ['sources', 'exercices', 'lignesBudgetaires', 'beneficiaires',
+                              'budgets', 'ops', 'bordereaux', 'journal', 'users',
+                              'parametres', 'compteurs']) {
+      expect(Object.keys(fichier)).toContain(collection);
+    }
+  });
+
+  test('reprend les OP de TOUS les exercices, pas seulement le contexte', async () => {
+    const fichier = await lancerExportJSON();
+    expect(fichier.ops).toHaveLength(OPS_DE_LA_BASE.length);
+    expect(fichier.ops.map(o => o.numero)).toContain('N°0101');
+  });
+
+  test("conserve l'identifiant de chaque document", async () => {
+    const fichier = await lancerExportJSON();
+    // Sans l'identifiant, impossible de recréer les documents à
+    // l'identique ailleurs, ni de relier un OP à son bordereau.
+    for (const op of fichier.ops) expect(typeof op.id).toBe('string');
+  });
+
+  test("conserve les champs tels quels, y compris les tableaux imbriqués", async () => {
+    const fichier = await lancerExportJSON();
+    const benef = fichier.beneficiaires[0];
+    expect(benef.ribs[0]).toEqual({ banque: 'B', numero: '123' });
+    expect(fichier.budgets[0].lignes[0]).toEqual({ code: '6011', dotation: 1000 });
+  });
+
+  test("porte un en-tête de contrôle avec le compte par collection", async () => {
+    const fichier = await lancerExportJSON();
+    expect(fichier._export.collections.ops).toBe(OPS_DE_LA_BASE.length);
+    expect(fichier._export.total).toBe(
+      Object.values(fichier._export.collections).reduce((s, n) => s + n, 0)
+    );
+    expect(fichier._export.date).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  test("avertit que le fichier contient des données personnelles", async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Exporter tout (JSON)'));
+    // L'avertissement n'est pas décoratif : ce fichier contient les noms
+    // et les RIB des bénéficiaires réels.
+    expect(await screen.findByText(/RIB/i)).toBeInTheDocument();
+  });
+});

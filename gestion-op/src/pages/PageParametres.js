@@ -270,10 +270,11 @@ const TabInfos = () => {
 // ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
-  const { sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
+  const { projet, sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
+  const [exportingJSON, setExportingJSON] = useState(false);
 
   const notify = (type, title, message) => setAlertData({ type, title, message });
 
@@ -365,6 +366,82 @@ const TabMaintenance = () => {
     setExporting(false);
   };
 
+  // ============================================================
+  //  EXPORT COMPLET AU FORMAT JSON
+  // ============================================================
+  //
+  //  Différent de la sauvegarde Excel, et complémentaire :
+  //
+  //    Excel  →  lisible par un humain, une sélection de colonnes,
+  //              pour consulter, imprimer, archiver.
+  //    JSON   →  les documents TELS QU'ILS SONT EN BASE, sans perte,
+  //              pour migrer vers une autre base ou tout restaurer.
+  //
+  //  Toutes les collections sont relues en base, aucune ne vient du
+  //  contexte : une migration amputée ne se voit qu'au moment où il est
+  //  trop tard.
+  //
+  //  ⚠️ LE FICHIER PRODUIT CONTIENT DES DONNÉES PERSONNELLES RÉELLES —
+  //  noms de bénéficiaires, RIB, historique des actions. Il ne doit pas
+  //  être envoyé n'importe où ni laissé traîner. L'utilisateur en est
+  //  averti avant le téléchargement.
+  // ============================================================
+  const handleExportJSON = () => {
+    ask(
+      "Exporter toutes les données",
+      "Ce fichier contiendra l'intégralité de la base : noms de bénéficiaires, RIB, historique des actions. " +
+      "Il est destiné à une migration ou à une restauration, et ne doit pas être partagé sans précaution.\n\n" +
+      "L'opération relit toute la base : elle est lourde, à lancer de temps en temps seulement. Continuer ?",
+      async () => {
+        setExportingJSON(true);
+        try {
+          const COLLECTIONS = [
+            'sources', 'exercices', 'lignesBudgetaires', 'beneficiaires',
+            'budgets', 'ops', 'bordereaux', 'journal', 'users',
+            'parametres', 'compteurs',
+          ];
+
+          const donnees = {};
+          const comptes = {};
+          for (const nom of COLLECTIONS) {
+            const snap = await getDocs(collection(db, nom));
+            // id + champs, exactement la forme stockée : c'est ce qui
+            // permet de tout recréer à l'identique ailleurs.
+            donnees[nom] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            comptes[nom] = donnees[nom].length;
+          }
+
+          // Un en-tête de contrôle : il permet de vérifier, après import,
+          // que rien n'a été perdu en route.
+          const fichier = {
+            _export: {
+              date: new Date().toISOString(),
+              projet: projet?.sigle || '',
+              collections: comptes,
+              total: Object.values(comptes).reduce((s, n) => s + n, 0),
+            },
+            ...donnees,
+          };
+
+          const blob = new Blob([JSON.stringify(fichier, null, 2)], { type: 'application/json' });
+          const url = window.URL.createObjectURL(blob);
+          const lien = document.createElement('a');
+          lien.href = url;
+          lien.download = `Export_Complet_${new Date().toISOString().split('T')[0].replace(/-/g, '')}.json`;
+          document.body.appendChild(lien);
+          lien.click();
+          document.body.removeChild(lien);
+          window.URL.revokeObjectURL(url);
+
+          notify("success", "Export terminé", `${fichier._export.total} documents exportés, toutes collections confondues.`);
+        } catch (e) {
+          notify("error", "Erreur", "Échec de l'export : " + e.message);
+        }
+        setExportingJSON(false);
+      }
+    );
+  };
+
   const handleRecalerCompteurs = () => {
     ask("Recaler les compteurs", "Cette action réaligne les compteurs de numérotation sur le dernier numéro d'OP réellement utilisé, pour chaque source et chaque exercice. À n'utiliser qu'en cas d'anomalie de numérotation. Continuer ?", async () => {
       setSaving(true);
@@ -405,6 +482,13 @@ const TabMaintenance = () => {
           </div>
           <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.greenDark }}>Sauvegarder la base</h3>
           <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{exporting ? 'Export en cours...' : 'Télécharger toutes les données (OP, budgets, bénéficiaires, utilisateurs, journal...) au format Excel.'}</p>
+        </div>
+        <div onClick={exportingJSON ? undefined : handleExportJSON} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: exportingJSON ? 'not-allowed' : 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', opacity: exportingJSON ? 0.6 : 1 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#EDEFEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={P.oliveDark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.oliveDark }}>Exporter tout (JSON)</h3>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{exportingJSON ? 'Export en cours...' : "L'intégralité de la base, telle qu'elle est stockée. Pour migrer ou restaurer — contient des données personnelles."}</p>
         </div>
         <div onClick={handleRecalerCompteurs} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: P.goldLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
