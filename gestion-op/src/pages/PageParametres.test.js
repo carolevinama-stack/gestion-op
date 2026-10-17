@@ -26,9 +26,13 @@ let mockOpsEnBase = [];
 let mockFeuilles = {};
 let mockFichierEcrit = null;
 
-jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
-jest.mock('firebase/firestore', () => ({
+// Sur cette branche, la page passe par l'interprète ../db au lieu de
+// firebase/firestore : seul le module visé par la doublure change. Son
+// corps et toutes les assertions sont identiques à ceux de la branche
+// principale — c'est ce qui prouve que le comportement est le même.
+jest.mock('../db', () => ({
+  db: {},
   collection: (_db, nom) => ({ nom }),
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau' }),
   setDoc: () => Promise.resolve(),
