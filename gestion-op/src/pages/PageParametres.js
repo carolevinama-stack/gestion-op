@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
-import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where } from 'firebase/firestore';
 import { styles } from '../utils/styles';
 import { formatDate, formatMontant } from '../utils/formatters';
-import { idCompteurOp } from '../utils/opCalculs';
+import { idCompteurOp, maxNumeroExistant } from '../utils/opCalculs';
 import { controlerRejets, orphelinsParExercice } from '../utils/controleRejets';
 import PageAdmin from './PageAdmin';
 
@@ -271,7 +271,10 @@ const TabInfos = () => {
 // ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
+  // `ops` n'est volontairement PAS pris ici : le contexte ne garde en mémoire
+  // que l'exercice actif, et tout ce qui touche à plusieurs exercices dans cet
+  // onglet (recalage des compteurs, sauvegarde, export) relit la base.
+  const { projet, sources, exercices, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
@@ -508,17 +511,23 @@ const TabMaintenance = () => {
     ask("Recaler les compteurs", "Cette action réaligne les compteurs de numérotation sur le dernier numéro d'OP réellement utilisé, pour chaque source et chaque exercice. À n'utiliser qu'en cas d'anomalie de numérotation. Continuer ?", async () => {
       setSaving(true);
       try {
+        // Les OP sont relus EN BASE, exercice par exercice, et NON pris dans le
+        // contexte : celui-ci ne garde en mémoire que l'exercice actif. Avant,
+        // tout exercice clos était donc vu comme vide, son compteur remis à
+        // zéro — et le prochain OP saisi dans cet exercice, après une bascule,
+        // repartait au N°0001, déjà utilisé.
+        //
+        // Une requête par exercice, et seulement au clic sur le bouton : lire
+        // la collection ops entière avait causé le dépassement du quota de
+        // lectures du 9 septembre 2026.
+        const maintenant = new Date().toISOString();
         const batch = writeBatch(db);
         for (const ex of exercices) {
+          const snap = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', ex.id)));
+          const opsExercice = snap.docs.map(d => d.data()).filter(o => o.statut !== 'SUPPRIME');
           for (const src of sources) {
-            const opsExistants = ops.filter(o => o.sourceId === src.id && o.exerciceId === ex.id && o.statut !== 'SUPPRIME');
-            let maxNum = 0;
-            opsExistants.forEach(o => {
-              const match = (o.numero || '').match(/N°(\d+)\//);
-              if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-            });
-            const counterRef = doc(db, 'compteurs', idCompteurOp(src.id, ex.id));
-            batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
+            const maxNum = maxNumeroExistant(opsExercice.filter(o => o.sourceId === src.id));
+            batch.set(doc(db, 'compteurs', idCompteurOp(src.id, ex.id)), { count: maxNum, updatedAt: maintenant }, { merge: true });
           }
         }
         await batch.commit();

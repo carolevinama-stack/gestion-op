@@ -44,6 +44,11 @@ jest.mock('firebase/firestore', () => ({
     delete: (...a) => mockEcritures.push(['batch.delete', a]),
     commit: () => { mockEcritures.push(['batch.commit', []]); return Promise.resolve(); },
   }),
+  // query/where sont honorés par la doublure : le recalage des compteurs lit
+  // les OP exercice par exercice, et c'est précisément ce filtre qu'il faut
+  // vérifier.
+  where: (champ, _op, valeur) => ({ champ, valeur }),
+  query: (ref, ...filtres) => ({ ...ref, filtres }),
   getDocs: (ref) => {
     const parCollection = {
       ops: mockOpsEnBase,
@@ -58,7 +63,11 @@ jest.mock('firebase/firestore', () => ({
       parametres: [{ sigle: 'PIF2' }],
       compteurs: [{ count: 42 }],
     };
-    const lignes = parCollection[ref?.nom] || [];
+    const toutes = parCollection[ref?.nom] || [];
+    const lignes = (ref?.filtres || []).reduce(
+      (reste, f) => reste.filter(d => d[f.champ] === f.valeur),
+      toutes,
+    );
     return Promise.resolve({ docs: lignes.map((d, i) => ({ id: `d${i}`, data: () => d })) });
   },
 }));
@@ -82,15 +91,16 @@ const EXERCICES = [
 // Le contexte ne contient QUE l'exercice actif : c'est le comportement
 // réel, et c'est précisément ce qui rendait la sauvegarde incomplète.
 const OPS_DU_CONTEXTE = [
-  { id: 'op1', numero: 'N°0001', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
-  { id: 'op2', numero: 'N°0002', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
+  { id: 'op1', numero: 'N°0001/BM', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
+  { id: 'op2', numero: 'N°0002/BM', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
 ];
 
-// La base, elle, contient en plus les archives de l'exercice clos.
+// La base, elle, contient en plus les archives de l'exercice clos. Les numéros
+// portent le sigle de la source : c'est le format que lit maxNumeroExistant.
 const OPS_DE_LA_BASE = [
   ...OPS_DU_CONTEXTE,
-  { id: 'op3', numero: 'N°0101', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 5000 },
-  { id: 'op4', numero: 'N°0102', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 6000 },
+  { id: 'op3', numero: 'N°0101/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 5000 },
+  { id: 'op4', numero: 'N°0102/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 6000 },
 ];
 
 // ⚠️ L'objet rendu par useAppContext doit être STABLE d'un rendu à
@@ -112,8 +122,8 @@ const mockContexte = {
   ],
   setExercices: () => {},
   ops: [
-    { id: 'op1', numero: 'N°0001', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
-    { id: 'op2', numero: 'N°0002', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
+    { id: 'op1', numero: 'N°0001/BM', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
+    { id: 'op2', numero: 'N°0002/BM', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
   ],
   budgets: [],
   beneficiaires: [],
@@ -149,7 +159,7 @@ describe('La sauvegarde de la base', () => {
     const numeros = (mockFeuilles['OP'] || []).map(l => l['N° OP']);
     // Les deux premiers viennent du contexte, les deux autres n'en font
     // pas partie : seule une relecture en base peut les ramener.
-    expect(numeros).toEqual(expect.arrayContaining(['N°0001', 'N°0002', 'N°0101', 'N°0102']));
+    expect(numeros).toEqual(expect.arrayContaining(['N°0001/BM', 'N°0002/BM', 'N°0101/BM', 'N°0102/BM']));
   });
 
   test('comporte autant de lignes que la base, pas que le contexte', async () => {
@@ -160,7 +170,7 @@ describe('La sauvegarde de la base', () => {
 
   test("l'exercice clos est bien nommé dans le fichier", async () => {
     await lancerLaSauvegarde();
-    const archive = mockFeuilles['OP'].find(l => l['N° OP'] === 'N°0101');
+    const archive = mockFeuilles['OP'].find(l => l['N° OP'] === 'N°0101/BM');
     expect(archive['Exercice']).toBe(2025);
     expect(archive['Statut']).toBe('ARCHIVE');
     expect(archive['Montant']).toBe(5000);
@@ -234,7 +244,7 @@ describe("L'export complet au format JSON", () => {
   test('reprend les OP de TOUS les exercices, pas seulement le contexte', async () => {
     const fichier = await lancerExportJSON();
     expect(fichier.ops).toHaveLength(OPS_DE_LA_BASE.length);
-    expect(fichier.ops.map(o => o.numero)).toContain('N°0101');
+    expect(fichier.ops.map(o => o.numero)).toContain('N°0101/BM');
   });
 
   test("conserve l'identifiant de chaque document", async () => {
@@ -346,5 +356,62 @@ describe('Maintenance — contrôler les OP de rejet', () => {
     mockOpsEnBase = OPS_DE_LA_BASE;
     await lancerLeControle();
     expect((await screen.findByText(/Base contrôlée/)).textContent).toMatch(/4 OP au total/);
+  });
+});
+
+// ==================== RECALER LES COMPTEURS ====================
+// Le bouton promet de réaligner les compteurs « pour chaque source et chaque
+// exercice ». Il comptait les OP EN MÉMOIRE, or le contexte ne garde que
+// l'exercice actif : tout exercice clos était vu comme vide et son compteur
+// remis à ZÉRO. Le numéro d'un nouvel OP étant pris dans le compteur, une
+// bascule ultérieure sur cet exercice redonnait le N°0001, déjà utilisé.
+describe('Maintenance — recaler les compteurs', () => {
+  const recaler = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Recaler les numéros'));
+    await utilisateur.click(await screen.findByText('Confirmer'));
+    await waitFor(() => expect(mockEcritures.some(([t]) => t === 'batch.commit')).toBe(true));
+  };
+
+  const compteurEcrit = (id) => {
+    const appel = mockEcritures.find(([type, args]) => type === 'batch.set' && args[0]?.id === id);
+    return appel ? appel[1][1] : null;
+  };
+
+  test('le compteur de l\'exercice actif suit le dernier numéro utilisé', async () => {
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2026')).toMatchObject({ count: 2 });
+  });
+
+  // La garantie qui compte : l'exercice clos n'est PAS dans le contexte, ses OP
+  // sont relus en base, et son compteur reste à 102 au lieu de retomber à 0.
+  test('le compteur d\'un exercice clos n\'est pas remis à zéro', async () => {
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 102 });
+  });
+
+  test('les OP à la corbeille ne font pas monter le compteur', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op8', numero: 'N°0900/BM', statut: 'SUPPRIME', sourceId: 'S1', exerciceId: 'E2025', montant: 10 },
+    ];
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 102 });
+  });
+
+  // Chaque exercice est lu séparément : les OP de 2026 ne doivent pas faire
+  // monter le compteur de 2025, ni l'inverse.
+  test('les exercices ne se contaminent pas', async () => {
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2026').count).toBe(2);
+    expect(compteurEcrit('OP_S1_E2025').count).toBe(102);
+  });
+
+  test('tout part dans un seul lot', async () => {
+    await recaler();
+    expect(mockEcritures.filter(([t]) => t === 'batch.commit')).toHaveLength(1);
+    expect(mockEcritures.some(([t]) => t === 'setDoc' || t === 'updateDoc')).toBe(false);
   });
 });
