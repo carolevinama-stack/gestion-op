@@ -523,8 +523,15 @@ const TabMaintenance = () => {
         const maintenant = new Date().toISOString();
         const batch = writeBatch(db);
         for (const ex of exercices) {
+          // Les OP à la corbeille COMPTENT : ils gardent leur numéro, et la
+          // restauration le leur rend tel quel. Les exclure aurait fait
+          // redescendre le compteur sous un numéro encore attribué, et le
+          // prochain OP l'aurait repris — doublon au premier OP restauré.
+          // C'est déjà la règle des deux autres chemins de numérotation :
+          // prochainNumero (l'aperçu de saisie) et l'initialisation du
+          // compteur dans PageNouvelOp ne filtrent pas non plus.
           const snap = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', ex.id)));
-          const opsExercice = snap.docs.map(d => d.data()).filter(o => o.statut !== 'SUPPRIME');
+          const opsExercice = snap.docs.map(d => d.data());
           for (const src of sources) {
             const maxNum = maxNumeroExistant(opsExercice.filter(o => o.sourceId === src.id));
             batch.set(doc(db, 'compteurs', idCompteurOp(src.id, ex.id)), { count: maxNum, updatedAt: maintenant }, { merge: true });

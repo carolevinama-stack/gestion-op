@@ -392,13 +392,17 @@ describe('Maintenance — recaler les compteurs', () => {
     expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 102 });
   });
 
-  test('les OP à la corbeille ne font pas monter le compteur', async () => {
+  // Un OP à la corbeille GARDE son numéro, et la restauration le lui rend tel
+  // quel. Son numéro n'est donc pas libre : l'exclure ferait redescendre le
+  // compteur sous un numéro encore attribué, et le prochain OP le reprendrait.
+  // Doublon au premier OP restauré.
+  test('un OP à la corbeille compte quand même dans le compteur', async () => {
     mockOpsEnBase = [
       ...OPS_DE_LA_BASE,
       { id: 'op8', numero: 'N°0900/BM', statut: 'SUPPRIME', sourceId: 'S1', exerciceId: 'E2025', montant: 10 },
     ];
     await recaler();
-    expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 102 });
+    expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 900 });
   });
 
   // Chaque exercice est lu séparément : les OP de 2026 ne doivent pas faire
