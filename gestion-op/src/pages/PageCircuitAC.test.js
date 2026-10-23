@@ -371,7 +371,7 @@ describe('Circuit AC — annuler un rejet', () => {
     render(<PageCircuitAC />);
     await ouvrirAnnulationRejet();
     expect(await screen.findByText(/CONSERVÉ dans l'historique des rejets/)).toBeInTheDocument();
-    expect(screen.getByText(/redevient engagé au budget/)).toBeInTheDocument();
+    expect(screen.getByText(/ne correspondrait plus à aucun rejet/)).toBeInTheDocument();
   });
 
   test('un mauvais mot de passe refuse l\'annulation, et n\'écrit rien', async () => {

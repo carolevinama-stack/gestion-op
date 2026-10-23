@@ -6,10 +6,12 @@
 // Annuler ce rejet — pour corriger une erreur de saisie — doit donc défaire les
 // deux. Deux règles portent ce fichier :
 //
-// 1. L'OP de rejet part avec. Il n'existe que pour compenser un rejet : si le
-//    rejet n'existe plus, le négatif non plus. Le laisser en base soustrayait
-//    définitivement un montant du budget disponible, sans que rien ne le
-//    signale à l'écran.
+// 1. L'OP de rejet part avec. Il n'existe que pour matérialiser un rejet : si le
+//    rejet n'existe plus, le négatif non plus. Il ne faussait PAS le budget
+//    disponible — un OP au statut rejeté est exclu des engagements
+//    (opCalculs.js, STATUTS_EXCLUS_ENGAGEMENT) — mais il restait dans la liste
+//    des OP et dans le Rapport comme un rejet qui n'existe plus, et il faussait
+//    le total affiché de la liste ainsi que le compte des rejets.
 //
 // 2. Rien ne se perd. La date et le motif du rejet partent dans
 //    historiqueRejets avant que les champs « en cours » soient effacés. C'est
@@ -37,7 +39,7 @@ export const misesAJourAnnulationRejet = (op, { dateAnnulation, type, parQui = n
   historiqueRejets: [...(op?.historiqueRejets || []), entreeHistoriqueRejet(op, { dateAnnulation, type, parQui })],
 });
 
-// Les OP de rejet à supprimer avec le rejet qu'on annule. On prend TOUS les
+// Les OP de rejet à retirer avec le rejet qu'on annule. On prend TOUS les
 // négatifs rattachés à cet OP, pas seulement le dernier : si un rejet annulé
 // avant cette correction a laissé un négatif orphelin en base, il part aussi.
 export const rejetsARetirer = (ops, opId) =>

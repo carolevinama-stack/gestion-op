@@ -396,9 +396,9 @@ describe('Circuit CF — cocher une ligne', () => {
 
 // ==================== ANNULER UN REJET ====================
 // Annuler un rejet défaisait le rejet à moitié : l'OP d'origine repartait bien,
-// mais son OP de rejet — le négatif qui annule l'engagement — restait en base.
-// Le montant était donc soustrait du budget disponible pour toujours, sans que
-// rien ne le signale. Et la date comme le motif du rejet étaient effacés sans
+// mais son OP de rejet — le négatif qui le matérialise — restait en base, et
+// continuait de figurer dans la liste des OP et dans le Rapport comme un rejet
+// qui n'existe plus. Et la date comme le motif du rejet étaient effacés sans
 // trace, alors qu'il n'existe aucun « Réintroduire » pour les rejets.
 describe('Circuit CF — annuler un rejet', () => {
   const ouvrirAnnulationRejet = async () => {
@@ -419,7 +419,7 @@ describe('Circuit CF — annuler un rejet', () => {
     await ouvrirAnnulationRejet();
     expect(await screen.findByText(/CONSERVÉ dans l'historique des rejets/)).toBeInTheDocument();
     expect(screen.getByText(/sera supprimé/)).toBeInTheDocument();
-    expect(screen.getByText(/redevient engagé au budget/)).toBeInTheDocument();
+    expect(screen.getByText(/ne correspondrait plus à aucun rejet/)).toBeInTheDocument();
   });
 
   // Le mot de passe administrateur, comme pour restaurer un OP de la corbeille.
@@ -458,8 +458,8 @@ describe('Circuit CF — annuler un rejet', () => {
     expect(ecriture.motifRejet).toBeNull();
   });
 
-  // Le défaut lui-même : sans cette suppression, −1 000 000 F restaient
-  // soustraits du budget disponible définitivement.
+  // Le défaut lui-même : sans cette suppression, un OP de −1 000 000 F reste
+  // dans les listes comme le rejet d'un OP qui n'est plus rejeté.
   test('l\'OP de rejet est supprimé dans le même lot', async () => {
     render(<PageCircuitCF />);
     await ouvrirAnnulationRejet();

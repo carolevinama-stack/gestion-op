@@ -272,10 +272,10 @@ describe("L'export complet au format JSON", () => {
 });
 
 // ==================== CONTRÔLE DES OP DE REJET ====================
-// Un rejet crée un OP négatif qui annule l'engagement au budget. Jusqu'à la
-// correction de l'annulation, ce négatif restait en base quand le rejet était
-// annulé : son montant restait soustrait du disponible pour toujours, et rien
-// ne le signalait. Cette carte les retrouve — et ne modifie jamais rien.
+// Un rejet crée un OP négatif qui le matérialise. Jusqu'à la correction de
+// l'annulation, ce négatif restait en base quand le rejet était annulé : il
+// continuait de figurer dans la liste des OP et dans le Rapport comme un rejet
+// qui n'existe plus. Cette carte les retrouve — et ne modifie jamais rien.
 describe('Maintenance — contrôler les OP de rejet', () => {
   const lancerLeControle = async () => {
     const utilisateur = userEvent.setup();
@@ -304,7 +304,8 @@ describe('Maintenance — contrôler les OP de rejet', () => {
     await lancerLeControle();
     const message = await screen.findByText(/orphelin/);
     expect(message.textContent).toMatch(/1 OP de rejet orphelin/);
-    expect(message.textContent).toMatch(/surévalué de/);
+    expect(message.textContent).toMatch(/n'est PAS faussé/);
+    expect(message.textContent).toMatch(/Cumul/);
     expect(message.textContent).toMatch(/exercice 2025/);
     expect(message.textContent).toMatch(/N°0102-R/);
   });

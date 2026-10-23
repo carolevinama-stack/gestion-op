@@ -2,9 +2,11 @@
 // Un rejet crée un OP négatif qui annule l'engagement au budget. Ce négatif n'a
 // de sens que tant que le rejet tient : si le rejet est annulé, il doit partir.
 //
-// Avant la correction de l'annulation, il restait en base. Son montant était
-// donc soustrait du budget disponible définitivement, sans que rien ne le
-// signale à l'écran. Ce fichier retrouve ces négatifs devenus inutiles.
+// Avant la correction de l'annulation, il restait en base. Il ne fausse PAS le
+// budget disponible — un OP au statut rejeté est exclu des engagements, voir
+// STATUTS_EXCLUS_ENGAGEMENT dans opCalculs.js — mais il reste dans la liste des
+// OP et dans le Rapport comme un rejet qui n'existe plus, et il fausse le total
+// affiché de la liste ainsi que le compte des rejets. Ce fichier les retrouve.
 //
 // Il ne modifie RIEN : il lit et il compte. C'est volontaire — supprimer un OP
 // sur la foi d'une règle déduite serait plus grave que le défaut lui-même.
@@ -40,13 +42,14 @@ export const controlerRejets = (ops) => {
     legitimes,
     orphelins,
     nonRattachables,
-    // Ce que les orphelins soustraient à tort du budget. Les montants sont
-    // négatifs : la valeur absolue est ce que le disponible affiche en trop.
+    // Le cumul des négatifs devenus inutiles. Il ne dit pas un écart de budget
+    // (ces OP sont hors engagement) mais le poids de ce qui traîne dans les
+    // listes et les totaux affichés.
     montantOrphelins: orphelins.reduce((somme, o) => somme + (o.montant || 0), 0),
   };
 };
 
-// Les orphelins regroupés par exercice, pour dire OÙ le budget est faussé.
+// Les orphelins regroupés par exercice, pour dire OÙ ils traînent.
 export const orphelinsParExercice = (orphelins) => {
   const parExercice = new Map();
   for (const o of orphelins || []) {

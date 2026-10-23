@@ -413,9 +413,11 @@ const PageCircuitCF = () => {
   //
   // - Un REJET annulé est CONSERVÉ dans historiqueRejets : il n'existe aucun
   //   « Réintroduire » pour les rejets, donc l'effacer était la seule issue et
-  //   la trace disparaissait. Et son OP de rejet (le négatif qui annule
-  //   l'engagement) est supprimé dans le MÊME LOT : laissé en base, il
-  //   soustrayait définitivement son montant du budget disponible.
+  //   la trace disparaissait. Et son OP de rejet est supprimé dans le MÊME LOT :
+  //   laissé en base, il restait dans la liste des OP et dans le Rapport comme
+  //   un rejet qui n'existe plus. Il ne faussait pas le budget disponible — un
+  //   OP au statut rejeté est hors engagement (opCalculs.js) — mais il faussait
+  //   le total affiché de la liste et le compte des rejets.
   const handleAnnulerRetour = async (opId, statut) => {
     const op = ops.find(o => o.id === opId);
     const estDiffere = statut === 'DIFFERE_CF';
@@ -430,11 +432,11 @@ const PageCircuitCF = () => {
         + `La date du différé${dateConcernee ? ` (${dateConcernee})` : ''} et son motif`
         + `${motifConcerne ? ` « ${motifConcerne} »` : ''} seront DÉFINITIVEMENT EFFACÉS.\n\n`
         + `Pour remettre l'OP dans le circuit en conservant cette trace, utilisez plutôt « Réintroduire ».`
-      : `L'OP ${op?.numero || ''} redeviendra « Transmis au CF ».\n\n`
+      : `L'OP ${op?.numero || ''} redeviendra « Transmis au CF », et son montant sera de nouveau compté dans les engagements du budget.\n\n`
         + `Le rejet${dateConcernee ? ` du ${dateConcernee}` : ''}`
         + `${motifConcerne ? ` « ${motifConcerne} »` : ''} sera CONSERVÉ dans l'historique des rejets de l'OP.\n\n`
         + (negatifs.length
-            ? `L'OP de rejet (${formatMontant(montantNegatifs)} F) sera supprimé : ce montant redevient engagé au budget.`
+            ? `L'OP de rejet (${formatMontant(montantNegatifs)} F) sera supprimé : il ne correspondrait plus à aucun rejet.`
             : `Aucun OP de rejet n'a été trouvé pour cet OP.`);
 
     ask(

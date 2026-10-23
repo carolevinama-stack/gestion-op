@@ -388,10 +388,14 @@ const TabMaintenance = () => {
   //  être envoyé n'importe où ni laissé traîner. L'utilisateur en est
   //  averti avant le téléchargement.
   // ============================================================
-  // Contrôle des OP de rejet orphelins. Un rejet crée un OP négatif qui annule
-  // l'engagement au budget ; ce négatif n'a de sens que tant que le rejet tient.
-  // Jusqu'à la correction de l'annulation, il restait en base quand le rejet
-  // était annulé, et son montant restait soustrait du disponible pour toujours.
+  // Contrôle des OP de rejet orphelins. Un rejet crée un OP négatif qui le
+  // matérialise ; ce négatif n'a de sens que tant que le rejet tient. Jusqu'à la
+  // correction de l'annulation, il restait en base quand le rejet était annulé.
+  //
+  // Il ne fausse PAS le budget disponible : un OP au statut rejeté est exclu des
+  // engagements (STATUTS_EXCLUS_ENGAGEMENT, opCalculs.js). Il reste en revanche
+  // dans la liste des OP et dans le Rapport comme un rejet qui n'existe plus, et
+  // il fausse le total affiché de la liste ainsi que le compte des rejets.
   //
   // Ce contrôle ne modifie RIEN. Il lit et il compte. Supprimer un OP sur la
   // foi d'une règle déduite serait plus grave que le défaut lui-même : la
@@ -416,7 +420,7 @@ const TabMaintenance = () => {
         notify("success", "Contrôle des rejets",
           entete
           + `Aucun OP de rejet orphelin.\n\n`
-          + `Les ${r.legitimes.length} OP de rejet rattachés correspondent tous à un OP encore rejeté : le budget disponible n'est pas faussé par ce défaut.`
+          + `Les ${r.legitimes.length} OP de rejet rattachés correspondent tous à un OP encore rejeté : rien à corriger.`
           + reserve);
         setControlant(false);
         return;
@@ -426,6 +430,7 @@ const TabMaintenance = () => {
         const ex = exercices.find(e => e.id === id);
         return ex?.annee ? `exercice ${ex.annee}` : `exercice ${id}`;
       };
+      // Groupés par exercice : un négatif oublié peut dormir dans une archive.
       const detail = orphelinsParExercice(r.orphelins)
         .map(g => `• ${nomExercice(g.exerciceId)} : ${g.nb} OP, ${formatMontant(g.montant)} F\n  ${g.numeros.slice(0, 12).join(', ')}${g.numeros.length > 12 ? `, … (+${g.numeros.length - 12})` : ''}`)
         .join('\n');
@@ -433,7 +438,7 @@ const TabMaintenance = () => {
       notify("error", "Contrôle des rejets",
         entete
         + `${r.orphelins.length} OP de rejet orphelin(s) : leur OP d'origine n'est plus rejeté, le négatif aurait dû partir avec l'annulation.\n\n`
-        + `Le budget disponible est surévalué de ${formatMontant(Math.abs(r.montantOrphelins))} F.\n\n`
+        + `Le budget disponible n'est PAS faussé : ces OP sont au statut rejeté, donc hors engagement. En revanche ils apparaissent dans la liste des OP et dans le Rapport comme des rejets qui n'existent plus, et ils faussent le total affiché de la liste ainsi que le compte des rejets. Cumul : ${formatMontant(r.montantOrphelins)} F.\n\n`
         + detail
         + reserve
         + `\n\nAucune modification n'a été faite. Transmettez cette liste avant toute suppression.`);
@@ -560,7 +565,7 @@ const TabMaintenance = () => {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C43E3E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></svg>
           </div>
           <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: '#C43E3E' }}>Contrôler les rejets</h3>
-          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{controlant ? 'Contrôle en cours...' : "Chercher les OP de rejet dont l'OP d'origine n'est plus rejeté : leur montant négatif fausse le budget disponible. Ne modifie rien."}</p>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{controlant ? 'Contrôle en cours...' : "Chercher les OP de rejet dont l'OP d'origine n'est plus rejeté : ils traînent dans la liste des OP et dans le Rapport. Ne modifie rien."}</p>
         </div>
       </div>
 
