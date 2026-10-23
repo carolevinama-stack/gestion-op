@@ -3,8 +3,9 @@ import { useAppContext } from '../context/AppContext';
 import { db } from '../firebase';
 import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { styles } from '../utils/styles';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatMontant } from '../utils/formatters';
 import { idCompteurOp } from '../utils/opCalculs';
+import { controlerRejets, orphelinsParExercice } from '../utils/controleRejets';
 import PageAdmin from './PageAdmin';
 
 // ============================================================
@@ -275,6 +276,7 @@ const TabMaintenance = () => {
   const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
   const [exportingJSON, setExportingJSON] = useState(false);
+  const [controlant, setControlant] = useState(false);
 
   const notify = (type, title, message) => setAlertData({ type, title, message });
 
@@ -386,6 +388,61 @@ const TabMaintenance = () => {
   //  être envoyé n'importe où ni laissé traîner. L'utilisateur en est
   //  averti avant le téléchargement.
   // ============================================================
+  // Contrôle des OP de rejet orphelins. Un rejet crée un OP négatif qui annule
+  // l'engagement au budget ; ce négatif n'a de sens que tant que le rejet tient.
+  // Jusqu'à la correction de l'annulation, il restait en base quand le rejet
+  // était annulé, et son montant restait soustrait du disponible pour toujours.
+  //
+  // Ce contrôle ne modifie RIEN. Il lit et il compte. Supprimer un OP sur la
+  // foi d'une règle déduite serait plus grave que le défaut lui-même : la
+  // décision revient à l'utilisateur, au vu de la liste.
+  //
+  // Les OP sont relus EN BASE et non pris dans le contexte : le contexte ne
+  // porte que l'exercice actif, et un négatif oublié peut dormir dans un
+  // exercice clôturé.
+  const handleControlerRejets = async () => {
+    setControlant(true);
+    try {
+      const snap = await getDocs(collection(db, 'ops'));
+      const tousLesOps = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const r = controlerRejets(tousLesOps);
+
+      const entete = `Base contrôlée : ${r.nbOps} OP au total, tous exercices confondus, dont ${r.nbRejets} OP de rejet.\n\n`;
+      const reserve = r.nonRattachables.length
+        ? `\n\n${r.nonRattachables.length} OP de rejet ne porte(nt) pas de lien vers l'OP d'origine : impossible de conclure pour ceux-là, ils sont laissés de côté.`
+        : '';
+
+      if (r.orphelins.length === 0) {
+        notify("success", "Contrôle des rejets",
+          entete
+          + `Aucun OP de rejet orphelin.\n\n`
+          + `Les ${r.legitimes.length} OP de rejet rattachés correspondent tous à un OP encore rejeté : le budget disponible n'est pas faussé par ce défaut.`
+          + reserve);
+        setControlant(false);
+        return;
+      }
+
+      const nomExercice = (id) => {
+        const ex = exercices.find(e => e.id === id);
+        return ex?.annee ? `exercice ${ex.annee}` : `exercice ${id}`;
+      };
+      const detail = orphelinsParExercice(r.orphelins)
+        .map(g => `• ${nomExercice(g.exerciceId)} : ${g.nb} OP, ${formatMontant(g.montant)} F\n  ${g.numeros.slice(0, 12).join(', ')}${g.numeros.length > 12 ? `, … (+${g.numeros.length - 12})` : ''}`)
+        .join('\n');
+
+      notify("error", "Contrôle des rejets",
+        entete
+        + `${r.orphelins.length} OP de rejet orphelin(s) : leur OP d'origine n'est plus rejeté, le négatif aurait dû partir avec l'annulation.\n\n`
+        + `Le budget disponible est surévalué de ${formatMontant(Math.abs(r.montantOrphelins))} F.\n\n`
+        + detail
+        + reserve
+        + `\n\nAucune modification n'a été faite. Transmettez cette liste avant toute suppression.`);
+    } catch (e) {
+      notify("error", "Erreur", e.message);
+    }
+    setControlant(false);
+  };
+
   const handleExportJSON = () => {
     ask(
       "Exporter toutes les données",
@@ -496,6 +553,14 @@ const TabMaintenance = () => {
           </div>
           <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: P.gold }}>Recaler les numéros</h3>
           <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>Remettre à jour les compteurs selon les OP existants.</p>
+        </div>
+        {/* Contrôle, pas réparation : cette carte ne modifie jamais la base. */}
+        <div onClick={controlant ? undefined : handleControlerRejets} style={{ flex: 1, minWidth: 280, padding: 30, border: `1px solid ${P.border}`, borderRadius: 16, cursor: controlant ? 'not-allowed' : 'pointer', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#FFEBEE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C43E3E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></svg>
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 800, color: '#C43E3E' }}>Contrôler les rejets</h3>
+          <p style={{ margin: 0, fontSize: 13, color: P.textSec, lineHeight: 1.5 }}>{controlant ? 'Contrôle en cours...' : "Chercher les OP de rejet dont l'OP d'origine n'est plus rejeté : leur montant négatif fausse le budget disponible. Ne modifie rien."}</p>
         </div>
       </div>
 

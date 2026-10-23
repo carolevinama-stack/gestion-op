@@ -25,17 +25,25 @@ import PageParametres from './PageParametres';
 let mockOpsEnBase = [];
 let mockFeuilles = {};
 let mockFichierEcrit = null;
+// Toute écriture en base est enregistrée ici : le contrôle des rejets ne doit
+// en produire aucune.
+let mockEcritures = [];
 
 jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 jest.mock('firebase/firestore', () => ({
   collection: (_db, nom) => ({ nom }),
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau' }),
-  setDoc: () => Promise.resolve(),
-  addDoc: () => Promise.resolve({ id: 'nouveau' }),
-  updateDoc: () => Promise.resolve(),
-  deleteDoc: () => Promise.resolve(),
-  writeBatch: () => ({ set: () => {}, update: () => {}, commit: () => Promise.resolve() }),
+  setDoc: (...a) => { mockEcritures.push(['setDoc', a]); return Promise.resolve(); },
+  addDoc: (...a) => { mockEcritures.push(['addDoc', a]); return Promise.resolve({ id: 'nouveau' }); },
+  updateDoc: (...a) => { mockEcritures.push(['updateDoc', a]); return Promise.resolve(); },
+  deleteDoc: (...a) => { mockEcritures.push(['deleteDoc', a]); return Promise.resolve(); },
+  writeBatch: () => ({
+    set: (...a) => mockEcritures.push(['batch.set', a]),
+    update: (...a) => mockEcritures.push(['batch.update', a]),
+    delete: (...a) => mockEcritures.push(['batch.delete', a]),
+    commit: () => { mockEcritures.push(['batch.commit', []]); return Promise.resolve(); },
+  }),
   getDocs: (ref) => {
     const parCollection = {
       ops: mockOpsEnBase,
@@ -132,6 +140,7 @@ beforeEach(() => {
   mockOpsEnBase = OPS_DE_LA_BASE;
   mockFeuilles = {};
   mockFichierEcrit = null;
+  mockEcritures = [];
 });
 
 describe('La sauvegarde de la base', () => {
@@ -259,5 +268,82 @@ describe("L'export complet au format JSON", () => {
     // L'avertissement n'est pas décoratif : ce fichier contient les noms
     // et les RIB des bénéficiaires réels.
     expect(await screen.findByText(/RIB/i)).toBeInTheDocument();
+  });
+});
+
+// ==================== CONTRÔLE DES OP DE REJET ====================
+// Un rejet crée un OP négatif qui annule l'engagement au budget. Jusqu'à la
+// correction de l'annulation, ce négatif restait en base quand le rejet était
+// annulé : son montant restait soustrait du disponible pour toujours, et rien
+// ne le signalait. Cette carte les retrouve — et ne modifie jamais rien.
+describe('Maintenance — contrôler les OP de rejet', () => {
+  const lancerLeControle = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Contrôler les rejets'));
+  };
+
+  test('une base saine est annoncée comme saine', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op5', numero: 'N°0005', type: 'DIRECT', statut: 'REJETE_CF', sourceId: 'S1', exerciceId: 'E2026', montant: 3000 },
+      { id: 'op5r', numero: 'N°0005-R', type: 'REJET', statut: 'REJETE_CF', sourceId: 'S1', exerciceId: 'E2026', montant: -3000, opOriginalId: 'op5' },
+    ];
+    await lancerLeControle();
+    expect(await screen.findByText(/Aucun OP de rejet orphelin/)).toBeInTheDocument();
+  });
+
+  // L'orphelin dort dans l'exercice CLOS : le contrôle doit relire la base
+  // entière, et pas se contenter de l'exercice actif que porte le contexte.
+  test('un orphelin d\'un exercice clos est trouvé, avec son montant', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op9r', numero: 'N°0102-R', type: 'REJET', statut: 'REJETE_CF', sourceId: 'S1', exerciceId: 'E2025', montant: -6000, opOriginalId: 'op4' },
+    ];
+    await lancerLeControle();
+    const message = await screen.findByText(/orphelin/);
+    expect(message.textContent).toMatch(/1 OP de rejet orphelin/);
+    expect(message.textContent).toMatch(/surévalué de/);
+    expect(message.textContent).toMatch(/exercice 2025/);
+    expect(message.textContent).toMatch(/N°0102-R/);
+  });
+
+  // La garantie la plus importante : c'est un contrôle, pas une réparation.
+  test('le contrôle ne modifie jamais la base', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op9r', numero: 'N°0102-R', type: 'REJET', statut: 'REJETE_CF', sourceId: 'S1', exerciceId: 'E2025', montant: -6000, opOriginalId: 'op4' },
+    ];
+    await lancerLeControle();
+    await screen.findByText(/orphelin/);
+    expect(mockEcritures).toEqual([]);
+  });
+
+  test('le message dit explicitement que rien n\'a été modifié', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op9r', numero: 'N°0102-R', type: 'REJET', statut: 'REJETE_CF', sourceId: 'S1', exerciceId: 'E2025', montant: -6000, opOriginalId: 'op4' },
+    ];
+    await lancerLeControle();
+    expect((await screen.findByText(/orphelin/)).textContent).toMatch(/Aucune modification n'a été faite/);
+  });
+
+  // Sans lien vers l'OP d'origine, on ne peut rien conclure : ces OP sont
+  // signalés à part et ne doivent jamais être présentés comme orphelins.
+  test('un rejet sans lien vers son origine est signalé à part', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op8r', numero: 'N°0088-R', type: 'REJET', statut: 'REJETE_CF', sourceId: 'S1', exerciceId: 'E2026', montant: -400 },
+    ];
+    await lancerLeControle();
+    const message = await screen.findByText(/Aucun OP de rejet orphelin/);
+    expect(message.textContent).toMatch(/ne porte\(nt\) pas de lien vers l'OP d'origine/);
+  });
+
+  test('le contrôle annonce combien d\'OP il a examinés', async () => {
+    mockOpsEnBase = OPS_DE_LA_BASE;
+    await lancerLeControle();
+    expect((await screen.findByText(/Base contrôlée/)).textContent).toMatch(/4 OP au total/);
   });
 });
