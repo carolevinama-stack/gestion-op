@@ -28,6 +28,9 @@ let mockFichierEcrit = null;
 // Toute écriture en base est enregistrée ici : le contrôle des rejets ne doit
 // en produire aucune.
 let mockEcritures = [];
+// Les compteurs tels qu'ils sont EN BASE : c'est à eux que le recalage compare
+// ce qu'il propose, et il ne touche que ce qui diffère.
+let mockCompteursEnBase = [];
 
 
 // Sur cette branche, la page passe par l'interprète ../db au lieu de
@@ -37,7 +40,9 @@ let mockEcritures = [];
 jest.mock('../db', () => ({
   db: {},
   collection: (_db, nom) => ({ nom }),
-  doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau' }),
+  // La référence porte la collection visée : c'est ce qui permet d'affirmer
+  // qu'une action n'écrit QUE là où elle le prétend.
+  doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau', cible: typeof a[1] === 'string' ? a[1] : a[1]?.nom }),
   setDoc: (...a) => { mockEcritures.push(['setDoc', a]); return Promise.resolve(); },
   addDoc: (...a) => { mockEcritures.push(['addDoc', a]); return Promise.resolve({ id: 'nouveau' }); },
   updateDoc: (...a) => { mockEcritures.push(['updateDoc', a]); return Promise.resolve(); },
@@ -48,6 +53,11 @@ jest.mock('../db', () => ({
     delete: (...a) => mockEcritures.push(['batch.delete', a]),
     commit: () => { mockEcritures.push(['batch.commit', []]); return Promise.resolve(); },
   }),
+  // query/where sont honorés par la doublure : le recalage des compteurs lit
+  // les OP exercice par exercice, et c'est précisément ce filtre qu'il faut
+  // vérifier.
+  where: (champ, _op, valeur) => ({ champ, valeur }),
+  query: (ref, ...filtres) => ({ ...ref, filtres }),
   getDocs: (ref) => {
     const parCollection = {
       ops: mockOpsEnBase,
@@ -60,10 +70,14 @@ jest.mock('../db', () => ({
       beneficiaires: [{ nom: 'ENTREPRISE ALPHA', ribs: [{ banque: 'B', numero: '123' }] }],
       budgets: [{ sourceId: 'S1', version: 1, lignes: [{ code: '6011', dotation: 1000 }] }],
       parametres: [{ sigle: 'PIF2' }],
-      compteurs: [{ count: 42 }],
+      compteurs: mockCompteursEnBase,
     };
-    const lignes = parCollection[ref?.nom] || [];
-    return Promise.resolve({ docs: lignes.map((d, i) => ({ id: `d${i}`, data: () => d })) });
+    const toutes = parCollection[ref?.nom] || [];
+    const lignes = (ref?.filtres || []).reduce(
+      (reste, f) => reste.filter(d => d[f.champ] === f.valeur),
+      toutes,
+    );
+    return Promise.resolve({ docs: lignes.map((d, i) => ({ id: d.id ?? `d${i}`, data: () => d })) });
   },
 }));
 
@@ -86,15 +100,16 @@ const EXERCICES = [
 // Le contexte ne contient QUE l'exercice actif : c'est le comportement
 // réel, et c'est précisément ce qui rendait la sauvegarde incomplète.
 const OPS_DU_CONTEXTE = [
-  { id: 'op1', numero: 'N°0001', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
-  { id: 'op2', numero: 'N°0002', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
+  { id: 'op1', numero: 'N°0001/BM', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
+  { id: 'op2', numero: 'N°0002/BM', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
 ];
 
-// La base, elle, contient en plus les archives de l'exercice clos.
+// La base, elle, contient en plus les archives de l'exercice clos. Les numéros
+// portent le sigle de la source : c'est le format que lit maxNumeroExistant.
 const OPS_DE_LA_BASE = [
   ...OPS_DU_CONTEXTE,
-  { id: 'op3', numero: 'N°0101', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 5000 },
-  { id: 'op4', numero: 'N°0102', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 6000 },
+  { id: 'op3', numero: 'N°0101/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 5000 },
+  { id: 'op4', numero: 'N°0102/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 6000 },
 ];
 
 // ⚠️ L'objet rendu par useAppContext doit être STABLE d'un rendu à
@@ -116,8 +131,8 @@ const mockContexte = {
   ],
   setExercices: () => {},
   ops: [
-    { id: 'op1', numero: 'N°0001', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
-    { id: 'op2', numero: 'N°0002', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
+    { id: 'op1', numero: 'N°0001/BM', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S1', exerciceId: 'E2026', montant: 1000 },
+    { id: 'op2', numero: 'N°0002/BM', type: 'DIRECT', statut: 'PAYE', sourceId: 'S1', exerciceId: 'E2026', montant: 2000 },
   ],
   budgets: [],
   beneficiaires: [],
@@ -145,6 +160,7 @@ beforeEach(() => {
   mockFeuilles = {};
   mockFichierEcrit = null;
   mockEcritures = [];
+  mockCompteursEnBase = [{ id: 'un-compteur-sans-rapport', count: 42 }];
 });
 
 describe('La sauvegarde de la base', () => {
@@ -153,7 +169,7 @@ describe('La sauvegarde de la base', () => {
     const numeros = (mockFeuilles['OP'] || []).map(l => l['N° OP']);
     // Les deux premiers viennent du contexte, les deux autres n'en font
     // pas partie : seule une relecture en base peut les ramener.
-    expect(numeros).toEqual(expect.arrayContaining(['N°0001', 'N°0002', 'N°0101', 'N°0102']));
+    expect(numeros).toEqual(expect.arrayContaining(['N°0001/BM', 'N°0002/BM', 'N°0101/BM', 'N°0102/BM']));
   });
 
   test('comporte autant de lignes que la base, pas que le contexte', async () => {
@@ -164,7 +180,7 @@ describe('La sauvegarde de la base', () => {
 
   test("l'exercice clos est bien nommé dans le fichier", async () => {
     await lancerLaSauvegarde();
-    const archive = mockFeuilles['OP'].find(l => l['N° OP'] === 'N°0101');
+    const archive = mockFeuilles['OP'].find(l => l['N° OP'] === 'N°0101/BM');
     expect(archive['Exercice']).toBe(2025);
     expect(archive['Statut']).toBe('ARCHIVE');
     expect(archive['Montant']).toBe(5000);
@@ -238,7 +254,7 @@ describe("L'export complet au format JSON", () => {
   test('reprend les OP de TOUS les exercices, pas seulement le contexte', async () => {
     const fichier = await lancerExportJSON();
     expect(fichier.ops).toHaveLength(OPS_DE_LA_BASE.length);
-    expect(fichier.ops.map(o => o.numero)).toContain('N°0101');
+    expect(fichier.ops.map(o => o.numero)).toContain('N°0101/BM');
   });
 
   test("conserve l'identifiant de chaque document", async () => {
@@ -350,5 +366,179 @@ describe('Maintenance — contrôler les OP de rejet', () => {
     mockOpsEnBase = OPS_DE_LA_BASE;
     await lancerLeControle();
     expect((await screen.findByText(/Base contrôlée/)).textContent).toMatch(/4 OP au total/);
+  });
+});
+
+// ==================== RECALER LES COMPTEURS ====================
+// Le bouton promet de réaligner les compteurs « pour chaque source et chaque
+// exercice ». Il comptait les OP EN MÉMOIRE, or le contexte ne garde que
+// l'exercice actif : tout exercice clos était vu comme vide et son compteur
+// remis à ZÉRO. Le numéro d'un nouvel OP étant pris dans le compteur, une
+// bascule ultérieure sur cet exercice redonnait le N°0001, déjà utilisé.
+describe('Maintenance — recaler les compteurs', () => {
+  const recaler = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Recaler les numéros'));
+    await utilisateur.click(await screen.findByText('Confirmer'));
+    await waitFor(() => expect(mockEcritures.some(([t]) => t === 'batch.commit')).toBe(true));
+  };
+
+  const compteurEcrit = (id) => {
+    const appel = mockEcritures.find(([type, args]) => type === 'batch.set' && args[0]?.id === id);
+    return appel ? appel[1][1] : null;
+  };
+
+  test('le compteur de l\'exercice actif suit le dernier numéro utilisé', async () => {
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2026')).toMatchObject({ count: 2 });
+  });
+
+  // La garantie qui compte : l'exercice clos n'est PAS dans le contexte, ses OP
+  // sont relus en base, et son compteur reste à 102 au lieu de retomber à 0.
+  test('le compteur d\'un exercice clos n\'est pas remis à zéro', async () => {
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 102 });
+  });
+
+  // Un OP à la corbeille GARDE son numéro, et la restauration le lui rend tel
+  // quel. Son numéro n'est donc pas libre : l'exclure ferait redescendre le
+  // compteur sous un numéro encore attribué, et le prochain OP le reprendrait.
+  // Doublon au premier OP restauré.
+  test('un OP à la corbeille compte quand même dans le compteur', async () => {
+    mockOpsEnBase = [
+      ...OPS_DE_LA_BASE,
+      { id: 'op8', numero: 'N°0900/BM', statut: 'SUPPRIME', sourceId: 'S1', exerciceId: 'E2025', montant: 10 },
+    ];
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2025')).toMatchObject({ count: 900 });
+  });
+
+  // Chaque exercice est lu séparément : les OP de 2026 ne doivent pas faire
+  // monter le compteur de 2025, ni l'inverse.
+  test('les exercices ne se contaminent pas', async () => {
+    await recaler();
+    expect(compteurEcrit('OP_S1_E2026').count).toBe(2);
+    expect(compteurEcrit('OP_S1_E2025').count).toBe(102);
+  });
+
+  test('tout part dans un seul lot', async () => {
+    await recaler();
+    expect(mockEcritures.filter(([t]) => t === 'batch.commit')).toHaveLength(1);
+    expect(mockEcritures.some(([t]) => t === 'setDoc' || t === 'updateDoc')).toBe(false);
+  });
+});
+
+// La crainte de Carole, posée noir sur blanc : « le risque est que les OP déjà
+// enregistrés ou les bordereaux changent de numérotation et qu'on se perde ».
+//
+// Ce bouton n'écrit QUE dans la collection compteurs — une valeur par source et
+// par exercice, qui ne sert qu'à décider du numéro du PROCHAIN OP. Il lit les
+// OP pour trouver le plus grand numéro utilisé, et n'en modifie aucun.
+describe('Maintenance — le recalage ne renumérote rien', () => {
+  const recalerEtLireLesCibles = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Recaler les numéros'));
+    await utilisateur.click(await screen.findByText('Confirmer'));
+    await waitFor(() => expect(mockEcritures.some(([t]) => t === 'batch.commit')).toBe(true));
+    return mockEcritures
+      .filter(([type]) => type !== 'batch.commit')
+      .map(([, args]) => args[0]?.cible);
+  };
+
+  test('aucun OP n\'est écrit', async () => {
+    const cibles = await recalerEtLireLesCibles();
+    expect(cibles).not.toContain('ops');
+  });
+
+  test('aucun bordereau n\'est écrit', async () => {
+    const cibles = await recalerEtLireLesCibles();
+    expect(cibles).not.toContain('bordereaux');
+  });
+
+  // La formulation positive : la seule collection touchée, c'est compteurs.
+  test('la collection compteurs est la seule écrite', async () => {
+    const cibles = await recalerEtLireLesCibles();
+    expect(cibles.length).toBeGreaterThan(0);
+    expect([...new Set(cibles)]).toEqual(['compteurs']);
+  });
+});
+
+// ==================== L'APERÇU AVANT ÉCRITURE ====================
+// Le bouton travaille en deux temps : il lit, il montre ce qui changerait, et
+// il n'écrit qu'après accord. Carole ne voulait plus de bouton de maintenance
+// qui agit sans qu'on puisse voir d'abord ce qu'il va faire.
+describe('Maintenance — l\'aperçu du recalage', () => {
+  const ouvrirLApercu = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Recaler les numéros'));
+  };
+
+  const confirmer = async () => {
+    await userEvent.click(await screen.findByText('Confirmer'));
+    await waitFor(() => expect(mockEcritures.some(([t]) => t === 'batch.commit')).toBe(true));
+  };
+
+  test('l\'aperçu nomme chaque compteur et montre l\'avant et l\'après', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2026', count: 2 }];
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).toMatch(/2025 — BM : absent → 102/);
+  });
+
+  // La garantie du geste : rien ne part en base tant qu'on n'a pas confirmé.
+  test('rien n\'est écrit tant que l\'aperçu n\'est pas confirmé', async () => {
+    await ouvrirLApercu();
+    await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(mockEcritures).toEqual([]);
+  });
+
+  test('l\'aperçu rappelle qu\'aucun OP ni bordereau ne sera modifié', async () => {
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).toMatch(/Aucun OP et aucun bordereau ne sera modifié/);
+  });
+
+  // Un compteur déjà juste n'a aucune raison d'être réécrit.
+  test('seuls les compteurs réellement décalés sont écrits', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2026', count: 2 }];
+    await ouvrirLApercu();
+    await confirmer();
+    const ecrits = mockEcritures.filter(([t]) => t === 'batch.set').map(([, args]) => args[0].id);
+    expect(ecrits).toEqual(['OP_S1_E2025']);
+  });
+
+  test('quand tout est déjà aligné, il le dit et n\'écrit rien', async () => {
+    mockCompteursEnBase = [
+      { id: 'OP_S1_E2026', count: 2 },
+      { id: 'OP_S1_E2025', count: 102 },
+    ];
+    await ouvrirLApercu();
+    expect(await screen.findByText(/déjà alignés/)).toBeInTheDocument();
+    expect(screen.queryByText('Confirmer')).not.toBeInTheDocument();
+    expect(mockEcritures).toEqual([]);
+  });
+
+  // La seule direction dangereuse : un compteur qui BAISSE fait reprendre au
+  // prochain OP un numéro déjà attribué. Elle doit sauter aux yeux.
+  test('une baisse de compteur est signalée pour elle-même', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2025', count: 900 }];
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).toMatch(/900 → 102/);
+    expect(message.textContent).toMatch(/BAISSE/);
+    expect(message.textContent).toMatch(/numéro déjà attribué/);
+  });
+
+  test('sans baisse, aucun avertissement de baisse n\'est affiché', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2026', count: 2 }];
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).not.toMatch(/BAISSE/);
   });
 });

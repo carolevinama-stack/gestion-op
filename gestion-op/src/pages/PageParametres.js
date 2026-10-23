@@ -4,10 +4,10 @@ import { useAppContext } from '../context/AppContext';
 // firebase/firestore, au-dessus de Supabase. Les lots d'écriture de ce
 // fichier ne visent qu'UNE table, donc writeBatch les traite tel quel
 // (l'interprète refuserait un lot à cheval sur deux tables).
-import { db, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from '../db';
+import { db, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where } from '../db';
 import { styles } from '../utils/styles';
 import { formatDate, formatMontant } from '../utils/formatters';
-import { idCompteurOp } from '../utils/opCalculs';
+import { idCompteurOp, maxNumeroExistant } from '../utils/opCalculs';
 import { controlerRejets, orphelinsParExercice } from '../utils/controleRejets';
 import PageAdmin from './PageAdmin';
 
@@ -274,7 +274,10 @@ const TabInfos = () => {
 // ONGLET MAINTENANCE (VERSION UNIQUE ET SÉCURISÉE)
 // ============================================================
 const TabMaintenance = () => {
-  const { projet, sources, exercices, ops, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
+  // `ops` n'est volontairement PAS pris ici : le contexte ne garde en mémoire
+  // que l'exercice actif, et tout ce qui touche à plusieurs exercices dans cet
+  // onglet (recalage des compteurs, sauvegarde, export) relit la base.
+  const { projet, sources, exercices, beneficiaires, budgets, lignesBudgetaires } = useAppContext();
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [alertData, setAlertData] = useState(null);
@@ -507,30 +510,79 @@ const TabMaintenance = () => {
     );
   };
 
-  const handleRecalerCompteurs = () => {
-    ask("Recaler les compteurs", "Cette action réaligne les compteurs de numérotation sur le dernier numéro d'OP réellement utilisé, pour chaque source et chaque exercice. À n'utiliser qu'en cas d'anomalie de numérotation. Continuer ?", async () => {
-      setSaving(true);
-      try {
-        const batch = writeBatch(db);
-        for (const ex of exercices) {
-          for (const src of sources) {
-            const opsExistants = ops.filter(o => o.sourceId === src.id && o.exerciceId === ex.id && o.statut !== 'SUPPRIME');
-            let maxNum = 0;
-            opsExistants.forEach(o => {
-              const match = (o.numero || '').match(/N°(\d+)\//);
-              if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-            });
-            const counterRef = doc(db, 'compteurs', idCompteurOp(src.id, ex.id));
-            batch.set(counterRef, { count: maxNum, updatedAt: new Date().toISOString() }, { merge: true });
+  // Recalage des compteurs de numérotation, en DEUX TEMPS : on lit, on montre
+  // ce qui changerait, et on n'écrit qu'après accord. Rien d'aveugle.
+  //
+  // Le compteur ne sert qu'à décider du numéro du PROCHAIN OP. Un numéro
+  // attribué est inscrit dans l'OP lui-même et n'en bouge plus : ce bouton
+  // n'écrit que dans la collection compteurs, jamais dans ops ni bordereaux,
+  // et des tests le vérifient.
+  //
+  // Les OP sont relus EN BASE, une requête par exercice, et NON pris dans le
+  // contexte : celui-ci ne garde en mémoire que l'exercice actif, et tout
+  // exercice clos serait vu comme vide — son compteur retomberait à zéro.
+  // Les OP à la corbeille comptent : ils gardent leur numéro, et la
+  // restauration le leur rend tel quel.
+  const handleRecalerCompteurs = async () => {
+    setSaving(true);
+    const propositions = [];
+    try {
+      const snapCompteurs = await getDocs(collection(db, 'compteurs'));
+      const actuels = new Map(snapCompteurs.docs.map(d => [d.id, d.data()?.count]));
+      for (const ex of exercices) {
+        const snap = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', ex.id)));
+        const opsExercice = snap.docs.map(d => d.data());
+        for (const src of sources) {
+          const id = idCompteurOp(src.id, ex.id);
+          const avant = actuels.has(id) ? (actuels.get(id) ?? 0) : null;
+          const apres = maxNumeroExistant(opsExercice.filter(o => o.sourceId === src.id));
+          if (avant !== apres) {
+            propositions.push({ id, libelle: `${ex.annee || ex.id} — ${src.sigle || src.id}`, avant, apres });
           }
         }
-        await batch.commit();
-        notify("success", "Réussite", "Les compteurs ont été recalés.");
-      } catch (e) {
-        notify("error", "Erreur", "Problème de synchronisation.");
       }
+    } catch (e) {
       setSaving(false);
-    });
+      notify("error", "Erreur", "Impossible de lire les compteurs : " + e.message);
+      return;
+    }
+    setSaving(false);
+
+    if (propositions.length === 0) {
+      notify("success", "Compteurs", "Tous les compteurs sont déjà alignés sur le dernier numéro d'OP utilisé. Rien à modifier.");
+      return;
+    }
+
+    // Une BAISSE est la seule direction dangereuse : elle fait reprendre au
+    // prochain OP un numéro déjà attribué. Elle est signalée pour elle-même.
+    const baisses = propositions.filter(p => p.avant !== null && p.apres < p.avant);
+    const detail = propositions
+      .map(p => `• ${p.libelle} : ${p.avant === null ? 'absent' : p.avant} → ${p.apres}${p.avant !== null && p.apres < p.avant ? '   ⚠ BAISSE' : ''}`)
+      .join('\n');
+
+    ask(
+      "Recaler les compteurs",
+      `${propositions.length} compteur(s) seraient modifiés :\n\n${detail}\n\n`
+      + (baisses.length
+          ? `⚠ ${baisses.length} compteur(s) VONT BAISSER. Un compteur qui baisse fait reprendre au prochain OP un numéro déjà attribué. Ne confirmez que si vous savez pourquoi.\n\n`
+          : '')
+      + `Aucun OP et aucun bordereau ne sera modifié : seuls les compteurs de numérotation changent.`,
+      async () => {
+        setSaving(true);
+        try {
+          const maintenant = new Date().toISOString();
+          const batch = writeBatch(db);
+          for (const p of propositions) {
+            batch.set(doc(db, 'compteurs', p.id), { count: p.apres, updatedAt: maintenant }, { merge: true });
+          }
+          await batch.commit();
+          notify("success", "Réussite", `${propositions.length} compteur(s) recalé(s).`);
+        } catch (e) {
+          notify("error", "Erreur", "Problème de synchronisation : " + e.message);
+        }
+        setSaving(false);
+      }
+    );
   };
 
   return (
