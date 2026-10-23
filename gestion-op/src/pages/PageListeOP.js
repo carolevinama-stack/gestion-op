@@ -17,6 +17,16 @@ const P = {
   border:'#E2DFD8', text:'#3A3A3A', textSec:'#7A7A7A', textMuted:'#A0A0A0',
 };
 
+// Rejet et différé sont les deux seules étapes dont la date n'avait aucune place
+// à l'écran : elle n'existait que dans l'export Excel. On la lit EN FONCTION du
+// statut, jamais à l'aveugle — ainsi une date résiduelle (un OP sorti du rejet)
+// ne s'affiche pas à côté d'un statut qui ne la justifie plus.
+const dateDuStatut = (op) => {
+  if (op.statut === 'REJETE_CF' || op.statut === 'REJETE_AC') return op.dateRejet || null;
+  if (op.statut === 'DIFFERE_CF' || op.statut === 'DIFFERE_AC') return op.dateDiffere || null;
+  return null;
+};
+
 const I = {
   download: (c='#fff', s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
   trash: (c=P.red, s=16) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
@@ -525,7 +535,10 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                     {activeSource !== 'ALL' && <td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.dotationLigne)}</td>}
                     <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800 }}>{formatMontant(op.montant)}</td>
                     {activeSource !== 'ALL' && <><td style={{ ...styles.td, textAlign: 'right', fontSize: 12 }}>{formatMontant(op.engagementAnterieur)}</td><td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontSize: 12 }}>{formatMontant(op.disponible)}</td></>}
-                    <td style={{ ...styles.td, textAlign: 'center', fontSize: '10px', fontWeight: 700 }}>{op.statut.replace('_', ' ')}</td>
+                    <td style={{ ...styles.td, textAlign: 'center', fontSize: '10px', fontWeight: 700 }}>
+                      {op.statut.replace('_', ' ')}
+                      {dateDuStatut(op) && <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, color: op.statut.startsWith('REJETE') ? P.red : P.gold }}>le {formatDate(dateDuStatut(op))}</div>}
+                    </td>
                   </>
                 )}
                 <td style={styles.td}>
@@ -580,7 +593,14 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                    { label: 'Transmis au CF', date: livePreviewOp.dateTransmissionCF },
                    { label: 'Visé par CF', date: livePreviewOp.dateVisaCF, color: P.greenDark },
                    { label: 'Transmis à l\'AC', date: livePreviewOp.dateTransmissionAC },
-                   { label: 'Mis en Paiement', date: livePreviewOp.datePaiement, color: P.gold }
+                   { label: 'Mis en Paiement', date: livePreviewOp.datePaiement, color: P.gold },
+                   // Ajoutée seulement si elle s'applique : une ligne « En attente »
+                   // sur un OP sain laisserait croire qu'un rejet est possible.
+                   ...(dateDuStatut(livePreviewOp) ? [{
+                     label: livePreviewOp.statut.startsWith('REJETE') ? 'Rejeté le' : 'Différé le',
+                     date: dateDuStatut(livePreviewOp),
+                     color: livePreviewOp.statut.startsWith('REJETE') ? P.red : P.gold,
+                   }] : [])
                  ].map((step, idx) => (
                    <div key={idx} style={{display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:12}}>
                       <span style={{color:'#666', fontWeight:600}}>{step.label} :</span>
@@ -591,7 +611,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
 
               {livePreviewOp.motifRejet && (
                  <div style={{background:P.redLight, border:`1px solid ${P.red}44`, borderRadius:10, padding:12, marginBottom:20}}>
-                    <div style={{fontSize:11, color:P.red, fontWeight:800, marginBottom:4}}>MOTIF DE REJET</div>
+                    <div style={{fontSize:11, color:P.red, fontWeight:800, marginBottom:4}}>MOTIF DE REJET{livePreviewOp.dateRejet ? ` — ${formatDate(livePreviewOp.dateRejet)}` : ''}</div>
                     <div style={{fontSize:12, color:P.red, fontStyle:'italic'}}>{livePreviewOp.motifRejet}</div>
                  </div>
               )}

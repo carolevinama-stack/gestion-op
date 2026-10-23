@@ -341,3 +341,77 @@ describe('Liste OP — la corbeille', () => {
     });
   });
 });
+
+// ==================== DATES DE REJET ET DE DIFFÉRÉ ====================
+// Ces deux dates n'existaient que dans l'export Excel : à l'écran, un OP rejeté
+// affichait « REJETE CF » sans dire quand. Elles suivent le statut, et non le
+// champ : un OP ressorti du rejet ne doit pas garder une date au tableau.
+describe('Liste OP — la date du rejet et du différé', () => {
+  const opsAvecRetours = [
+    {
+      id: 'opR', numero: 'N°0010/SP', type: 'DIRECT', statut: 'REJETE_CF',
+      sourceId: 'S1', exerciceId: 'E1', beneficiaireNom: 'ENTREPRISE ZETA',
+      ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'Pièce manquante',
+      montant: 600000, dateCreation: '2026-03-20', createdAt: '2026-03-20T08:00:00.000Z',
+      dateRejet: '2026-04-15', motifRejet: 'Facture non conforme',
+    },
+    {
+      id: 'opD', numero: 'N°0011/SP', type: 'DIRECT', statut: 'DIFFERE_CF',
+      sourceId: 'S1', exerciceId: 'E1', beneficiaireNom: 'ENTREPRISE ETA',
+      ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'En attente de visa',
+      montant: 700000, dateCreation: '2026-03-21', createdAt: '2026-03-21T08:00:00.000Z',
+      dateDiffere: '2026-04-16', motifDiffere: 'Crédit insuffisant',
+    },
+    // Témoin : sorti du rejet, il n'a plus ni date ni motif de rejet.
+    {
+      id: 'opS', numero: 'N°0012/SP', type: 'DIRECT', statut: 'TRANSMIS_CF',
+      sourceId: 'S1', exerciceId: 'E1', beneficiaireNom: 'ENTREPRISE THETA',
+      ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'Dossier sain',
+      montant: 800000, dateCreation: '2026-03-22', createdAt: '2026-03-22T08:00:00.000Z',
+    },
+  ];
+
+  const opsOrigine = mockContexte.ops;
+  beforeEach(() => { mockContexte.ops = opsAvecRetours; });
+  afterEach(() => { mockContexte.ops = opsOrigine; });
+
+  test('la date du rejet est affichée sous le statut', () => {
+    render(<PageListeOP />);
+    expect(ligneDe('N° 0010/SP').textContent).toContain('REJETE CF');
+    expect(norm(ligneDe('N° 0010/SP').textContent)).toContain('15/04/2026');
+  });
+
+  test('la date du différé est affichée sous le statut', () => {
+    render(<PageListeOP />);
+    expect(norm(ligneDe('N° 0011/SP').textContent)).toContain('16/04/2026');
+  });
+
+  // C'est la garantie qui compte : la date est lue d'après le statut, donc un
+  // OP qui n'est ni rejeté ni différé n'en affiche aucune.
+  test('un OP ni rejeté ni différé n\'affiche aucune de ces dates', () => {
+    render(<PageListeOP />);
+    expect(norm(ligneDe('N° 0012/SP').textContent)).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+  });
+
+  test('le suivi détaillé date le motif de rejet', async () => {
+    render(<PageListeOP />);
+    await userEvent.click(within(ligneDe('N° 0010/SP')).getByTitle(/Suivi détaillé/));
+    expect(screen.getByText(/MOTIF DE REJET\s*—\s*15\/04\/2026/)).toBeInTheDocument();
+    expect(screen.getByText('Facture non conforme')).toBeInTheDocument();
+  });
+
+  test('le suivi détaillé ajoute l\'étape du rejet à la chronologie', async () => {
+    render(<PageListeOP />);
+    await userEvent.click(within(ligneDe('N° 0010/SP')).getByTitle(/Suivi détaillé/));
+    expect(screen.getByText('Rejeté le :')).toBeInTheDocument();
+  });
+
+  // Une étape « Rejeté le : En attente » sur un dossier sain laisserait croire
+  // qu'un rejet est en cours : la ligne ne doit pas exister du tout.
+  test('la chronologie d\'un OP sain ne comporte pas d\'étape de rejet', async () => {
+    render(<PageListeOP />);
+    await userEvent.click(within(ligneDe('N° 0012/SP')).getByTitle(/Suivi détaillé/));
+    expect(screen.queryByText('Rejeté le :')).not.toBeInTheDocument();
+    expect(screen.queryByText('Différé le :')).not.toBeInTheDocument();
+  });
+});
