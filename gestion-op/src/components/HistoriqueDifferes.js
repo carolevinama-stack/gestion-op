@@ -1,6 +1,7 @@
 import React from 'react';
 import { listerDifferesAvecEnCours, listerDifferes } from '../utils/differes';
 import { formatDate } from '../utils/formatters';
+import { Etiquette, Ligne } from './historiqueCommun';
 
 // ==================== HISTORIQUE DES DIFFÉRÉS ====================
 // Le même bloc dans l'aperçu de Liste OP et dans Consulter OP : un OP qui a été
@@ -15,13 +16,6 @@ const P = {
   text: '#2B2B2B', textSec: '#7A7A7A', textMuted: '#9A9A9A',
   green: '#2E7D46', card: '#FFFFFF',
 };
-
-const Etiquette = ({ children, couleur, fond }) => (
-  <span style={{
-    background: fond, color: couleur, padding: '1px 7px', borderRadius: 4,
-    fontSize: 10, fontWeight: 800, letterSpacing: '.03em', whiteSpace: 'nowrap',
-  }}>{children}</span>
-);
 
 const HistoriqueDifferes = ({ op, compact = false }) => {
   const differes = listerDifferesAvecEnCours(op);
@@ -77,13 +71,6 @@ const HistoriqueDifferes = ({ op, compact = false }) => {
     </div>
   );
 };
-
-const Ligne = ({ label, valeur, couleur }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-    <span style={{ color: P.textSec, fontWeight: 600 }}>{label} :</span>
-    <span style={{ fontWeight: 700, color: couleur || P.text }}>{valeur || '—'}</span>
-  </div>
-);
 
 // Pastille compacte pour les tableaux denses du Rapport : elle signale qu'un OP
 // a déjà été différé sans ajouter de colonne. Le détail est dans l'infobulle.

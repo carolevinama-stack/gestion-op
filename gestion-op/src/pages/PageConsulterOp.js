@@ -32,6 +32,7 @@ import { db, doc, updateDoc } from '../db';
 import MontantInput from '../components/MontantInput';
 import Autocomplete from '../components/Autocomplete';
 import HistoriqueDifferes from '../components/HistoriqueDifferes';
+import HistoriqueRejets from '../components/HistoriqueRejets';
 
 // ===================== PALETTE PIF2 =====================
 const P = {
@@ -1014,6 +1015,7 @@ const PageConsulterOp = () => {
 
                   {/* Différés passés et en cours : la trace survit à la réintroduction. */}
                   <HistoriqueDifferes op={selectedOp} />
+                  <HistoriqueRejets op={selectedOp} />
 
                   {/* Boutons */}
                   {isEditMode ? (
