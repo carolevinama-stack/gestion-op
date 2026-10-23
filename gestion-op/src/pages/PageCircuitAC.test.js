@@ -371,7 +371,7 @@ describe('Circuit AC — annuler un rejet', () => {
     render(<PageCircuitAC />);
     await ouvrirAnnulationRejet();
     expect(await screen.findByText(/CONSERVÉ dans l'historique des rejets/)).toBeInTheDocument();
-    expect(screen.getByText(/ne correspondrait plus à aucun rejet/)).toBeInTheDocument();
+    expect(screen.getByText(/sera mis à la corbeille/)).toBeInTheDocument();
   });
 
   test('un mauvais mot de passe refuse l\'annulation, et n\'écrit rien', async () => {
@@ -380,7 +380,6 @@ describe('Circuit AC — annuler un rejet', () => {
     await confirmerAvecMotDePasse('faux');
     expect(await refus('Erreur')).toBeInTheDocument();
     expect(mockBatchUpdate).not.toHaveBeenCalled();
-    expect(mockBatchDelete).not.toHaveBeenCalled();
   });
 
   test('le rejet est conservé dans l\'historique de l\'OP', async () => {
@@ -389,8 +388,7 @@ describe('Circuit AC — annuler un rejet', () => {
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
 
-    const ecriture = ecrituresOps()[0];
-    expect(ecriture.id).toBe('op7');
+    const ecriture = ecrituresOps().find(e => e.id === 'op7');
     expect(ecriture.statut).toBe('TRANSMIS_AC');
     expect(ecriture.historiqueRejets[0]).toMatchObject({
       dateRejet: '2026-04-02', motifRejet: 'Imputation erronée', dateAnnulation: aujourdhui, type: 'AC',
@@ -398,13 +396,22 @@ describe('Circuit AC — annuler un rejet', () => {
     expect(ecriture.dateRejet).toBeNull();
   });
 
-  test('l\'OP de rejet est supprimé dans le même lot', async () => {
+  test('l\'OP de rejet part à la corbeille dans le même lot', async () => {
     render(<PageCircuitAC />);
     await ouvrirAnnulationRejet();
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
-    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
-    expect(mockBatchDelete.mock.calls[0][0]).toMatchObject({ id: 'op7r' });
+    expect(ecrituresOps().find(e => e.id === 'op7r')).toMatchObject({ statut: 'SUPPRIME' });
+  });
+
+  // firestore.rules porte « allow delete: if false » sur ops : un lot qui tente
+  // un delete est refusé EN ENTIER.
+  test('aucune suppression n\'est tentée : les règles l\'interdisent', async () => {
+    render(<PageCircuitAC />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(mockBatchDelete).not.toHaveBeenCalled();
   });
 
   // Le rejet venait de l'AC : le visa du CF reste acquis, sinon l'OP
@@ -414,7 +421,8 @@ describe('Circuit AC — annuler un rejet', () => {
     await ouvrirAnnulationRejet();
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
-    expect(ecrituresOps()[0]).not.toHaveProperty('dateVisaCF');
-    expect(ecrituresOps()[0]).not.toHaveProperty('bordereauAC');
+    const ecriture = ecrituresOps().find(e => e.id === 'op7');
+    expect(ecriture).not.toHaveProperty('dateVisaCF');
+    expect(ecriture).not.toHaveProperty('bordereauAC');
   });
 });

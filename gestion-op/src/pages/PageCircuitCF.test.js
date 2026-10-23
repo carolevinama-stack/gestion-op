@@ -411,15 +411,15 @@ describe('Circuit CF — annuler un rejet', () => {
     render(<PageCircuitCF />);
     await allerA('Suivi');
     await userEvent.click(screen.getByText('Rejetés'));
-    expect(screen.getByTitle(/conserve la trace et supprime l'OP de rejet/)).toBeInTheDocument();
+    expect(screen.getByTitle(/conserve la trace et met l'OP de rejet à la corbeille/)).toBeInTheDocument();
   });
 
   test('l\'avertissement annonce la trace conservée et le négatif supprimé', async () => {
     render(<PageCircuitCF />);
     await ouvrirAnnulationRejet();
     expect(await screen.findByText(/CONSERVÉ dans l'historique des rejets/)).toBeInTheDocument();
-    expect(screen.getByText(/sera supprimé/)).toBeInTheDocument();
-    expect(screen.getByText(/ne correspondrait plus à aucun rejet/)).toBeInTheDocument();
+    expect(screen.getByText(/sera mis à la corbeille/)).toBeInTheDocument();
+    expect(screen.getByText(/Il reste récupérable/)).toBeInTheDocument();
   });
 
   // Le mot de passe administrateur, comme pour restaurer un OP de la corbeille.
@@ -428,7 +428,6 @@ describe('Circuit CF — annuler un rejet', () => {
     await ouvrirAnnulationRejet();
     await confirmer();
     expect(mockBatchUpdate).not.toHaveBeenCalled();
-    expect(mockBatchDelete).not.toHaveBeenCalled();
   });
 
   test('un mauvais mot de passe refuse l\'annulation, et n\'écrit rien', async () => {
@@ -437,7 +436,6 @@ describe('Circuit CF — annuler un rejet', () => {
     await confirmerAvecMotDePasse('faux');
     expect(await refus('Erreur')).toBeInTheDocument();
     expect(mockBatchUpdate).not.toHaveBeenCalled();
-    expect(mockBatchDelete).not.toHaveBeenCalled();
   });
 
   // La demande de Carole : la date du rejet ne doit plus disparaître.
@@ -447,8 +445,7 @@ describe('Circuit CF — annuler un rejet', () => {
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
 
-    const ecriture = ecrituresOps()[0];
-    expect(ecriture.id).toBe('op6');
+    const ecriture = ecrituresOps().find(e => e.id === 'op6');
     expect(ecriture.statut).toBe('TRANSMIS_CF');
     expect(ecriture.historiqueRejets).toHaveLength(1);
     expect(ecriture.historiqueRejets[0]).toMatchObject({
@@ -458,16 +455,28 @@ describe('Circuit CF — annuler un rejet', () => {
     expect(ecriture.motifRejet).toBeNull();
   });
 
-  // Le défaut lui-même : sans cette suppression, un OP de −1 000 000 F reste
-  // dans les listes comme le rejet d'un OP qui n'est plus rejeté.
-  test('l\'OP de rejet est supprimé dans le même lot', async () => {
+  // Le défaut lui-même : sans ce geste, un OP de −1 000 000 F reste dans les
+  // listes comme le rejet d'un OP qui n'est plus rejeté.
+  test('l\'OP de rejet part à la corbeille dans le même lot', async () => {
     render(<PageCircuitCF />);
     await ouvrirAnnulationRejet();
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
 
-    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
-    expect(mockBatchDelete.mock.calls[0][0]).toMatchObject({ id: 'op6r', cible: 'ops' });
+    const negatif = ecrituresOps().find(e => e.id === 'op6r');
+    expect(negatif).toMatchObject({ statut: 'SUPPRIME', supprimePar: 'Testeuse' });
+    expect(negatif.motifSuppression).toMatch(/N°0006\/SP/);
+  });
+
+  // firestore.rules porte « allow delete: if false » sur ops : un lot qui tente
+  // un delete est refusé EN ENTIER, et l'annulation échoue silencieusement.
+  // C'est exactement ce qui s'est produit en test.
+  test('aucune suppression n\'est tentée : les règles l\'interdisent', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(mockBatchDelete).not.toHaveBeenCalled();
   });
 
   // Règle métier de Carole : l'OP d'origine reste sur son bordereau initial.
@@ -477,7 +486,7 @@ describe('Circuit CF — annuler un rejet', () => {
     await ouvrirAnnulationRejet();
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
-    expect(ecrituresOps()[0]).not.toHaveProperty('bordereauCF');
+    expect(ecrituresOps().find(e => e.id === 'op6')).not.toHaveProperty('bordereauCF');
   });
 
   // Un seul OP touché et un seul supprimé : le négatif d'un autre OP ne doit
@@ -487,7 +496,6 @@ describe('Circuit CF — annuler un rejet', () => {
     await ouvrirAnnulationRejet();
     await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockCommit).toHaveBeenCalled());
-    expect(ecrituresOps()).toHaveLength(1);
-    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
+    expect(ecrituresOps().map(e => e.id).sort()).toEqual(['op6', 'op6r']);
   });
 });

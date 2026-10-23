@@ -6,7 +6,7 @@ import { collection, doc, updateDoc, writeBatch, getDocs, query, where } from 'f
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../utils/formatters';
 import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
-import { misesAJourAnnulationRejet, rejetsARetirer } from '../utils/rejets';
+import { misesAJourAnnulationRejet, rejetsAMettreALaCorbeille, misesAJourCorbeilleRejet } from '../utils/rejets';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate } from '../components/circuitShared';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
@@ -413,18 +413,22 @@ const PageCircuitCF = () => {
   //
   // - Un REJET annulé est CONSERVÉ dans historiqueRejets : il n'existe aucun
   //   « Réintroduire » pour les rejets, donc l'effacer était la seule issue et
-  //   la trace disparaissait. Et son OP de rejet est supprimé dans le MÊME LOT :
-  //   laissé en base, il restait dans la liste des OP et dans le Rapport comme
-  //   un rejet qui n'existe plus. Il ne faussait pas le budget disponible — un
-  //   OP au statut rejeté est hors engagement (opCalculs.js) — mais il faussait
-  //   le total affiché de la liste et le compte des rejets.
+  //   la trace disparaissait. Et son OP de rejet part à la CORBEILLE dans le
+  //   MÊME LOT : laissé actif, il restait dans la liste des OP et dans le
+  //   Rapport comme un rejet qui n'existe plus. Il ne faussait pas le budget
+  //   disponible — un OP au statut rejeté est hors engagement (opCalculs.js) —
+  //   mais il faussait le total affiché et le compte des rejets.
+  //
+  //   La corbeille, et non une suppression : firestore.rules porte « allow
+  //   delete: if false » sur ops, pour empêcher de contourner la corbeille et
+  //   le journal. Un lot qui tente un delete est refusé en entier.
   const handleAnnulerRetour = async (opId, statut) => {
     const op = ops.find(o => o.id === opId);
     const estDiffere = statut === 'DIFFERE_CF';
     const libelle = estDiffere ? 'différé' : 'rejet';
     const dateConcernee = formatDate(estDiffere ? op?.dateDiffere : op?.dateRejet);
     const motifConcerne = (estDiffere ? op?.motifDiffere : op?.motifRejet) || '';
-    const negatifs = estDiffere ? [] : rejetsARetirer(ops, opId);
+    const negatifs = estDiffere ? [] : rejetsAMettreALaCorbeille(ops, opId);
     const montantNegatifs = negatifs.reduce((somme, o) => somme + (o.montant || 0), 0);
 
     const message = estDiffere
@@ -436,7 +440,7 @@ const PageCircuitCF = () => {
         + `Le rejet${dateConcernee ? ` du ${dateConcernee}` : ''}`
         + `${motifConcerne ? ` « ${motifConcerne} »` : ''} sera CONSERVÉ dans l'historique des rejets de l'OP.\n\n`
         + (negatifs.length
-            ? `L'OP de rejet (${formatMontant(montantNegatifs)} F) sera supprimé : il ne correspondrait plus à aucun rejet.`
+            ? `L'OP de rejet (${formatMontant(montantNegatifs)} F) sera mis à la corbeille : il ne correspondrait plus à aucun rejet. Il reste récupérable.`
             : `Aucun OP de rejet n'a été trouvé pour cet OP.`);
 
     ask(
@@ -468,7 +472,12 @@ const PageCircuitCF = () => {
               }),
               updatedAt: maintenant,
             });
-            negatifs.forEach(n => batch.delete(doc(db,'ops',n.id)));
+            negatifs.forEach(n => batch.update(doc(db,'ops',n.id), {
+              ...misesAJourCorbeilleRejet({
+                dateSuppression: maintenant, parQui: nomUtilisateurJournal(userProfile), numeroOrigine: op?.numero,
+              }),
+              updatedAt: maintenant,
+            }));
             await batch.commit();
           }
           enregistrerJournal({
@@ -476,7 +485,7 @@ const PageCircuitCF = () => {
             opId, opNumero: op?.numero,
             details: estDiffere
               ? `CF : différé annulé et effacé${dateConcernee ? ` — différé du ${dateConcernee}` : ''}${motifConcerne ? ` — motif effacé : ${motifConcerne}` : ''}`
-              : `CF : rejet annulé${dateConcernee ? ` — rejet du ${dateConcernee}` : ''}${motifConcerne ? ` — motif : ${motifConcerne}` : ''} — trace conservée${negatifs.length ? ` — ${negatifs.length} OP de rejet supprimé(s) (${formatMontant(montantNegatifs)} F)` : ''}`,
+              : `CF : rejet annulé${dateConcernee ? ` — rejet du ${dateConcernee}` : ''}${motifConcerne ? ` — motif : ${motifConcerne}` : ''} — trace conservée${negatifs.length ? ` — ${negatifs.length} OP de rejet mis à la corbeille (${formatMontant(montantNegatifs)} F)` : ''}`,
             utilisateur: nomUtilisateurJournal(userProfile),
           });
           notify("success", "Annulé", estDiffere
@@ -663,7 +672,7 @@ const handlePrintBordereau = (bt) => {
         <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600,color:P.red}}>{formatMontant(op.montant)}</td>
         <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateRejet)}</td>
         <td style={{...styles.td,fontSize:11}}>{op.motifRejet||'-'}</td>
-        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler le rejet — conserve la trace et supprime l'OP de rejet" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,'REJETE_CF')}/></td>
+        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler le rejet — conserve la trace et met l'OP de rejet à la corbeille" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,'REJETE_CF')}/></td>
       </tr>)}</tbody></table></div>}
     </div>}
   </div>;

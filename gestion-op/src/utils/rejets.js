@@ -6,12 +6,18 @@
 // Annuler ce rejet — pour corriger une erreur de saisie — doit donc défaire les
 // deux. Deux règles portent ce fichier :
 //
-// 1. L'OP de rejet part avec. Il n'existe que pour matérialiser un rejet : si le
-//    rejet n'existe plus, le négatif non plus. Il ne faussait PAS le budget
-//    disponible — un OP au statut rejeté est exclu des engagements
-//    (opCalculs.js, STATUTS_EXCLUS_ENGAGEMENT) — mais il restait dans la liste
-//    des OP et dans le Rapport comme un rejet qui n'existe plus, et il faussait
-//    le total affiché de la liste ainsi que le compte des rejets.
+// 1. L'OP de rejet part avec — à la CORBEILLE, pas à la poubelle. Il n'existe
+//    que pour matérialiser un rejet : si le rejet n'existe plus, le négatif non
+//    plus. Il ne faussait PAS le budget disponible — un OP au statut rejeté est
+//    exclu des engagements (opCalculs.js, STATUTS_EXCLUS_ENGAGEMENT) — mais il
+//    restait dans la liste des OP et dans le Rapport comme un rejet qui n'existe
+//    plus, et il faussait le total affiché ainsi que le compte des rejets.
+//
+//    ⚠️ Un OP ne se supprime JAMAIS dans cette application. firestore.rules
+//    porte « allow delete: if false » sur la collection ops, avec ce
+//    commentaire : « Interdire delete empêche de contourner la corbeille et le
+//    journal. » La mise à la corbeille (statut SUPPRIME) sort l'OP des listes,
+//    des totaux et du Rapport, tout en le laissant récupérable.
 //
 // 2. Rien ne se perd. La date et le motif du rejet partent dans
 //    historiqueRejets avant que les champs « en cours » soient effacés. C'est
@@ -39,11 +45,21 @@ export const misesAJourAnnulationRejet = (op, { dateAnnulation, type, parQui = n
   historiqueRejets: [...(op?.historiqueRejets || []), entreeHistoriqueRejet(op, { dateAnnulation, type, parQui })],
 });
 
-// Les OP de rejet à retirer avec le rejet qu'on annule. On prend TOUS les
-// négatifs rattachés à cet OP, pas seulement le dernier : si un rejet annulé
-// avant cette correction a laissé un négatif orphelin en base, il part aussi.
-export const rejetsARetirer = (ops, opId) =>
-  (ops || []).filter(o => o && o.type === 'REJET' && o.opOriginalId === opId);
+// Les OP de rejet à mettre à la corbeille avec le rejet qu'on annule. On prend
+// TOUS les négatifs rattachés à cet OP, pas seulement le dernier : si un rejet
+// annulé avant cette correction a laissé un négatif orphelin en base, il part
+// aussi. Ceux qui sont déjà à la corbeille sont laissés tranquilles.
+export const rejetsAMettreALaCorbeille = (ops, opId) =>
+  (ops || []).filter(o => o && o.type === 'REJET' && o.opOriginalId === opId && o.statut !== 'SUPPRIME');
+
+// Ce qu'écrit la mise à la corbeille d'un OP de rejet. Les mêmes champs que la
+// corbeille de Consulter OP, pour que la page Corbeille sache qui a fait quoi.
+export const misesAJourCorbeilleRejet = ({ dateSuppression, parQui, numeroOrigine }) => ({
+  statut: 'SUPPRIME',
+  dateSuppression,
+  supprimePar: parQui || null,
+  motifSuppression: `Rejet de l'OP ${numeroOrigine || '?'} annulé`,
+});
 
 // ==================== LECTURE ====================
 

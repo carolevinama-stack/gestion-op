@@ -1,7 +1,8 @@
 import {
   entreeHistoriqueRejet,
   misesAJourAnnulationRejet,
-  rejetsARetirer,
+  rejetsAMettreALaCorbeille,
+  misesAJourCorbeilleRejet,
   listerRejets,
   nombreRejets,
   listerRejetsAvecEnCours,
@@ -94,7 +95,7 @@ describe('entreeHistoriqueRejet — une entrée se suffit à elle-même', () => 
   });
 });
 
-describe('rejetsARetirer — le négatif part avec le rejet', () => {
+describe('rejetsAMettreALaCorbeille — le négatif part avec le rejet', () => {
   const ops = [
     { id: 'op1', numero: 'N°0042/SP', type: 'DIRECT', montant: 5000000 },
     { id: 'r1', numero: 'N°0042/SP-R', type: 'REJET', montant: -5000000, opOriginalId: 'op1' },
@@ -103,27 +104,27 @@ describe('rejetsARetirer — le négatif part avec le rejet', () => {
   ];
 
   test('seul le négatif de l\'OP concerné est retenu', () => {
-    expect(rejetsARetirer(ops, 'op1').map(o => o.id)).toEqual(['r1']);
+    expect(rejetsAMettreALaCorbeille(ops, 'op1').map(o => o.id)).toEqual(['r1']);
   });
 
   // La garantie qui compte : ne jamais emporter le négatif d'un autre OP.
   test('le négatif d\'un autre OP n\'est jamais retenu', () => {
-    expect(rejetsARetirer(ops, 'op1').some(o => o.opOriginalId !== 'op1')).toBe(false);
+    expect(rejetsAMettreALaCorbeille(ops, 'op1').some(o => o.opOriginalId !== 'op1')).toBe(false);
   });
 
   test('un OP sans rejet ne donne rien à supprimer', () => {
-    expect(rejetsARetirer(ops, 'op9')).toEqual([]);
+    expect(rejetsAMettreALaCorbeille(ops, 'op9')).toEqual([]);
   });
 
   // Un rejet annulé avant cette correction a laissé un négatif orphelin : si
   // l'OP est rejeté puis annulé de nouveau, les deux doivent partir.
   test('plusieurs négatifs orphelins du même OP partent ensemble', () => {
     const avecOrphelin = [...ops, { id: 'r1bis', type: 'REJET', montant: -5000000, opOriginalId: 'op1' }];
-    expect(rejetsARetirer(avecOrphelin, 'op1').map(o => o.id)).toEqual(['r1', 'r1bis']);
+    expect(rejetsAMettreALaCorbeille(avecOrphelin, 'op1').map(o => o.id)).toEqual(['r1', 'r1bis']);
   });
 
   test('une liste absente ne fait pas échouer', () => {
-    expect(rejetsARetirer(undefined, 'op1')).toEqual([]);
+    expect(rejetsAMettreALaCorbeille(undefined, 'op1')).toEqual([]);
   });
 });
 
@@ -171,5 +172,35 @@ describe('lecture de l\'historique', () => {
     const op = { ...opRejeteCF(), historiqueRejets: opAvecHistorique.historiqueRejets };
     expect(listerRejetsAvecEnCours(op)).toHaveLength(3);
     expect(listerRejetsAvecEnCours(op)[0].dateAnnulation).toBeNull();
+  });
+});
+
+// ⚠️ Un OP ne se supprime JAMAIS : firestore.rules porte « allow delete: if
+// false » sur la collection ops, pour empêcher de contourner la corbeille et le
+// journal. Un lot qui tente un delete est refusé EN ENTIER — l'annulation du
+// rejet échouait alors sur « Missing or insufficient permissions ».
+describe('la corbeille, jamais la suppression', () => {
+  test('un négatif déjà à la corbeille est laissé tranquille', () => {
+    const ops = [
+      { id: 'r1', type: 'REJET', statut: 'REJETE_CF', montant: -100, opOriginalId: 'op1' },
+      { id: 'r2', type: 'REJET', statut: 'SUPPRIME', montant: -100, opOriginalId: 'op1' },
+    ];
+    expect(rejetsAMettreALaCorbeille(ops, 'op1').map(o => o.id)).toEqual(['r1']);
+  });
+
+  test('la mise à la corbeille écrit les champs que la page Corbeille affiche', () => {
+    const upd = misesAJourCorbeilleRejet({
+      dateSuppression: '2026-04-20T10:00:00.000Z', parQui: 'Awa', numeroOrigine: 'N°0042/SP',
+    });
+    expect(upd).toMatchObject({
+      statut: 'SUPPRIME',
+      dateSuppression: '2026-04-20T10:00:00.000Z',
+      supprimePar: 'Awa',
+      motifSuppression: "Rejet de l'OP N°0042/SP annulé",
+    });
+  });
+
+  test('sans auteur connu, le champ reste nul plutôt qu\'inventé', () => {
+    expect(misesAJourCorbeilleRejet({ dateSuppression: 'x' }).supprimePar).toBeNull();
   });
 });
