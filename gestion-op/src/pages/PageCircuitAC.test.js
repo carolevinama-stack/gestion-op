@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 
 const mockBatchSet = jest.fn();
 const mockBatchUpdate = jest.fn();
+const mockBatchDelete = jest.fn();
 const mockCommit = jest.fn(async () => {});
 const mockUpdateDoc = jest.fn(async () => {});
 const mockTxUpdate = jest.fn();
@@ -34,7 +35,7 @@ jest.mock('firebase/firestore', () => ({
   collection: (_db, nom) => ({ nom }),
   doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau-doc' }),
   updateDoc: (...a) => mockUpdateDoc(...a),
-  writeBatch: () => ({ set: mockBatchSet, update: mockBatchUpdate, commit: mockCommit }),
+  writeBatch: () => ({ set: mockBatchSet, update: mockBatchUpdate, delete: mockBatchDelete, commit: mockCommit }),
   runTransaction: (...a) => jouerTransaction(...a),
 }));
 
@@ -70,6 +71,14 @@ const ops = () => [
     dateTransmissionAC: '2026-03-12', dateDiffere: '2026-03-15', motifDiffere: 'Compte à vérifier' },
   // Encore en cours : l'AC ne doit jamais le voir
   { ...opBase, id: 'op6', numero: 'N°0006/SP', type: 'DIRECT', statut: 'EN_COURS' },
+  // Rejeté par l'AC. Il garde son bordereau AC et son visa CF ; son OP de rejet
+  // — le négatif qui annule l'engagement — vit à côté, sans bordereau.
+  { ...opBase, id: 'op7', numero: 'N°0007/SP', type: 'DIRECT', statut: 'REJETE_AC',
+    dateVisaCF: '2026-03-07', bordereauAC: 'BT-AC-0001/PIF2-SP/2026',
+    dateTransmissionAC: '2026-03-12', dateRejet: '2026-04-02', motifRejet: 'Imputation erronée' },
+  { ...opBase, id: 'op7r', numero: 'N°0007/SP-R', type: 'REJET', statut: 'REJETE_AC',
+    montant: -1000000, opOriginalId: 'op7', bordereauCF: null, bordereauAC: null,
+    dateRejet: '2026-04-02', motifRejet: 'Imputation erronée' },
 ];
 
 const mockContexte = {
@@ -101,6 +110,18 @@ const boutonAction = (regex) => boutons(regex).slice(-1)[0];
 const ligneDe = (numero) => screen.getAllByRole('row').find(r => r.textContent.includes(numero));
 const confirmer = async () => userEvent.click(await screen.findByText('Confirmer'));
 const refus = (titre) => screen.findByRole('heading', { level: 3, name: titre });
+
+const aujourdhui = new Date().toISOString().split('T')[0];
+
+// Les écritures du lot, ramenées à { id de l'OP, champs écrits }.
+const ecrituresOps = () => mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, ...data }));
+
+// Les annulations de différé et de rejet réclament le mot de passe
+// administrateur : la confirmation seule ne suffit plus.
+const confirmerAvecMotDePasse = async (motDePasse = 'secret') => {
+  await userEvent.type(await screen.findByPlaceholderText('Mot de passe administrateur'), motDePasse);
+  await userEvent.click(screen.getByText('Confirmer'));
+};
 
 // Ouvre la fiche financière d'un OP depuis l'onglet Paiements.
 const ouvrirFiche = async (numero) => {
@@ -331,5 +352,69 @@ describe('Circuit AC — cocher une ligne', () => {
     render(<PageCircuitAC />);
     await userEvent.click(within(ligneDe('N° 0001/SP')).getByRole('checkbox'));
     expect(within(ligneDe('N° 0001/SP')).getByRole('checkbox')).toBeChecked();
+  });
+});
+
+// ==================== ANNULER UN REJET DE L'AC ====================
+// Mêmes règles que côté CF : la trace du rejet est conservée, son OP de rejet
+// est supprimé dans le même lot, et le geste réclame le mot de passe
+// administrateur. Une particularité ici : le visa du CF est acquis, un rejet de
+// l'AC ne le remet pas en cause — l'annulation ne doit donc pas l'effacer.
+describe('Circuit AC — annuler un rejet', () => {
+  const ouvrirAnnulationRejet = async () => {
+    await allerA('Suivi');
+    await userEvent.click(screen.getByText('Rejetés'));
+    await userEvent.click(screen.getByTitle(/Annuler le rejet/));
+  };
+
+  test('l\'avertissement annonce la trace conservée et le négatif supprimé', async () => {
+    render(<PageCircuitAC />);
+    await ouvrirAnnulationRejet();
+    expect(await screen.findByText(/CONSERVÉ dans l'historique des rejets/)).toBeInTheDocument();
+    expect(screen.getByText(/redevient engagé au budget/)).toBeInTheDocument();
+  });
+
+  test('un mauvais mot de passe refuse l\'annulation, et n\'écrit rien', async () => {
+    render(<PageCircuitAC />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse('faux');
+    expect(await refus('Erreur')).toBeInTheDocument();
+    expect(mockBatchUpdate).not.toHaveBeenCalled();
+    expect(mockBatchDelete).not.toHaveBeenCalled();
+  });
+
+  test('le rejet est conservé dans l\'historique de l\'OP', async () => {
+    render(<PageCircuitAC />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    const ecriture = ecrituresOps()[0];
+    expect(ecriture.id).toBe('op7');
+    expect(ecriture.statut).toBe('TRANSMIS_AC');
+    expect(ecriture.historiqueRejets[0]).toMatchObject({
+      dateRejet: '2026-04-02', motifRejet: 'Imputation erronée', dateAnnulation: aujourdhui, type: 'AC',
+    });
+    expect(ecriture.dateRejet).toBeNull();
+  });
+
+  test('l\'OP de rejet est supprimé dans le même lot', async () => {
+    render(<PageCircuitAC />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
+    expect(mockBatchDelete.mock.calls[0][0]).toMatchObject({ id: 'op7r' });
+  });
+
+  // Le rejet venait de l'AC : le visa du CF reste acquis, sinon l'OP
+  // repartirait bien plus loin en arrière qu'il ne doit.
+  test('le visa du CF et le bordereau ne sont pas touchés', async () => {
+    render(<PageCircuitAC />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(ecrituresOps()[0]).not.toHaveProperty('dateVisaCF');
+    expect(ecrituresOps()[0]).not.toHaveProperty('bordereauAC');
   });
 });

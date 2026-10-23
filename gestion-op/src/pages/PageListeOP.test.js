@@ -369,6 +369,17 @@ describe('Liste OP — la date du rejet et du différé', () => {
       ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'Dossier sain',
       montant: 800000, dateCreation: '2026-03-22', createdAt: '2026-03-22T08:00:00.000Z',
     },
+    // Rejet annulé : les champs « en cours » sont vides, mais la trace reste.
+    {
+      id: 'opA', numero: 'N°0013/SP', type: 'DIRECT', statut: 'TRANSMIS_CF',
+      sourceId: 'S1', exerciceId: 'E1', beneficiaireNom: 'ENTREPRISE IOTA',
+      ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'Rejet annulé',
+      montant: 900000, dateCreation: '2026-03-23', createdAt: '2026-03-23T08:00:00.000Z',
+      historiqueRejets: [{
+        dateRejet: '2026-04-10', motifRejet: 'Pièce absente',
+        dateAnnulation: '2026-04-12', type: 'CF', parQui: 'Awa',
+      }],
+    },
   ];
 
   const opsOrigine = mockContexte.ops;
@@ -404,6 +415,23 @@ describe('Liste OP — la date du rejet et du différé', () => {
     render(<PageListeOP />);
     await userEvent.click(within(ligneDe('N° 0010/SP')).getByTitle(/Suivi détaillé/));
     expect(screen.getByText('Rejeté le :')).toBeInTheDocument();
+  });
+
+  // La trace d'un rejet annulé n'était visible nulle part : elle était
+  // simplement effacée. Elle doit maintenant apparaître dans le suivi détaillé.
+  test('le suivi détaillé montre la trace d\'un rejet annulé', async () => {
+    render(<PageListeOP />);
+    await userEvent.click(within(ligneDe('N° 0013/SP')).getByTitle(/Suivi détaillé/));
+    expect(screen.getByText('HISTORIQUE DES REJETS')).toBeInTheDocument();
+    expect(screen.getByText('Pièce absente')).toBeInTheDocument();
+    expect(screen.getByText('10/04/2026')).toBeInTheDocument();
+  });
+
+  // Un rejet annulé ne doit pas se présenter comme un rejet en cours : le
+  // tableau n'affiche aucune date à côté de son statut « TRANSMIS CF ».
+  test('un rejet annulé n\'affiche pas de date dans le tableau', () => {
+    render(<PageListeOP />);
+    expect(norm(ligneDe('N° 0013/SP').textContent)).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
   });
 
   // Une étape « Rejeté le : En attente » sur un dossier sain laisserait croire

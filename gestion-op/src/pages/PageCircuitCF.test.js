@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 
 const mockBatchSet = jest.fn();
 const mockBatchUpdate = jest.fn();
+const mockBatchDelete = jest.fn();
 const mockCommit = jest.fn(async () => {});
 const mockUpdateDoc = jest.fn(async () => {});
 const mockGetDocs = jest.fn(async () => ({ docs: [] }));
@@ -27,7 +28,7 @@ jest.mock('firebase/firestore', () => ({
   getDocs: (...a) => mockGetDocs(...a),
   query: () => ({}),
   where: () => ({}),
-  writeBatch: () => ({ set: mockBatchSet, update: mockBatchUpdate, commit: mockCommit }),
+  writeBatch: () => ({ set: mockBatchSet, update: mockBatchUpdate, delete: mockBatchDelete, commit: mockCommit }),
 }));
 
 jest.mock('../utils/journal', () => ({
@@ -59,8 +60,13 @@ const ops = () => [
   // Une ANNULATION transmise : son visa ne la rend pas payable, il la clôt.
   { ...opBase, id: 'op5', numero: 'N°0005/SP', type: 'ANNULATION', statut: 'TRANSMIS_CF',
     montant: -500000, bordereauCF: 'BT-CF-0003/PIF2-SP/2026', dateTransmissionCF: '2026-03-10' },
-  // Rejeté : visible dans le suivi
+  // Rejeté : visible dans le suivi. Il garde son bordereau d'origine, et son OP
+  // de rejet — le négatif qui annule l'engagement — vit à côté, sans bordereau.
   { ...opBase, id: 'op6', numero: 'N°0006/SP', type: 'DIRECT', statut: 'REJETE_CF',
+    bordereauCF: 'BT-CF-0003/PIF2-SP/2026', dateVisaCF: null,
+    dateRejet: '2026-03-11', motifRejet: 'Montant erroné' },
+  { ...opBase, id: 'op6r', numero: 'N°0006/SP-R', type: 'REJET', statut: 'REJETE_CF',
+    montant: -1000000, opOriginalId: 'op6', bordereauCF: null, bordereauAC: null,
     dateRejet: '2026-03-11', motifRejet: 'Montant erroné' },
   // Autre source : ne doit jamais apparaître sur la source principale
   { ...opBase, id: 'op7', numero: 'N°0001/SE', type: 'DIRECT', statut: 'EN_COURS', sourceId: 'S2' },
@@ -104,6 +110,13 @@ const cocher = async (numero) => {
 
 // La confirmation partagée exécute son action après un court délai : on attend.
 const confirmer = async () => userEvent.click(await screen.findByText('Confirmer'));
+
+// Les annulations de différé et de rejet réclament le mot de passe
+// administrateur : la confirmation seule ne suffit plus.
+const confirmerAvecMotDePasse = async (motDePasse = 'secret') => {
+  await userEvent.type(await screen.findByPlaceholderText('Mot de passe administrateur'), motDePasse);
+  await userEvent.click(screen.getByText('Confirmer'));
+};
 
 const refus = (titre) => screen.findByRole('heading', { level: 3, name: titre });
 
@@ -324,11 +337,11 @@ describe('Circuit CF — le suivi des différés et des rejets', () => {
     expect(mockUpdateDoc).not.toHaveBeenCalled();
   });
 
-  test('confirmer l\'annulation remet l\'OP à « transmis » et efface la trace', async () => {
+  test('confirmer l\'annulation d\'un différé remet l\'OP à « transmis » et efface la trace', async () => {
     render(<PageCircuitCF />);
     await allerA('Suivi');
     await userEvent.click(screen.getByTitle(/Annuler le différé/));
-    await confirmer();
+    await confirmerAvecMotDePasse();
     await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
     expect(mockUpdateDoc.mock.calls[0][1]).toMatchObject({
       statut: 'TRANSMIS_CF', dateDiffere: null, motifDiffere: null,
@@ -378,5 +391,103 @@ describe('Circuit CF — cocher une ligne', () => {
     await userEvent.click(within(ligneDe('N° 0001/SP')).getByRole('checkbox'));
     await userEvent.click(within(ligneDe('N° 0001/SP')).getByRole('checkbox'));
     expect(within(ligneDe('N° 0001/SP')).getByRole('checkbox')).not.toBeChecked();
+  });
+});
+
+// ==================== ANNULER UN REJET ====================
+// Annuler un rejet défaisait le rejet à moitié : l'OP d'origine repartait bien,
+// mais son OP de rejet — le négatif qui annule l'engagement — restait en base.
+// Le montant était donc soustrait du budget disponible pour toujours, sans que
+// rien ne le signale. Et la date comme le motif du rejet étaient effacés sans
+// trace, alors qu'il n'existe aucun « Réintroduire » pour les rejets.
+describe('Circuit CF — annuler un rejet', () => {
+  const ouvrirAnnulationRejet = async () => {
+    await allerA('Suivi');
+    await userEvent.click(screen.getByText('Rejetés'));
+    await userEvent.click(screen.getByTitle(/Annuler le rejet/));
+  };
+
+  test('l\'infobulle annonce ce que le geste fait vraiment', async () => {
+    render(<PageCircuitCF />);
+    await allerA('Suivi');
+    await userEvent.click(screen.getByText('Rejetés'));
+    expect(screen.getByTitle(/conserve la trace et supprime l'OP de rejet/)).toBeInTheDocument();
+  });
+
+  test('l\'avertissement annonce la trace conservée et le négatif supprimé', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    expect(await screen.findByText(/CONSERVÉ dans l'historique des rejets/)).toBeInTheDocument();
+    expect(screen.getByText(/sera supprimé/)).toBeInTheDocument();
+    expect(screen.getByText(/redevient engagé au budget/)).toBeInTheDocument();
+  });
+
+  // Le mot de passe administrateur, comme pour restaurer un OP de la corbeille.
+  test('sans mot de passe, rien n\'est écrit', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmer();
+    expect(mockBatchUpdate).not.toHaveBeenCalled();
+    expect(mockBatchDelete).not.toHaveBeenCalled();
+  });
+
+  test('un mauvais mot de passe refuse l\'annulation, et n\'écrit rien', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse('faux');
+    expect(await refus('Erreur')).toBeInTheDocument();
+    expect(mockBatchUpdate).not.toHaveBeenCalled();
+    expect(mockBatchDelete).not.toHaveBeenCalled();
+  });
+
+  // La demande de Carole : la date du rejet ne doit plus disparaître.
+  test('le rejet est conservé dans l\'historique de l\'OP', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    const ecriture = ecrituresOps()[0];
+    expect(ecriture.id).toBe('op6');
+    expect(ecriture.statut).toBe('TRANSMIS_CF');
+    expect(ecriture.historiqueRejets).toHaveLength(1);
+    expect(ecriture.historiqueRejets[0]).toMatchObject({
+      dateRejet: '2026-03-11', motifRejet: 'Montant erroné', dateAnnulation: aujourdhui, type: 'CF', parQui: 'Testeuse',
+    });
+    expect(ecriture.dateRejet).toBeNull();
+    expect(ecriture.motifRejet).toBeNull();
+  });
+
+  // Le défaut lui-même : sans cette suppression, −1 000 000 F restaient
+  // soustraits du budget disponible définitivement.
+  test('l\'OP de rejet est supprimé dans le même lot', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
+    expect(mockBatchDelete.mock.calls[0][0]).toMatchObject({ id: 'op6r', cible: 'ops' });
+  });
+
+  // Règle métier de Carole : l'OP d'origine reste sur son bordereau initial.
+  // L'annulation du rejet ne doit pas y toucher non plus.
+  test('le bordereau d\'origine n\'est pas touché', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(ecrituresOps()[0]).not.toHaveProperty('bordereauCF');
+  });
+
+  // Un seul OP touché et un seul supprimé : le négatif d'un autre OP ne doit
+  // jamais partir au passage.
+  test('seuls l\'OP visé et son propre négatif sont écrits', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirAnnulationRejet();
+    await confirmerAvecMotDePasse();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(ecrituresOps()).toHaveLength(1);
+    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
   });
 });

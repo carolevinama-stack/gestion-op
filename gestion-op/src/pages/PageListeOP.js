@@ -8,6 +8,7 @@ import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/forma
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import Pagination from '../components/Pagination';
 import HistoriqueDifferes from '../components/HistoriqueDifferes';
+import HistoriqueRejets from '../components/HistoriqueRejets';
 
 // Palette de couleurs
 const P = {
@@ -617,6 +618,7 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
               )}
 
               <HistoriqueDifferes op={livePreviewOp} compact />
+              <HistoriqueRejets op={livePreviewOp} compact />
 
               {(() => {
                   const pTab = livePreviewOp.paiements || [];

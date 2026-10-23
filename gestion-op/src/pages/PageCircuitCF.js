@@ -6,6 +6,7 @@ import { collection, doc, updateDoc, writeBatch, getDocs, query, where } from 'f
 import { styles } from '../utils/styles';
 import { formatMontant, escapeHtml, montantEnLettres, formatNumeroOp } from '../utils/formatters';
 import { buildBordereauPrintHtml } from '../utils/bordereauPrint';
+import { misesAJourAnnulationRejet, rejetsARetirer } from '../utils/rejets';
 import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { P, Badge, Empty, STab, IBtn, ActionBtn, Modal, ModalAlert, formatDate } from '../components/circuitShared';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
@@ -402,41 +403,87 @@ const PageCircuitCF = () => {
   };
 
   // Annule une décision du CF : l'OP repart comme s'il n'avait jamais été traité.
-  // C'est fait pour corriger une erreur de saisie, et c'est IRRÉVERSIBLE : la date
-  // et le motif sont effacés, sans passer par l'historique des différés (au
-  // contraire d'une réintroduction, qui elle conserve tout). D'où la confirmation
-  // qui dit exactement ce qui disparaît, et l'entrée au Journal qui garde trace
-  // de qui a effacé quoi.
+  // C'est fait pour corriger une erreur de saisie, et c'est protégé par le mot
+  // de passe administrateur — comme la restauration d'un OP de la corbeille.
+  //
+  // Deux comportements différents, et c'est voulu :
+  //
+  // - Un DIFFÉRÉ annulé est effacé. Pour le conserver, il existe déjà
+  //   « Réintroduire », qui garde tout dans l'historique des différés.
+  //
+  // - Un REJET annulé est CONSERVÉ dans historiqueRejets : il n'existe aucun
+  //   « Réintroduire » pour les rejets, donc l'effacer était la seule issue et
+  //   la trace disparaissait. Et son OP de rejet (le négatif qui annule
+  //   l'engagement) est supprimé dans le MÊME LOT : laissé en base, il
+  //   soustrayait définitivement son montant du budget disponible.
   const handleAnnulerRetour = async (opId, statut) => {
     const op = ops.find(o => o.id === opId);
     const estDiffere = statut === 'DIFFERE_CF';
     const libelle = estDiffere ? 'différé' : 'rejet';
-    const dateEffacee = formatDate(estDiffere ? op?.dateDiffere : op?.dateRejet);
-    const motifEfface = (estDiffere ? op?.motifDiffere : op?.motifRejet) || '';
+    const dateConcernee = formatDate(estDiffere ? op?.dateDiffere : op?.dateRejet);
+    const motifConcerne = (estDiffere ? op?.motifDiffere : op?.motifRejet) || '';
+    const negatifs = estDiffere ? [] : rejetsARetirer(ops, opId);
+    const montantNegatifs = negatifs.reduce((somme, o) => somme + (o.montant || 0), 0);
+
+    const message = estDiffere
+      ? `L'OP ${op?.numero || ''} redeviendra « Transmis au CF ».\n\n`
+        + `La date du différé${dateConcernee ? ` (${dateConcernee})` : ''} et son motif`
+        + `${motifConcerne ? ` « ${motifConcerne} »` : ''} seront DÉFINITIVEMENT EFFACÉS.\n\n`
+        + `Pour remettre l'OP dans le circuit en conservant cette trace, utilisez plutôt « Réintroduire ».`
+      : `L'OP ${op?.numero || ''} redeviendra « Transmis au CF ».\n\n`
+        + `Le rejet${dateConcernee ? ` du ${dateConcernee}` : ''}`
+        + `${motifConcerne ? ` « ${motifConcerne} »` : ''} sera CONSERVÉ dans l'historique des rejets de l'OP.\n\n`
+        + (negatifs.length
+            ? `L'OP de rejet (${formatMontant(montantNegatifs)} F) sera supprimé : ce montant redevient engagé au budget.`
+            : `Aucun OP de rejet n'a été trouvé pour cet OP.`);
 
     ask(
       `Annuler le ${libelle}`,
-      `L'OP ${op?.numero || ''} redeviendra « Transmis au CF ».\n\n`
-      + `La date du ${libelle}${dateEffacee ? ` (${dateEffacee})` : ''} et son motif`
-      + `${motifEfface ? ` « ${motifEfface} »` : ''} seront DÉFINITIVEMENT EFFACÉS.\n\n`
-      + `Pour remettre l'OP dans le circuit en conservant cette trace, utilisez plutôt « Réintroduire ».\n\n`
-      + `Confirmer l'effacement ?`,
-      async () => {
+      message,
+      async (motDePasse) => {
+        if (!projet?.motDePasseAdmin) {
+          notify("error", "Erreur", "Mot de passe administrateur non configuré. Voir Paramètres.");
+          return;
+        }
+        if (motDePasse !== projet.motDePasseAdmin) {
+          notify("error", "Erreur", "Mot de passe incorrect.");
+          return;
+        }
         setSaving(true);
         try{
-          await updateDoc(doc(db,'ops',opId),{
-            statut: 'TRANSMIS_CF', dateVisaCF: null, dateDiffere: null, motifDiffere: null, dateRejet: null, motifRejet: null, updatedAt: new Date().toISOString()
-          }); 
+          const maintenant = new Date().toISOString();
+          if (estDiffere) {
+            await updateDoc(doc(db,'ops',opId),{
+              statut: 'TRANSMIS_CF', dateVisaCF: null, dateDiffere: null, motifDiffere: null, updatedAt: maintenant
+            });
+          } else {
+            // L'OP d'origine et son négatif dans le même lot : si l'un échoue,
+            // aucun des deux ne passe, et le budget reste cohérent.
+            const batch = writeBatch(db);
+            batch.update(doc(db,'ops',opId), {
+              ...misesAJourAnnulationRejet(op, {
+                dateAnnulation: maintenant.split('T')[0], type: 'CF', parQui: nomUtilisateurJournal(userProfile),
+              }),
+              updatedAt: maintenant,
+            });
+            negatifs.forEach(n => batch.delete(doc(db,'ops',n.id)));
+            await batch.commit();
+          }
           enregistrerJournal({
             action: ACTIONS_JOURNAL.CHANGEMENT_STATUT,
             opId, opNumero: op?.numero,
-            details: `CF : ${libelle} annulé et effacé${dateEffacee ? ` — ${libelle} du ${dateEffacee}` : ''}${motifEfface ? ` — motif effacé : ${motifEfface}` : ''}`,
+            details: estDiffere
+              ? `CF : différé annulé et effacé${dateConcernee ? ` — différé du ${dateConcernee}` : ''}${motifConcerne ? ` — motif effacé : ${motifConcerne}` : ''}`
+              : `CF : rejet annulé${dateConcernee ? ` — rejet du ${dateConcernee}` : ''}${motifConcerne ? ` — motif : ${motifConcerne}` : ''} — trace conservée${negatifs.length ? ` — ${negatifs.length} OP de rejet supprimé(s) (${formatMontant(montantNegatifs)} F)` : ''}`,
             utilisateur: nomUtilisateurJournal(userProfile),
           });
-          notify("success", "Annulé", `Le ${libelle} a été effacé, l'OP est de nouveau transmis au CF.`);
+          notify("success", "Annulé", estDiffere
+            ? `Le différé a été effacé, l'OP est de nouveau transmis au CF.`
+            : `Le rejet a été annulé et conservé dans l'historique. L'OP est de nouveau transmis au CF.`);
         }catch(e){ notify("error", "Erreur", e.message); }
         setSaving(false);
-      }
+      },
+      true
     );
   };
 
@@ -614,7 +661,7 @@ const handlePrintBordereau = (bt) => {
         <td style={{...styles.td,textAlign:'right',fontFamily:'monospace',fontWeight:600,color:P.red}}>{formatMontant(op.montant)}</td>
         <td style={{...styles.td,fontSize:11}}>{formatDate(op.dateRejet)}</td>
         <td style={{...styles.td,fontSize:11}}>{op.motifRejet||'-'}</td>
-        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler le rejet — efface la date et le motif" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,'REJETE_CF')}/></td>
+        <td style={styles.td}><IBtn icon={I.undo(P.red,14)} title="Annuler le rejet — conserve la trace et supprime l'OP de rejet" bg={P.redLight} onClick={()=>handleAnnulerRetour(op.id,'REJETE_CF')}/></td>
       </tr>)}</tbody></table></div>}
     </div>}
   </div>;
