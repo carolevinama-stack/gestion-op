@@ -123,30 +123,19 @@ const PageCircuitAC = () => {
   const totalSelected = selectedOps.reduce((s, id) => s + (ops.find(o => o.id === id)?.montant || 0), 0);
   const closeAllModals = () => { setModalPaiement(null); setModalEditBT(null); };
 
-  const handleFixOrphanOps = async () => {
-    ask("Réparation", "Actualiser la file d'attente et libérer les OP bloqués ?", async () => {
-      setSaving(true);
-      try {
-        const batch = writeBatch(db);
-        let fixedCount = 0;
-        ops.forEach(op => {
-          if (op.bordereauAC && !bordereaux.find(b => b.numero === op.bordereauAC && b.statut !== 'SUPPRIME')) {
-            batch.update(doc(db, 'ops', op.id), { bordereauAC: null, updatedAt: new Date().toISOString() });
-            fixedCount++;
-          }
-        });
-        if (fixedCount > 0) {
-          await batch.commit();
-          notify("success", "Actualisé", `${fixedCount} OP ont été synchronisés.`);
-        } else {
-          notify("success", "Infos", "La file d'attente est déjà à jour.");
-        }
-      } catch(e) {
-        notify("error", "Erreur", e.message);
-      }
-      setSaving(false);
-    });
-  };
+  // Le bouton « Actualiser » retiré ici effaçait le bordereau des OP dont le
+  // bordereau ne figurait pas dans la liste chargée. Deux raisons de le retirer :
+  //
+  // 1. Il n'a plus de cause à réparer : rattachement, retrait, renumérotation et
+  //    correction de date passent désormais par un lot unique, donc un OP ne
+  //    peut plus pointer vers un bordereau qui n'existe pas.
+  //
+  // 2. Il était dangereux. Le contexte charge les OP et les bordereaux exercice
+  //    par exercice, et INDÉPENDAMMENT (chargerExerciceOps et
+  //    chargerExerciceBordereaux, AppContext). Consulter la liste des OP d'un
+  //    exercice clos y charge ses OP sans ses bordereaux : le bouton voyait
+  //    alors tous ces OP comme orphelins et effaçait leur bordereau en bloc,
+  //    créant en masse la désynchronisation qu'il prétendait réparer.
 
   const chgSub = (fn, v) => { fn(v); setSelectedOps([]); setSearchBT(''); setExpandedBT(null); setSearchSuivi(''); setPageBT(1); };
 
@@ -280,8 +269,15 @@ const PageCircuitAC = () => {
     if(nn === bt.numero) return;
     if(bordereaux.find(b => b.numero === nn && b.id !== bt.id && b.type === 'AC')){notify("error", "Doublon", "Ce numéro existe déjà."); return;}
     try{
-      await updateDoc(doc(db,'bordereaux',bt.id),{numero: nn, updatedAt: new Date().toISOString()});
-      for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{bordereauAC: nn, updatedAt: new Date().toISOString()});
+      // Les OP portent le NUMÉRO du bordereau, pas son identifiant : renuméroter
+      // oblige donc à réécrire chaque OP. En écritures séparées, une panne en
+      // cours de route laissait une partie des OP sur l'ancien numéro — un
+      // numéro que plus aucun bordereau ne porte. Un seul lot : tout ou rien.
+      const maintenant = new Date().toISOString();
+      const batch = writeBatch(db);
+      batch.update(doc(db,'bordereaux',bt.id),{numero: nn, updatedAt: maintenant});
+      for(const opId of (bt.opsIds||[])) batch.update(doc(db,'ops',opId),{bordereauAC: nn, updatedAt: maintenant});
+      await batch.commit();
       setBordereaux(p => p.map(b => b.id === bt.id ? {...b, numero: nn} : b));
       setOps(p => p.map(o => (bt.opsIds||[]).includes(o.id) ? {...o, bordereauAC: nn} : o));
       setModalEditBT(p => p ? {...p, numero: nn} : null);
@@ -294,8 +290,15 @@ const PageCircuitAC = () => {
     if(minDateLimit && editBtDate < minDateLimit) { notify("error", "Erreur", "La date ne peut pas être antérieure à l'année de l'exercice en cours."); return; }
     if(editBtDate === bt.dateTransmission) return;
     try{
-      await updateDoc(doc(db,'bordereaux',bt.id),{dateTransmission: editBtDate, updatedAt: new Date().toISOString()});
-      for(const opId of (bt.opsIds||[])) await updateDoc(doc(db,'ops',opId),{dateTransmissionAC: editBtDate, updatedAt: new Date().toISOString()});
+      // La date du bordereau est recopiée sur chacun de ses OP : c'est d'elle
+      // que repart le décompte des délais. Séparées, une panne en cours de
+      // route laissait des OP sur l'ancienne date, et le Rapport mesurait des
+      // délais incohérents d'un OP à l'autre du même bordereau. Un seul lot.
+      const maintenant = new Date().toISOString();
+      const batch = writeBatch(db);
+      batch.update(doc(db,'bordereaux',bt.id),{dateTransmission: editBtDate, updatedAt: maintenant});
+      for(const opId of (bt.opsIds||[])) batch.update(doc(db,'ops',opId),{dateTransmissionAC: editBtDate, updatedAt: maintenant});
+      await batch.commit();
       setModalEditBT(p => p ? {...p, dateTransmission: editBtDate} : null);
       notify("success", "Modifié", "Date de transmission mise à jour.");
     }catch(e){notify("error", "Erreur", e.message);}
@@ -305,8 +308,16 @@ const PageCircuitAC = () => {
     if(isBordereauLocked(bt)){notify("error", "Bloqué", "Bordereau verrouillé."); return;}
     try{
       const nIds = [...bt.opsIds, opId]; const nT = nIds.reduce((s,id) => s + (ops.find(x=>x.id===id)?.montant||0), 0);
-      await updateDoc(doc(db,'bordereaux',bt.id),{opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: new Date().toISOString()});
-      await updateDoc(doc(db,'ops',opId),{bordereauAC: bt.numero, updatedAt: new Date().toISOString()});
+      // Le bordereau et l'OP énoncent le MÊME fait à deux endroits : le
+      // bordereau liste l'OP, l'OP porte le numéro du bordereau. En deux
+      // écritures séparées, une panne entre les deux laissait le bordereau
+      // compter un OP qui s'ignorait : l'OP restait dans la file d'attente et
+      // pouvait partir sur un SECOND bordereau, compté deux fois. Un seul lot.
+      const maintenant = new Date().toISOString();
+      const batch = writeBatch(db);
+      batch.update(doc(db,'bordereaux',bt.id),{opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: maintenant});
+      batch.update(doc(db,'ops',opId),{bordereauAC: bt.numero, updatedAt: maintenant});
+      await batch.commit();
       setModalEditBT(p => p ? {...p, opsIds: nIds, nbOps: nIds.length, totalMontant: nT} : null);
     }catch(e){notify("error", "Erreur", e.message);}
   };
@@ -319,8 +330,19 @@ const PageCircuitAC = () => {
     ask("Retirer OP", "Retirer cet OP du bordereau ?", async () => {
       try{
         const nIds = bt.opsIds.filter(id => id !== opId); const nT = nIds.reduce((s,id) => s + (ops.find(x=>x.id===id)?.montant||0), 0);
-        await updateDoc(doc(db,'bordereaux',bt.id),{opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: new Date().toISOString()});
-        await updateDoc(doc(db,'ops',opId),{bordereauAC: null, statut: 'VISE_CF', updatedAt: new Date().toISOString()});
+        // Même règle qu'au rattachement : les deux écritures ensemble, sinon
+        // le bordereau continue de compter un OP qu'il ne contient plus.
+        const maintenant = new Date().toISOString();
+        const batch = writeBatch(db);
+        batch.update(doc(db,'bordereaux',bt.id),{opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: maintenant});
+        // Un OP à la corbeille qu'on retire d'un bordereau doit Y RESTER : lui
+        // rendre le statut « VISE_CF » le ressusciterait. C'est le cas des
+        // fantômes laissés par les suppressions d'avant le garde-fou de
+        // Consulter OP, qu'il faut justement pouvoir retirer des bordereaux.
+        const majOp = { bordereauAC: null, updatedAt: maintenant };
+        if (op?.statut !== 'SUPPRIME') majOp.statut = 'VISE_CF';
+        batch.update(doc(db,'ops',opId), majOp);
+        await batch.commit();
         setModalEditBT(p => p ? {...p, opsIds: nIds, nbOps: nIds.length, totalMontant: nT} : null);
       }catch(e){notify("error", "Erreur", e.message);}
     });
@@ -778,9 +800,6 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
       <h1 style={{fontSize:22,fontWeight:700,color:P.orange,margin:0}}>Agent Comptable (AC)</h1>
       {/* BOUTON ACTUALISER (Avec fonction de réparation AC) */}
-      <button onClick={handleFixOrphanOps} style={{padding:'8px 12px',background:P.goldLight,border:`1px solid ${P.goldBorder}`,borderRadius:8,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:11,fontWeight:700,color:P.gold,boxShadow:'0 1px 2px rgba(0,0,0,.05)'}}>
-        {I.refresh(P.gold,14)} Actualiser
-      </button>
     </div>
     
     <div style={{display:'flex',gap:8,padding:'16px 0',flexWrap:'wrap'}}>

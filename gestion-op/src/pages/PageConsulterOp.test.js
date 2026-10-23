@@ -42,11 +42,16 @@ const opPayable = {
 // Un OP déjà visé par le CF : la modification doit être verrouillée.
 const opVise = { ...opPayable, id: 'op2', numero: '0043', statut: 'VISE_CF', dateVisaCF: '2026-03-05' };
 
+// Un OP posé sur un bordereau encore en cours : il est compté dans le nombre
+// d'OP et le montant du bordereau, donc il ne doit pas pouvoir disparaître
+// sans en être retiré d'abord.
+const opSurBordereau = { ...opPayable, id: 'op3', numero: '0044', bordereauCF: 'BT-CF-0003/PIF2-SP/2026' };
+
 const mockContexte = {
   sources: [{ id: 'S1', nom: 'Source principale', sigle: 'SP', couleur: '#2E9940' }],
   beneficiaires: [{ id: 'B1', nom: 'ENTREPRISE ALPHA', ncc: '1234', ribs: [{ banque: 'BICICI', numero: 'CI0001' }] }],
   budgets: [{ id: 'BU1', sourceId: 'S1', exerciceId: 'E1', version: 1, lignes: [{ code: 'L1', libelle: 'Fournitures', dotation: 10000000 }] }],
-  ops: [opPayable, opVise],
+  ops: [opPayable, opVise, opSurBordereau],
   setOps: jest.fn(),
   exerciceActif: { id: 'E1', annee: 2026, actif: true },
   exercices: [{ id: 'E1', annee: 2026, actif: true }],
@@ -159,6 +164,44 @@ describe('Consulter OP — le verrou de modification', () => {
 });
 
 describe('Consulter OP — la suppression', () => {
+  // Le défaut : un OP supprimé alors qu'il était sur un bordereau restait
+  // compté par ce bordereau — dans son nombre d'OP, son montant total et sur
+  // l'édition imprimée — alors qu'il avait disparu de la liste des OP.
+  test('un OP posé sur un bordereau refuse d\'être supprimé', async () => {
+    render(<PageConsulterOp />);
+    await ouvrirOp('0044');
+    await userEvent.click(screen.getByTitle('Mettre à la corbeille'));
+    expect(await screen.findByText('Action bloquée')).toBeInTheDocument();
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  // Un refus muet renverrait l'utilisateur à ses suppositions : le message
+  // nomme le bordereau et dit le geste à faire avant.
+  test('le refus nomme le bordereau et dit quoi faire', async () => {
+    render(<PageConsulterOp />);
+    await ouvrirOp('0044');
+    await userEvent.click(screen.getByTitle('Mettre à la corbeille'));
+    const message = await screen.findByText(/BT-CF-0003/);
+    expect(message.textContent).toMatch(/Retirez-le d'abord du bordereau/);
+    expect(message.textContent).toMatch(/Circuit CF/);
+  });
+
+  // Et le mot de passe n'est même pas demandé : le refus arrive avant.
+  test('le refus arrive avant la demande de mot de passe', async () => {
+    render(<PageConsulterOp />);
+    await ouvrirOp('0044');
+    await userEvent.click(screen.getByTitle('Mettre à la corbeille'));
+    await screen.findByText('Action bloquée');
+    expect(screen.queryByText(/Mot de passe requis pour supprimer/)).not.toBeInTheDocument();
+  });
+
+  test('un OP sans bordereau reste supprimable', async () => {
+    render(<PageConsulterOp />);
+    await ouvrirOp('0042');
+    await userEvent.click(screen.getByTitle('Mettre à la corbeille'));
+    expect(await screen.findByText(/Mot de passe requis pour supprimer/)).toBeInTheDocument();
+  });
+
   test('la mise à la corbeille réclame un mot de passe, et n\'écrit rien avant', async () => {
     render(<PageConsulterOp />);
     await ouvrirOp('0042');
