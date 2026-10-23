@@ -331,7 +331,13 @@ const PageCircuitAC = () => {
         const maintenant = new Date().toISOString();
         const batch = writeBatch(db);
         batch.update(doc(db,'bordereaux',bt.id),{opsIds: nIds, nbOps: nIds.length, totalMontant: nT, updatedAt: maintenant});
-        batch.update(doc(db,'ops',opId),{bordereauAC: null, statut: 'VISE_CF', updatedAt: maintenant});
+        // Un OP à la corbeille qu'on retire d'un bordereau doit Y RESTER : lui
+        // rendre le statut « VISE_CF » le ressusciterait. C'est le cas des
+        // fantômes laissés par les suppressions d'avant le garde-fou de
+        // Consulter OP, qu'il faut justement pouvoir retirer des bordereaux.
+        const majOp = { bordereauAC: null, updatedAt: maintenant };
+        if (op?.statut !== 'SUPPRIME') majOp.statut = 'VISE_CF';
+        batch.update(doc(db,'ops',opId), majOp);
         await batch.commit();
         setModalEditBT(p => p ? {...p, opsIds: nIds, nbOps: nIds.length, totalMontant: nT} : null);
       }catch(e){notify("error", "Erreur", e.message);}

@@ -504,3 +504,30 @@ test('le bouton « Actualiser » n\'existe plus', async () => {
   render(<PageCircuitAC />);
   expect(screen.queryByText('Actualiser')).not.toBeInTheDocument();
 });
+
+// Voir la note du même bloc côté CF : un fantôme retiré d'un bordereau ne doit
+// pas retrouver le statut « visé par le CF » au passage.
+describe('Circuit AC — retirer un OP à la corbeille', () => {
+  const retirerLeFantome = async () => {
+    mockContexte.ops = ops().map(o => {
+      if (o.id === 'op3') return { ...o, statut: 'SUPPRIME' };
+      if (o.id === 'op4') return { ...o, statut: 'TRANSMIS_AC', paiements: [] };
+      return o;
+    });
+    render(<PageCircuitAC />);
+    await allerA('Bordereaux');
+    await userEvent.click(screen.getByTitle('Modifier'));
+    await screen.findByText(/Gestion Bordereau AC/);
+    await userEvent.click(screen.getAllByTitle('Retirer')[0]);
+    await confirmer();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    return mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, ...data }));
+  };
+
+  test('le retrait détache l\'OP sans le ressusciter', async () => {
+    const ecritures = await retirerLeFantome();
+    const op = ecritures.find(e => e.id === 'op3');
+    expect(op).toMatchObject({ bordereauAC: null });
+    expect(op).not.toHaveProperty('statut');
+  });
+});

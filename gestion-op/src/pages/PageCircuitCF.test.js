@@ -604,3 +604,41 @@ test('le bouton « Actualiser » n\'existe plus', async () => {
   render(<PageCircuitCF />);
   expect(screen.queryByText('Actualiser')).not.toBeInTheDocument();
 });
+
+// Un OP mis à la corbeille alors qu'il était sur un bordereau y restait
+// compté : un fantôme. Consulter OP refuse désormais cette suppression, mais
+// les fantômes d'avant doivent pouvoir être retirés des bordereaux — sans être
+// ressuscités au passage, ce que faisait le statut rendu automatiquement.
+describe('Circuit CF — retirer un OP à la corbeille', () => {
+  const ouvrirAvecFantome = async () => {
+    const liste = ops().map(o => o.id === 'op4' ? { ...o, statut: 'SUPPRIME' } : o);
+    mockContexte.ops = liste;
+    mockGetDocs.mockImplementation(async () => ({ docs: liste.map(o => ({ id: o.id, data: () => o })) }));
+    render(<PageCircuitCF />);
+    await allerA('Bordereaux');
+    await userEvent.click(screen.getByTitle('Modifier'));
+    await screen.findByText(/Gestion Bordereau CF/);
+    await userEvent.click(screen.getAllByTitle('Retirer')[0]);
+    await confirmer();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+  };
+
+  test('le retrait détache l\'OP du bordereau', async () => {
+    await ouvrirAvecFantome();
+    const ecriture = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, ...data })).find(e => e.id === 'op4');
+    expect(ecriture).toMatchObject({ bordereauCF: null });
+  });
+
+  // La garantie : un OP à la corbeille retiré d'un bordereau Y RESTE.
+  test('le retrait ne ressuscite pas un OP à la corbeille', async () => {
+    await ouvrirAvecFantome();
+    const ecriture = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, ...data })).find(e => e.id === 'op4');
+    expect(ecriture).not.toHaveProperty('statut');
+  });
+
+  test('le bordereau est bien recalculé', async () => {
+    await ouvrirAvecFantome();
+    const bordereau = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, ...data })).find(e => e.id === 'bt3');
+    expect(bordereau).toMatchObject({ nbOps: 1 });
+  });
+});

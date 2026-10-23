@@ -453,6 +453,21 @@ const PageConsulterOp = () => {
       showToast('error', 'Action bloquée', "Impossible de supprimer un OP déjà transmis à l'Agent Comptable ou payé.");
       return;
     }
+    // Un OP posé sur un bordereau y est compté : dans son nombre d'OP, dans son
+    // montant total, et sur le bordereau imprimé. Le mettre à la corbeille sans
+    // l'en retirer laissait un fantôme — le bordereau continuait de le compter
+    // alors qu'il avait disparu de la liste des OP.
+    //
+    // On exige le retrait d'abord, plutôt que de le retirer d'office : c'est le
+    // retrait qui recalcule le nombre d'OP et le montant du bordereau, et c'est
+    // une décision qui regarde le circuit, pas la fiche de l'OP.
+    const bordereauPorteur = selectedOp.bordereauCF || selectedOp.bordereauAC;
+    if (bordereauPorteur) {
+      const circuit = selectedOp.bordereauCF ? 'Circuit CF' : 'Circuit AC';
+      showToast('error', 'Action bloquée',
+        `Cet OP figure sur le bordereau ${bordereauPorteur}. Retirez-le d'abord du bordereau (${circuit} → Bordereaux → Modifier), puis supprimez-le.`);
+      return;
+    }
     if (!projet?.motDePasseAdmin) {
       showToast('error', 'Mot de passe non configuré', 'Un administrateur doit configurer le mot de passe administrateur dans les Paramètres.');
       return;
