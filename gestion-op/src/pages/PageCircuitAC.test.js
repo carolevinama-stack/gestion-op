@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // ==================== CIRCUIT AC ====================
@@ -425,4 +425,82 @@ describe('Circuit AC — annuler un rejet', () => {
     expect(ecriture).not.toHaveProperty('dateVisaCF');
     expect(ecriture).not.toHaveProperty('bordereauAC');
   });
+});
+
+// ==================== RATTACHEMENT À UN BORDEREAU ====================
+// Mêmes règles que côté CF : le bordereau liste l'OP, l'OP porte le numéro du
+// bordereau, et les deux doivent toujours concorder. Ces quatre gestes les
+// écrivaient en allers-retours séparés : une panne entre les deux laissait le
+// bordereau compter un OP qui s'ignorait, libre de partir sur un SECOND
+// bordereau. Un seul lot : la base applique tout, ou rien.
+describe('Circuit AC — bordereau et OP écrits ensemble', () => {
+  // op4 est payé à moitié, ce qui verrouille le bordereau : on le ramène à
+  // « transmis » pour pouvoir le modifier.
+  const ouvrirLeBordereau = async () => {
+    mockContexte.ops = ops().map(o => o.id === 'op4'
+      ? { ...o, statut: 'TRANSMIS_AC', paiements: [] }
+      : o);
+    render(<PageCircuitAC />);
+    await allerA('Bordereaux');
+    await userEvent.click(screen.getByTitle('Modifier'));
+    await screen.findByText(/Gestion Bordereau AC/);
+  };
+
+  const ecritures = () => mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, ...data }));
+
+  test('ajouter un OP écrit le bordereau et l\'OP dans le même lot', async () => {
+    await ouvrirLeBordereau();
+    await userEvent.click(screen.getAllByTitle('Ajouter')[0]);
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    expect(ecritures()).toHaveLength(2);
+    expect(ecritures().find(e => e.id === 'bt1')).toMatchObject({ nbOps: 3 });
+    expect(ecritures().find(e => e.id !== 'bt1')).toMatchObject({ bordereauAC: 'BT-AC-0001/PIF2-SP/2026' });
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  test('retirer un OP écrit le bordereau et l\'OP dans le même lot', async () => {
+    await ouvrirLeBordereau();
+    await userEvent.click(screen.getAllByTitle('Retirer')[0]);
+    await confirmer();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    expect(ecritures()).toHaveLength(2);
+    expect(ecritures().find(e => e.id === 'bt1')).toMatchObject({ nbOps: 1 });
+    expect(ecritures().find(e => e.id !== 'bt1')).toMatchObject({ bordereauAC: null, statut: 'VISE_CF' });
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  test('renuméroter réécrit le bordereau et TOUS ses OP dans le même lot', async () => {
+    await ouvrirLeBordereau();
+    const champ = screen.getByDisplayValue('BT-AC-0001/PIF2-SP/2026');
+    await userEvent.clear(champ);
+    await userEvent.type(champ, 'BT-AC-0007/PIF2-SP/2026');
+    await userEvent.click(screen.getByText('Sauver'));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    expect(ecritures()).toHaveLength(3);   // le bordereau + ses deux OP
+    expect(ecritures().filter(e => e.id !== 'bt1').map(e => e.id).sort()).toEqual(['op3', 'op4']);
+    expect(ecritures().filter(e => e.id !== 'bt1').every(e => e.bordereauAC === 'BT-AC-0007/PIF2-SP/2026')).toBe(true);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  test('corriger la date de transmission réécrit le bordereau et TOUS ses OP dans le même lot', async () => {
+    await ouvrirLeBordereau();
+    fireEvent.change(screen.getByDisplayValue('2026-03-12'), { target: { value: '2026-03-18' } });
+    await userEvent.click(screen.getByText('Sauver Date'));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    expect(ecritures()).toHaveLength(3);
+    expect(ecritures().find(e => e.id === 'bt1')).toMatchObject({ dateTransmission: '2026-03-18' });
+    expect(ecritures().filter(e => e.id !== 'bt1').every(e => e.dateTransmissionAC === '2026-03-18')).toBe(true);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+});
+
+// Voir la note du même test côté CF : le bouton effaçait des rattachements
+// valides dès qu'un exercice clos avait été consulté.
+test('le bouton « Actualiser » n\'existe plus', async () => {
+  render(<PageCircuitAC />);
+  expect(screen.queryByText('Actualiser')).not.toBeInTheDocument();
 });

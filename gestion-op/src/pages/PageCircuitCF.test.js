@@ -499,3 +499,108 @@ describe('Circuit CF — annuler un rejet', () => {
     expect(ecrituresOps().map(e => e.id).sort()).toEqual(['op6', 'op6r']);
   });
 });
+
+// ==================== RATTACHEMENT À UN BORDEREAU ====================
+// Un OP sur un bordereau, c'est le même fait écrit à DEUX endroits : le
+// bordereau liste l'OP, et l'OP porte le numéro du bordereau. Les deux doivent
+// toujours concorder.
+//
+// Ces quatre gestes les écrivaient l'un après l'autre, en deux allers-retours
+// séparés jusqu'à la base. Une panne entre les deux — réseau coupé, onglet
+// fermé, refus de permission — laissait le premier écrit enregistré et le
+// second perdu : le bordereau comptait un OP qui s'ignorait, l'OP restait dans
+// la file d'attente et pouvait partir sur un SECOND bordereau. Compté deux fois.
+//
+// Un seul lot : la base applique les deux écritures, ou aucune.
+describe('Circuit CF — bordereau et OP écrits ensemble', () => {
+  const ouvrirLeBordereau = async () => {
+    // getDocs sert à recharger les OP du bordereau à l'ouverture de la modale.
+    // Son implémentation est remise à zéro avant chaque test : on la repose.
+    mockGetDocs.mockImplementation(async () => ({
+      docs: ops().map(o => ({ id: o.id, data: () => o })),
+    }));
+    await allerA('Bordereaux');
+    await userEvent.click(screen.getByTitle('Modifier'));
+    await screen.findByText(/Gestion Bordereau CF/);
+  };
+
+  test('ajouter un OP écrit le bordereau et l\'OP dans le même lot', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirLeBordereau();
+    await userEvent.click(screen.getAllByTitle('Ajouter')[0]);
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    const ecritures = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, cible: ref.cible, ...data }));
+    expect(ecritures).toHaveLength(2);
+    expect(ecritures.find(e => e.cible === 'bordereaux')).toMatchObject({ id: 'bt3', nbOps: 3 });
+    expect(ecritures.find(e => e.cible === 'ops')).toMatchObject({ bordereauCF: 'BT-CF-0003/PIF2-SP/2026' });
+  });
+
+  // La garantie : aucune écriture isolée ne part à côté du lot.
+  test('ajouter un OP ne fait aucune écriture hors du lot', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirLeBordereau();
+    await userEvent.click(screen.getAllByTitle('Ajouter')[0]);
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  test('retirer un OP écrit le bordereau et l\'OP dans le même lot', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirLeBordereau();
+    await userEvent.click(screen.getAllByTitle('Retirer')[0]);
+    await confirmer();
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    const ecritures = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, cible: ref.cible, ...data }));
+    expect(ecritures).toHaveLength(2);
+    expect(ecritures.find(e => e.cible === 'bordereaux')).toMatchObject({ id: 'bt3', nbOps: 1 });
+    expect(ecritures.find(e => e.cible === 'ops')).toMatchObject({ bordereauCF: null, statut: 'EN_COURS' });
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  // Les OP portent le NUMÉRO du bordereau, pas son identifiant : renuméroter
+  // oblige à réécrire chaque OP. Une panne en cours de route laissait une
+  // partie des OP sur un numéro que plus aucun bordereau ne porte.
+  test('renuméroter réécrit le bordereau et TOUS ses OP dans le même lot', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirLeBordereau();
+    const champ = screen.getByDisplayValue('BT-CF-0003/PIF2-SP/2026');
+    await userEvent.clear(champ);
+    await userEvent.type(champ, 'BT-CF-0009/PIF2-SP/2026');
+    await userEvent.click(screen.getByText('Sauver'));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    const ecritures = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, cible: ref.cible, ...data }));
+    expect(ecritures).toHaveLength(3);   // le bordereau + ses deux OP
+    expect(ecritures.filter(e => e.cible === 'ops').map(e => e.id).sort()).toEqual(['op4', 'op5']);
+    expect(ecritures.every(e => e.cible !== 'ops' || e.bordereauCF === 'BT-CF-0009/PIF2-SP/2026')).toBe(true);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  // La date de transmission est recopiée sur chaque OP : c'est d'elle que
+  // repart le décompte des délais dans le Rapport.
+  test('corriger la date de transmission réécrit le bordereau et TOUS ses OP dans le même lot', async () => {
+    render(<PageCircuitCF />);
+    await ouvrirLeBordereau();
+    const champ = screen.getByDisplayValue('2026-03-10');
+    fireEvent.change(champ, { target: { value: '2026-03-16' } });
+    await userEvent.click(screen.getByText('Sauver Date'));
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled());
+
+    const ecritures = mockBatchUpdate.mock.calls.map(([ref, data]) => ({ id: ref.id, cible: ref.cible, ...data }));
+    expect(ecritures).toHaveLength(3);
+    expect(ecritures.find(e => e.cible === 'bordereaux')).toMatchObject({ dateTransmission: '2026-03-16' });
+    expect(ecritures.filter(e => e.cible === 'ops').every(e => e.dateTransmissionCF === '2026-03-16')).toBe(true);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+});
+
+// Le bouton « Actualiser » a été retiré : il effaçait le bordereau des OP dont
+// le bordereau n'était pas chargé en mémoire. Les OP et les bordereaux se
+// chargeant exercice par exercice et INDÉPENDAMMENT, consulter un exercice clos
+// suffisait à le faire effacer en bloc des rattachements parfaitement valides.
+test('le bouton « Actualiser » n\'existe plus', async () => {
+  render(<PageCircuitCF />);
+  expect(screen.queryByText('Actualiser')).not.toBeInTheDocument();
+});
