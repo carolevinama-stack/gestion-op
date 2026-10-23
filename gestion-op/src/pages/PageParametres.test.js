@@ -33,7 +33,9 @@ jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
 jest.mock('firebase/firestore', () => ({
   collection: (_db, nom) => ({ nom }),
-  doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau' }),
+  // La référence porte la collection visée : c'est ce qui permet d'affirmer
+  // qu'une action n'écrit QUE là où elle le prétend.
+  doc: (...a) => ({ id: a.length >= 3 ? a[2] : 'nouveau', cible: typeof a[1] === 'string' ? a[1] : a[1]?.nom }),
   setDoc: (...a) => { mockEcritures.push(['setDoc', a]); return Promise.resolve(); },
   addDoc: (...a) => { mockEcritures.push(['addDoc', a]); return Promise.resolve({ id: 'nouveau' }); },
   updateDoc: (...a) => { mockEcritures.push(['updateDoc', a]); return Promise.resolve(); },
@@ -417,5 +419,42 @@ describe('Maintenance — recaler les compteurs', () => {
     await recaler();
     expect(mockEcritures.filter(([t]) => t === 'batch.commit')).toHaveLength(1);
     expect(mockEcritures.some(([t]) => t === 'setDoc' || t === 'updateDoc')).toBe(false);
+  });
+});
+
+// La crainte de Carole, posée noir sur blanc : « le risque est que les OP déjà
+// enregistrés ou les bordereaux changent de numérotation et qu'on se perde ».
+//
+// Ce bouton n'écrit QUE dans la collection compteurs — une valeur par source et
+// par exercice, qui ne sert qu'à décider du numéro du PROCHAIN OP. Il lit les
+// OP pour trouver le plus grand numéro utilisé, et n'en modifie aucun.
+describe('Maintenance — le recalage ne renumérote rien', () => {
+  const recalerEtLireLesCibles = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Recaler les numéros'));
+    await utilisateur.click(await screen.findByText('Confirmer'));
+    await waitFor(() => expect(mockEcritures.some(([t]) => t === 'batch.commit')).toBe(true));
+    return mockEcritures
+      .filter(([type]) => type !== 'batch.commit')
+      .map(([, args]) => args[0]?.cible);
+  };
+
+  test('aucun OP n\'est écrit', async () => {
+    const cibles = await recalerEtLireLesCibles();
+    expect(cibles).not.toContain('ops');
+  });
+
+  test('aucun bordereau n\'est écrit', async () => {
+    const cibles = await recalerEtLireLesCibles();
+    expect(cibles).not.toContain('bordereaux');
+  });
+
+  // La formulation positive : la seule collection touchée, c'est compteurs.
+  test('la collection compteurs est la seule écrite', async () => {
+    const cibles = await recalerEtLireLesCibles();
+    expect(cibles.length).toBeGreaterThan(0);
+    expect([...new Set(cibles)]).toEqual(['compteurs']);
   });
 });
