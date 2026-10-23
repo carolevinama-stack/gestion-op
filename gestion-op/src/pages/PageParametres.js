@@ -507,43 +507,79 @@ const TabMaintenance = () => {
     );
   };
 
-  const handleRecalerCompteurs = () => {
-    ask("Recaler les compteurs", "Cette action réaligne les compteurs de numérotation sur le dernier numéro d'OP réellement utilisé, pour chaque source et chaque exercice. À n'utiliser qu'en cas d'anomalie de numérotation. Continuer ?", async () => {
-      setSaving(true);
-      try {
-        // Les OP sont relus EN BASE, exercice par exercice, et NON pris dans le
-        // contexte : celui-ci ne garde en mémoire que l'exercice actif. Avant,
-        // tout exercice clos était donc vu comme vide, son compteur remis à
-        // zéro — et le prochain OP saisi dans cet exercice, après une bascule,
-        // repartait au N°0001, déjà utilisé.
-        //
-        // Une requête par exercice, et seulement au clic sur le bouton : lire
-        // la collection ops entière avait causé le dépassement du quota de
-        // lectures du 9 septembre 2026.
-        const maintenant = new Date().toISOString();
-        const batch = writeBatch(db);
-        for (const ex of exercices) {
-          // Les OP à la corbeille COMPTENT : ils gardent leur numéro, et la
-          // restauration le leur rend tel quel. Les exclure aurait fait
-          // redescendre le compteur sous un numéro encore attribué, et le
-          // prochain OP l'aurait repris — doublon au premier OP restauré.
-          // C'est déjà la règle des deux autres chemins de numérotation :
-          // prochainNumero (l'aperçu de saisie) et l'initialisation du
-          // compteur dans PageNouvelOp ne filtrent pas non plus.
-          const snap = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', ex.id)));
-          const opsExercice = snap.docs.map(d => d.data());
-          for (const src of sources) {
-            const maxNum = maxNumeroExistant(opsExercice.filter(o => o.sourceId === src.id));
-            batch.set(doc(db, 'compteurs', idCompteurOp(src.id, ex.id)), { count: maxNum, updatedAt: maintenant }, { merge: true });
+  // Recalage des compteurs de numérotation, en DEUX TEMPS : on lit, on montre
+  // ce qui changerait, et on n'écrit qu'après accord. Rien d'aveugle.
+  //
+  // Le compteur ne sert qu'à décider du numéro du PROCHAIN OP. Un numéro
+  // attribué est inscrit dans l'OP lui-même et n'en bouge plus : ce bouton
+  // n'écrit que dans la collection compteurs, jamais dans ops ni bordereaux,
+  // et des tests le vérifient.
+  //
+  // Les OP sont relus EN BASE, une requête par exercice, et NON pris dans le
+  // contexte : celui-ci ne garde en mémoire que l'exercice actif, et tout
+  // exercice clos serait vu comme vide — son compteur retomberait à zéro.
+  // Les OP à la corbeille comptent : ils gardent leur numéro, et la
+  // restauration le leur rend tel quel.
+  const handleRecalerCompteurs = async () => {
+    setSaving(true);
+    const propositions = [];
+    try {
+      const snapCompteurs = await getDocs(collection(db, 'compteurs'));
+      const actuels = new Map(snapCompteurs.docs.map(d => [d.id, d.data()?.count]));
+      for (const ex of exercices) {
+        const snap = await getDocs(query(collection(db, 'ops'), where('exerciceId', '==', ex.id)));
+        const opsExercice = snap.docs.map(d => d.data());
+        for (const src of sources) {
+          const id = idCompteurOp(src.id, ex.id);
+          const avant = actuels.has(id) ? (actuels.get(id) ?? 0) : null;
+          const apres = maxNumeroExistant(opsExercice.filter(o => o.sourceId === src.id));
+          if (avant !== apres) {
+            propositions.push({ id, libelle: `${ex.annee || ex.id} — ${src.sigle || src.id}`, avant, apres });
           }
         }
-        await batch.commit();
-        notify("success", "Réussite", "Les compteurs ont été recalés.");
-      } catch (e) {
-        notify("error", "Erreur", "Problème de synchronisation.");
       }
+    } catch (e) {
       setSaving(false);
-    });
+      notify("error", "Erreur", "Impossible de lire les compteurs : " + e.message);
+      return;
+    }
+    setSaving(false);
+
+    if (propositions.length === 0) {
+      notify("success", "Compteurs", "Tous les compteurs sont déjà alignés sur le dernier numéro d'OP utilisé. Rien à modifier.");
+      return;
+    }
+
+    // Une BAISSE est la seule direction dangereuse : elle fait reprendre au
+    // prochain OP un numéro déjà attribué. Elle est signalée pour elle-même.
+    const baisses = propositions.filter(p => p.avant !== null && p.apres < p.avant);
+    const detail = propositions
+      .map(p => `• ${p.libelle} : ${p.avant === null ? 'absent' : p.avant} → ${p.apres}${p.avant !== null && p.apres < p.avant ? '   ⚠ BAISSE' : ''}`)
+      .join('\n');
+
+    ask(
+      "Recaler les compteurs",
+      `${propositions.length} compteur(s) seraient modifiés :\n\n${detail}\n\n`
+      + (baisses.length
+          ? `⚠ ${baisses.length} compteur(s) VONT BAISSER. Un compteur qui baisse fait reprendre au prochain OP un numéro déjà attribué. Ne confirmez que si vous savez pourquoi.\n\n`
+          : '')
+      + `Aucun OP et aucun bordereau ne sera modifié : seuls les compteurs de numérotation changent.`,
+      async () => {
+        setSaving(true);
+        try {
+          const maintenant = new Date().toISOString();
+          const batch = writeBatch(db);
+          for (const p of propositions) {
+            batch.set(doc(db, 'compteurs', p.id), { count: p.apres, updatedAt: maintenant }, { merge: true });
+          }
+          await batch.commit();
+          notify("success", "Réussite", `${propositions.length} compteur(s) recalé(s).`);
+        } catch (e) {
+          notify("error", "Erreur", "Problème de synchronisation : " + e.message);
+        }
+        setSaving(false);
+      }
+    );
   };
 
   return (

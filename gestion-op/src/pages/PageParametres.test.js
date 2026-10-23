@@ -28,6 +28,9 @@ let mockFichierEcrit = null;
 // Toute écriture en base est enregistrée ici : le contrôle des rejets ne doit
 // en produire aucune.
 let mockEcritures = [];
+// Les compteurs tels qu'ils sont EN BASE : c'est à eux que le recalage compare
+// ce qu'il propose, et il ne touche que ce qui diffère.
+let mockCompteursEnBase = [];
 
 jest.mock('../firebase', () => ({ db: {}, auth: {} }));
 
@@ -63,14 +66,14 @@ jest.mock('firebase/firestore', () => ({
       beneficiaires: [{ nom: 'ENTREPRISE ALPHA', ribs: [{ banque: 'B', numero: '123' }] }],
       budgets: [{ sourceId: 'S1', version: 1, lignes: [{ code: '6011', dotation: 1000 }] }],
       parametres: [{ sigle: 'PIF2' }],
-      compteurs: [{ count: 42 }],
+      compteurs: mockCompteursEnBase,
     };
     const toutes = parCollection[ref?.nom] || [];
     const lignes = (ref?.filtres || []).reduce(
       (reste, f) => reste.filter(d => d[f.champ] === f.valeur),
       toutes,
     );
-    return Promise.resolve({ docs: lignes.map((d, i) => ({ id: `d${i}`, data: () => d })) });
+    return Promise.resolve({ docs: lignes.map((d, i) => ({ id: d.id ?? `d${i}`, data: () => d })) });
   },
 }));
 
@@ -153,6 +156,7 @@ beforeEach(() => {
   mockFeuilles = {};
   mockFichierEcrit = null;
   mockEcritures = [];
+  mockCompteursEnBase = [{ id: 'un-compteur-sans-rapport', count: 42 }];
 });
 
 describe('La sauvegarde de la base', () => {
@@ -456,5 +460,81 @@ describe('Maintenance — le recalage ne renumérote rien', () => {
     const cibles = await recalerEtLireLesCibles();
     expect(cibles.length).toBeGreaterThan(0);
     expect([...new Set(cibles)]).toEqual(['compteurs']);
+  });
+});
+
+// ==================== L'APERÇU AVANT ÉCRITURE ====================
+// Le bouton travaille en deux temps : il lit, il montre ce qui changerait, et
+// il n'écrit qu'après accord. Carole ne voulait plus de bouton de maintenance
+// qui agit sans qu'on puisse voir d'abord ce qu'il va faire.
+describe('Maintenance — l\'aperçu du recalage', () => {
+  const ouvrirLApercu = async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    await utilisateur.click(screen.getByText('Maintenance'));
+    await utilisateur.click(screen.getByText('Recaler les numéros'));
+  };
+
+  const confirmer = async () => {
+    await userEvent.click(await screen.findByText('Confirmer'));
+    await waitFor(() => expect(mockEcritures.some(([t]) => t === 'batch.commit')).toBe(true));
+  };
+
+  test('l\'aperçu nomme chaque compteur et montre l\'avant et l\'après', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2026', count: 2 }];
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).toMatch(/2025 — BM : absent → 102/);
+  });
+
+  // La garantie du geste : rien ne part en base tant qu'on n'a pas confirmé.
+  test('rien n\'est écrit tant que l\'aperçu n\'est pas confirmé', async () => {
+    await ouvrirLApercu();
+    await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(mockEcritures).toEqual([]);
+  });
+
+  test('l\'aperçu rappelle qu\'aucun OP ni bordereau ne sera modifié', async () => {
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).toMatch(/Aucun OP et aucun bordereau ne sera modifié/);
+  });
+
+  // Un compteur déjà juste n'a aucune raison d'être réécrit.
+  test('seuls les compteurs réellement décalés sont écrits', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2026', count: 2 }];
+    await ouvrirLApercu();
+    await confirmer();
+    const ecrits = mockEcritures.filter(([t]) => t === 'batch.set').map(([, args]) => args[0].id);
+    expect(ecrits).toEqual(['OP_S1_E2025']);
+  });
+
+  test('quand tout est déjà aligné, il le dit et n\'écrit rien', async () => {
+    mockCompteursEnBase = [
+      { id: 'OP_S1_E2026', count: 2 },
+      { id: 'OP_S1_E2025', count: 102 },
+    ];
+    await ouvrirLApercu();
+    expect(await screen.findByText(/déjà alignés/)).toBeInTheDocument();
+    expect(screen.queryByText('Confirmer')).not.toBeInTheDocument();
+    expect(mockEcritures).toEqual([]);
+  });
+
+  // La seule direction dangereuse : un compteur qui BAISSE fait reprendre au
+  // prochain OP un numéro déjà attribué. Elle doit sauter aux yeux.
+  test('une baisse de compteur est signalée pour elle-même', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2025', count: 900 }];
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).toMatch(/900 → 102/);
+    expect(message.textContent).toMatch(/BAISSE/);
+    expect(message.textContent).toMatch(/numéro déjà attribué/);
+  });
+
+  test('sans baisse, aucun avertissement de baisse n\'est affiché', async () => {
+    mockCompteursEnBase = [{ id: 'OP_S1_E2026', count: 2 }];
+    await ouvrirLApercu();
+    const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
+    expect(message.textContent).not.toMatch(/BAISSE/);
   });
 });
