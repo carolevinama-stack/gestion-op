@@ -9,6 +9,7 @@ import { styles } from '../utils/styles';
 import { formatDate, formatMontant } from '../utils/formatters';
 import { idCompteurOp, maxNumeroExistant } from '../utils/opCalculs';
 import { controlerRejets, orphelinsParExercice } from '../utils/controleRejets';
+import { construireLigneExportOp } from '../utils/exportOp';
 import PageAdmin from './PageAdmin';
 
 // ============================================================
@@ -320,15 +321,22 @@ const TabMaintenance = () => {
       const opsSnap = await getDocs(collection(db, 'ops'));
       const tousLesOps = opsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      addSheet('OP', tousLesOps.map(op => ({
-        'N° OP': op.numero, 'Type': op.type, 'Statut': op.statut,
-        'Source': sources.find(s => s.id === op.sourceId)?.sigle || op.sourceId,
-        'Exercice': exercices.find(e => e.id === op.exerciceId)?.annee || op.exerciceId,
-        'Bénéficiaire': op.beneficiaireNom || '', 'Ligne budgétaire': op.ligneBudgetaire || '',
-        'Montant': Number(op.montant || 0), 'Montant TVA': Number(op.montantTVA || 0),
-        'Objet': op.objet || '', 'Date création': formatDate(op.dateCreation) || '',
-        'Créé par': op.creePar || '',
-      })));
+      // Les mêmes colonnes que l'export de la Liste OP — définition partagée
+      // dans utils/exportOp.js — avec la Source et l'Exercice EN PLUS devant :
+      // la sauvegarde couvre tous les exercices et toutes les sources, alors
+      // que la Liste OP est déjà filtrée sur l'un d'eux. « Créé par » est
+      // conservé : il vient de la sauvegarde et n'existe pas dans l'autre.
+      addSheet('OP', tousLesOps.map(op => {
+        const ligne = construireLigneExportOp(op);
+        return {
+          'N° OP': ligne['N° OP'],
+          'Type': ligne['Type'],
+          'Source': sources.find(s => s.id === op.sourceId)?.sigle || op.sourceId || '',
+          'Exercice': exercices.find(e => e.id === op.exerciceId)?.annee || op.exerciceId || '',
+          ...ligne,
+          'Créé par': op.creePar || '',
+        };
+      }));
 
       addSheet('Budgets', budgets.flatMap(b => (b.lignes || []).map(l => ({
         'Source': sources.find(s => s.id === b.sourceId)?.sigle || b.sourceId,

@@ -6,11 +6,12 @@ import Autocomplete from '../components/Autocomplete'; // Importation de la base
 // aucun appel ni aucun calcul en dessous n'est modifié.
 import { db, doc, updateDoc } from '../db'; // Importation des outils de mise à jour
 import { styles } from '../utils/styles';
-import { formatMontant, sanitizeForExport, formatNumeroOp } from '../utils/formatters';
+import { formatMontant, formatNumeroOp } from '../utils/formatters';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
 import Pagination from '../components/Pagination';
 import HistoriqueDifferes from '../components/HistoriqueDifferes';
 import HistoriqueRejets from '../components/HistoriqueRejets';
+import { construireLigneExportOp } from '../utils/exportOp';
 
 // Palette de couleurs
 const P = {
@@ -265,41 +266,10 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
     handleRestaurerOP(op);
   };
 
-  const buildExportRow = (op) => {
-    const paiements = op.paiements || [];
-    const totalPaye = paiements.reduce((s, p) => s + (Number(p.montant) || 0), 0);
-    const solde = (Number(op.montant) || 0) - totalPaye;
-    const refs = paiements.map(p => p.reference).filter(Boolean).join(', ');
-    const datesPaiement = paiements.map(p => formatDate(p.date)).filter(Boolean).join(', ');
-    return {
-      'N° OP': op.numero,
-      'Type': op.type,
-      'Date création': formatDate(op.dateCreation) || '',
-      'Bénéficiaire': sanitizeForExport(getBenNom(op)),
-      'Objet': sanitizeForExport(op.objet || ''),
-      'Ligne budgétaire': op.ligneBudgetaire || '',
-      'Dotation': Number(op.dotationFigee || 0),
-      'Montant': Number(op.montant || 0),
-      'Mode règlement': op.modeReglement || '',
-      'Montant TVA': Number(op.montantTVA || 0),
-      'OP provisoire rattaché': sanitizeForExport(op.opProvisoireNumero || ''),
-      'Statut': op.statut || '',
-      'N° Bordereau CF': op.bordereauCF || '',
-      'Date transmission CF': formatDate(op.dateTransmissionCF) || '',
-      'Date différé CF': formatDate(op.dateDiffere) || '',
-      'Date rejet CF': formatDate(op.dateRejet) || '',
-      'Date visa CF': formatDate(op.dateVisaCF) || '',
-      'Motif CF': sanitizeForExport(op.motifRejet || op.motifDiffere || ''),
-      'N° Bordereau AC': op.bordereauAC || '',
-      'Date transmission AC': formatDate(op.dateTransmissionAC) || '',
-      'Montant total payé': totalPaye,
-      'Solde restant': solde,
-      'Références paiement': sanitizeForExport(refs),
-      'Dates paiement': datesPaiement,
-      'Date archivage': formatDate(op.dateArchivage) || '',
-      'Référence boîte': op.boiteArchivage || ''
-    };
-  };
+  // Les colonnes sont définies dans utils/exportOp.js, partagées avec la
+  // sauvegarde Excel des Paramètres : les deux exports doivent décrire un OP
+  // de la même façon.
+  const buildExportRow = (op) => construireLigneExportOp(op, { beneficiaireNom: getBenNom(op) });
 
   const handleExportExcel = async () => {
     try {

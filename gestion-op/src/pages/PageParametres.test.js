@@ -108,7 +108,9 @@ const OPS_DU_CONTEXTE = [
 // portent le sigle de la source : c'est le format que lit maxNumeroExistant.
 const OPS_DE_LA_BASE = [
   ...OPS_DU_CONTEXTE,
-  { id: 'op3', numero: 'N°0101/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 5000 },
+  { id: 'op3', numero: 'N°0101/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 5000,
+    bordereauCF: 'BT-CF-0003/BM', dateVisaCF: '2025-06-10', bordereauAC: 'BT-AC-0001/BM', dateTransmissionAC: '2025-06-15',
+    paiements: [{ montant: 5000, reference: 'VIR-77', date: '2025-07-01' }], dateArchivage: '2025-08-01', boiteArchivage: 'BOITE-03' },
   { id: 'op4', numero: 'N°0102/BM', type: 'DEFINITIF', statut: 'ARCHIVE', sourceId: 'S1', exerciceId: 'E2025', montant: 6000 },
 ];
 
@@ -540,5 +542,48 @@ describe('Maintenance — l\'aperçu du recalage', () => {
     await ouvrirLApercu();
     const message = await screen.findByText(/compteur\(s\) seraient modifiés/);
     expect(message.textContent).not.toMatch(/BAISSE/);
+  });
+});
+
+// ==================== LA FEUILLE OP DE LA SAUVEGARDE ====================
+// Elle n'avait que 12 colonnes : tout le circuit était perdu — bordereaux,
+// dates de visa et de transmission, paiements, motifs, archivage. Elle reprend
+// désormais les mêmes colonnes que l'export de la Liste OP (définition
+// partagée), plus la Source et l'Exercice, que la sauvegarde seule peut dire
+// puisqu'elle couvre tous les exercices.
+describe('La sauvegarde — la feuille OP est complète', () => {
+  const ligneDe = (numero) => mockFeuilles['OP'].find(l => l['N° OP'] === numero);
+
+  test('le circuit complet d\'un OP archivé est repris', async () => {
+    await lancerLaSauvegarde();
+    const l = ligneDe('N°0101/BM');
+    expect(l['N° Bordereau CF']).toBe('BT-CF-0003/BM');
+    expect(l['Date visa CF']).toBe('10/06/2025');
+    expect(l['N° Bordereau AC']).toBe('BT-AC-0001/BM');
+    expect(l['Date transmission AC']).toBe('15/06/2025');
+  });
+
+  test('les paiements et l\'archivage sont repris', async () => {
+    await lancerLaSauvegarde();
+    const l = ligneDe('N°0101/BM');
+    expect(l['Montant total payé']).toBe(5000);
+    expect(l['Solde restant']).toBe(0);
+    expect(l['Références paiement']).toBe('VIR-77');
+    expect(l['Référence boîte']).toBe('BOITE-03');
+  });
+
+  // Ce que la Liste OP ne peut pas dire : elle est déjà filtrée sur une source
+  // et un exercice. La sauvegarde les couvre tous, donc elle doit les nommer.
+  test('la source et l\'exercice sont nommés, en tête de ligne', async () => {
+    await lancerLaSauvegarde();
+    const l = ligneDe('N°0101/BM');
+    expect(l['Source']).toBe('BM');
+    expect(l['Exercice']).toBe(2025);
+    expect(Object.keys(l).slice(0, 4)).toEqual(['N° OP', 'Type', 'Source', 'Exercice']);
+  });
+
+  test('« Créé par » reste présent, il n\'existe que dans la sauvegarde', async () => {
+    await lancerLaSauvegarde();
+    expect(Object.keys(ligneDe('N°0101/BM'))).toContain('Créé par');
   });
 });
