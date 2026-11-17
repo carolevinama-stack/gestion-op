@@ -561,9 +561,12 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                  <div style={{fontSize:11, color:P.textMuted, fontWeight:800, marginBottom:10, borderBottom:'1px solid #eee', paddingBottom:5}}>CHRONOLOGIE DES ÉTAPES</div>
                  {[
                    { label: 'Saisie le', date: livePreviewOp.dateCreation },
-                   { label: 'Transmis au CF', date: livePreviewOp.dateTransmissionCF },
+                   // Le bordereau qui porte l'OP à cette étape : il n'apparaissait
+                   // nulle part dans l'aperçu, alors que c'est par lui qu'on
+                   // retrouve le dossier papier.
+                   { label: 'Transmis au CF', date: livePreviewOp.dateTransmissionCF, detail: livePreviewOp.bordereauCF },
                    { label: 'Visé par CF', date: livePreviewOp.dateVisaCF, color: P.greenDark },
-                   { label: 'Transmis à l\'AC', date: livePreviewOp.dateTransmissionAC },
+                   { label: 'Transmis à l\'AC', date: livePreviewOp.dateTransmissionAC, detail: livePreviewOp.bordereauAC },
                    { label: 'Mis en Paiement', date: livePreviewOp.datePaiement, color: P.gold },
                    // Ajoutée seulement si elle s'applique : une ligne « En attente »
                    // sur un OP sain laisserait croire qu'un rejet est possible.
@@ -573,9 +576,14 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                      color: livePreviewOp.statut.startsWith('REJETE') ? P.red : P.gold,
                    }] : [])
                  ].map((step, idx) => (
-                   <div key={idx} style={{display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:12}}>
-                      <span style={{color:'#666', fontWeight:600}}>{step.label} :</span>
-                      <span style={{fontWeight:700, color: step.color || P.text}}>{formatDate(step.date) || 'En attente'}</span>
+                   <div key={idx} style={{marginBottom:8, fontSize:12}}>
+                      <div style={{display:'flex', justifyContent:'space-between'}}>
+                        <span style={{color:'#666', fontWeight:600}}>{step.label} :</span>
+                        <span style={{fontWeight:700, color: step.color || P.text}}>{formatDate(step.date) || 'En attente'}</span>
+                      </div>
+                      {/* Affiché seulement s'il existe : un OP pas encore mis sur
+                          un bordereau ne doit pas montrer une ligne vide. */}
+                      {step.detail && <div style={{textAlign:'right', fontSize:10, fontFamily:'monospace', color:P.textMuted, marginTop:1}}>{step.detail}</div>}
                    </div>
                  ))}
               </div>
@@ -600,7 +608,19 @@ const getBenNom = (op) => op.beneficiaireNom || 'N/A';
                         <div style={{fontSize:11, color:P.greenDark, fontWeight:800, marginBottom:8}}>SITUATION DES PAIEMENTS</div>
                         <div style={{display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:5}}><span>Déjà payé :</span><span style={{fontWeight:800}}>{formatMontant(tPaye)} F</span></div>
                         {reste > 0 && <div style={{display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:5, color: P.red}}><span>Reste à payer :</span><span style={{fontWeight:800}}>{formatMontant(reste)} F</span></div>}
-                        <div style={{fontSize:11, marginTop:8, paddingTop:8, borderTop:'1px dashed #ccc', color:'#666'}}><b>Réf. :</b> {pTab.map(p => p.reference).filter(Boolean).join(' / ') || 'N/A'}</div>
+                        {/* Le détail règlement par règlement. Avant, seules les
+                            références étaient listées : un OP payé en plusieurs
+                            fois ne disait ni quand, ni combien à chaque fois. */}
+                        <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed #ccc'}}>
+                          <div style={{fontSize:10, color:P.textMuted, fontWeight:700, marginBottom:5}}>RÈGLEMENTS ({pTab.length})</div>
+                          {pTab.map((p, i) => (
+                            <div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:10, fontSize:11, color:'#555', marginBottom:4}}>
+                              <span style={{whiteSpace:'nowrap'}}>{formatDate(p.date) || 'date inconnue'}</span>
+                              <span style={{flex:1, fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={p.reference || ''}>{p.reference || 'sans référence'}</span>
+                              <span style={{fontWeight:700, whiteSpace:'nowrap'}}>{formatMontant(p.montant)} F</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     );
                   }
