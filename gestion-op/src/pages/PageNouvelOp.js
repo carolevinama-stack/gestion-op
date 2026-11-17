@@ -484,11 +484,10 @@ const PageNouvelOp = () => {
         return newOpData;
       });
 
-      // *** CORRECTION ICI (DIAGNOSTIC) ***
-      // J'ai commenté la ligne ci-dessous. C'était elle qui posait problème.
-      // En la désactivant, on laisse AppContext.js faire la mise à jour tout seul, sans conflit.
-
-      // setOps([...ops, { id: newOpRef.id, ...opData }]);
+      // La liste des OP n'est volontairement pas mise à jour ici : l'écouteur
+      // temps réel d'AppContext s'en charge. L'ajouter à la main en plus
+      // faisait apparaître le nouvel OP deux fois, le temps que l'écouteur
+      // livre sa propre version.
 
       enregistrerJournal({
         action: ACTIONS_JOURNAL.CREATION,

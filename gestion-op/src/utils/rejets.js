@@ -13,7 +13,7 @@
 //    restait dans la liste des OP et dans le Rapport comme un rejet qui n'existe
 //    plus, et il faussait le total affiché ainsi que le compte des rejets.
 //
-//    ⚠️ Un OP ne se supprime JAMAIS dans cette application. firestore.rules
+//    ATTENTION : un OP ne se supprime JAMAIS dans cette application. firestore.rules
 //    porte « allow delete: if false » sur la collection ops, avec ce
 //    commentaire : « Interdire delete empêche de contourner la corbeille et le
 //    journal. » La mise à la corbeille (statut SUPPRIME) sort l'OP des listes,

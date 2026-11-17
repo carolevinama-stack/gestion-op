@@ -70,7 +70,6 @@ const DelaiBadge = ({ jours, seuilOrange, seuilRouge, unite = 'j ouvrés' }) => 
   if (jours === null || jours === undefined) return <span style={{ color: P.textMuted, fontSize: 10 }}>—</span>;
   let bg = P.greenLight, color = P.greenDark;
   if (jours > seuilOrange) { bg = P.goldLight; color = P.goldBorder; }
-  // CORRECTION TYPO ICI : seuuRouge -> seuilRouge
   if (jours > seuilRouge) { bg = P.redLight; color = P.red; }
   return <span style={{ background: bg, color, padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{jours} {unite}</span>;
 };
@@ -372,14 +371,14 @@ export default function PageRapport() {
         'Bénéficiaire': sanitizeForExport(getBen(o)),
         'Objet': sanitizeForExport(o.objet || ''),
         'Montant OP': Number(o.montant || 0),
-        'Montant payé': Number(o.montantPaye || o.totalPaye || 0), // CORRECTION ICI : op -> o
+        'Montant payé': Number(o.montantPaye || o.totalPaye || 0),
         'N° Bordereau AC': o.bordereauAC || '',
         'Date transmission AC': formatDate(o.dateTransmissionAC),
         'Différés': nombreDifferes(o),
         'Délai (j ouvrés)': o.delai ?? '',
         'Statut délai': dl(o.delai, 5),
         'OP prov. rattaché': o.prov ? o.prov.numero : '',
-        'Solde': o.solde ?? '', // CORRECTION ICI : op -> o
+        'Solde': o.solde ?? '',
         'Observation': sanitizeForExport(getDefaultObs(o))
       })), opsNonSoldes.reduce((s, o) => s + Number(o.montant || 0), 0), opsNonSoldes.reduce((s, o) => s + Number(o.montantPaye || o.totalPaye || 0), 0));
       
