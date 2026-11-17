@@ -145,7 +145,9 @@ const PageCircuitCF = () => {
       try{
         const batch = writeBatch(db);
         
-        // MODIFICATION ICI : Calcul du numéro en temps réel pour permettre la réutilisation
+        // Le numéro est calculé au moment de la création, à partir du plus
+        // élevé existant, et non repris d'un compteur : un bordereau annulé
+        // libère ainsi son numéro pour le suivant.
         const pf = 'BT-CF';
         const sp = projet?.sigle || 'PROJET'; 
         const ss = getSigleSrc(activeSourceBT);
@@ -232,7 +234,8 @@ const PageCircuitCF = () => {
   // handleOpenEditBT CORRIGÉE V2 : Force le rafraîchissement + injection directe
   // ====================================================================
   const handleOpenEditBT = async (bt) => {
-    // 1. On active l'état de chargement pour faire patienter l'utilisateur
+    // Le temps de l'écriture, les boutons se désactivent : sans cela, un
+    // double clic envoie deux fois la même décision.
     setSaving(true);
     
     try {
@@ -253,21 +256,20 @@ const PageCircuitCF = () => {
       // maintenue par l'écouteur temps réel avec un contenu d'une autre portée,
       // avant que l'écouteur ne la remette de toute façon au snapshot suivant.
 
-      // 3. MODIFICATION ICI : On stocke les données fraîches DIRECTEMENT dans l'objet de la modale.
-      // Au lieu de passer juste 'bt', on passe '{ ...bt, freshOps: freshOpsList }'.
-      // Cela garantit que la modale aura accès à ces données spécifiques,
-      // même si le contexte global met du temps à se mettre à jour.
+      // Les OP rechargés sont rangés DANS l'objet de la modale plutôt que dans
+      // le contexte global : la modale travaille ainsi sur des données sûres,
+      // sans attendre que l'écouteur temps réel ait rattrapé son retard.
       setEditBtNumero(bt.numero || '');
       setEditBtDate(bt.dateTransmission || '');
       
-      // On ouvre la modale en lui injectant les OPs frais qu'on vient de télécharger
-      setModalEditBT({ ...bt, freshOps: freshOpsList }); // <- Injection directe de force
+      // La modale s'ouvre avec les OP rechargés attachés à elle.
+      setModalEditBT({ ...bt, freshOps: freshOpsList });
       
     } catch (error) {
       console.error("Erreur lors du rafraîchissement des OPs:", error);
       notify("error", "Erreur", "Impossible de rafraîchir les données des OPs.");
     } finally {
-      // 4. On désactive l'état de chargement
+      // Les boutons redeviennent actifs, que l'opération ait réussi ou non.
       setSaving(false);
     }
   };
@@ -843,7 +845,8 @@ const handlePrintBordereau = (bt) => {
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:P.olive,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>OP du bordereau ({modalEditBT.opsIds?.length||0})</div>
         
-        {/* ✅ NOUVELLE LOGIQUE RÉACTIVE */}
+        {/* Les OP rechargés à l'ouverture priment sur ceux du contexte, qui
+            peut encore porter un état antérieur. */}
         {(modalEditBT.opsIds||[]).map(id=>{
           const targetOpsList = modalEditBT.freshOps || ops; 
           const op = targetOpsList.find(o => o.id === id);

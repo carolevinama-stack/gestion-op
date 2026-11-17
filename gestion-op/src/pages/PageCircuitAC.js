@@ -154,7 +154,9 @@ const PageCircuitAC = () => {
       try{
         const batch = writeBatch(db);
         
-        // MODIFICATION ICI : Calcul du numéro en temps réel pour permettre la réutilisation
+        // Le numéro est calculé au moment de la création, à partir du plus
+        // élevé existant, et non repris d'un compteur : un bordereau annulé
+        // libère ainsi son numéro pour le suivant.
         const pf = 'BT-AC';
         const sp = projet?.sigle || 'PROJET'; 
         const ss = getSigleSrc(activeSourceBT);
@@ -408,7 +410,8 @@ if(isNaN(m) || m === 0) { notify("error", "Erreur", "Veuillez saisir un montant 
 
           const estSolde = (tot >= montantInitial);
 
-          // ✅ NOUVEAU BLOC (Logique stricte)
+          // Le statut découle du reste à payer, arrondi au franc : un écart
+          // de centimes ne doit pas empêcher un OP d'être déclaré payé.
           const resteFinal = Math.round((freshOp.montant || 0) - tot);
           let statutCalculé = 'PAYE_PARTIEL';
 
@@ -893,9 +896,12 @@ const tot = totalCumule;
 const reste = (op.montant||0) - tot;
 const pct = Math.round(tot/Math.max(op.montant||1,1)*100);
             
-            return <tr key={op.id} // ✅ OUVERTURE INTELLIGENTE (Met à jour le statut au clic)
+            // Ouvrir la fiche recalcule le reste à payer et corrige le statut
+            // au passage : un OP soldé par un paiement saisi ailleurs ne reste
+            // pas affiché comme partiellement payé.
+            return <tr key={op.id}
 onClick={async () => {
-  // 1. On calcule le reste à payer réel
+  // Le reste à payer réel, paiements de l'OP compris.
   const paiemDirects = op.paiements || [];
   let totalPaye = paiemDirects.reduce((s, p) => s + (p.montant || 0), 0);
   
@@ -924,7 +930,7 @@ onClick={async () => {
     }
   }
 
-  // 3. On ouvre le modal normalement
+  // La fiche s'ouvre sur l'OP remis à jour.
   setModalPaiement(op);
   setPaiementMontant('');
   setPaiementReference('');
@@ -951,10 +957,12 @@ onClick={async () => {
     {/* MODALES SPECIFIQUES AC */}
     {modalPaiement && <Modal title="Gestion Financière OP" titleColor={P.orange} onClose={()=>setModalPaiement(null)} width={600}>
       {(()=>{
-        // ✅ NOUVELLE LOGIQUE COMPTABLE UNIFIÉE
+        // La fiche relit l'OP dans le contexte plutôt que de se fier à l'objet
+        // qui a servi à l'ouvrir : un paiement enregistré entre-temps est ainsi
+        // pris en compte.
         const op = ops.find(o => o.id === modalPaiement.id) || modalPaiement;
         
-        // 1. Calcul des paiements faits DIRECTEMENT sur cet OP
+        // Les paiements portés sur cet OP lui-même.
         const paiemDirects = op.paiements || []; 
         const totalPayeDirect = paiemDirects.reduce((s,p) => s + (p.montant||0), 0); 
         

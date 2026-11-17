@@ -445,3 +445,86 @@ describe('Liste OP — la date du rejet et du différé', () => {
     expect(screen.queryByText('Différé le :')).not.toBeInTheDocument();
   });
 });
+
+// ==================== BORDEREAUX ET RÈGLEMENTS DANS L'APERÇU ====================
+// L'aperçu donnait les dates du circuit sans jamais dire SUR QUEL BORDEREAU l'OP
+// était passé — alors que c'est par ce numéro qu'on retrouve le dossier papier.
+// Et pour les paiements, il ne listait que les références : un OP réglé en
+// plusieurs fois ne disait ni quand, ni combien à chaque fois.
+describe('Liste OP — l\'aperçu : bordereaux et règlements', () => {
+  const opsDetaillees = [
+    {
+      id: 'opB', numero: 'N°0020/SP', type: 'DIRECT', statut: 'PAYE_PARTIEL',
+      sourceId: 'S1', exerciceId: 'E1', beneficiaireNom: 'ENTREPRISE ALPHA',
+      ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'Travaux de réfection',
+      montant: 1000000, dateCreation: '2026-03-01', createdAt: '2026-03-01T08:00:00.000Z',
+      bordereauCF: 'BT-CF-0003/PIF2-SP/2026', dateTransmissionCF: '2026-03-10', dateVisaCF: '2026-03-12',
+      bordereauAC: 'BT-AC-0001/PIF2-SP/2026', dateTransmissionAC: '2026-03-15',
+      paiements: [
+        { montant: 600000, reference: 'VIR-10', date: '2026-04-01' },
+        { montant: 150000, reference: 'VIR-11', date: '2026-04-20' },
+      ],
+    },
+    // Jamais mis sur un bordereau : aucune ligne de bordereau ne doit apparaître.
+    {
+      id: 'opN', numero: 'N°0021/SP', type: 'DIRECT', statut: 'EN_COURS',
+      sourceId: 'S1', exerciceId: 'E1', beneficiaireNom: 'ENTREPRISE BETA',
+      ligneBudgetaire: 'L1', dotationFigee: 10000000, objet: 'Dossier tout neuf',
+      montant: 500000, dateCreation: '2026-03-02', createdAt: '2026-03-02T08:00:00.000Z',
+    },
+  ];
+
+  const opsOrigine = mockContexte.ops;
+  beforeEach(() => { mockContexte.ops = opsDetaillees; });
+  afterEach(() => { mockContexte.ops = opsOrigine; });
+
+  const ouvrirApercu = async (numero) => {
+    render(<PageListeOP />);
+    await userEvent.click(within(ligneDe(numero)).getByTitle(/Suivi détaillé/));
+  };
+
+  test('le bordereau du CF est affiché sous son étape', async () => {
+    await ouvrirApercu('N° 0020/SP');
+    expect(screen.getByText('BT-CF-0003/PIF2-SP/2026')).toBeInTheDocument();
+  });
+
+  test('le bordereau de l\'AC est affiché sous son étape', async () => {
+    await ouvrirApercu('N° 0020/SP');
+    expect(screen.getByText('BT-AC-0001/PIF2-SP/2026')).toBeInTheDocument();
+  });
+
+  // Un OP qui n'est sur aucun bordereau ne doit pas montrer de ligne vide à la
+  // place : l'information absente ne s'affiche pas du tout.
+  test('un OP sans bordereau n\'affiche aucun numéro de bordereau', async () => {
+    await ouvrirApercu('N° 0021/SP');
+    expect(screen.queryByText(/^BT-/)).not.toBeInTheDocument();
+  });
+
+  test('chaque règlement est détaillé : sa date, sa référence et son montant', async () => {
+    await ouvrirApercu('N° 0020/SP');
+    expect(screen.getByText('RÈGLEMENTS (2)')).toBeInTheDocument();
+
+    expect(screen.getByText('01/04/2026')).toBeInTheDocument();
+    expect(screen.getByText('VIR-10')).toBeInTheDocument();
+    expect(norm(screen.getByText('VIR-10').closest('div').textContent)).toContain('600 000 F');
+
+    expect(screen.getByText('20/04/2026')).toBeInTheDocument();
+    expect(screen.getByText('VIR-11')).toBeInTheDocument();
+    expect(norm(screen.getByText('VIR-11').closest('div').textContent)).toContain('150 000 F');
+  });
+
+  test('le total payé et le reste restent affichés', async () => {
+    await ouvrirApercu('N° 0020/SP');
+    const bloc = screen.getByText('SITUATION DES PAIEMENTS').parentElement;
+    expect(norm(bloc.textContent)).toContain('750 000 F');   // 600 000 + 150 000
+    expect(norm(bloc.textContent)).toContain('250 000 F');   // reste sur 1 000 000
+  });
+
+  // Un règlement enregistré sans référence ne doit pas afficher une case vide
+  // qu'on prendrait pour une donnée manquante à l'écran.
+  test('un règlement sans référence le dit, plutôt que de laisser un vide', async () => {
+    mockContexte.ops = [{ ...opsDetaillees[0], paiements: [{ montant: 600000, date: '2026-04-01' }] }];
+    await ouvrirApercu('N° 0020/SP');
+    expect(screen.getByText('sans référence')).toBeInTheDocument();
+  });
+});

@@ -397,7 +397,7 @@ const TabMaintenance = () => {
   //  contexte : une migration amputée ne se voit qu'au moment où il est
   //  trop tard.
   //
-  //  ⚠️ LE FICHIER PRODUIT CONTIENT DES DONNÉES PERSONNELLES RÉELLES —
+  //  ATTENTION : LE FICHIER PRODUIT CONTIENT DES DONNÉES PERSONNELLES RÉELLES —
   //  noms de bénéficiaires, RIB, historique des actions. Il ne doit pas
   //  être envoyé n'importe où ni laissé traîner. L'utilisateur en est
   //  averti avant le téléchargement.
