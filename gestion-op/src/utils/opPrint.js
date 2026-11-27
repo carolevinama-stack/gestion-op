@@ -1,6 +1,7 @@
 // Gabarit d'impression d'un ordre de paiement (OP), extrait de PageConsulterOp.js
 // pour réduire la taille de ce fichier. Fonction pure : ne fait que construire une
 // chaîne HTML à partir des valeurs qui lui sont passées, sans effet de bord.
+import { identiteProjet } from './identiteProjet';
 // `integre` : le document est affiché dans un panneau de l'application, et non
 // dans une fenêtre d'impression. Deux différences alors : sa barre d'outils
 // « Imprimer / Exporter PDF » est retirée — c'est le panneau qui porte le bouton,
@@ -12,6 +13,9 @@ export const buildOpPrintHtml = ({
   formatMontant, escapeHtml, LOGO_PIF2, ARMOIRIE,
   integre = false
 }) => {
+  // En-tête officiel, emblèmes et signataire : ils désignent la structure qui
+  // utilise l'application, et viennent donc de ses paramètres.
+  const identite = identiteProjet({ ...(projet || {}), logo: projet?.logo || LOGO_PIF2, armoirie: projet?.armoirie || ARMOIRIE });
   const engCumules = engAnterieurs + engActuel;
   const disponible = dotation - engCumules;
   const fmtSigne = (val) => val < 0 ? ('-' + formatMontant(Math.abs(val))) : formatMontant(val);
@@ -135,9 +139,9 @@ export const buildOpPrintHtml = ({
     '</style></head><body>',
     integre ? '' : '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + escapeHtml(selectedOp.numero) + '</span></div>',
     '<div class="page-container"><div class="inner-frame">',
-    '<div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
-    '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">' + escapeHtml(projet?.ministere || '') + '</div><div class="sep">------------------------</div><div class="project">' + escapeHtml(projet?.nomProjet || '') + '</div><div class="sep">------------------------</div></div>',
-    '<div class="header-right"><div style="text-align:center;"><img src="' + ARMOIRIE + '" alt="Armoirie" /><div>Union – Discipline – Travail</div></div></div></div>',
+    '<div class="header"><div class="header-logo"><img src="' + identite.logo + '" alt="Logo" /></div>',
+    '<div class="header-center"><div class="republic">' + escapeHtml(identite.pays) + '</div><div class="sep">------------------------</div><div class="ministry">' + escapeHtml(projet?.ministere || '') + '</div><div class="sep">------------------------</div><div class="project">' + escapeHtml(projet?.nomProjet || '') + '</div><div class="sep">------------------------</div></div>',
+    '<div class="header-right"><div style="text-align:center;"><img src="' + identite.armoirie + '" alt="Armoirie" /><div>' + escapeHtml(identite.devise) + '</div></div></div></div>',
 
     '<div class="op-title-section"><div class="exercice-type-line"><div>EXERCICE&nbsp;&nbsp;<strong>' + (exerciceActif?.annee || '') + '</strong></div><div><div class="op-title">ORDRE DE PAIEMENT</div><div class="op-numero">N° ' + escapeHtml((selectedOp.numero || '').replace(/^N°?\s*/i, '')) + '</div></div><div class="type-red">' + selectedOp.type + '</div></div></div>',
 
@@ -170,10 +174,10 @@ export const buildOpPrintHtml = ({
     '<div class="signatures-section">' +
     // BLOC COORDONNATRICE
     '<div class="sig-box" style="text-align: center;">' +
-      '<div class="sig-header">VISA<br/>' + escapeHtml(projet?.titreCoordonnateur || 'LA COORDONNATRICE') + '</div>' +
+      '<div class="sig-header">VISA' + (identite.titreSignataire ? '<br/>' + escapeHtml(identite.titreSignataire) : '') + '</div>' +
       '<div class="sig-content" style="height: 80px;"></div>' + // Espace pour le cachet
       '<div class="sig-name" style="text-align: center; font-weight: bold; text-decoration: underline; width: 100%;">' +
-        escapeHtml(projet?.coordonnateur || 'ABE-KOFFI Thérèse') +
+        escapeHtml(identite.signataire) +
       '</div>' +
     '</div>' +
 

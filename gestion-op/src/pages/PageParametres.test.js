@@ -587,3 +587,38 @@ describe('La sauvegarde — la feuille OP est complète', () => {
     expect(Object.keys(ligneDe('N°0101/BM'))).toContain('Créé par');
   });
 });
+
+// Les emblèmes et l'en-tête officiel étaient écrits dans le code, au nom du
+// PIF2 : installer l'application pour une autre structure demandait un
+// développeur. Ils se règlent depuis cet écran — ce qui n'a de valeur que si
+// les champs y sont réellement, et reliés au formulaire enregistré.
+describe('Identité de la structure — réglable depuis l\'écran', () => {
+  test('le logo et l\'armoirie se changent depuis Paramètres', () => {
+    render(<PageParametres />);
+    expect(screen.getByText(/Logo de la structure/)).toBeInTheDocument();
+    expect(screen.getByText(/Armoirie ou emblème/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Changer l’image/).length).toBe(2);
+  });
+
+  // Cette ligne portait la référence du financement du PIF2, imprimée en pied
+  // de chaque bordereau.
+  test('la référence du financement se saisit', () => {
+    render(<PageParametres />);
+    expect(screen.getByText(/Référence du financement/)).toBeInTheDocument();
+  });
+
+  // Les emblèmes partent dans le même enregistrement que le reste : s'ils
+  // n'étaient pas dans le formulaire, le bouton Enregistrer les perdrait.
+  test('l\'image choisie rejoint le formulaire enregistré', async () => {
+    const utilisateur = userEvent.setup();
+    render(<PageParametres />);
+    const champs = screen.getAllByTestId('champ-embleme');
+    expect(champs.length).toBe(2);
+    // Une image trop lourde : l'écran le dit, au lieu de laisser
+    // l'enregistrement échouer plus tard sur la limite de la base.
+    const enorme = new File([new ArrayBuffer(5 * 1024 * 1024 + 1)], 'photo.png', { type: 'image/png' });
+    await utilisateur.upload(champs[0], enorme);
+    expect(await screen.findByText('Image refusée')).toBeInTheDocument();
+    expect(screen.getByText(/moins de 5 Mo/)).toBeInTheDocument();
+  });
+});

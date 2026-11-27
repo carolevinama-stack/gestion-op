@@ -10,6 +10,8 @@ import { formatDate, formatMontant } from '../utils/formatters';
 import { idCompteurOp, maxNumeroExistant } from '../utils/opCalculs';
 import { controlerRejets, orphelinsParExercice } from '../utils/controleRejets';
 import { construireLigneExportOp } from '../utils/exportOp';
+import ChoixEmbleme from '../components/ChoixEmbleme';
+import { LOGO_PIF2, ARMOIRIE } from '../utils/logos';
 import PageAdmin from './PageAdmin';
 
 // ============================================================
@@ -224,6 +226,28 @@ const TabInfos = () => {
             <div style={{ gridColumn: 'span 4' }}><Label>Sigle officiel</Label><input value={formProj.sigle || ''} onChange={e => setFormProj({...formProj, sigle: e.target.value})} style={iS} /></div>
             <div style={{ gridColumn: 'span 4' }}><Label>Pays</Label><input value={formProj.pays || ''} onChange={e => setFormProj({...formProj, pays: e.target.value})} style={iS} /></div>
             <div style={{ gridColumn: 'span 4' }}><Label>Devise Nationale</Label><input value={formProj.devise || ''} onChange={e => setFormProj({...formProj, devise: e.target.value})} style={iS} /></div>
+            {/* Ligne imprimée en pied des bordereaux. Elle portait la référence
+                du financement du PIF2, écrite dans le code : elle se saisit. */}
+            <div style={{ gridColumn: 'span 12' }}><Label>Référence du financement (pied des bordereaux)</Label><input value={formProj.referenceFinancement || ''} onChange={e => setFormProj({...formProj, referenceFinancement: e.target.value})} placeholder="Ex. : Financement Groupe Banque Mondiale : Projet N° …, Crédit IDA N° …" style={iS} /></div>
+          </div>
+        </SettingRow>
+
+        {/* Les emblèmes imprimés en tête des OP et des bordereaux. Ils étaient
+            inscrits dans le code : ils se remplacent depuis cet écran. */}
+        <SettingRow title="Logo et armoirie" desc="Entêtes des documents imprimés.">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Logo de la structure (en haut à gauche)</Label>
+              <ChoixEmbleme valeur={formProj.logo} defaut={LOGO_PIF2}
+                onChoisir={(image) => setFormProj({ ...formProj, logo: image })}
+                onErreur={(message) => notify('error', 'Image refusée', message)} />
+            </div>
+            <div style={{ gridColumn: 'span 6' }}>
+              <Label>Armoirie ou emblème (en haut à droite)</Label>
+              <ChoixEmbleme valeur={formProj.armoirie} defaut={ARMOIRIE}
+                onChoisir={(image) => setFormProj({ ...formProj, armoirie: image })}
+                onErreur={(message) => notify('error', 'Image refusée', message)} />
+            </div>
           </div>
         </SettingRow>
         <SettingRow title="Signataire & Technique" desc="Signataire et tirages.">
