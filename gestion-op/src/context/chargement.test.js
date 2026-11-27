@@ -22,7 +22,12 @@ const sansCommentaires = (texte) => texte
   .filter(l => !l.trim().startsWith('//'))
   .join('\n');
 
-describe('Mémoire locale du navigateur', () => {
+// La mémoire locale est une particularité de Firebase, qui facture chaque
+// document lu. La branche Supabase n'a pas de fichier firebase.js et pas de
+// quota de lectures : ces deux vérifications n'y ont pas d'objet.
+const avecFirebase = fs.existsSync(path.join(__dirname, '../firebase.js'));
+
+(avecFirebase ? describe : describe.skip)('Mémoire locale du navigateur', () => {
   // Sans mémoire locale, chaque rechargement de page relit toute la base.
   test('la mémoire locale est déclarée à l\'initialisation', () => {
     expect(lire('../firebase.js')).toMatch(/persistentLocalCache/);
