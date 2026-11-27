@@ -134,3 +134,74 @@ describe('Nouvel OP — ce que l\'écran affiche', () => {
     expect(screen.queryByText('TVA RÉCUPÉRABLE *')).not.toBeInTheDocument();
   });
 });
+
+// ==================== APERÇU AVANT ENREGISTREMENT ====================
+// Avant, on enregistrait à l'aveugle : le document ne se voyait qu'après, dans
+// Consulter OP — alors qu'un numéro avait déjà été consommé et que corriger
+// l'OP demande le mot de passe administrateur. L'aperçu montre le document
+// fini pendant la saisie, et n'écrit rien.
+describe('Nouvel OP — l\'aperçu', () => {
+  const previsualiser = () => screen.getByText('Prévisualiser');
+  const apercu = () => screen.queryByTitle("Aperçu de l'ordre de paiement");
+
+  // Le bénéficiaire et la ligne passent par react-select, qui ne rend pas de
+  // placeholder HTML et se pilote mal depuis un test. On remplit donc le
+  // formulaire par le brouillon que la page sait relire au montage — c'est le
+  // mécanisme réel de reprise de saisie, pas un contournement.
+  const avecFormulaireRempli = () => {
+    window.localStorage.setItem('op_draft_source', 'S1');
+    window.localStorage.setItem('op_draft_v3', JSON.stringify({
+      type: 'DIRECT', beneficiaireId: 'B1', ribIndex: 0, modeReglement: 'VIREMENT',
+      objet: 'Achat de ramettes', piecesJustificatives: 'Facture 12',
+      montant: '250000', ligneBudgetaire: 'L1', montantTVA: '', tvaRecuperable: false,
+      opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '',
+    }));
+  };
+
+  test('le bouton est proposé à côté de l\'enregistrement', () => {
+    render(<PageNouvelOp />);
+    expect(previsualiser()).toBeInTheDocument();
+  });
+
+  // Un aperçu sur un formulaire vide n'apprendrait rien et afficherait un
+  // document troué : on dit ce qui manque.
+  test('un formulaire incomplet explique ce qui manque, et n\'affiche rien', async () => {
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(await attendreRefus('Aperçu impossible')).toBeInTheDocument();
+    expect(apercu()).not.toBeInTheDocument();
+  });
+
+  // La garantie qui porte tout le geste : prévisualiser ne consomme rien.
+  test('prévisualiser n\'écrit rien en base', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(mockRunTransaction).not.toHaveBeenCalled();
+  });
+
+  test('le document s\'affiche une fois le formulaire rempli', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(apercu()).toBeInTheDocument();
+  });
+
+  // Le numéro définitif n'est attribué qu'à l'enregistrement, dans la
+  // transaction. Celui de l'aperçu ne doit pas être recopié ailleurs comme
+  // s'il était acquis.
+  test('l\'aperçu avertit que le numéro est provisoire', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(screen.getByText(/numéro affiché est provisoire/i)).toBeInTheDocument();
+  });
+
+  test('l\'aperçu se referme', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    await userEvent.click(screen.getByText('Fermer'));
+    expect(apercu()).not.toBeInTheDocument();
+  });
+});
