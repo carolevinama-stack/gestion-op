@@ -208,3 +208,36 @@ describe('Consulter OP — la suppression', () => {
     expect(mockUpdateDoc).not.toHaveBeenCalled();
   });
 });
+
+// L'impression passait par une nouvelle fenêtre, que les bloqueurs de fenêtres
+// surgissantes arrêtent sans message : le bouton ne faisait alors plus rien, et
+// l'utilisateur n'avait aucun moyen de le savoir. Le document s'affiche
+// maintenant dans un panneau de la page même.
+describe('Consulter OP — l\'aperçu du document', () => {
+  const apercu = () => screen.queryByTitle("Aperçu de l'ordre de paiement");
+
+  test('le document s\'affiche dans la page, sans ouvrir de fenêtre', async () => {
+    const ouvrirFenetre = jest.spyOn(window, 'open').mockImplementation(() => null);
+    render(<PageConsulterOp />);
+    await ouvrirOp('0042');
+    await userEvent.click(screen.getByTitle('Imprimer'));
+    expect(apercu()).toBeInTheDocument();
+    expect(ouvrirFenetre).not.toHaveBeenCalled();
+    ouvrirFenetre.mockRestore();
+  });
+
+  test('l\'impression est proposée depuis le panneau', async () => {
+    render(<PageConsulterOp />);
+    await ouvrirOp('0042');
+    await userEvent.click(screen.getByTitle('Imprimer'));
+    expect(screen.getByText('Imprimer')).toBeInTheDocument();
+  });
+
+  test('le panneau se referme', async () => {
+    render(<PageConsulterOp />);
+    await ouvrirOp('0042');
+    await userEvent.click(screen.getByTitle('Imprimer'));
+    await userEvent.click(screen.getByText('Fermer'));
+    expect(apercu()).not.toBeInTheDocument();
+  });
+});

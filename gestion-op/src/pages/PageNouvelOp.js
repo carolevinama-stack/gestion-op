@@ -301,6 +301,7 @@ const PageNouvelOp = () => {
     escapeHtml,
     LOGO_PIF2,
     ARMOIRIE,
+    integre: true,
   });
 
   const handleApercu = () => {

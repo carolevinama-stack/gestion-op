@@ -166,6 +166,10 @@ const statutConfig = {
 };
 const typeColors = { PROVISOIRE: P.gold, DIRECT: '#3B6B8A', DEFINITIF: '#3B6B8A', ANNULATION: '#C43E3E' };
 
+// Largeur du panneau d'aperçu. Assez large pour lire le document, assez
+// étroite pour que la fiche reste lisible à côté.
+const LARGEUR_APERCU = 'min(46vw, 760px)';
+
 const PageConsulterOp = () => {
   const { sources, beneficiaires, budgets, ops, setOps, exerciceActif, exercices, projet, consultOpData, setConsultOpData, setCurrentPage, permissions, userProfile, chargerExerciceOps } = useAppContext();
   const [activeSource, setActiveSource] = useState(sources[0]?.id || null);
@@ -174,6 +178,9 @@ const PageConsulterOp = () => {
   const currentExerciceId = showAnterieur ? selectedExercice : exerciceActif?.id;
   useEffect(() => { if (showAnterieur && selectedExercice) chargerExerciceOps(selectedExercice); }, [showAnterieur, selectedExercice, chargerExerciceOps]);
   const [selectedOp, setSelectedOp] = useState(null);
+  const [apercuOuvert, setApercuOuvert] = useState(false);
+  const [apercuHtml, setApercuHtml] = useState('');
+  const cadreApercu = useRef(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -544,28 +551,58 @@ const PageConsulterOp = () => {
     } catch (e) { showToast('error', 'Erreur', e.message); }
   };
 
-  // ===================== IMPRESSION CORRIGÉE =====================
+  // ===================== APERÇU ET IMPRESSION =====================
+  // Le document s'ouvrait dans une nouvelle fenêtre, que les bloqueurs de
+  // fenêtres surgissantes arrêtent sans rien dire : le bouton ne faisait alors
+  // plus rien. Il s'affiche maintenant dans un panneau à droite, et c'est
+  // l'impression du navigateur qui est appelée depuis ce panneau.
+  const construireApercu = (op) => buildOpPrintHtml({
+    selectedOp: op,
+    ben: selectedBeneficiaire,
+    src: currentSourceObj,
+    projet,
+    exerciceActif,
+    selectedRib,
+    engAnterieurs: getEngagementsAnterieurs(),
+    engActuel: getEngagementActuel(),
+    dotation: getDotation(),
+    formatMontant,
+    escapeHtml,
+    LOGO_PIF2,
+    ARMOIRIE,
+    integre: true,
+  });
+
   const handlePrint = () => {
     if (!selectedOp) return;
-    const html = buildOpPrintHtml({
-      selectedOp,
-      ben: selectedBeneficiaire,
-      src: currentSourceObj,
-      projet,
-      exerciceActif,
-      selectedRib,
-      engAnterieurs: getEngagementsAnterieurs(),
-      engActuel: getEngagementActuel(),
-      dotation: getDotation(),
-      formatMontant,
-      escapeHtml,
-      LOGO_PIF2,
-      ARMOIRIE
-    });
-    const printWindow = window.open('', '_blank', 'width=900,height=700');
-    printWindow.document.write(html);
-    printWindow.document.close();
+    if (apercuOuvert) { setApercuOuvert(false); return; }
+    setApercuHtml(construireApercu(selectedOp));
+    setApercuOuvert(true);
   };
+
+  // Imprimer ce qui est affiché : le cadre porte le même document que la
+  // fenêtre d'impression d'avant, avec ses marges et son format A4.
+  const handleImprimerApercu = () => {
+    const cadre = cadreApercu.current;
+    if (!cadre || !cadre.contentWindow) return;
+    cadre.contentWindow.focus();
+    cadre.contentWindow.print();
+  };
+
+  // Le panneau suit l'OP consulté : on change d'OP avec les flèches ou la
+  // recherche, le document se met à jour sans qu'on le rouvre. On attend un
+  // court silence, le cadre se rechargeant entièrement à chaque changement.
+  useEffect(() => {
+    if (!apercuOuvert || !selectedOp) return undefined;
+    const minuterie = setTimeout(() => setApercuHtml(construireApercu(selectedOp)), 400);
+    return () => clearTimeout(minuterie);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apercuOuvert, selectedOp, selectedBeneficiaire, selectedRib, currentSourceObj, exerciceActif]);
+
+  // Rien à montrer si plus aucun OP n'est sélectionné.
+  useEffect(() => {
+    if (!selectedOp) setApercuOuvert(false);
+  }, [selectedOp]);
 
   // === STYLES ===
   const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, marginBottom: 6, color: '#333', letterSpacing: 0.3 };
@@ -574,7 +611,7 @@ const PageConsulterOp = () => {
   const isReadOnly = selectedOp && !isEditMode;
 
   return (
-    <div className="consulterop-form" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="consulterop-form" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingRight: apercuOuvert ? LARGEUR_APERCU : 0, transition: 'padding-right 0.2s' }}>
       <style>{`
         @keyframes toastIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
@@ -582,6 +619,29 @@ const PageConsulterOp = () => {
         .consulterop-form *, .consulterop-form *::before, .consulterop-form *::after { box-sizing: border-box; }
         .consulterop-form input, .consulterop-form select, .consulterop-form textarea { box-sizing: border-box; color: ${P.textBlack}; } 
       `}</style>
+      {/* L'aperçu est rendu dans un cadre isolé : le document porte ses propres
+          styles, qui déborderaient sur l'application s'ils étaient insérés
+          directement dans la page. Le panneau est fixé à droite et la page se
+          resserre d'autant : la fiche reste consultable à côté du document. */}
+      {apercuOuvert && selectedOp && (
+        <aside style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: LARGEUR_APERCU, background: '#fff', borderLeft: '1px solid rgba(34,51,0,0.12)', boxShadow: '-6px 0 24px rgba(0,0,0,0.08)', zIndex: 1200, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', background: P.bgApp, borderBottom: '1px solid rgba(34,51,0,0.12)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: P.sidebarDark, marginRight: 'auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Aperçu – OP {formatNumeroOp(selectedOp.numero)}
+            </div>
+            <button onClick={handleImprimerApercu}
+              style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: accent, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              Imprimer
+            </button>
+            <button onClick={() => setApercuOuvert(false)}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: P.labelMuted, whiteSpace: 'nowrap' }}>
+              Fermer
+            </button>
+          </div>
+          <iframe ref={cadreApercu} title="Aperçu de l'ordre de paiement" srcDoc={apercuHtml} style={{ flex: 1, width: '100%', border: 'none' }} />
+        </aside>
+      )}
+
       {toasts.map(t => (
         <div key={t.uid} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none' }}>
           <ToastNotif toast={t} onDone={() => removeToast(t.uid)} />
@@ -1080,7 +1140,7 @@ const PageConsulterOp = () => {
                           {Icons.copy('#fff')}
                         </button>
                         )}
-                        <button title="Imprimer" onClick={handlePrint}
+                        <button title={apercuOuvert ? "Masquer l'aperçu" : 'Imprimer'} onClick={handlePrint}
                           style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: accent, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 3px 12px ${accent}44`, transition: 'all 0.2s' }}
                           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
                           {Icons.printer('#fff')}
