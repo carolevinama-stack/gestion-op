@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // ==================== NOUVEL OP ====================
@@ -195,6 +195,30 @@ describe('Nouvel OP — l\'aperçu', () => {
     render(<PageNouvelOp />);
     await userEvent.click(previsualiser());
     expect(screen.getByText(/numéro affiché est provisoire/i)).toBeInTheDocument();
+  });
+
+  // Le panneau est à côté du formulaire, pas par-dessus : la saisie continue
+  // et le document se met à jour tout seul, sans rouvrir l'aperçu.
+  test('le document suit la saisie', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(apercu().getAttribute('srcdoc')).toContain('Achat de ramettes');
+
+    const objet = screen.getByDisplayValue('Achat de ramettes');
+    await userEvent.clear(objet);
+    await userEvent.type(objet, 'Carburant');
+    await waitFor(() => expect(apercu().getAttribute('srcdoc')).toContain('Carburant'), { timeout: 3000 });
+  });
+
+  // Le bouton bascule : un deuxième clic replie le panneau et rend la largeur
+  // au formulaire.
+  test('le bouton replie le panneau', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    await userEvent.click(screen.getByText("Masquer l'aperçu"));
+    expect(apercu()).not.toBeInTheDocument();
   });
 
   test('l\'aperçu se referme', async () => {
