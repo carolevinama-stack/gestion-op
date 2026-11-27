@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { formatMontant } from '../utils/formatters';
 
 // ==================== NOUVEL OP ====================
 // L'écran où se joue l'argent. Ces tests vérifient ce qu'un utilisateur voit et
@@ -219,6 +220,28 @@ describe('Nouvel OP — l\'aperçu', () => {
     await userEvent.click(previsualiser());
     await userEvent.click(screen.getByText("Masquer l'aperçu"));
     expect(apercu()).not.toBeInTheDocument();
+  });
+
+  // Un aperçu qui montrerait d'autres chiffres que le document final serait
+  // pire que pas d'aperçu du tout. Les montants affichés sont ceux du bandeau
+  // budgétaire de la page — la dotation que l'enregistrement figera sur l'OP,
+  // les engagements de la ligne, et le disponible qui en découle.
+  test('les montants de l\'aperçu sont ceux du bandeau budgétaire', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    const document = apercu().getAttribute('srcdoc');
+
+    const dotation = 10000000;      // la ligne L1 du budget de référence
+    const engagementActuel = 250000; // le montant saisi
+    const disponible = dotation - engagementActuel; // aucun engagement antérieur
+
+    [dotation, engagementActuel, disponible].forEach(montant => {
+      expect(document).toContain(formatMontant(montant));
+    });
+    // Et le document nomme bien le bénéficiaire et l'imputation retenus.
+    expect(document).toContain('ENTREPRISE ALPHA');
+    expect(document).toContain('BICICI');
   });
 
   test('l\'aperçu se referme', async () => {

@@ -581,12 +581,43 @@ const PageConsulterOp = () => {
   };
 
   // Imprimer ce qui est affiché : le cadre porte le même document que la
-  // fenêtre d'impression d'avant, avec ses marges et son format A4.
+  // fenêtre d'impression d'avant, avec ses marges et son format A4 — la
+  // réduction du panneau ne vaut qu'à l'écran.
+  //
+  // Ce bouton est désormais le seul chemin d'impression d'un OP. Si le
+  // navigateur refusait d'imprimer le cadre, on retombe sur l'ancienne
+  // méthode — la fenêtre séparée, avec sa propre barre d'outils — plutôt que
+  // de laisser l'utilisateur sans aucun moyen d'imprimer.
   const handleImprimerApercu = () => {
     const cadre = cadreApercu.current;
-    if (!cadre || !cadre.contentWindow) return;
-    cadre.contentWindow.focus();
-    cadre.contentWindow.print();
+    try {
+      if (!cadre || !cadre.contentWindow) throw new Error('cadre indisponible');
+      cadre.contentWindow.focus();
+      cadre.contentWindow.print();
+    } catch (e) {
+      const fenetre = window.open('', '_blank', 'width=900,height=700');
+      if (!fenetre) {
+        showToast('error', 'Impression impossible',
+          "Autorisez les fenêtres surgissantes pour ce site, puis réessayez.");
+        return;
+      }
+      fenetre.document.write(buildOpPrintHtml({
+        selectedOp,
+        ben: selectedBeneficiaire,
+        src: currentSourceObj,
+        projet,
+        exerciceActif,
+        selectedRib,
+        engAnterieurs: getEngagementsAnterieurs(),
+        engActuel: getEngagementActuel(),
+        dotation: getDotation(),
+        formatMontant,
+        escapeHtml,
+        LOGO_PIF2,
+        ARMOIRIE,
+      }));
+      fenetre.document.close();
+    }
   };
 
   // Le panneau suit l'OP consulté : on change d'OP avec les flèches ou la

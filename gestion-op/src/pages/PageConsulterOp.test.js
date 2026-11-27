@@ -216,6 +216,12 @@ describe('Consulter OP — la suppression', () => {
 describe('Consulter OP — l\'aperçu du document', () => {
   const apercu = () => screen.queryByTitle("Aperçu de l'ordre de paiement");
 
+  // Simule un navigateur qui refuse d'imprimer le cadre. jsdom, lui, accepte
+  // sans rien faire : sans cela le repli ne serait jamais emprunté ici.
+  const refuserImpression = () => {
+    apercu().contentWindow.print = () => { throw new Error('impression refusée'); };
+  };
+
   test('le document s\'affiche dans la page, sans ouvrir de fenêtre', async () => {
     const ouvrirFenetre = jest.spyOn(window, 'open').mockImplementation(() => null);
     render(<PageConsulterOp />);
@@ -231,6 +237,34 @@ describe('Consulter OP — l\'aperçu du document', () => {
     await ouvrirOp('0042');
     await userEvent.click(screen.getByTitle('Imprimer'));
     expect(screen.getByText('Imprimer')).toBeInTheDocument();
+  });
+
+  // Ce bouton est le seul chemin d'impression d'un OP depuis que la fenêtre
+  // séparée a disparu. Si le navigateur refuse d'imprimer le cadre, l'ancienne
+  // méthode reprend la main : mieux vaut une fenêtre qu'aucune impression.
+  test('si le cadre refuse d\'imprimer, la fenêtre séparée prend le relais', async () => {
+    const fausseFenetre = { document: { write: jest.fn(), close: jest.fn() } };
+    const ouvrirFenetre = jest.spyOn(window, 'open').mockImplementation(() => fausseFenetre);
+    render(<PageConsulterOp />);
+    await ouvrirOp('0042');
+    await userEvent.click(screen.getByTitle('Imprimer'));
+    refuserImpression();
+    await userEvent.click(screen.getByText('Imprimer'));
+    expect(ouvrirFenetre).toHaveBeenCalled();
+    expect(fausseFenetre.document.write).toHaveBeenCalled();
+    ouvrirFenetre.mockRestore();
+  });
+
+  // Et si même la fenêtre est bloquée, on le dit, au lieu de ne rien faire.
+  test('une fenêtre bloquée est signalée, pas ignorée', async () => {
+    const ouvrirFenetre = jest.spyOn(window, 'open').mockImplementation(() => null);
+    render(<PageConsulterOp />);
+    await ouvrirOp('0042');
+    await userEvent.click(screen.getByTitle('Imprimer'));
+    refuserImpression();
+    await userEvent.click(screen.getByText('Imprimer'));
+    expect(await screen.findByText('Impression impossible')).toBeInTheDocument();
+    ouvrirFenetre.mockRestore();
   });
 
   test('le panneau se referme', async () => {
