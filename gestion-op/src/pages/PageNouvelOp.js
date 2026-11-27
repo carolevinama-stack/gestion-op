@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
-import { formatMontant, libelleRib } from '../utils/formatters';
+import { formatMontant, libelleRib, escapeHtml } from '../utils/formatters';
 import {
   calculerEngagementsAnterieurs,
   calculerEngagementActuel,
@@ -16,6 +16,8 @@ import {
   idCompteurOp,
 } from '../utils/opCalculs';
 import { enregistrerJournal, nomUtilisateurJournal, ACTIONS_JOURNAL } from '../utils/journal';
+import { buildOpPrintHtml } from '../utils/opPrint';
+import { ARMOIRIE, LOGO_PIF2 } from '../utils/logos';
 import { messageErreur } from '../utils/erreursFirebase';
 // Base de données : l'interprète src/db.js expose les mêmes noms que
 // firebase/firestore, au-dessus de Supabase — y compris writeBatch et
@@ -153,6 +155,10 @@ const ConfirmModal = ({ data, onCancel, onConfirm }) => {
 // ==================== PAGE NOUVEL OP ====================
 const typeColors = { PROVISOIRE: '#ff9800', DIRECT: '#D4722A', DEFINITIF: '#D4722A', ANNULATION: '#C43E3E' };
 
+// Largeur du panneau d'aperçu. Assez large pour lire le document, assez
+// étroite pour que le formulaire reste confortable à côté.
+const LARGEUR_APERCU = 'min(46vw, 760px)';
+
 const PageNouvelOp = () => {
   const { sources, beneficiaires, budgets, ops, exercices, exerciceActif, projet, consultOpData, setConsultOpData, setCurrentPage, userProfile } = useAppContext();
   
@@ -175,6 +181,8 @@ const PageNouvelOp = () => {
 
   const [activeSource, setActiveSource] = useState(loadSource);
   const [modal, setModal] = useState(null);
+  const [apercuOuvert, setApercuOuvert] = useState(false);
+  const [apercuHtml, setApercuHtml] = useState('');
   const [confirmData, setConfirmData] = useState(null);
   const confirmResolveRef = useRef(null);
   const askConfirm = (title, message) => new Promise((resolve) => {
@@ -264,6 +272,67 @@ const PageNouvelOp = () => {
     const isAutreEx = (exerciceActif && op.exerciceId !== exerciceActif.id && ex) ? ` (${ex.annee})` : '';
     return `${op.numero}${isExtra}${isAutreEx} - ${ben?.nom || 'N/A'} - ${formatMontant(op.montant)} F`;
   };
+
+  // ==================== APERÇU AVANT ENREGISTREMENT ====================
+  // Le même gabarit que l'impression depuis Consulter OP, nourri par le
+  // formulaire en cours de saisie plutôt que par un OP enregistré. Il n'écrit
+  // rien : il ne fait que montrer ce que donnera le document.
+  //
+  // Le numéro affiché est PROVISOIRE. Le vrai est attribué à l'enregistrement,
+  // à l'intérieur de la transaction : deux personnes qui saisissent en même
+  // temps ne peuvent ainsi pas recevoir le même. L'aperçu le signale, pour
+  // qu'un numéro lu ici ne soit pas recopié ailleurs comme s'il était acquis.
+  const apercuIncomplet = () => !selectedBeneficiaire || !form.montant || !form.ligneBudgetaire;
+
+  const construireApercu = () => buildOpPrintHtml({
+    selectedOp: {
+      numero: genererNumero(),
+      type: form.type,
+      objet: form.objet,
+      piecesJustificatives: form.piecesJustificatives,
+      ligneBudgetaire: form.ligneBudgetaire,
+      modeReglement: form.modeReglement,
+    },
+    ben: selectedBeneficiaire,
+    src: currentSourceObj,
+    projet,
+    exerciceActif,
+    selectedRib,
+    engAnterieurs: getEngagementsAnterieurs(),
+    engActuel: getEngagementActuel(),
+    dotation: getDotation(),
+    formatMontant,
+    escapeHtml,
+    LOGO_PIF2,
+    ARMOIRIE,
+    integre: true,
+  });
+
+  const handleApercu = () => {
+    if (apercuOuvert) { setApercuOuvert(false); return; }
+    if (apercuIncomplet()) {
+      setModal({
+        type: 'error',
+        title: 'Aperçu impossible',
+        message: "Renseignez au moins le bénéficiaire, le montant et la ligne budgétaire pour voir l'aperçu.",
+      });
+      return;
+    }
+    setApercuHtml(construireApercu());
+    setApercuOuvert(true);
+  };
+
+  // Le panneau suit la saisie. On attend un court silence avant de recalculer :
+  // le document est rendu dans un cadre isolé, qui se recharge entièrement à
+  // chaque changement et perdrait sa position de lecture à chaque frappe.
+  // Tant que le formulaire est incomplet, on garde le dernier document affiché
+  // plutôt que de le vider.
+  useEffect(() => {
+    if (!apercuOuvert || apercuIncomplet()) return undefined;
+    const minuterie = setTimeout(() => setApercuHtml(construireApercu()), 400);
+    return () => clearTimeout(minuterie);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apercuOuvert, form, selectedBeneficiaire, selectedRib, currentSourceObj, exerciceActif, ops]);
 
   const genererNumero = () => {
     const sigleProjet = projet?.sigle || 'PROJET';
@@ -530,7 +599,7 @@ const PageNouvelOp = () => {
   );
 
   return (
-    <div className="nouvelop-form">
+    <div className="nouvelop-form" style={{ paddingRight: apercuOuvert ? LARGEUR_APERCU : 0, transition: 'padding-right 0.2s' }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -538,6 +607,23 @@ const PageNouvelOp = () => {
         .nouvelop-form input, .nouvelop-form select, .nouvelop-form textarea { box-sizing: border-box; color: #000000; }
       `}</style>
       
+      {/* L'aperçu est rendu dans un cadre isolé : le document imprimé porte ses
+          propres styles, qui déborderaient sur l'application s'ils étaient
+          insérés directement dans la page. Le panneau est fixé à droite et la
+          page se resserre d'autant : le formulaire reste utilisable pendant que
+          le document se met à jour, à côté. */}
+      {apercuOuvert && (
+        <aside style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: LARGEUR_APERCU, background: '#fff', borderLeft: '1px solid #e0e0e0', boxShadow: '-6px 0 24px rgba(0,0,0,0.08)', zIndex: 1200, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '12px 16px', background: '#FFF8E1', borderBottom: '1px solid #E8B931', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 12, color: '#8a6d00', lineHeight: 1.45 }}>
+              <b>Aperçu avant enregistrement.</b> Le numéro affiché est provisoire : le numéro définitif est attribué à l'enregistrement.
+            </div>
+            <button onClick={() => setApercuOuvert(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#8a6d00', whiteSpace: 'nowrap' }}>Fermer</button>
+          </div>
+          <iframe title="Aperçu de l'ordre de paiement" srcDoc={apercuHtml} style={{ flex: 1, width: '100%', border: 'none' }} />
+        </aside>
+      )}
+
       <ModalMessage data={modal} onClose={() => setModal(null)} />
       <ConfirmModal data={confirmData} onCancel={() => closeConfirm(false)} onConfirm={() => closeConfirm(true)} />
 
@@ -817,7 +903,18 @@ const PageNouvelOp = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, paddingTop: 20, borderTop: '1px solid #f0f0f0' }}>
+              {/* Voir le document avant de consommer un numéro d'OP : une fois
+                  enregistré, le corriger demande le mot de passe administrateur. */}
+              <button onClick={handleApercu} type="button"
+                style={{
+                  padding: '14px 24px', borderRadius: 10, border: `1px solid ${accent}55`,
+                  background: '#fff', color: accent, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700,
+                }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                {apercuOuvert ? "Masquer l'aperçu" : 'Prévisualiser'}
+              </button>
               <button onClick={handleSave} disabled={saving || (getDisponible() < 0 && form.type !== 'ANNULATION')}
                 style={{
                   padding: '14px 28px', borderRadius: 10, border: 'none',

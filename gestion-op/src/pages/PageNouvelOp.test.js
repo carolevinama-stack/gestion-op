@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { formatMontant } from '../utils/formatters';
 
 // ==================== NOUVEL OP ====================
 // L'écran où se joue l'argent. Ces tests vérifient ce qu'un utilisateur voit et
@@ -133,5 +134,122 @@ describe('Nouvel OP — ce que l\'écran affiche', () => {
     render(<PageNouvelOp />);
     await userEvent.selectOptions(screen.getByDisplayValue('-- Sélectionner --'), 'PROVISOIRE');
     expect(screen.queryByText('TVA RÉCUPÉRABLE *')).not.toBeInTheDocument();
+  });
+});
+
+// ==================== APERÇU AVANT ENREGISTREMENT ====================
+// Avant, on enregistrait à l'aveugle : le document ne se voyait qu'après, dans
+// Consulter OP — alors qu'un numéro avait déjà été consommé et que corriger
+// l'OP demande le mot de passe administrateur. L'aperçu montre le document
+// fini pendant la saisie, et n'écrit rien.
+describe('Nouvel OP — l\'aperçu', () => {
+  const previsualiser = () => screen.getByText('Prévisualiser');
+  const apercu = () => screen.queryByTitle("Aperçu de l'ordre de paiement");
+
+  // Le bénéficiaire et la ligne passent par react-select, qui ne rend pas de
+  // placeholder HTML et se pilote mal depuis un test. On remplit donc le
+  // formulaire par le brouillon que la page sait relire au montage — c'est le
+  // mécanisme réel de reprise de saisie, pas un contournement.
+  const avecFormulaireRempli = () => {
+    window.localStorage.setItem('op_draft_source', 'S1');
+    window.localStorage.setItem('op_draft_v3', JSON.stringify({
+      type: 'DIRECT', beneficiaireId: 'B1', ribIndex: 0, modeReglement: 'VIREMENT',
+      objet: 'Achat de ramettes', piecesJustificatives: 'Facture 12',
+      montant: '250000', ligneBudgetaire: 'L1', montantTVA: '', tvaRecuperable: false,
+      opProvisoireNumero: '', opProvisoireId: '', opProvisoireIds: [], opProvisoireManuel: '',
+    }));
+  };
+
+  test('le bouton est proposé à côté de l\'enregistrement', () => {
+    render(<PageNouvelOp />);
+    expect(previsualiser()).toBeInTheDocument();
+  });
+
+  // Un aperçu sur un formulaire vide n'apprendrait rien et afficherait un
+  // document troué : on dit ce qui manque.
+  test('un formulaire incomplet explique ce qui manque, et n\'affiche rien', async () => {
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(await attendreRefus('Aperçu impossible')).toBeInTheDocument();
+    expect(apercu()).not.toBeInTheDocument();
+  });
+
+  // La garantie qui porte tout le geste : prévisualiser ne consomme rien.
+  test('prévisualiser n\'écrit rien en base', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(mockRunTransaction).not.toHaveBeenCalled();
+  });
+
+  test('le document s\'affiche une fois le formulaire rempli', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(apercu()).toBeInTheDocument();
+  });
+
+  // Le numéro définitif n'est attribué qu'à l'enregistrement, dans la
+  // transaction. Celui de l'aperçu ne doit pas être recopié ailleurs comme
+  // s'il était acquis.
+  test('l\'aperçu avertit que le numéro est provisoire', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(screen.getByText(/numéro affiché est provisoire/i)).toBeInTheDocument();
+  });
+
+  // Le panneau est à côté du formulaire, pas par-dessus : la saisie continue
+  // et le document se met à jour tout seul, sans rouvrir l'aperçu.
+  test('le document suit la saisie', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    expect(apercu().getAttribute('srcdoc')).toContain('Achat de ramettes');
+
+    const objet = screen.getByDisplayValue('Achat de ramettes');
+    await userEvent.clear(objet);
+    await userEvent.type(objet, 'Carburant');
+    await waitFor(() => expect(apercu().getAttribute('srcdoc')).toContain('Carburant'), { timeout: 3000 });
+  });
+
+  // Le bouton bascule : un deuxième clic replie le panneau et rend la largeur
+  // au formulaire.
+  test('le bouton replie le panneau', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    await userEvent.click(screen.getByText("Masquer l'aperçu"));
+    expect(apercu()).not.toBeInTheDocument();
+  });
+
+  // Un aperçu qui montrerait d'autres chiffres que le document final serait
+  // pire que pas d'aperçu du tout. Les montants affichés sont ceux du bandeau
+  // budgétaire de la page — la dotation que l'enregistrement figera sur l'OP,
+  // les engagements de la ligne, et le disponible qui en découle.
+  test('les montants de l\'aperçu sont ceux du bandeau budgétaire', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    const document = apercu().getAttribute('srcdoc');
+
+    const dotation = 10000000;      // la ligne L1 du budget de référence
+    const engagementActuel = 250000; // le montant saisi
+    const disponible = dotation - engagementActuel; // aucun engagement antérieur
+
+    [dotation, engagementActuel, disponible].forEach(montant => {
+      expect(document).toContain(formatMontant(montant));
+    });
+    // Et le document nomme bien le bénéficiaire et l'imputation retenus.
+    expect(document).toContain('ENTREPRISE ALPHA');
+    expect(document).toContain('BICICI');
+  });
+
+  test('l\'aperçu se referme', async () => {
+    avecFormulaireRempli();
+    render(<PageNouvelOp />);
+    await userEvent.click(previsualiser());
+    await userEvent.click(screen.getByText('Fermer'));
+    expect(apercu()).not.toBeInTheDocument();
   });
 });

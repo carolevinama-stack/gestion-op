@@ -1,10 +1,16 @@
 // Gabarit d'impression d'un ordre de paiement (OP), extrait de PageConsulterOp.js
 // pour réduire la taille de ce fichier. Fonction pure : ne fait que construire une
 // chaîne HTML à partir des valeurs qui lui sont passées, sans effet de bord.
+// `integre` : le document est affiché dans un panneau de l'application, et non
+// dans une fenêtre d'impression. Deux différences alors : sa barre d'outils
+// « Imprimer / Exporter PDF » est retirée — c'est le panneau qui porte le bouton,
+// et dans l'aperçu avant enregistrement il n'y a rien à imprimer — et la page
+// est réduite pour tenir dans la largeur disponible.
 export const buildOpPrintHtml = ({
   selectedOp, ben, src, projet, exerciceActif, selectedRib,
   engAnterieurs, engActuel, dotation,
-  formatMontant, escapeHtml, LOGO_PIF2, ARMOIRIE
+  formatMontant, escapeHtml, LOGO_PIF2, ARMOIRIE,
+  integre = false
 }) => {
   const engCumules = engAnterieurs + engActuel;
   const disponible = dotation - engCumules;
@@ -38,6 +44,14 @@ export const buildOpPrintHtml = ({
     '.page-container { width: 200mm; height: 287mm; margin: 20px auto; background: #fff; padding: 2mm; display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.2); box-sizing: border-box; overflow: hidden; }',
 
     '.inner-frame { border: 1.5px solid #000; flex: 1; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }',
+
+    // Réduction à l'écran seulement : la page fait 200 mm de large, soit plus
+    // qu'un panneau latéral. À l'impression ces règles ne s'appliquent pas.
+    integre ? '@media screen and (max-width: 820px) { .page-container { zoom: 0.86 } }' : '',
+    integre ? '@media screen and (max-width: 720px) { .page-container { zoom: 0.76 } }' : '',
+    integre ? '@media screen and (max-width: 620px) { .page-container { zoom: 0.64 } }' : '',
+    integre ? '@media screen and (max-width: 520px) { .page-container { zoom: 0.54 } }' : '',
+    integre ? '@media screen { .page-container { margin: 12px auto } }' : '',
 
     '@media print {',
     '  body { background: #fff !important; }',
@@ -119,7 +133,7 @@ export const buildOpPrintHtml = ({
     '.acquit-content{flex:1}',
     '.acquit-date{font-size:10px; text-align:left; border-top:1px solid #000; padding:4px 10px}',
     '</style></head><body>',
-    '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + escapeHtml(selectedOp.numero) + '</span></div>',
+    integre ? '' : '<div class="toolbar"><button class="btn-print" onclick="window.print()">Imprimer</button><button class="btn-pdf" onclick="window.print()">Exporter PDF</button><span class="toolbar-title">Aperçu – OP ' + escapeHtml(selectedOp.numero) + '</span></div>',
     '<div class="page-container"><div class="inner-frame">',
     '<div class="header"><div class="header-logo"><img src="' + LOGO_PIF2 + '" alt="PIF2" /></div>',
     '<div class="header-center"><div class="republic">REPUBLIQUE DE CÔTE D\'IVOIRE</div><div class="sep">------------------------</div><div class="ministry">' + escapeHtml(projet?.ministere || '') + '</div><div class="sep">------------------------</div><div class="project">' + escapeHtml(projet?.nomProjet || '') + '</div><div class="sep">------------------------</div></div>',
