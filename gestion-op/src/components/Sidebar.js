@@ -166,7 +166,9 @@ const Sidebar = () => {
 
       <div style={{ padding: collapsed ? '18px 0' : '18px 20px', display: 'flex', alignItems: 'center', gap: 12, justifyContent: collapsed ? 'center' : 'flex-start', minHeight: 70 }}>
         <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-          <img src={`${process.env.PUBLIC_URL}/logo-pif2.jpg`} alt="PIF2" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+          {/* Le logo de la structure, choisi dans Paramètres. L'image livrée
+              avec l'application sert tant qu'aucune n'a été choisie. */}
+          <img src={projet?.logo || `${process.env.PUBLIC_URL}/logo-pif2.jpg`} alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
         </div>
         {!collapsed && (
           <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>

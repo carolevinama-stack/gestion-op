@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { identiteRetenue } from '../utils/identiteCache';
 
 const EyeOpen = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -21,6 +22,11 @@ const inputStyle = {
 const labelStyle = { display: 'block', fontSize: 13, fontWeight: 700, color: '#1B6B2E', marginBottom: 8, letterSpacing: 0.5 };
 
 const LoginPage = ({ onLogin, onForgotPassword, error }) => {
+  // Nom et logo de la structure, retenus à la dernière session. Cet écran
+  // s'affiche avant toute authentification : il ne peut pas les lire dans la
+  // base. Sans eux, il reste neutre plutôt que d'annoncer une autre structure.
+  const [identite] = useState(() => identiteRetenue());
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -62,10 +68,12 @@ const LoginPage = ({ onLogin, onForgotPassword, error }) => {
         <div style={{ position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         <div style={{ position: 'absolute', bottom: -50, left: -50, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
         {/* Logo direct sans cadre */}
-        <img src={`${process.env.PUBLIC_URL}/logo-pif2.jpg`} alt="PIF2" style={{ width: 220, display: 'block', position: 'relative', zIndex: 1 }} />
+        <img src={identite?.logo || `${process.env.PUBLIC_URL}/logo-pif2.jpg`} alt="Logo" style={{ width: 220, display: 'block', position: 'relative', zIndex: 1 }} />
         <div style={{ color: '#fff', fontSize: 28, fontWeight: 700, marginTop: 28, textAlign: 'center', position: 'relative', zIndex: 1 }}>Bienvenue</div>
         <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 16, marginTop: 10, textAlign: 'center', position: 'relative', zIndex: 1, lineHeight: 1.7 }}>
-          Projet d'Investissement Forestier<br />Côte d'Ivoire
+          {identite?.nomProjet
+            ? <>{identite.nomProjet}{identite.pays ? <><br />{identite.pays}</> : null}</>
+            : 'Gestion des Ordres de Paiement'}
         </div>
       </div>
 

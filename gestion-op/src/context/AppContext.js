@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { trierLignesParCode } from '../utils/lignesBudgetaires';
+import { retenirIdentite } from '../utils/identiteCache';
 
 // Statuts "non clos" : un OP dans un de ces statuts est encore quelque part dans un
 // circuit de validation et doit rester chargé en permanence, quel que soit l'exercice.
@@ -234,7 +235,12 @@ export function AppProvider({ user, children }) {
           getDocs(collection(db, 'budgets'))
         ]);
 
-        if (projetDoc.exists()) setProjet(projetDoc.data());
+        if (projetDoc.exists()) {
+          setProjet(projetDoc.data());
+          // L'écran de connexion ne peut pas lire ces paramètres : on en retient
+          // le nom et le logo pour qu'il affiche la bonne structure.
+          retenirIdentite(projetDoc.data());
+        }
         setSources(sourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setExercices(exercicesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
