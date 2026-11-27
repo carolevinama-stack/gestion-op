@@ -193,6 +193,32 @@ export function AppProvider({ user, children }) {
     // Références pour désinscrire les écouteurs temps réel
     let unsubOps = null;
     let unsubBordereaux = null;
+    const arretsStables = [];
+
+    // Les collections STABLES (bénéficiaires, lignes budgétaires) passent par un
+    // écouteur plutôt que par une lecture ponctuelle. Avec la mémoire locale
+    // déclarée dans firebase.js, un rechargement de page ne redemande alors au
+    // serveur que ce qui a changé, au lieu de relire les quelque 350 documents
+    // à chaque fois. C'est ce qui épuisait le quota quotidien de lectures : à
+    // trois personnes qui rechargent une vingtaine de fois par jour, on dépasse
+    // les 50 000 lectures sans avoir saisi un seul OP.
+    //
+    // La promesse se résout à la PREMIÈRE réponse, pour que l'écran de
+    // chargement attende les données comme auparavant. Elle se résout aussi en
+    // cas d'erreur : rester bloqué sur le chargement serait pire que démarrer
+    // sans cette liste.
+    const ecouterCollectionStable = (requete, appliquer, libelle) => new Promise((resoudre) => {
+      let premiereReponse = true;
+      const arreter = onSnapshot(requete, (snapshot) => {
+        appliquer(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        if (premiereReponse) { premiereReponse = false; resoudre(); }
+      }, (erreur) => {
+        console.error(`Erreur écoute temps réel ${libelle} :`, erreur);
+        if (premiereReponse) { premiereReponse = false; resoudre(); }
+      });
+      arretsStables.push(arreter);
+    });
+
 
     const loadData = async () => {
       setLoading(true);
@@ -201,22 +227,33 @@ export function AppProvider({ user, children }) {
         // --- CHARGEMENT UNIQUE (PARAMÈTRES) ---
         // Les 6 lectures sont indépendantes : on les lance en parallèle (Promise.all)
         // plutôt qu'en attendant chacune séquentiellement.
-        const [projetDoc, sourcesSnap, exercicesSnap, lignesSnap, benSnap, budgetsSnap] = await Promise.all([
+        const [projetDoc, sourcesSnap, exercicesSnap, budgetsSnap] = await Promise.all([
           getDoc(doc(db, 'parametres', 'projet')),
           getDocs(collection(db, 'sources')),
           getDocs(query(collection(db, 'exercices'), orderBy('annee', 'desc'))),
-          getDocs(collection(db, 'lignesBudgetaires')),
-          getDocs(query(collection(db, 'beneficiaires'), orderBy('nom'))),
           getDocs(collection(db, 'budgets'))
         ]);
 
         if (projetDoc.exists()) setProjet(projetDoc.data());
         setSources(sourcesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setExercices(exercicesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        // Triée dès le chargement : c'est la liste que tous les écrans utilisent.
-        setLignesBudgetaires(trierLignesParCode(lignesSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
-        setBeneficiaires(benSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setBudgets(budgetsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        // Les deux plus grosses collections stables, en écouteurs (voir plus haut).
+        // Les lignes sont triées dès l'arrivée : c'est la liste que tous les
+        // écrans utilisent.
+        await Promise.all([
+          ecouterCollectionStable(
+            query(collection(db, 'beneficiaires'), orderBy('nom')),
+            setBeneficiaires,
+            'bénéficiaires',
+          ),
+          ecouterCollectionStable(
+            collection(db, 'lignesBudgetaires'),
+            (lignes) => setLignesBudgetaires(trierLignesParCode(lignes)),
+            'lignes budgétaires',
+          ),
+        ]);
 
         // --- CHARGEMENT TEMPS RÉEL (onSnapshot) ---
         console.log("AppContext: Accrochage des écouteurs temps réel");
@@ -270,6 +307,7 @@ export function AppProvider({ user, children }) {
       // Désinscription des écouteurs pour éviter les fuites de mémoire
       if (unsubOps) unsubOps();
       if (unsubBordereaux) unsubBordereaux();
+      arretsStables.forEach(arreter => arreter());
     };
   }, [user]); // Ne redémarre que si l'utilisateur change
 
